@@ -2,7 +2,9 @@ name: Update XSMN Data
 
 on:
   workflow_dispatch:
+
   schedule:
+    # 18:30 giờ Việt Nam = 11:30 UTC
     - cron: "30 11 * * *"
 
 permissions:
