@@ -1,7 +1,93 @@
 {
-  "updatedAt": "2026-08-07T10:37:12.927Z",
+  "updatedAt": "2026-08-07T12:06:42.580Z",
   "success": 21,
   "failed": 0,
   "total": 21,
-  "failures": []
+  "failures": [],
+  "provinces": {
+    "tphcm": {
+      "ok": true,
+      "drawDate": "2026-08-03"
+    },
+    "dong-thap": {
+      "ok": true,
+      "drawDate": "2026-08-03"
+    },
+    "ca-mau": {
+      "ok": true,
+      "drawDate": "2026-08-03"
+    },
+    "ben-tre": {
+      "ok": true,
+      "drawDate": "2026-08-04"
+    },
+    "vung-tau": {
+      "ok": true,
+      "drawDate": "2026-08-04"
+    },
+    "bac-lieu": {
+      "ok": true,
+      "drawDate": "2026-08-04"
+    },
+    "dong-nai": {
+      "ok": true,
+      "drawDate": "2026-08-05"
+    },
+    "can-tho": {
+      "ok": true,
+      "drawDate": "2026-08-05"
+    },
+    "soc-trang": {
+      "ok": true,
+      "drawDate": "2026-08-05"
+    },
+    "tay-ninh": {
+      "ok": true,
+      "drawDate": "2026-08-06"
+    },
+    "an-giang": {
+      "ok": true,
+      "drawDate": "2026-08-06"
+    },
+    "binh-thuan": {
+      "ok": true,
+      "drawDate": "2026-08-06"
+    },
+    "vinh-long": {
+      "ok": true,
+      "drawDate": "2026-08-07"
+    },
+    "binh-duong": {
+      "ok": true,
+      "drawDate": "2026-08-07"
+    },
+    "tra-vinh": {
+      "ok": true,
+      "drawDate": "2026-08-07"
+    },
+    "long-an": {
+      "ok": true,
+      "drawDate": "2026-08-01"
+    },
+    "binh-phuoc": {
+      "ok": true,
+      "drawDate": "2026-08-01"
+    },
+    "hau-giang": {
+      "ok": true,
+      "drawDate": "2026-08-01"
+    },
+    "kien-giang": {
+      "ok": true,
+      "drawDate": "2026-08-02"
+    },
+    "da-lat": {
+      "ok": true,
+      "drawDate": "2026-08-02"
+    },
+    "tien-giang": {
+      "ok": true,
+      "drawDate": "2026-08-02"
+    }
+  }
 }
