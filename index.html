@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<meta name="theme-color" content="#4338ca" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="XSMN Stats" />
+<title>Dự Báo XSMN - Thống Kê &amp; Xác Suất</title>
+<link rel="manifest" href="manifest.json" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<header class="app-header">
+  <div class="title-row">
+    <h1>🎯 Dự Báo XSMN</h1>
+    <span class="date-pill" id="todayPill">--/--/----</span>
+  </div>
+  <div class="province-select-bar">
+    <select id="provinceSelect" aria-label="Chọn tỉnh"></select>
+  </div>
+  <div class="window-chip-row" id="windowChipRow">
+    <button class="chip" data-w="10">10 kỳ</button>
+    <button class="chip" data-w="20">20 kỳ</button>
+    <button class="chip active" data-w="30">30 kỳ</button>
+    <button class="chip" data-w="9999">Tất cả</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- TAB: DỰ BÁO -->
+  <section class="tab-panel active" id="tab-forecast">
+    <div class="card">
+      <h2>🎯 Dự báo số theo xác suất thống kê</h2>
+      <p class="sub">Tính từ tần suất xuất hiện, số kỳ "gan" (chưa về) và phân bố đầu-đuôi của <b id="fcProvinceName">--</b> trong cửa sổ thống kê đã chọn. Có thể bấm dự báo lại nhiều lần — mỗi lần sẽ ưu tiên các số điểm xác suất cao nhưng vẫn xáo trộn ngẫu nhiên trong nhóm dẫn đầu.</p>
+      <button class="btn-primary" id="btnForecast">🎯 Dự Báo Ngay</button>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btnSavePrediction">💾 Lưu dự báo này</button>
+      </div>
+    </div>
+
+    <div id="forecastResults"></div>
+
+    <div class="card" id="pairFormulaCard" style="display:none;">
+      <h2>🔗 Cầu ghép cặp theo công thức</h2>
+      <p class="sub">3 công thức ghép cặp phổ biến, tính trực tiếp từ dữ liệu hiện có — không cố định, sẽ đổi khi bạn bấm Dự Báo lại.</p>
+      <div id="pairFormulaResults"></div>
+    </div>
+
+    <div class="disclaimer">
+      ⚠️ Đây là công cụ <b>thống kê tham khảo</b>, không phải cam kết trúng thưởng. Mỗi kỳ quay số là một sự kiện độc lập và hoàn toàn ngẫu nhiên — dữ liệu quá khứ không quyết định kết quả tương lai. Vui lòng chơi có trách nhiệm.
+    </div>
+  </section>
+
+  <!-- TAB: THỐNG KÊ -->
+  <section class="tab-panel" id="tab-stats">
+    <div class="card">
+      <h2>📊 Lịch sử kết quả gần đây — <span id="statProvinceName">--</span></h2>
+      <p class="sub">Hiển thị tối đa các kỳ có trong dữ liệu hiện có theo cửa sổ đã chọn ở trên (mục tiêu 50 kỳ/tỉnh — dùng nút Cập nhật dữ liệu ở tab Cài đặt để bổ sung dần).</p>
+      <div id="historyList"></div>
+    </div>
+
+    <div class="card">
+      <h2>🔥 Bảng tần suất Chục – Đơn vị (bảng lô)</h2>
+      <p class="sub">Gộp toàn bộ số về (2 số cuối) của tất cả các giải trong cửa sổ thống kê.</p>
+      <div class="scroll-x"><table class="stat-table" id="headTailTable"></table></div>
+    </div>
+
+    <div class="card">
+      <h2>🧊 Số gan cực đại</h2>
+      <p class="sub">Những số lâu chưa xuất hiện nhất trong toàn bộ lịch sử hiện có của tỉnh này.</p>
+      <div id="ganList"></div>
+    </div>
+
+    <div class="card">
+      <h2>🌡️ Số nóng (tần suất cao nhất)</h2>
+      <div id="hotList"></div>
+    </div>
+  </section>
+
+  <!-- TAB: SO SÁNH -->
+  <section class="tab-panel" id="tab-compare">
+    <div class="card">
+      <h2>🔍 So sánh Dự báo vs Thực tế</h2>
+      <p class="sub">Các dự báo đã lưu sẽ tự động đối chiếu khi có kết quả thực tế của kỳ tương ứng trong dữ liệu.</p>
+      <div id="compareSummary"></div>
+    </div>
+    <div id="predictionList"></div>
+  </section>
+
+  <!-- TAB: CÀI ĐẶT -->
+  <section class="tab-panel" id="tab-settings">
+    <div class="card">
+      <h2>🌐 Cập nhật dữ liệu</h2>
+      <p class="sub">Lấy kết quả mới nhất từ minhngoc.net.vn qua mạng (cần có Internet). Nếu lỗi do đổi cấu trúc trang, dùng cách dán thủ công bên dưới.</p>
+      <div class="btn-row">
+        <button class="btn-secondary" id="btnUpdateCurrent">🔄 Cập nhật tỉnh đang chọn</button>
+        <button class="btn-secondary" id="btnUpdateAll">🔄 Cập nhật tất cả 21 tỉnh</button>
+      </div>
+      <div id="updateStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>✍️ Dán dữ liệu thủ công</h2>
+      <p class="sub">Vào trang kết quả 1 tỉnh trên minhngoc.net.vn, bôi đen & copy toàn bộ nội dung bảng kết quả rồi dán vào đây.</p>
+      <div class="form-group">
+        <label>Tỉnh của dữ liệu dán</label>
+        <select id="pasteProvinceSelect"></select>
+      </div>
+      <div class="form-group">
+        <label>Nội dung dán</label>
+        <textarea id="pasteArea" placeholder="Dán nội dung copy từ trang kết quả xổ số tại đây..."></textarea>
+      </div>
+      <button class="btn-primary" id="btnParsePaste">📥 Phân Tích &amp; Nhập Dữ Liệu</button>
+      <div id="pasteStatus"></div>
+    </div>
+
+    <div class="card">
+      <h2>📦 Dữ liệu hiện có</h2>
+      <div class="data-count-grid" id="dataCountGrid"></div>
+      <div class="btn-row">
+        <button class="btn-danger" id="btnResetData">🗑️ Xoá dữ liệu đã thêm &amp; dự báo đã lưu</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ℹ️ Về ứng dụng</h2>
+      <p class="sub" style="margin-bottom:0;">
+        Ứng dụng thống kê tần suất, tính điểm xác suất và đưa ra dự báo tham khảo cho xổ số kiến thiết Miền Nam,
+        dựa trên dữ liệu công khai từ minhngoc.net.vn. Toàn bộ dữ liệu và dự báo được lưu ngay trên máy bạn
+        (không gửi lên máy chủ nào). Đây thuần tuý là công cụ phân tích thống kê — không đảm bảo kết quả xổ số.
+      </p>
+    </div>
+  </section>
+
+</main>
+
+<nav class="tabbar">
+  <button class="active" data-tab="tab-forecast"><span class="ic">🎯</span>Dự Báo</button>
+  <button data-tab="tab-stats"><span class="ic">📊</span>Thống Kê</button>
+  <button data-tab="tab-compare"><span class="ic">🔍</span>So Sánh</button>
+  <button data-tab="tab-settings"><span class="ic">⚙️</span>Cài Đặt</button>
+</nav>
+
+<script src="data/xsmn_seed.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

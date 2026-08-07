@@ -1,0 +1,18 @@
+{
+  "name": "Dự Báo XSMN - Thống Kê & Xác Suất",
+  "short_name": "XSMN Stats",
+  "description": "Thống kê tần suất, tính xác suất và dự báo tham khảo cho xổ số kiến thiết Miền Nam, dựa trên dữ liệu lịch sử.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1226",
+  "theme_color": "#4338ca",
+  "lang": "vi",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
