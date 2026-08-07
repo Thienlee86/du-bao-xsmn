@@ -4,7 +4,7 @@
  * Tải kết quả xổ số miền Nam từ nguồn công khai,
  * tách dữ liệu giải và lưu JSON sạch vào thư mục data/.
  *
- * Chạy bằng GitHub Actions.
+ * Chạy tự động bằng GitHub Actions.
  */
 
 const fs = require("fs");
@@ -40,7 +40,13 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+
+/* =========================================================
+   DOWNLOAD HTML
+   ========================================================= */
+
 async function download(url) {
+
   const controller = new AbortController();
 
   const timeout = setTimeout(() => {
@@ -48,14 +54,18 @@ async function download(url) {
   }, 20000);
 
   try {
+
     const response = await fetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
+
         "Accept":
           "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8"
+
+        "Accept-Language":
+          "vi-VN,vi;q=0.9,en;q=0.8"
       }
     });
 
@@ -68,13 +78,49 @@ async function download(url) {
     return await response.text();
 
   } finally {
+
     clearTimeout(timeout);
+
   }
 }
 
 
+/* =========================================================
+   HTML HELPERS
+   ========================================================= */
+
+function decodeBasicEntities(text) {
+
+  return String(text || "")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&#160;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&quot;/gi, "\"")
+    .replace(/&#39;/gi, "'")
+    .replace(/&ndash;/gi, "-")
+    .replace(/&mdash;/gi, "-");
+}
+
+
+function stripTags(html) {
+
+  return decodeBasicEntities(
+    String(html || "")
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+
+/* =========================================================
+   EXTRACT PRIZES
+   ========================================================= */
+
 /**
- * Lấy tất cả số nằm trong:
+ * Ví dụ:
  *
  * <td class="giai6">
  *   <div>8519</div>
@@ -82,6 +128,7 @@ async function download(url) {
  *   <div>8395</div>
  * </td>
  */
+
 function extractPrize(html, prizeClass) {
 
   const tdRegex = new RegExp(
@@ -109,15 +156,12 @@ function extractPrize(html, prizeClass) {
   }
 
   /*
-   * Một số trang có thể không dùng DIV.
-   * Nếu chưa lấy được số, loại HTML rồi tìm số.
+   * Fallback nếu website thay DIV.
    */
+
   if (numbers.length === 0) {
 
-    const plain = content
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&nbsp;/gi, " ")
-      .trim();
+    const plain = stripTags(content);
 
     const fallback =
       plain.match(/\b\d{2,6}\b/g);
@@ -147,11 +191,116 @@ function parseResults(html) {
 }
 
 
+/* =========================================================
+   EXTRACT DRAW DATE
+   ========================================================= */
+
+/**
+ * Tìm ngày quay DD/MM/YYYY trong vùng gần bảng kết quả.
+ *
+ * Quan trọng:
+ * updatedAt = thời điểm GitHub tải dữ liệu.
+ * drawDate  = ngày kỳ xổ số thực tế.
+ *
+ * Hai giá trị này KHÔNG được coi là giống nhau.
+ */
+
+function extractDrawDate(html) {
+
+  /*
+   * Bảng kết quả hiện tại nằm quanh box_kqxs_content.
+   */
+
+  const tablePosition =
+    html.indexOf('class="box_kqxs_content"');
+
+  let area = html;
+
+  if (tablePosition !== -1) {
+
+    const start =
+      Math.max(0, tablePosition - 12000);
+
+    const end =
+      Math.min(
+        html.length,
+        tablePosition + 3000
+      );
+
+    area =
+      html.substring(start, end);
+  }
+
+  const text =
+    stripTags(area);
+
+  /*
+   * Tìm tất cả ngày DD/MM/YYYY.
+   */
+
+  const matches =
+    [...text.matchAll(
+      /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g
+    )];
+
+  if (!matches.length) {
+    return null;
+  }
+
+  /*
+   * Ưu tiên ngày cuối cùng xuất hiện gần bảng.
+   */
+
+  const m =
+    matches[matches.length - 1];
+
+  const dd =
+    String(m[1]).padStart(2, "0");
+
+  const mm =
+    String(m[2]).padStart(2, "0");
+
+  const yyyy =
+    String(m[3]);
+
+  const day =
+    Number(dd);
+
+  const month =
+    Number(mm);
+
+  const year =
+    Number(yyyy);
+
+  /*
+   * Kiểm tra cơ bản.
+   */
+
+  if (
+    day < 1 ||
+    day > 31 ||
+    month < 1 ||
+    month > 12 ||
+    year < 2010 ||
+    year > 2100
+  ) {
+    return null;
+  }
+
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+
+/* =========================================================
+   VALIDATION
+   ========================================================= */
+
 function countNumbers(results) {
 
   return Object.values(results)
     .reduce(
-      (total, arr) => total + arr.length,
+      (total, arr) =>
+        total + arr.length,
       0
     );
 }
@@ -160,7 +309,7 @@ function countNumbers(results) {
 function validateResults(results) {
 
   /*
-   * XSMN chuẩn có:
+   * Cơ cấu XSMN chuẩn:
    *
    * G8 : 1
    * G7 : 1
@@ -189,8 +338,10 @@ function validateResults(results) {
 
   const errors = [];
 
-  for (const [key, expectedCount]
-    of Object.entries(expected)) {
+  for (
+    const [key, expectedCount]
+    of Object.entries(expected)
+  ) {
 
     const actual =
       Array.isArray(results[key])
@@ -198,6 +349,7 @@ function validateResults(results) {
         : 0;
 
     if (actual !== expectedCount) {
+
       errors.push(
         `${key}: expected ${expectedCount}, got ${actual}`
       );
@@ -208,12 +360,17 @@ function validateResults(results) {
 }
 
 
+/* =========================================================
+   UPDATE ONE PROVINCE
+   ========================================================= */
+
 async function updateProvince(province) {
 
   const url =
     `https://www.minhngoc.net.vn/ket-qua-xo-so/mien-nam/${province.slug}.html`;
 
   console.log("");
+
   console.log(
     `========== ${province.name} ==========`
   );
@@ -222,17 +379,25 @@ async function updateProvince(province) {
 
   try {
 
-    const html = await download(url);
+    const html =
+      await download(url);
 
     console.log(
       `HTML length: ${html.length}`
     );
 
-    if (!html || html.length < 1000) {
+    if (
+      !html ||
+      html.length < 1000
+    ) {
+
       throw new Error(
         "Downloaded HTML is unexpectedly small"
       );
     }
+
+
+    /* ---------- RESULTS ---------- */
 
     const results =
       parseResults(html);
@@ -249,10 +414,15 @@ async function updateProvince(province) {
       `Numbers found: ${totalNumbers}`
     );
 
+
+    /* ---------- VALIDATE ---------- */
+
     const validationErrors =
       validateResults(results);
 
-    if (validationErrors.length > 0) {
+    if (
+      validationErrors.length > 0
+    ) {
 
       throw new Error(
         "Invalid lottery result: " +
@@ -260,14 +430,39 @@ async function updateProvince(province) {
       );
     }
 
+
+    /* ---------- DRAW DATE ---------- */
+
+    const drawDate =
+      extractDrawDate(html);
+
+    console.log(
+      `Draw date: ${drawDate || "NOT FOUND"}`
+    );
+
+
+    /* ---------- OUTPUT ---------- */
+
     const output = {
-      province: province.name,
-      provinceId: province.id,
-      source: url,
+
+      province:
+        province.name,
+
+      provinceId:
+        province.id,
+
+      drawDate:
+        drawDate,
+
+      source:
+        url,
+
       updatedAt:
         new Date().toISOString(),
+
       results
     };
+
 
     const outputPath =
       path.join(
@@ -275,21 +470,30 @@ async function updateProvince(province) {
         `${province.id}-latest.json`
       );
 
+
     fs.writeFileSync(
+
       outputPath,
+
       JSON.stringify(
         output,
         null,
         2
       ),
+
       "utf8"
     );
+
 
     console.log(
       `✓ Saved ${outputPath}`
     );
 
-    return true;
+    return {
+      ok: true,
+      drawDate
+    };
+
 
   } catch (error) {
 
@@ -298,10 +502,17 @@ async function updateProvince(province) {
       error.message
     );
 
-    return false;
+    return {
+      ok: false,
+      error: error.message
+    };
   }
 }
 
+
+/* =========================================================
+   MAIN
+   ========================================================= */
 
 async function main() {
 
@@ -317,6 +528,7 @@ async function main() {
     "===================================="
   );
 
+
   fs.mkdirSync(
     DATA_DIR,
     {
@@ -324,29 +536,59 @@ async function main() {
     }
   );
 
+
   let success = 0;
   let failed = 0;
 
   const failures = [];
 
-  for (const province of PROVINCES) {
+  const provinces = {};
 
-    const ok =
+
+  for (
+    const province
+    of PROVINCES
+  ) {
+
+    const result =
       await updateProvince(province);
 
-    if (ok) {
+
+    if (result.ok) {
+
       success++;
+
+      provinces[province.id] = {
+        ok: true,
+        drawDate:
+          result.drawDate || null
+      };
+
     } else {
+
       failed++;
-      failures.push(province.id);
+
+      failures.push(
+        province.id
+      );
+
+      provinces[province.id] = {
+        ok: false,
+        error:
+          result.error || "Unknown error"
+      };
     }
+
 
     /*
      * Không request liên tục.
      */
+
     await sleep(1500);
   }
 
+
+  /* ---------- STATUS ---------- */
 
   const status = {
 
@@ -360,7 +602,9 @@ async function main() {
     total:
       PROVINCES.length,
 
-    failures
+    failures,
+
+    provinces
   };
 
 
@@ -382,6 +626,7 @@ async function main() {
 
 
   console.log("");
+
   console.log(
     "===================================="
   );
@@ -398,11 +643,14 @@ async function main() {
     `Total   : ${PROVINCES.length}`
   );
 
+
   if (failures.length) {
+
     console.log(
       `Failures: ${failures.join(", ")}`
     );
   }
+
 
   console.log(
     "===================================="
@@ -410,9 +658,10 @@ async function main() {
 
 
   /*
-   * Chỉ báo workflow lỗi nếu
-   * không lấy được tỉnh nào.
+   * Chỉ làm workflow FAILED
+   * nếu không lấy được tỉnh nào.
    */
+
   if (success === 0) {
     process.exitCode = 1;
   }
