@@ -511,28 +511,232 @@ function mergeExtraDraws(newDraws) {
   return { added, updated };
 }
 
-/* ---------- 10. CẬP NHẬT DỮ LIỆU QUA MẠNG (CORS PROXY) ---------- */
 
-const CORS_PROXY = 'https://api.allorigins.win/raw?url=';
+/* ---------- 10. CẬP NHẬT DỮ LIỆU TỪ GITHUB JSON ---------- */
+
+/*
+ * GitHub Actions đã tải kết quả và lưu thành:
+ * data/<slug>-latest.json
+ *
+ * App chỉ đọc JSON trên chính website.
+ * Không gọi trực tiếp Minh Ngọc.
+ * Không sử dụng AllOrigins/CORS proxy.
+ */
 
 async function fetchProvinceLive(slug) {
-  const target = `https://www.minhngoc.net.vn/ket-qua-xo-so/mien-nam/${slug}.html`;
-  const url = CORS_PROXY + encodeURIComponent(target);
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000);
+
   try {
-    const resp = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const html = await resp.text();
-    const doc = new DOMParser().parseFromString(html, 'text/html');
-    const text = doc.body ? doc.body.innerText || doc.body.textContent : html;
-    const { draws, skipped } = parseDrawsFromText(text, slug);
-    if (draws.length) mergeExtraDraws(draws);
-    return { ok: true, count: draws.length, skipped };
+
+    const url =
+      `data/${slug}-latest.json?t=${Date.now()}`;
+
+    const resp = await fetch(url, {
+      cache: 'no-store'
+    });
+
+    if (!resp.ok) {
+      throw new Error(
+        `HTTP ${resp.status}`
+      );
+    }
+
+    const json =
+      await resp.json();
+
+    if (!json || !json.results) {
+      throw new Error(
+        'File JSON không có results'
+      );
+    }
+
+    if (!json.drawDate) {
+      throw new Error(
+        'File JSON chưa có drawDate'
+      );
+    }
+
+    const r =
+      json.results;
+
+    /*
+     * Chuyển JSON GitHub sang cấu trúc
+     * dữ liệu mà app hiện tại đang sử dụng.
+     */
+
+    const draw = {
+
+      province: slug,
+
+      date: json.drawDate,
+
+      ticketCode: '',
+
+      prizes: {
+
+        db:
+          Array.isArray(r.giaidb)
+            ? (r.giaidb[0] || '')
+            : '',
+
+        g1:
+          Array.isArray(r.giai1)
+            ? (r.giai1[0] || '')
+            : '',
+
+        g2:
+          Array.isArray(r.giai2)
+            ? (r.giai2[0] || '')
+            : '',
+
+        g3:
+          Array.isArray(r.giai3)
+            ? r.giai3
+            : [],
+
+        g4:
+          Array.isArray(r.giai4)
+            ? r.giai4
+            : [],
+
+        g5:
+          Array.isArray(r.giai5)
+            ? (r.giai5[0] || '')
+            : '',
+
+        g6:
+          Array.isArray(r.giai6)
+            ? r.giai6
+            : [],
+
+        g7:
+          Array.isArray(r.giai7)
+            ? (r.giai7[0] || '')
+            : '',
+
+        g8:
+          Array.isArray(r.giai8)
+            ? (r.giai8[0] || '')
+            : ''
+      }
+    };
+
+
+    /*
+     * Kiểm tra đúng cơ cấu XSMN:
+     *
+     * ĐB = 1 số / 6 chữ số
+     * G1 = 1 số / 5 chữ số
+     * G2 = 1 số / 5 chữ số
+     * G3 = 2 số / 5 chữ số
+     * G4 = 7 số / 5 chữ số
+     * G5 = 1 số / 4 chữ số
+     * G6 = 3 số / 4 chữ số
+     * G7 = 1 số / 3 chữ số
+     * G8 = 1 số / 2 chữ số
+     */
+
+    const valid =
+
+      /^\d{6}$/.test(
+        draw.prizes.db
+      ) &&
+
+      /^\d{5}$/.test(
+        draw.prizes.g1
+      ) &&
+
+      /^\d{5}$/.test(
+        draw.prizes.g2
+      ) &&
+
+      draw.prizes.g3.length === 2 &&
+
+      draw.prizes.g3.every(
+        v => /^\d{5}$/.test(v)
+      ) &&
+
+      draw.prizes.g4.length === 7 &&
+
+      draw.prizes.g4.every(
+        v => /^\d{5}$/.test(v)
+      ) &&
+
+      /^\d{4}$/.test(
+        draw.prizes.g5
+      ) &&
+
+      draw.prizes.g6.length === 3 &&
+
+      draw.prizes.g6.every(
+        v => /^\d{4}$/.test(v)
+      ) &&
+
+      /^\d{3}$/.test(
+        draw.prizes.g7
+      ) &&
+
+      /^\d{2}$/.test(
+        draw.prizes.g8
+      );
+
+
+    if (!valid) {
+
+      throw new Error(
+        'Dữ liệu kỳ quay không đầy đủ hoặc sai định dạng'
+      );
+    }
+
+
+    /*
+     * Nhập kỳ quay vào dữ liệu bổ sung.
+     *
+     * Nếu tỉnh + ngày đã tồn tại,
+     * mergeExtraDraws sẽ cập nhật lại
+     * thay vì tạo bản ghi trùng.
+     */
+
+    const mergeResult =
+      mergeExtraDraws([draw]);
+
+
+    return {
+
+      ok: true,
+
+      count: 1,
+
+      skipped: 0,
+
+      added:
+        mergeResult.added,
+
+      updated:
+        mergeResult.updated,
+
+      drawDate:
+        json.drawDate,
+
+      updatedAt:
+        json.updatedAt || null
+    };
+
+
   } catch (e) {
-    clearTimeout(timeout);
-    return { ok: false, error: e.message || String(e) };
+
+    console.error(
+      `Không tải được dữ liệu ${slug}:`,
+      e
+    );
+
+
+    return {
+
+      ok: false,
+
+      error:
+        e.message || String(e)
+    };
   }
 }
 
