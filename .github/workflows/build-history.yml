@@ -9,6 +9,7 @@ permissions:
 jobs:
   build-history:
     runs-on: ubuntu-latest
+    timeout-minutes: 120
 
     steps:
       - name: Checkout repository
@@ -22,16 +23,169 @@ jobs:
       - name: Show Node version
         run: node --version
 
-      - name: Build An Giang history
+      - name: Build XSMN history
         run: node scripts/build-history.js
 
       - name: Show result
         run: |
-          echo "===== DATA FILES ====="
-          ls -lh data/
+          echo "========================================"
+          echo "XSMN HISTORY RESULT"
+          echo "========================================"
 
-          echo "===== AN GIANG COUNT ====="
-          node -e "const d=require('./data/xsmn_seed.json'); const a=d.draws.filter(x=>x.province==='an-giang'); console.log('An Giang draws:',a.length); console.log(a.slice(0,5).map(x=>x.date+' | DB: '+x.prizes.db).join('\n'));"
+          node <<'NODE'
+          const fs = require("fs");
+
+          const file = "./data/xsmn_seed.json";
+
+          if (!fs.existsSync(file)) {
+            console.error("ERROR: data/xsmn_seed.json not found");
+            process.exit(1);
+          }
+
+          const data = JSON.parse(
+            fs.readFileSync(file, "utf8")
+          );
+
+          const provinces = [
+            ["an-giang", "An Giang"],
+            ["bac-lieu", "Bạc Liêu"],
+            ["ben-tre", "Bến Tre"],
+            ["binh-duong", "Bình Dương"],
+            ["binh-phuoc", "Bình Phước"],
+            ["binh-thuan", "Bình Thuận"],
+            ["ca-mau", "Cà Mau"],
+            ["can-tho", "Cần Thơ"],
+            ["da-lat", "Đà Lạt"],
+            ["dong-nai", "Đồng Nai"],
+            ["dong-thap", "Đồng Tháp"],
+            ["hau-giang", "Hậu Giang"],
+            ["kien-giang", "Kiên Giang"],
+            ["long-an", "Long An"],
+            ["soc-trang", "Sóc Trăng"],
+            ["tay-ninh", "Tây Ninh"],
+            ["tien-giang", "Tiền Giang"],
+            ["tphcm", "TP.HCM"],
+            ["tra-vinh", "Trà Vinh"],
+            ["vinh-long", "Vĩnh Long"],
+            ["vung-tau", "Vũng Tàu"]
+          ];
+
+          const draws =
+            Array.isArray(data.draws)
+              ? data.draws
+              : [];
+
+          let complete = 0;
+          let incomplete = 0;
+
+          console.log("");
+          console.log("----- DRAWS BY PROVINCE -----");
+
+          for (const [id, name] of provinces) {
+
+            const provinceDraws =
+              draws
+                .filter(d => d.province === id)
+                .sort((a, b) =>
+                  b.date.localeCompare(a.date)
+                );
+
+            const count =
+              provinceDraws.length;
+
+            const newest =
+              count
+                ? provinceDraws[0].date
+                : "-";
+
+            const oldest =
+              count
+                ? provinceDraws[count - 1].date
+                : "-";
+
+            const status =
+              count >= 100
+                ? "OK"
+                : "INCOMPLETE";
+
+            if (count >= 100) {
+              complete++;
+            } else {
+              incomplete++;
+            }
+
+            console.log(
+              `${name.padEnd(12)} | ${String(count).padStart(3)} kỳ | ${newest} -> ${oldest} | ${status}`
+            );
+          }
+
+          console.log("");
+          console.log("----------------------------------------");
+          console.log(`TOTAL DRAWS       : ${draws.length}`);
+          console.log(`COMPLETE PROVINCES: ${complete}/21`);
+          console.log(`INCOMPLETE        : ${incomplete}/21`);
+          console.log(`GENERATED AT      : ${data.generatedAt || "-"}`);
+          console.log("----------------------------------------");
+
+          const duplicates = new Map();
+
+          for (const draw of draws) {
+            const key =
+              `${draw.province}|${draw.date}`;
+
+            duplicates.set(
+              key,
+              (duplicates.get(key) || 0) + 1
+            );
+          }
+
+          const duplicateKeys =
+            [...duplicates.entries()]
+              .filter(([, count]) => count > 1);
+
+          console.log(
+            `DUPLICATES         : ${duplicateKeys.length}`
+          );
+
+          if (duplicateKeys.length) {
+
+            console.log("");
+            console.log("Duplicate records:");
+
+            for (
+              const [key, count]
+              of duplicateKeys.slice(0, 20)
+            ) {
+              console.log(
+                `${key} x ${count}`
+              );
+            }
+          }
+
+          console.log("");
+          console.log("========================================");
+
+          if (
+            complete === 21 &&
+            duplicateKeys.length === 0
+          ) {
+            console.log(
+              "✓ XSMN HISTORY DATABASE READY"
+            );
+          } else {
+            console.log(
+              "⚠ XSMN HISTORY DATABASE NOT COMPLETE YET"
+            );
+          }
+
+          console.log(
+            "========================================"
+          );
+          NODE
+
+          echo ""
+          echo "===== FILE SIZE ====="
+          ls -lh data/xsmn_seed.json
 
       - name: Commit updated history
         run: |
