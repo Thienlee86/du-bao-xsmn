@@ -1,8 +1,3 @@
-/**
- * INSPECT XSMN HTML
- * Đọc file An Giang đã tải và tìm cấu trúc bảng kết quả.
- */
-
 const fs = require("fs");
 const path = require("path");
 
@@ -14,86 +9,91 @@ const FILE = path.join(
 );
 
 console.log("====================================");
-console.log("XSMN HTML INSPECTOR");
+console.log("XSMN RESULT TABLE INSPECTOR");
 console.log("====================================");
 
 if (!fs.existsSync(FILE)) {
-  console.error("Không tìm thấy file:");
-  console.error(FILE);
+  console.error("File not found:", FILE);
   process.exit(1);
 }
 
-const raw = fs.readFileSync(FILE, "utf8");
-const data = JSON.parse(raw);
-
+const data = JSON.parse(fs.readFileSync(FILE, "utf8"));
 const html = data.html || "";
 
 console.log("Province:", data.province);
 console.log("HTML length:", html.length);
 
+/*
+ * CSS của trang nằm ở đầu HTML và cũng chứa các từ
+ * giai8, giai7, giaidb...
+ *
+ * Vì vậy chúng ta tìm tất cả vị trí xuất hiện,
+ * thay vì chỉ lấy vị trí đầu tiên.
+ */
+
 const keywords = [
-  "giaidb",
-  "giai8",
-  "giai7",
-  "giai6",
-  "giai5",
-  "giai4",
-  "giai3",
-  "giai2",
-  "giai1",
-  "Giải tám",
-  "Giải đặc biệt",
-  "box_kqxs"
+  'class="giai8"',
+  'class="giai7"',
+  'class="giai6"',
+  'class="giai5"',
+  'class="giai4"',
+  'class="giai3"',
+  'class="giai2"',
+  'class="giai1"',
+  'class="giaidb"'
 ];
-
-console.log("\n========== SEARCH ==========\n");
-
-let found = 0;
 
 for (const keyword of keywords) {
 
-  const index = html
-    .toLowerCase()
-    .indexOf(keyword.toLowerCase());
+  console.log("\n\n====================================");
+  console.log("SEARCH:", keyword);
+  console.log("====================================");
 
-  if (index === -1) {
-    console.log(`NOT FOUND: ${keyword}`);
-    continue;
+  let position = 0;
+  let count = 0;
+
+  while (true) {
+
+    position = html.indexOf(keyword, position);
+
+    if (position === -1) {
+      break;
+    }
+
+    count++;
+
+    console.log(
+      `FOUND #${count} AT POSITION ${position}`
+    );
+
+    /*
+     * Chỉ in những vị trí nằm sâu trong HTML.
+     * Phần CSS thường nằm ở đầu file.
+     */
+    if (position > 30000) {
+
+      const start = Math.max(0, position - 500);
+      const end = Math.min(
+        html.length,
+        position + 1500
+      );
+
+      console.log("\n----- HTML RESULT AREA -----\n");
+      console.log(html.substring(start, end));
+      console.log("\n----- END RESULT AREA -----\n");
+
+      /*
+       * Chỉ cần mẫu đầu tiên trong vùng dữ liệu.
+       */
+      break;
+    }
+
+    position += keyword.length;
   }
 
-  found++;
-
-  console.log("\n====================================");
-  console.log(`FOUND: ${keyword}`);
-  console.log(`POSITION: ${index}`);
-  console.log("====================================\n");
-
-  const start = Math.max(0, index - 1000);
-  const end = Math.min(html.length, index + 5000);
-
-  console.log(html.substring(start, end));
-
-  console.log("\n========== END ==========\n");
+  console.log("Occurrences checked:", count);
 }
 
 console.log("\n====================================");
-
-if (found === 0) {
-  console.log("Không tìm thấy keyword chuẩn.");
-  console.log("Đang tìm thử các class chứa 'giai'...");
-
-  const matches = html.match(
-    /.{0,300}giai.{0,1000}/gi
-  );
-
-  if (matches) {
-    matches.slice(0, 10).forEach((item, i) => {
-      console.log(`\n--- MATCH ${i + 1} ---\n`);
-      console.log(item);
-    });
-  } else {
-    console.log("Không tìm thấy chuỗi 'giai'.");
-  }
-}
-
-console.log("\nInspector finished.");
+console.log("INSPECTION COMPLETE");
+console.log("====================================");
