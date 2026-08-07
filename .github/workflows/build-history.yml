@@ -1,0 +1,48 @@
+name: Build XSMN History
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-history:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Show Node version
+        run: node --version
+
+      - name: Build An Giang history
+        run: node scripts/build-history.js
+
+      - name: Show result
+        run: |
+          echo "===== DATA FILES ====="
+          ls -lh data/
+
+          echo "===== AN GIANG COUNT ====="
+          node -e "const d=require('./data/xsmn_seed.json'); const a=d.draws.filter(x=>x.province==='an-giang'); console.log('An Giang draws:',a.length); console.log(a.slice(0,5).map(x=>x.date+' | DB: '+x.prizes.db).join('\n'));"
+
+      - name: Commit updated history
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/xsmn_seed.json
+
+          if git diff --cached --quiet; then
+            echo "No data changes to commit."
+          else
+            git commit -m "Update XSMN historical data"
+            git push
+          fi
