@@ -5356,6 +5356,934 @@ function dataHealthCheck() {
 
 }
 
+/* =========================================================================
+   XSMN V2.1 PATCH
+   FULL 6-DIGIT SPECIAL PRIZE ENGINE
+
+   - Giải Đặc Biệt: dự báo 2 bộ FULL 6 chữ số
+   - G1 → G8: giữ nguyên engine V2 dự báo 2 số cuối
+   - Đồng bộ Dự báo → Lưu → So sánh
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. LẤY GIÁ TRỊ ĐẦY ĐỦ CỦA GIẢI
+   ========================================================================= */
+
+function fullPrizeValues(draw, key) {
+
+  const pm = prizeMetaOf(key);
+
+  if (!pm) return [];
+
+  return numbersOfPrize(draw, key)
+    .map(v =>
+      String(v).padStart(
+        pm.digits,
+        '0'
+      )
+    )
+    .filter(v =>
+      /^\d+$/.test(v) &&
+      v.length === pm.digits
+    );
+
+}
+
+
+/* =========================================================================
+   2. LỊCH SỬ GIẢI ĐẶC BIỆT FULL 6 SỐ
+   ========================================================================= */
+
+function specialPrizeHistory(draws) {
+
+  return draws
+    .map(draw => {
+
+      const values =
+        fullPrizeValues(
+          draw,
+          'db'
+        );
+
+      return values.length
+        ? values[0]
+        : null;
+
+    })
+    .filter(Boolean);
+
+}
+
+
+/* =========================================================================
+   3. PHÂN TÍCH TỪNG VỊ TRÍ CHỮ SỐ
+   ========================================================================= */
+
+function analyzeDigitPosition(
+  values,
+  position,
+  windowSize
+) {
+
+  const win =
+    values.slice(
+      0,
+      Math.min(
+        windowSize,
+        values.length
+      )
+    );
+
+
+  const frequency =
+    new Array(10)
+      .fill(0);
+
+  const recent =
+    new Array(10)
+      .fill(0);
+
+  const gan =
+    new Array(10)
+      .fill(win.length);
+
+
+  const found =
+    new Set();
+
+
+  win.forEach(
+    (number, index) => {
+
+      const digit =
+        Number(
+          number[position]
+        );
+
+
+      if (
+        Number.isNaN(digit) ||
+        digit < 0 ||
+        digit > 9
+      ) {
+
+        return;
+
+      }
+
+
+      frequency[digit]++;
+
+
+      /*
+       * Kỳ gần hiện tại
+       * có trọng số cao hơn.
+       */
+
+      recent[digit] +=
+        Math.exp(
+          -index / 10
+        );
+
+
+      /*
+       * Gan của chữ số
+       * tại đúng vị trí.
+       */
+
+      if (
+        !found.has(digit)
+      ) {
+
+        found.add(digit);
+
+        gan[digit] =
+          index;
+
+      }
+
+    }
+  );
+
+
+  const maxFrequency =
+    Math.max(
+      ...frequency,
+      1
+    );
+
+
+  const maxRecent =
+    Math.max(
+      ...recent,
+      1
+    );
+
+
+  const scores = {};
+
+
+  for (
+    let digit = 0;
+    digit <= 9;
+    digit++
+  ) {
+
+    const freqScore =
+      frequency[digit] /
+      maxFrequency;
+
+
+    const recentScore =
+      recent[digit] /
+      maxRecent;
+
+
+    /*
+     * Gan saturation.
+     *
+     * Không coi chữ số càng gan
+     * càng chắc chắn phải xuất hiện.
+     */
+
+    const ganScore =
+      gan[digit] /
+      (
+        gan[digit] +
+        5
+      );
+
+
+    scores[String(digit)] =
+      clamp(
+
+        freqScore * 0.45 +
+
+        recentScore * 0.35 +
+
+        ganScore * 0.20,
+
+        0,
+        1
+
+      );
+
+  }
+
+
+  return {
+
+    scores,
+
+    frequency,
+
+    recent,
+
+    gan
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. ENGINE GIẢI ĐẶC BIỆT 6 CHỮ SỐ
+   ========================================================================= */
+
+function computeSpecialPrize6D(
+  allDraws,
+  windowSize
+) {
+
+  const history =
+    specialPrizeHistory(
+      allDraws
+    );
+
+
+  if (!history.length) {
+
+    return {
+
+      numbers: [],
+
+      historyCount: 0,
+
+      windowUsed: 0,
+
+      positionStats: []
+
+    };
+
+  }
+
+
+  const effectiveWindow =
+    Math.min(
+
+      Math.max(
+        windowSize,
+        10
+      ),
+
+      history.length
+
+    );
+
+
+  const positionStats = [];
+
+
+  /*
+   * Phân tích riêng 6 vị trí:
+   *
+   * 0 = trăm nghìn
+   * 1 = chục nghìn
+   * 2 = nghìn
+   * 3 = trăm
+   * 4 = chục
+   * 5 = đơn vị
+   */
+
+  for (
+    let position = 0;
+    position < 6;
+    position++
+  ) {
+
+    positionStats.push(
+
+      analyzeDigitPosition(
+        history,
+        position,
+        effectiveWindow
+      )
+
+    );
+
+  }
+
+
+  /*
+   * Mỗi vị trí lấy TOP 3 chữ số.
+   *
+   * 3^6 = 729 tổ hợp.
+   *
+   * Số lượng này rất nhẹ
+   * đối với trình duyệt điện thoại.
+   */
+
+  const candidatesByPosition =
+    positionStats.map(
+      stat => {
+
+        return Object
+          .entries(
+            stat.scores
+          )
+          .sort(
+            (a, b) => {
+
+              if (
+                b[1] !== a[1]
+              ) {
+
+                return (
+                  b[1] -
+                  a[1]
+                );
+
+              }
+
+
+              return a[0]
+                .localeCompare(
+                  b[0]
+                );
+
+            }
+          )
+          .slice(
+            0,
+            3
+          );
+
+      }
+    );
+
+
+  const candidates = [];
+
+
+  /*
+   * Sinh toàn bộ tổ hợp
+   * từ 6 vị trí.
+   */
+
+  function buildCandidate(
+    position,
+    digits,
+    componentScores
+  ) {
+
+    if (
+      position === 6
+    ) {
+
+      const number =
+        digits.join('');
+
+
+      /*
+       * Geometric mean.
+       *
+       * Tránh trường hợp một vị trí
+       * rất yếu nhưng bị các vị trí
+       * mạnh còn lại che mất.
+       */
+
+      const product =
+        componentScores.reduce(
+
+          (acc, value) =>
+            acc *
+            Math.max(
+              value,
+              0.0001
+            ),
+
+          1
+
+        );
+
+
+      const geometricScore =
+        Math.pow(
+          product,
+          1 / 6
+        );
+
+
+      const lo =
+        number.slice(-2);
+
+
+      candidates.push({
+
+        number,
+
+        score:
+          geometricScore,
+
+        lo
+
+      });
+
+
+      return;
+
+    }
+
+
+    candidatesByPosition[
+      position
+    ]
+    .forEach(
+      ([digit, score]) => {
+
+        buildCandidate(
+
+          position + 1,
+
+          [
+            ...digits,
+            digit
+          ],
+
+          [
+            ...componentScores,
+            score
+          ]
+
+        );
+
+      }
+    );
+
+  }
+
+
+  buildCandidate(
+    0,
+    [],
+    []
+  );
+
+
+  /*
+   * Kết hợp với engine V2
+   * đang phân tích 2 số cuối DB.
+   */
+
+  const loStat =
+    computeScoresForGiai(
+      allDraws,
+      'db',
+      windowSize
+    );
+
+
+  candidates.forEach(
+    candidate => {
+
+      const loScore =
+        loStat.scores[
+          candidate.lo
+        ] || 0;
+
+
+      /*
+       * 80%:
+       * mô hình vị trí 6 chữ số.
+       *
+       * 20%:
+       * engine V2 hai số cuối.
+       */
+
+      candidate.finalScore =
+
+        candidate.score *
+        0.80 +
+
+        loScore *
+        0.20;
+
+    }
+  );
+
+
+  /*
+   * Ranking deterministic.
+   */
+
+  candidates.sort(
+    (a, b) => {
+
+      if (
+        b.finalScore !==
+        a.finalScore
+      ) {
+
+        return (
+          b.finalScore -
+          a.finalScore
+        );
+
+      }
+
+
+      return a.number
+        .localeCompare(
+          b.number
+        );
+
+    }
+  );
+
+
+  /*
+   * Chọn TOP 2
+   * Giải Đặc Biệt.
+   */
+
+  const selected =
+    candidates
+      .slice(
+        0,
+        2
+      )
+      .map(
+        (candidate, index) => {
+
+          const confidence =
+            Math.round(
+
+              clamp(
+                candidate.finalScore,
+                0.01,
+                0.99
+              ) *
+
+              100
+
+            );
+
+
+          return {
+
+            number:
+              candidate.number,
+
+            rank:
+              index + 1,
+
+            score:
+              candidate.finalScore,
+
+            confidence,
+
+            reasoning:
+              `
+              Bộ ĐB <b>${candidate.number}</b> ·
+              hạng <b>${index + 1}</b>
+              trong nhóm ứng viên 6 chữ số ·
+              điểm mô hình
+              <b>${confidence}/100</b>.
+              Phân tích độc lập 6 vị trí chữ số,
+              kết hợp tín hiệu 2 số cuối
+              <b>${candidate.lo}</b>.
+              Dữ liệu sử dụng
+              ${effectiveWindow}
+              kỳ Giải Đặc Biệt gần nhất.
+              Điểm này là xếp hạng thống kê,
+              không phải xác suất trúng.
+              `
+
+          };
+
+        }
+      );
+
+
+  return {
+
+    numbers:
+      selected,
+
+    historyCount:
+      history.length,
+
+    windowUsed:
+      effectiveWindow,
+
+    positionStats
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. GHI ĐÈ GENERATE FULL FORECAST
+   ========================================================================= */
+
+generateFullForecast =
+function(
+  provinceSlug,
+  windowSize
+) {
+
+  const allDraws =
+    getAllDrawsForProvince(
+      provinceSlug
+    );
+
+
+  const result = {
+
+    version:
+      'V2.1',
+
+    province:
+      provinceSlug,
+
+    windowSize,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    items: []
+
+  };
+
+
+  if (
+    !allDraws.length
+  ) {
+
+    result.empty = true;
+
+    return result;
+
+  }
+
+
+  PRIZE_META.forEach(
+    pm => {
+
+
+      /* ===============================================================
+         GIẢI ĐẶC BIỆT
+         FULL 6 CHỮ SỐ
+         =============================================================== */
+
+      if (
+        pm.key === 'db'
+      ) {
+
+        const special =
+          computeSpecialPrize6D(
+            allDraws,
+            windowSize
+          );
+
+
+        result.items.push({
+
+          key:
+            pm.key,
+
+          label:
+            pm.label,
+
+          digits:
+            6,
+
+          predictionMode:
+            'full-6-digit',
+
+          numbers:
+            special.numbers
+
+        });
+
+
+        return;
+
+      }
+
+
+      /* ===============================================================
+         G1 → G8
+         GIỮ ENGINE V2 2 SỐ CUỐI
+         =============================================================== */
+
+      const stat =
+        computeScoresForGiai(
+          allDraws,
+          pm.key,
+          windowSize
+        );
+
+
+      const k =
+        pickCountFor(
+          pm.key
+        );
+
+
+      const picks =
+        deterministicPick(
+          stat.scores,
+          k
+        );
+
+
+      const numbers =
+        picks.map(
+          n => ({
+
+            number:
+              n,
+
+            rank:
+              rankOf(
+                stat.scores,
+                n
+              ),
+
+            score:
+              stat.scores[n],
+
+            confidence:
+              confidenceOf(
+                stat,
+                n
+              ),
+
+            reasoning:
+              buildReasoning(
+                n,
+                pm.label,
+                stat,
+                windowSize
+              )
+
+          })
+        );
+
+
+      result.items.push({
+
+        key:
+          pm.key,
+
+        label:
+          pm.label,
+
+        digits:
+          2,
+
+        predictionMode:
+          'last-2-digit',
+
+        numbers
+
+      });
+
+    }
+  );
+
+
+  return result;
+
+};
+
+
+/* =========================================================================
+   6. GHI ĐÈ EVALUATE PREDICTION
+   ĐỂ SO SÁNH DB FULL 6 SỐ
+   ========================================================================= */
+
+evaluatePrediction =
+function(pred) {
+
+  const actual =
+    findActualDraw(
+      pred.province,
+      pred.targetDate
+    );
+
+
+  if (!actual) {
+
+    return {
+
+      status:
+        'pending',
+
+      actual:
+        null,
+
+      hits: [],
+
+      totalMatched:
+        0
+
+    };
+
+  }
+
+
+  const hits = [];
+
+
+  pred.items.forEach(
+    item => {
+
+
+      /*
+       * DB:
+       * so FULL 6 chữ số.
+       *
+       * G1 → G8:
+       * so 2 số cuối.
+       */
+
+      const actualValues =
+        item.key === 'db'
+
+          ? fullPrizeValues(
+              actual,
+              item.key
+            )
+
+          : loOfPrize(
+              actual,
+              item.key
+            );
+
+
+      const matched =
+        item.numbers.filter(
+          n =>
+            actualValues.includes(
+              n
+            )
+        );
+
+
+      hits.push({
+
+        key:
+          item.key,
+
+        label:
+          item.label,
+
+        predicted:
+          item.numbers,
+
+        actual:
+          actualValues,
+
+        matched
+
+      });
+
+    }
+  );
+
+
+  const totalMatched =
+    hits.reduce(
+
+      (sum, h) =>
+        sum +
+        h.matched.length,
+
+      0
+
+    );
+
+
+  return {
+
+    status:
+      totalMatched > 0
+        ? 'win'
+        : 'lose',
+
+    actual,
+
+    hits,
+
+    totalMatched
+
+  };
+
+};
+
+
+/* =========================================================================
+   7. V2.1 READY
+   ========================================================================= */
+
+console.log(
+  'XSMN V2.1 Patch loaded — Full 6-digit Special Prize Engine'
+);
 
 /* =========================================================================
    46. INIT
