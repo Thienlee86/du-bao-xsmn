@@ -1,0 +1,68 @@
+name: Build XSMN API
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-api:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check input files
+        run: |
+          echo "===== INPUT FILES ====="
+          ls -lh data/
+
+          echo ""
+          echo "===== PREDICTIONS FILE ====="
+          test -f data/xsmn_predictions.json
+          ls -lh data/xsmn_predictions.json
+
+      - name: Build XSMN API
+        run: |
+          node scripts/build-api.js
+
+      - name: Show API result
+        run: |
+          echo "========================================"
+          echo "XSMN API RESULT"
+          echo "========================================"
+
+          ls -lh data/api/
+
+          echo ""
+          echo "===== STATUS ====="
+          cat data/api/status.json
+
+          echo ""
+          echo "===== AN GIANG PREDICTION ====="
+          node -e "
+          const fs=require('fs');
+          const d=JSON.parse(fs.readFileSync('data/api/predictions.json','utf8'));
+          console.log(JSON.stringify(d.provinces['an-giang'], null, 2));
+          "
+
+      - name: Commit API files
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/api/
+
+          if git diff --cached --quiet; then
+            echo "No API changes to commit."
+          else
+            git commit -m "Update XSMN API"
+            git push
+          fi
