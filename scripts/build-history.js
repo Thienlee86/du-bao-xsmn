@@ -1,410 +1,231 @@
 /**
- * XSMN HISTORY BUILDER
- * ====================
- * Xây dựng dữ liệu lịch sử XSMN cho toàn bộ 21 đài.
+ * XSMN HISTORY DATABASE MAINTAINER
+ * ================================
  *
- * Mục tiêu:
- * - Tối đa 100 kỳ / đài
- * - Không tạo dữ liệu trùng
- * - Giữ lại dữ liệu cũ nếu request lỗi
- * - Retry khi tải thất bại
- * - Delay giữa các request
+ * Nhiệm vụ:
+ * - Đọc database lịch sử data/xsmn_seed.json
+ * - Đọc kết quả mới nhất của 21 đài từ *-latest.json
+ * - Thêm kỳ mới nếu chưa tồn tại
+ * - Chống trùng province + date
+ * - Chỉ giữ tối đa 100 kỳ / đài
+ * - Loại record thuộc province không hợp lệ
+ * - Kiểm tra cấu trúc giải
+ * - Database chuẩn cuối cùng: 21 x 100 = 2100 kỳ
  *
- * Output:
- * data/xsmn_seed.json
+ * Script này KHÔNG crawl lại lịch sử.
  */
 
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const OUTPUT_FILE = path.join(DATA_DIR, "xsmn_seed.json");
+
+/* =========================================================
+   CONFIG
+   ========================================================= */
+
+const DATA_DIR =
+  path.join(__dirname, "..", "data");
+
+const OUTPUT_FILE =
+  path.join(DATA_DIR, "xsmn_seed.json");
 
 const MAX_DRAWS_PER_PROVINCE = 100;
 
-const REQUEST_DELAY = 1200;
-const PROVINCE_DELAY = 2000;
-
-const MAX_RETRIES = 3;
-
 
 /* =========================================================
-   PROVINCES
+   21 ĐÀI XSMN
    ========================================================= */
 
 const PROVINCES = [
   {
     id: "an-giang",
-    name: "An Giang",
-    slug: "an-giang"
+    name: "An Giang"
   },
   {
     id: "bac-lieu",
-    name: "Bạc Liêu",
-    slug: "bac-lieu"
+    name: "Bạc Liêu"
   },
   {
     id: "ben-tre",
-    name: "Bến Tre",
-    slug: "ben-tre"
+    name: "Bến Tre"
   },
   {
     id: "binh-duong",
-    name: "Bình Dương",
-    slug: "binh-duong"
+    name: "Bình Dương"
   },
   {
     id: "binh-phuoc",
-    name: "Bình Phước",
-    slug: "binh-phuoc"
+    name: "Bình Phước"
   },
   {
     id: "binh-thuan",
-    name: "Bình Thuận",
-    slug: "binh-thuan"
+    name: "Bình Thuận"
   },
   {
     id: "ca-mau",
-    name: "Cà Mau",
-    slug: "ca-mau"
+    name: "Cà Mau"
   },
   {
     id: "can-tho",
-    name: "Cần Thơ",
-    slug: "can-tho"
+    name: "Cần Thơ"
   },
   {
     id: "da-lat",
-    name: "Đà Lạt",
-    slug: "da-lat"
+    name: "Đà Lạt"
   },
   {
     id: "dong-nai",
-    name: "Đồng Nai",
-    slug: "dong-nai"
+    name: "Đồng Nai"
   },
   {
     id: "dong-thap",
-    name: "Đồng Tháp",
-    slug: "dong-thap"
+    name: "Đồng Tháp"
   },
   {
     id: "hau-giang",
-    name: "Hậu Giang",
-    slug: "hau-giang"
+    name: "Hậu Giang"
   },
   {
     id: "kien-giang",
-    name: "Kiên Giang",
-    slug: "kien-giang"
+    name: "Kiên Giang"
   },
   {
     id: "long-an",
-    name: "Long An",
-    slug: "long-an"
+    name: "Long An"
   },
   {
     id: "soc-trang",
-    name: "Sóc Trăng",
-    slug: "soc-trang"
+    name: "Sóc Trăng"
   },
   {
     id: "tay-ninh",
-    name: "Tây Ninh",
-    slug: "tay-ninh"
+    name: "Tây Ninh"
   },
   {
     id: "tien-giang",
-    name: "Tiền Giang",
-    slug: "tien-giang"
+    name: "Tiền Giang"
   },
   {
     id: "tphcm",
-    name: "TP. HCM",
-    slug: "tp-hcm"
+    name: "TP.HCM"
   },
   {
     id: "tra-vinh",
-    name: "Trà Vinh",
-    slug: "tra-vinh"
+    name: "Trà Vinh"
   },
   {
     id: "vinh-long",
-    name: "Vĩnh Long",
-    slug: "vinh-long"
+    name: "Vĩnh Long"
   },
   {
     id: "vung-tau",
-    name: "Vũng Tàu",
-    slug: "vung-tau"
+    name: "Vũng Tàu"
   }
 ];
 
 
 /* =========================================================
-   HELPERS
+   BASIC HELPERS
    ========================================================= */
 
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+function makeKey(draw) {
+
+  return `${draw.province}|${draw.date}`;
 }
 
 
-function decodeBasicEntities(text) {
+function isKnownProvince(provinceId) {
 
-  return String(text || "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&#160;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&quot;/gi, "\"")
-    .replace(/&#39;/gi, "'")
-    .replace(/&ndash;/gi, "-")
-    .replace(/&mdash;/gi, "-");
-}
-
-
-function stripTags(html) {
-
-  return decodeBasicEntities(
-    String(html || "")
-      .replace(/<script[\s\S]*?<\/script>/gi, " ")
-      .replace(/<style[\s\S]*?<\/style>/gi, " ")
-      .replace(/<[^>]+>/g, " ")
-  )
-    .replace(/\s+/g, " ")
-    .trim();
+  return PROVINCES.some(
+    province =>
+      province.id === provinceId
+  );
 }
 
 
 /* =========================================================
-   DOWNLOAD
+   VALIDATE PRIZE STRUCTURE
    ========================================================= */
 
-async function download(url) {
+function validatePrizes(prizes) {
 
-  let lastError = null;
-
-  for (
-    let attempt = 1;
-    attempt <= MAX_RETRIES;
-    attempt++
+  if (
+    !prizes ||
+    typeof prizes !== "object"
   ) {
-
-    const controller =
-      new AbortController();
-
-    const timeout =
-      setTimeout(
-        () => controller.abort(),
-        25000
-      );
-
-    try {
-
-      console.log(
-        `Request ${attempt}/${MAX_RETRIES}: ${url}`
-      );
-
-      const response =
-        await fetch(url, {
-          signal: controller.signal,
-          headers: {
-            "User-Agent":
-              "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124 Safari/537.36",
-
-            "Accept":
-              "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-
-            "Accept-Language":
-              "vi-VN,vi;q=0.9,en;q=0.8"
-          }
-        });
-
-
-      if (!response.ok) {
-
-        throw new Error(
-          `HTTP ${response.status} ${response.statusText}`
-        );
-      }
-
-
-      const html =
-        await response.text();
-
-
-      if (
-        !html ||
-        html.length < 1000
-      ) {
-
-        throw new Error(
-          "Downloaded HTML is unexpectedly small"
-        );
-      }
-
-
-      clearTimeout(timeout);
-
-      return html;
-
-
-    } catch (error) {
-
-      clearTimeout(timeout);
-
-      lastError = error;
-
-      console.log(
-        `Attempt ${attempt} failed: ${error.message}`
-      );
-
-
-      if (attempt < MAX_RETRIES) {
-
-        await sleep(
-          2000 * attempt
-        );
-      }
-    }
+    return false;
   }
 
 
-  throw lastError ||
-    new Error("Download failed");
-}
-
-
-/* =========================================================
-   PRIZE PARSER
-   ========================================================= */
-
-function extractPrize(html, prizeClass) {
-
-  const tdRegex =
-    new RegExp(
-      `<td[^>]*class=["'][^"']*\\b${prizeClass}\\b[^"']*["'][^>]*>([\\s\\S]*?)<\\/td>`,
-      "i"
-    );
-
-
-  const match =
-    html.match(tdRegex);
-
-
-  if (!match) {
-    return [];
-  }
-
-
-  const content =
-    match[1];
-
-
-  const numbers = [];
-
-
-  const divRegex =
-    /<div[^>]*>\s*([0-9]+)\s*<\/div>/gi;
-
-
-  let result;
-
-
-  while (
-    (result = divRegex.exec(content)) !== null
+  if (
+    typeof prizes.db !== "string" ||
+    prizes.db.length !== 6
   ) {
-
-    numbers.push(
-      result[1]
-    );
+    return false;
   }
 
 
-  if (numbers.length === 0) {
-
-    const plain =
-      stripTags(content);
-
-
-    const fallback =
-      plain.match(/\b\d{2,6}\b/g);
-
-
-    if (fallback) {
-      return fallback;
-    }
-  }
-
-
-  return numbers;
-}
-
-
-function parseResults(html) {
-
-  return {
-    giai8:
-      extractPrize(html, "giai8"),
-
-    giai7:
-      extractPrize(html, "giai7"),
-
-    giai6:
-      extractPrize(html, "giai6"),
-
-    giai5:
-      extractPrize(html, "giai5"),
-
-    giai4:
-      extractPrize(html, "giai4"),
-
-    giai3:
-      extractPrize(html, "giai3"),
-
-    giai2:
-      extractPrize(html, "giai2"),
-
-    giai1:
-      extractPrize(html, "giai1"),
-
-    giaidb:
-      extractPrize(html, "giaidb")
-  };
-}
-
-
-/* =========================================================
-   VALIDATION
-   ========================================================= */
-
-function validateResults(results) {
-
-  const expected = {
-    giai8: 1,
-    giai7: 1,
-    giai6: 3,
-    giai5: 1,
-    giai4: 7,
-    giai3: 2,
-    giai2: 1,
-    giai1: 1,
-    giaidb: 1
-  };
-
-
-  for (
-    const [key, expectedCount]
-    of Object.entries(expected)
+  if (
+    typeof prizes.g1 !== "string" ||
+    prizes.g1.length !== 5
   ) {
+    return false;
+  }
 
-    if (
-      !Array.isArray(results[key]) ||
-      results[key].length !== expectedCount
-    ) {
 
-      return false;
-    }
+  if (
+    typeof prizes.g2 !== "string" ||
+    prizes.g2.length !== 5
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Array.isArray(prizes.g3) ||
+    prizes.g3.length !== 2
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Array.isArray(prizes.g4) ||
+    prizes.g4.length !== 7
+  ) {
+    return false;
+  }
+
+
+  if (
+    typeof prizes.g5 !== "string" ||
+    prizes.g5.length !== 4
+  ) {
+    return false;
+  }
+
+
+  if (
+    !Array.isArray(prizes.g6) ||
+    prizes.g6.length !== 3
+  ) {
+    return false;
+  }
+
+
+  if (
+    typeof prizes.g7 !== "string" ||
+    prizes.g7.length !== 3
+  ) {
+    return false;
+  }
+
+
+  if (
+    typeof prizes.g8 !== "string" ||
+    prizes.g8.length !== 2
+  ) {
+    return false;
   }
 
 
@@ -413,89 +234,112 @@ function validateResults(results) {
 
 
 /* =========================================================
-   DATE
+   VALIDATE DRAW
    ========================================================= */
 
-function extractDrawDate(html) {
+function validateDraw(draw) {
 
-  const text =
-    stripTags(html);
-
-
-  const matches =
-    [
-      ...text.matchAll(
-        /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g
-      )
-    ];
-
-
-  if (!matches.length) {
-    return null;
+  if (
+    !draw ||
+    typeof draw !== "object"
+  ) {
+    return false;
   }
 
 
-  /*
-   * Các trang lịch sử thường có ngày kỳ quay
-   * xuất hiện nhiều lần.
-   *
-   * Tìm ngày hợp lệ đầu tiên trong khoảng hợp lý.
-   */
-
-  for (const match of matches) {
-
-    const day =
-      Number(match[1]);
-
-    const month =
-      Number(match[2]);
-
-    const year =
-      Number(match[3]);
-
-
-    if (
-      day >= 1 &&
-      day <= 31 &&
-      month >= 1 &&
-      month <= 12 &&
-      year >= 2010 &&
-      year <= 2100
-    ) {
-
-      const dd =
-        String(day).padStart(2, "0");
-
-      const mm =
-        String(month).padStart(2, "0");
-
-
-      return `${year}-${mm}-${dd}`;
-    }
+  if (
+    !draw.province ||
+    !isKnownProvince(draw.province)
+  ) {
+    return false;
   }
 
 
-  return null;
+  if (
+    typeof draw.date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(draw.date)
+  ) {
+    return false;
+  }
+
+
+  if (
+    !validatePrizes(draw.prizes)
+  ) {
+    return false;
+  }
+
+
+  return true;
 }
 
 
 /* =========================================================
-   CONVERT RESULT
+   LOAD EXISTING DATABASE
    ========================================================= */
 
-function convertToSeedDraw(
-  provinceId,
-  drawDate,
-  results
+function loadExistingDatabase() {
+
+  if (!fs.existsSync(OUTPUT_FILE)) {
+
+    throw new Error(
+      "data/xsmn_seed.json does not exist."
+    );
+  }
+
+
+  const raw =
+    fs.readFileSync(
+      OUTPUT_FILE,
+      "utf8"
+    );
+
+
+  const data =
+    JSON.parse(raw);
+
+
+  if (!Array.isArray(data.draws)) {
+
+    throw new Error(
+      "xsmn_seed.json does not contain draws array."
+    );
+  }
+
+
+  return data.draws;
+}
+
+
+/* =========================================================
+   CONVERT LATEST FILE
+   ========================================================= */
+
+function convertLatestToDraw(
+  province,
+  latest
 ) {
 
-  return {
+  if (
+    !latest ||
+    !latest.drawDate ||
+    !latest.results
+  ) {
+    return null;
+  }
+
+
+  const results =
+    latest.results;
+
+
+  const draw = {
 
     province:
-      provinceId,
+      province.id,
 
     date:
-      drawDate,
+      latest.drawDate,
 
     ticketCode:
       "",
@@ -503,117 +347,65 @@ function convertToSeedDraw(
     prizes: {
 
       db:
-        results.giaidb[0],
+        results.giaidb?.[0] || "",
 
       g1:
-        results.giai1[0],
+        results.giai1?.[0] || "",
 
       g2:
-        results.giai2[0],
+        results.giai2?.[0] || "",
 
       g3:
-        results.giai3,
+        results.giai3 || [],
 
       g4:
-        results.giai4,
+        results.giai4 || [],
 
       g5:
-        results.giai5[0],
+        results.giai5?.[0] || "",
 
       g6:
-        results.giai6,
+        results.giai6 || [],
 
       g7:
-        results.giai7[0],
+        results.giai7?.[0] || "",
 
       g8:
-        results.giai8[0]
+        results.giai8?.[0] || ""
     }
   };
+
+
+  if (!validateDraw(draw)) {
+
+    return null;
+  }
+
+
+  return draw;
 }
 
 
 /* =========================================================
-   DATE UTILITIES
+   LOAD LATEST RESULT
    ========================================================= */
 
-function parseISODate(dateString) {
+function loadLatestDraw(province) {
 
-  const [
-    year,
-    month,
-    day
-  ] =
-    dateString
-      .split("-")
-      .map(Number);
+  const filePath =
+    path.join(
+      DATA_DIR,
+      `${province.id}-latest.json`
+    );
 
 
-  return new Date(
-    Date.UTC(
-      year,
-      month - 1,
-      day
-    )
-  );
-}
+  if (!fs.existsSync(filePath)) {
 
+    console.log(
+      `⚠ Missing latest file: ${province.id}`
+    );
 
-function formatISODate(date) {
-
-  const year =
-    date.getUTCFullYear();
-
-
-  const month =
-    String(
-      date.getUTCMonth() + 1
-    ).padStart(2, "0");
-
-
-  const day =
-    String(
-      date.getUTCDate()
-    ).padStart(2, "0");
-
-
-  return `${year}-${month}-${day}`;
-}
-
-
-function subtractDays(
-  dateString,
-  days
-) {
-
-  const date =
-    parseISODate(dateString);
-
-
-  date.setUTCDate(
-    date.getUTCDate() - days
-  );
-
-
-  return formatISODate(date);
-}
-
-
-/* =========================================================
-   LOAD EXISTING DATA
-   ========================================================= */
-
-function loadExistingData() {
-
-  if (
-    !fs.existsSync(OUTPUT_FILE)
-  ) {
-
-    return {
-      generatedAt: null,
-      source: "minhngoc.net.vn",
-      draws: []
-    };
+    return null;
   }
 
 
@@ -621,96 +413,26 @@ function loadExistingData() {
 
     const raw =
       fs.readFileSync(
-        OUTPUT_FILE,
+        filePath,
         "utf8"
       );
 
 
-    const data =
+    const latest =
       JSON.parse(raw);
 
 
-    if (
-      !Array.isArray(data.draws)
-    ) {
-
-      data.draws = [];
-    }
-
-
-    return data;
+    return convertLatestToDraw(
+      province,
+      latest
+    );
 
 
   } catch (error) {
 
     console.log(
-      "WARNING: Could not read existing seed file."
+      `⚠ Cannot read ${province.id}-latest.json: ${error.message}`
     );
-
-
-    return {
-      generatedAt: null,
-      source: "minhngoc.net.vn",
-      draws: []
-    };
-  }
-}
-
-
-/* =========================================================
-   LATEST FILE
-   ========================================================= */
-
-function loadLatestProvinceFile(
-  province
-) {
-
-  const latestPath =
-    path.join(
-      DATA_DIR,
-      `${province.id}-latest.json`
-    );
-
-
-  if (
-    !fs.existsSync(latestPath)
-  ) {
-
-    return null;
-  }
-
-
-  try {
-
-    const data =
-      JSON.parse(
-        fs.readFileSync(
-          latestPath,
-          "utf8"
-        )
-      );
-
-
-    if (
-      !data.drawDate ||
-      !data.results ||
-      !validateResults(data.results)
-    ) {
-
-      return null;
-    }
-
-
-    return {
-      date:
-        data.drawDate,
-
-      results:
-        data.results
-    };
-
-
-  } catch (error) {
 
     return null;
   }
@@ -718,48 +440,8 @@ function loadLatestProvinceFile(
 
 
 /* =========================================================
-   URL
+   DEDUPLICATE
    ========================================================= */
-
-/*
- * Minh Ngọc hỗ trợ trang theo ngày:
- *
- * /ket-qua-xo-so/mien-nam/{slug}/{dd-mm-yyyy}.html
- */
-
-function buildHistoryUrl(
-  province,
-  dateString
-) {
-
-  const [
-    year,
-    month,
-    day
-  ] =
-    dateString.split("-");
-
-
-  return (
-    "https://www.minhngoc.net.vn/" +
-    "ket-qua-xo-so/mien-nam/" +
-    `${province.slug}/` +
-    `${day}-${month}-${year}.html`
-  );
-}
-
-
-/* =========================================================
-   DEDUPLICATION
-   ========================================================= */
-
-function makeKey(draw) {
-
-  return (
-    `${draw.province}|${draw.date}`
-  );
-}
-
 
 function deduplicate(draws) {
 
@@ -769,19 +451,17 @@ function deduplicate(draws) {
 
   for (const draw of draws) {
 
-    if (
-      !draw ||
-      !draw.province ||
-      !draw.date ||
-      !draw.prizes
-    ) {
-
+    if (!validateDraw(draw)) {
       continue;
     }
 
 
+    const key =
+      makeKey(draw);
+
+
     map.set(
-      makeKey(draw),
+      key,
       draw
     );
   }
@@ -794,13 +474,10 @@ function deduplicate(draws) {
 
 
 /* =========================================================
-   BUILD ONE PROVINCE
+   BUILD DATABASE
    ========================================================= */
 
-async function buildProvince(
-  province,
-  allDraws
-) {
+function buildDatabase(existingDraws) {
 
   console.log("");
   console.log(
@@ -808,7 +485,7 @@ async function buildProvince(
   );
 
   console.log(
-    `${province.name} (${province.id})`
+    "MERGING LATEST RESULTS"
   );
 
   console.log(
@@ -816,399 +493,91 @@ async function buildProvince(
   );
 
 
-  let provinceDraws =
-    allDraws.filter(
-      draw =>
-        draw.province === province.id
+  /*
+   * Bước 1:
+   * Loại record không hợp lệ.
+   */
+
+  const validExisting =
+    existingDraws.filter(
+      validateDraw
     );
-
-
-  provinceDraws =
-    deduplicate(
-      provinceDraws
-    );
-
-
-  provinceDraws.sort(
-    (a, b) =>
-      b.date.localeCompare(a.date)
-  );
 
 
   console.log(
-    `Existing draws: ${provinceDraws.length}`
+    `Existing raw   : ${existingDraws.length}`
+  );
+
+  console.log(
+    `Existing valid : ${validExisting.length}`
   );
 
 
   /*
-   * Nếu đã đủ 100 kỳ thì không tải lại.
+   * Bước 2:
+   * Thêm latest của 21 đài.
    */
 
-  if (
-    provinceDraws.length >=
-    MAX_DRAWS_PER_PROVINCE
-  ) {
-
-    console.log(
-      `✓ Already has ${provinceDraws.length} draws`
-    );
+  const combined = [
+    ...validExisting
+  ];
 
 
-    return provinceDraws.slice(
-      0,
-      MAX_DRAWS_PER_PROVINCE
-    );
-  }
+  let latestLoaded = 0;
 
 
-  /*
-   * Đưa file latest vào trước.
-   */
+  for (const province of PROVINCES) {
 
-  const latest =
-    loadLatestProvinceFile(
-      province
-    );
-
-
-  if (latest) {
-
-    const latestDraw =
-      convertToSeedDraw(
-        province.id,
-        latest.date,
-        latest.results
+    const latest =
+      loadLatestDraw(
+        province
       );
 
 
-    provinceDraws.push(
-      latestDraw
-    );
-
-
-    provinceDraws =
-      deduplicate(
-        provinceDraws
-      );
-
-
-    provinceDraws.sort(
-      (a, b) =>
-        b.date.localeCompare(a.date)
-    );
-  }
-
-
-  if (
-    provinceDraws.length === 0
-  ) {
-
-    console.log(
-      "✗ No starting draw available."
-    );
-
-    return [];
-  }
-
-
-  /*
-   * Các đài miền Nam quay mỗi tuần.
-   *
-   * Lấy kỳ cũ nhất hiện có,
-   * sau đó lùi từng 7 ngày.
-   */
-
-  let cursorDate =
-    provinceDraws[
-      provinceDraws.length - 1
-    ].date;
-
-
-  let consecutiveFailures = 0;
-
-
-  while (
-    provinceDraws.length <
-    MAX_DRAWS_PER_PROVINCE
-  ) {
-
-    const targetDate =
-      subtractDays(
-        cursorDate,
-        7
-      );
-
-
-    const url =
-      buildHistoryUrl(
-        province,
-        targetDate
-      );
-
-
-    console.log("");
-    console.log(
-      `[${provinceDraws.length + 1}/${MAX_DRAWS_PER_PROVINCE}] ${targetDate}`
-    );
-
-
-    try {
-
-      const html =
-        await download(url);
-
-
-      const results =
-        parseResults(html);
-
-
-      if (
-        !validateResults(results)
-      ) {
-
-        throw new Error(
-          "Invalid prize structure"
-        );
-      }
-
-
-      /*
-       * Với URL theo ngày, targetDate chính là
-       * ngày kỳ quay mà chúng ta yêu cầu.
-       */
-
-      const draw =
-        convertToSeedDraw(
-          province.id,
-          targetDate,
-          results
-        );
-
-
-      provinceDraws.push(
-        draw
-      );
-
-
-      provinceDraws =
-        deduplicate(
-          provinceDraws
-        );
-
-
-      provinceDraws.sort(
-        (a, b) =>
-          b.date.localeCompare(a.date)
-      );
-
+    if (!latest) {
 
       console.log(
-        `✓ ${targetDate} | DB ${draw.prizes.db}`
+        `⚠ ${province.name}: latest unavailable`
       );
 
-
-      cursorDate =
-        targetDate;
-
-
-      consecutiveFailures = 0;
-
-
-    } catch (error) {
-
-      console.log(
-        `✗ ${targetDate}: ${error.message}`
-      );
-
-
-      /*
-       * Vẫn lùi tiếp 7 ngày.
-       * Không xóa dữ liệu đã có.
-       */
-
-      cursorDate =
-        targetDate;
-
-
-      consecutiveFailures++;
-
-
-      /*
-       * Nếu 8 kỳ liên tục đều lỗi thì dừng tỉnh này.
-       */
-
-      if (
-        consecutiveFailures >= 8
-      ) {
-
-        console.log(
-          "Too many consecutive failures. Stop province."
-        );
-
-        break;
-      }
+      continue;
     }
 
 
-    await sleep(
-      REQUEST_DELAY
+    combined.push(
+      latest
+    );
+
+
+    latestLoaded++;
+
+
+    console.log(
+      `✓ ${province.name.padEnd(12)} | ${latest.date} | DB ${latest.prizes.db}`
     );
   }
-
-
-  provinceDraws.sort(
-    (a, b) =>
-      b.date.localeCompare(a.date)
-  );
 
 
   console.log("");
   console.log(
-    `${province.name}: ${provinceDraws.length} draws`
+    `Latest loaded: ${latestLoaded}/${PROVINCES.length}`
   );
 
-
-  return provinceDraws.slice(
-    0,
-    MAX_DRAWS_PER_PROVINCE
-  );
-}
-
-
-
-  console.log(
-    "FINAL SUMMARY"
-  );
-
-  console.log(
-    "========================================"
-  );
-
-
-  for (
-    const province
-    of PROVINCES
-  ) {
-
-    const provinceDraws =
-      draws.filter(
-        draw =>
-          draw.province === province.id
-      );
-
-
-    console.log(
-      `${province.name.padEnd(12)} : ${provinceDraws.length}`
-    );
-  }
-
-
-  console.log(
-    "----------------------------------------"
-  );
-
-  console.log(
-    `TOTAL: ${draws.length}`
-  );
-
-  console.log(
-    "========================================"
-  );
-}
-
-
-/* =========================================================
-   MAIN
-   ========================================================= */
-
-async function main() {
-
-  console.log(
-    "========================================"
-  );
-
-  console.log(
-    "XSMN HISTORY BUILDER"
-  );
-
-  console.log(
-    "Target: 100 draws / province"
-  );
-
-  console.log(
-    `Provinces: ${PROVINCES.length}`
-  );
-
-  console.log(
-    "========================================"
-  );
-
-
-  fs.mkdirSync(
-    DATA_DIR,
-    {
-      recursive: true
-    }
-  );
-
-
-  const existing =
-    loadExistingData();
-
-
-  let allDraws =
-    Array.isArray(existing.draws)
-      ? existing.draws
-      : [];
-
-
-  allDraws =
-    deduplicate(
-      allDraws
-    );
-
-
-  console.log(
-
-/* =========================================================
-SAVE + DATABASE VALIDATION
-========================================================= */
-
-function isKnownProvince(draw) {
-
-  if (!draw || !draw.province) {
-    return false;
-  }
-
-  return PROVINCES.some(
-    province =>
-      province.id === draw.province
-  );
-}
-
-
-function cleanDatabase(draws) {
 
   /*
-   * Chỉ giữ dữ liệu thuộc đúng 21 đài
-   * được khai báo trong PROVINCES.
-   *
-   * Điều này loại bỏ các record cũ / orphan
-   * có province ID không còn được sử dụng.
+   * Bước 3:
+   * Deduplicate.
    */
 
-  let clean =
-    Array.isArray(draws)
-      ? draws.filter(isKnownProvince)
-      : [];
-
-
-  clean =
-    deduplicate(clean);
+  const unique =
+    deduplicate(
+      combined
+    );
 
 
   /*
-   * Mỗi đài chỉ được giữ tối đa 100 kỳ.
+   * Bước 4:
+   * Mỗi tỉnh giữ đúng tối đa 100 kỳ.
    */
 
   const finalDraws = [];
@@ -1217,7 +586,7 @@ function cleanDatabase(draws) {
   for (const province of PROVINCES) {
 
     const provinceDraws =
-      clean
+      unique
         .filter(
           draw =>
             draw.province === province.id
@@ -1239,8 +608,9 @@ function cleanDatabase(draws) {
 
 
   /*
-   * Sort ổn định:
-   * province -> date DESC
+   * Sort database:
+   * province ASC
+   * date DESC
    */
 
   finalDraws.sort(
@@ -1268,193 +638,19 @@ function cleanDatabase(draws) {
 }
 
 
-function saveData(draws) {
-
-  const clean =
-    cleanDatabase(draws);
-
-
-  const output = {
-
-    generatedAt:
-      new Date()
-        .toISOString()
-        .slice(0, 10),
-
-    source:
-      "minhngoc.net.vn",
-
-    draws:
-      clean
-  };
-
-
-  fs.writeFileSync(
-
-    OUTPUT_FILE,
-
-    JSON.stringify(
-      output,
-      null,
-      2
-    ),
-
-    "utf8"
-  );
-
-
-  console.log("");
-  console.log(
-    `✓ Saved ${OUTPUT_FILE}`
-  );
-
-  console.log(
-    `Total valid draws: ${clean.length}`
-  );
-
-
-  return clean;
-}
-
-
 /* =========================================================
    DATABASE VALIDATION
    ========================================================= */
 
 function validateDatabase(draws) {
 
-  const EXPECTED_PROVINCES =
-    PROVINCES.length;
-
-  const EXPECTED_DRAWS =
-    EXPECTED_PROVINCES *
-    MAX_DRAWS_PER_PROVINCE;
-
-
-  let invalidDraws = 0;
-
-  let duplicateCount = 0;
-
-  let completeProvinces = 0;
-
-  const seen =
-    new Set();
-
-
-  /*
-   * Kiểm tra record.
-   */
-
-  for (const draw of draws) {
-
-    if (
-      !draw ||
-      !draw.province ||
-      !draw.date ||
-      !draw.prizes
-    ) {
-
-      invalidDraws++;
-
-      continue;
-    }
-
-
-    /*
-     * Province phải thuộc đúng danh sách 21 đài.
-     */
-
-    const knownProvince =
-      PROVINCES.some(
-        province =>
-          province.id ===
-          draw.province
-      );
-
-
-    if (!knownProvince) {
-
-      invalidDraws++;
-
-      continue;
-    }
-
-
-    /*
-     * Kiểm tra ngày YYYY-MM-DD.
-     */
-
-    if (
-      !/^\d{4}-\d{2}-\d{2}$/.test(
-        draw.date
-      )
-    ) {
-
-      invalidDraws++;
-    }
-
-
-    /*
-     * Kiểm tra duplicate province + date.
-     */
-
-    const key =
-      makeKey(draw);
-
-
-    if (seen.has(key)) {
-
-      duplicateCount++;
-
-    } else {
-
-      seen.add(key);
-    }
-
-
-    /*
-     * Kiểm tra cấu trúc giải thưởng.
-     */
-
-    const prizes =
-      draw.prizes;
-
-
-    const prizeValid =
-
-      typeof prizes.db === "string" &&
-      typeof prizes.g1 === "string" &&
-      typeof prizes.g2 === "string" &&
-
-      Array.isArray(prizes.g3) &&
-      prizes.g3.length === 2 &&
-
-      Array.isArray(prizes.g4) &&
-      prizes.g4.length === 7 &&
-
-      typeof prizes.g5 === "string" &&
-
-      Array.isArray(prizes.g6) &&
-      prizes.g6.length === 3 &&
-
-      typeof prizes.g7 === "string" &&
-      typeof prizes.g8 === "string";
-
-
-    if (!prizeValid) {
-
-      invalidDraws++;
-    }
-  }
-
-
   console.log("");
   console.log(
     "========================================"
   );
 
   console.log(
-    "XSMN DATABASE VALIDATION"
+    "DATABASE VALIDATION"
   );
 
   console.log(
@@ -1462,9 +658,49 @@ function validateDatabase(draws) {
   );
 
 
-  /*
-   * Thống kê từng đài.
-   */
+  const expectedTotal =
+    PROVINCES.length *
+    MAX_DRAWS_PER_PROVINCE;
+
+
+  let completeProvinces = 0;
+
+  let incompleteProvinces = 0;
+
+  let invalidDraws = 0;
+
+
+  const seen =
+    new Set();
+
+  let duplicates = 0;
+
+
+  for (const draw of draws) {
+
+    if (!validateDraw(draw)) {
+      invalidDraws++;
+    }
+
+
+    const key =
+      makeKey(draw);
+
+
+    if (seen.has(key)) {
+      duplicates++;
+    }
+
+
+    seen.add(key);
+  }
+
+
+  console.log("");
+  console.log(
+    "----- DRAWS BY PROVINCE -----"
+  );
+
 
   for (const province of PROVINCES) {
 
@@ -1472,28 +708,16 @@ function validateDatabase(draws) {
       draws
         .filter(
           draw =>
-            draw.province ===
-            province.id
+            draw.province === province.id
         )
         .sort(
           (a, b) =>
-            b.date.localeCompare(
-              a.date
-            )
+            b.date.localeCompare(a.date)
         );
 
 
     const count =
       provinceDraws.length;
-
-
-    if (
-      count ===
-      MAX_DRAWS_PER_PROVINCE
-    ) {
-
-      completeProvinces++;
-    }
 
 
     const newest =
@@ -1504,58 +728,58 @@ function validateDatabase(draws) {
 
     const oldest =
       count > 0
-        ? provinceDraws[
-            count - 1
-          ].date
+        ? provinceDraws[count - 1].date
         : "-";
 
 
     const status =
-      count ===
-      MAX_DRAWS_PER_PROVINCE
+      count === MAX_DRAWS_PER_PROVINCE
         ? "OK"
         : "INCOMPLETE";
 
 
+    if (
+      count ===
+      MAX_DRAWS_PER_PROVINCE
+    ) {
+
+      completeProvinces++;
+
+    } else {
+
+      incompleteProvinces++;
+    }
+
+
     console.log(
-
-      `${province.name.padEnd(12)} | ` +
-
-      `${String(count).padStart(3)} kỳ | ` +
-
-      `${newest} -> ${oldest} | ` +
-
-      status
+      `${province.name.padEnd(12)} | ${String(count).padStart(3)} kỳ | ${newest} -> ${oldest} | ${status}`
     );
   }
 
 
+  console.log("");
   console.log(
     "----------------------------------------"
   );
 
   console.log(
-    `PROVINCES          : ${EXPECTED_PROVINCES}`
+    `TOTAL DRAWS        : ${draws.length}`
   );
 
   console.log(
-    `DRAWS / PROVINCE   : ${MAX_DRAWS_PER_PROVINCE}`
+    `EXPECTED DRAWS     : ${expectedTotal}`
   );
 
   console.log(
-    `EXPECTED DRAWS     : ${EXPECTED_DRAWS}`
+    `COMPLETE PROVINCES : ${completeProvinces}/${PROVINCES.length}`
   );
 
   console.log(
-    `ACTUAL VALID DRAWS : ${draws.length}`
+    `INCOMPLETE         : ${incompleteProvinces}/${PROVINCES.length}`
   );
 
   console.log(
-    `COMPLETE PROVINCES : ${completeProvinces}/${EXPECTED_PROVINCES}`
-  );
-
-  console.log(
-    `DUPLICATES         : ${duplicateCount}`
+    `DUPLICATES         : ${duplicates}`
   );
 
   console.log(
@@ -1563,32 +787,23 @@ function validateDatabase(draws) {
   );
 
   console.log(
-    "========================================"
+    "----------------------------------------"
   );
 
 
-  const databaseReady =
-
-    draws.length ===
-      EXPECTED_DRAWS &&
-
-    completeProvinces ===
-      EXPECTED_PROVINCES &&
-
-    duplicateCount === 0 &&
-
+  const valid =
+    draws.length === expectedTotal &&
+    completeProvinces === PROVINCES.length &&
+    incompleteProvinces === 0 &&
+    duplicates === 0 &&
     invalidDraws === 0;
 
 
-  if (databaseReady) {
+  if (valid) {
 
     console.log("");
     console.log(
-      "✓ DATABASE VALIDATED"
-    );
-
-    console.log(
-      "✓ XSMN HISTORY DATABASE V1 READY"
+      "✓ XSMN HISTORY DATABASE READY"
     );
 
     console.log(
@@ -1615,54 +830,52 @@ function validateDatabase(draws) {
 
 
 /* =========================================================
-   SUMMARY
+   SAVE DATABASE
    ========================================================= */
 
-function printSummary(draws) {
+function saveDatabase(draws) {
+
+  const output = {
+
+    generatedAt:
+      new Date()
+        .toISOString()
+        .slice(0, 10),
+
+    source:
+      "minhngoc.net.vn",
+
+    draws
+  };
+
+
+  fs.writeFileSync(
+
+    OUTPUT_FILE,
+
+    JSON.stringify(
+      output,
+      null,
+      2
+    ),
+
+    "utf8"
+  );
+
+
+  const size =
+    fs.statSync(
+      OUTPUT_FILE
+    ).size;
+
 
   console.log("");
   console.log(
-    "========================================"
+    `✓ Saved: ${OUTPUT_FILE}`
   );
 
   console.log(
-    "FINAL SUMMARY"
-  );
-
-  console.log(
-    "========================================"
-  );
-
-
-  for (
-    const province
-    of PROVINCES
-  ) {
-
-    const provinceDraws =
-      draws.filter(
-        draw =>
-          draw.province ===
-          province.id
-      );
-
-
-    console.log(
-      `${province.name.padEnd(12)} : ${provinceDraws.length}`
-    );
-  }
-
-
-  console.log(
-    "----------------------------------------"
-  );
-
-  console.log(
-    `TOTAL: ${draws.length}`
-  );
-
-  console.log(
-    "========================================"
+    `File size: ${(size / 1024).toFixed(1)} KB`
   );
 }
 
@@ -1671,26 +884,30 @@ function printSummary(draws) {
    MAIN
    ========================================================= */
 
-async function main() {
+function main() {
 
   console.log(
     "========================================"
   );
 
   console.log(
-    "XSMN HISTORY BUILDER"
-  );
-
-  console.log(
-    "Target: 100 draws / province"
-  );
-
-  console.log(
-    `Provinces: ${PROVINCES.length}`
+    "XSMN HISTORY DATABASE MAINTAINER"
   );
 
   console.log(
     "========================================"
+  );
+
+  console.log(
+    `Provinces : ${PROVINCES.length}`
+  );
+
+  console.log(
+    `Target    : ${MAX_DRAWS_PER_PROVINCE} draws / province`
+  );
+
+  console.log(
+    `Expected  : ${PROVINCES.length * MAX_DRAWS_PER_PROVINCE} draws`
   );
 
 
@@ -1702,149 +919,71 @@ async function main() {
   );
 
 
-  const existing =
-    loadExistingData();
+  /*
+   * Load database hiện tại.
+   */
+
+  const existingDraws =
+    loadExistingDatabase();
 
 
-  let allDraws =
-    Array.isArray(existing.draws)
-      ? existing.draws
-      : [];
+  console.log(
+    `Loaded    : ${existingDraws.length} existing draws`
+  );
 
 
   /*
-   * Quan trọng:
+   * Merge latest + clean.
+   */
+
+  const finalDraws =
+    buildDatabase(
+      existingDraws
+    );
+
+
+  /*
+   * Validate TRƯỚC khi ghi file.
    *
-   * Lọc bỏ record không thuộc 21 province hiện tại
-   * ngay khi load database cũ.
+   * Nếu database không đủ 21 x 100,
+   * không ghi đè database hiện tại.
    */
 
-  const beforeCleanup =
-    allDraws.length;
-
-
-  allDraws =
-    cleanDatabase(
-      allDraws
-    );
-
-
-  const removed =
-    beforeCleanup -
-    allDraws.length;
-
-
-  console.log(
-    `Existing raw draws  : ${beforeCleanup}`
-  );
-
-  console.log(
-    `Existing valid draws: ${allDraws.length}`
-  );
-
-
-  if (removed > 0) {
-
-    console.log(
-      `Removed old/orphan draws: ${removed}`
-    );
-  }
-
-
-  /*
-   * Build từng tỉnh.
-   */
-
-  for (
-    const province
-    of PROVINCES
-  ) {
-
-    const otherDraws =
-      allDraws.filter(
-        draw =>
-          draw.province !==
-          province.id
-      );
-
-
-    const provinceDraws =
-      await buildProvince(
-        province,
-        allDraws
-      );
-
-
-    allDraws = [
-      ...otherDraws,
-      ...provinceDraws
-    ];
-
-
-    allDraws =
-      cleanDatabase(
-        allDraws
-      );
-
-
-    /*
-     * Save sau từng tỉnh.
-     *
-     * Nếu workflow bị ngắt giữa chừng,
-     * dữ liệu đã hoàn thành vẫn còn.
-     */
-
-    saveData(
-      allDraws
-    );
-
-
-    await sleep(
-      PROVINCE_DELAY
-    );
-  }
-
-
-  /*
-   * Final cleanup.
-   */
-
-  allDraws =
-    cleanDatabase(
-      allDraws
-    );
-
-
-  allDraws =
-    saveData(
-      allDraws
-    );
-
-
-  printSummary(
-    allDraws
-  );
-
-
-  /*
-   * VALIDATE DATABASE.
-   */
-
-  const databaseReady =
+  const valid =
     validateDatabase(
-      allDraws
+      finalDraws
     );
 
 
+  if (!valid) {
+
+    throw new Error(
+      "Database validation failed. Existing xsmn_seed.json was NOT overwritten."
+    );
+  }
+
+
   /*
-   * Workflow phải báo lỗi nếu database
-   * không đạt chuẩn.
+   * Chỉ save khi validation thành công.
    */
 
-  if (!databaseReady) {
+  saveDatabase(
+    finalDraws
+  );
 
-    process.exitCode = 1;
-  }
+
+  console.log("");
+  console.log(
+    "========================================"
+  );
+
+  console.log(
+    "DONE"
+  );
+
+  console.log(
+    "========================================"
+  );
 }
 
 
@@ -1852,12 +991,20 @@ async function main() {
    RUN
    ========================================================= */
 
-main().catch(error => {
+try {
+
+  main();
+
+} catch (error) {
+
+  console.error("");
+  console.error(
+    "FATAL ERROR:"
+  );
 
   console.error(
-    "FATAL ERROR:",
-    error
+    error.message
   );
 
   process.exit(1);
-});
+  }
