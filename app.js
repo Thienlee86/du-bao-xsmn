@@ -9588,3 +9588,929 @@ function summarizeAllModelsV23(
 console.log(
   'XSMN V2.3 Model Lab loaded — Production Engine unchanged'
 );
+
+/* =========================================================================
+   XSMN V2.3 MODEL LAB — MOBILE UI PATCH
+
+   - Không cần sửa index.html
+   - Tự chèn giao diện vào tab Cài đặt
+   - Chạy Model Lab cho tỉnh đang chọn
+   - So sánh 5 model V2.3
+   - Hiển thị Top1 / Top2 / Top3 / MRR / AvgRank / Quality
+   - Tự xác định model tốt nhất
+   ========================================================================= */
+
+
+function ensureModelLabV23UI() {
+
+  /*
+   * Không tạo trùng giao diện.
+   */
+
+  if (
+    document.getElementById(
+      'modelLabV23Card'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Tìm tab Cài đặt.
+   */
+
+  const settingsTab =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settingsTab) {
+
+    console.warn(
+      'V2.3 UI: Không tìm thấy tab-settings'
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * Tạo card Model Lab.
+   */
+
+  const card =
+    document.createElement(
+      'div'
+    );
+
+
+  card.id =
+    'modelLabV23Card';
+
+
+  card.className =
+    'card';
+
+
+  card.style.marginTop =
+    '18px';
+
+
+  card.innerHTML =
+    `
+      <div
+        style="
+          font-size:22px;
+          font-weight:800;
+          margin-bottom:8px;
+        "
+      >
+        🧪 Model Lab V2.3
+      </div>
+
+
+      <div
+        class="sub"
+        style="
+          margin-bottom:16px;
+          line-height:1.6;
+        "
+      >
+        Walk-forward backtest để so sánh
+        các mô hình thống kê trên dữ liệu lịch sử.
+        Model Lab chỉ dùng để đánh giá mô hình,
+        không phải xác suất trúng.
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:1fr 1fr;
+          gap:10px;
+          margin-bottom:12px;
+        "
+      >
+
+        <div>
+
+          <div
+            class="sub"
+            style="margin-bottom:6px;"
+          >
+            Giải kiểm định
+          </div>
+
+          <select
+            id="modelLabPrizeV23"
+            style="
+              width:100%;
+              padding:13px 10px;
+              border-radius:12px;
+              font-size:16px;
+            "
+          >
+            <option value="db">
+              Giải Đặc Biệt — 2 số cuối
+            </option>
+
+            <option value="g1">
+              Giải Nhất
+            </option>
+
+            <option value="g2">
+              Giải Nhì
+            </option>
+
+            <option value="g3">
+              Giải Ba
+            </option>
+
+            <option value="g4">
+              Giải Tư
+            </option>
+
+            <option value="g5">
+              Giải Năm
+            </option>
+
+            <option value="g6">
+              Giải Sáu
+            </option>
+
+            <option value="g7">
+              Giải Bảy
+            </option>
+
+            <option value="g8">
+              Giải Tám
+            </option>
+
+          </select>
+
+        </div>
+
+
+        <div>
+
+          <div
+            class="sub"
+            style="margin-bottom:6px;"
+          >
+            Window
+          </div>
+
+          <select
+            id="modelLabWindowV23"
+            style="
+              width:100%;
+              padding:13px 10px;
+              border-radius:12px;
+              font-size:16px;
+            "
+          >
+            <option value="10">
+              10 kỳ
+            </option>
+
+            <option value="20">
+              20 kỳ
+            </option>
+
+            <option
+              value="30"
+              selected
+            >
+              30 kỳ
+            </option>
+
+            <option value="60">
+              60 kỳ
+            </option>
+
+          </select>
+
+        </div>
+
+      </div>
+
+
+      <button
+        id="btnRunModelLabV23"
+        style="
+          width:100%;
+          border:none;
+          border-radius:16px;
+          padding:17px 12px;
+          font-size:18px;
+          font-weight:800;
+          cursor:pointer;
+          margin-top:5px;
+          background:linear-gradient(
+            135deg,
+            #ffc447,
+            #ff8a3d
+          );
+          color:#201600;
+        "
+      >
+        🧪 Chạy Model Lab tỉnh đang chọn
+      </button>
+
+
+      <div
+        id="modelLabStatusV23"
+        class="sub"
+        style="
+          margin-top:14px;
+          line-height:1.6;
+        "
+      >
+        Chưa chạy kiểm định.
+      </div>
+
+
+      <div
+        id="modelLabBestV23"
+        style="
+          display:none;
+          margin-top:16px;
+          padding:16px;
+          border-radius:14px;
+          background:rgba(
+            255,
+            193,
+            61,
+            0.12
+          );
+          border:1px solid rgba(
+            255,
+            193,
+            61,
+            0.35
+          );
+        "
+      >
+      </div>
+
+
+      <div
+        id="modelLabResultsV23"
+        style="
+          margin-top:16px;
+          overflow-x:auto;
+        "
+      >
+      </div>
+
+
+      <div
+        class="sub"
+        style="
+          margin-top:14px;
+          line-height:1.55;
+        "
+      >
+        Quality là chỉ số tổng hợp dùng để
+        so sánh tương đối giữa các model.
+        Kết quả backtest không đảm bảo
+        hiệu quả ở kỳ quay tiếp theo.
+      </div>
+    `;
+
+
+  settingsTab.appendChild(
+    card
+  );
+
+
+  /*
+   * Gắn sự kiện nút.
+   */
+
+  const button =
+    document.getElementById(
+      'btnRunModelLabV23'
+    );
+
+
+  if (button) {
+
+    button.addEventListener(
+      'click',
+      runModelLabV23UI
+    );
+
+  }
+
+
+  console.log(
+    'XSMN V2.3 Model Lab Mobile UI ready'
+  );
+
+}
+
+
+/* =========================================================================
+   CHẠY MODEL LAB
+   ========================================================================= */
+
+function runModelLabV23UI() {
+
+  const status =
+    document.getElementById(
+      'modelLabStatusV23'
+    );
+
+
+  const results =
+    document.getElementById(
+      'modelLabResultsV23'
+    );
+
+
+  const bestBox =
+    document.getElementById(
+      'modelLabBestV23'
+    );
+
+
+  const prizeSelect =
+    document.getElementById(
+      'modelLabPrizeV23'
+    );
+
+
+  const windowSelect =
+    document.getElementById(
+      'modelLabWindowV23'
+    );
+
+
+  if (
+    !status ||
+    !results ||
+    !bestBox
+  ) {
+
+    return;
+
+  }
+
+
+  const provinceSlug =
+    SELECTED_PROVINCE;
+
+
+  const giaiKey =
+    prizeSelect
+      ? prizeSelect.value
+      : 'db';
+
+
+  const windowSize =
+    windowSelect
+      ? parseInt(
+          windowSelect.value,
+          10
+        )
+      : 30;
+
+
+  const province =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  const provinceName =
+    province
+      ? province.name
+      : provinceSlug;
+
+
+  /*
+   * Kiểm tra V2.3 đã load.
+   */
+
+  if (
+    typeof compareModelsV23 !==
+    'function'
+  ) {
+
+    status.innerHTML =
+      `
+        ❌ Không tìm thấy engine
+        <b>V2.3 Model Lab</b>.
+        Hãy kiểm tra lại app.js.
+      `;
+
+    return;
+
+  }
+
+
+  status.innerHTML =
+    `
+      ⏳ Đang chạy Model Lab
+      <b>${provinceName}</b>...
+    `;
+
+
+  results.innerHTML =
+    '';
+
+
+  bestBox.style.display =
+    'none';
+
+
+  /*
+   * Cho browser render trạng thái
+   * trước khi bắt đầu backtest.
+   */
+
+  setTimeout(
+    () => {
+
+      try {
+
+        const rows =
+          compareModelsV23(
+            provinceSlug,
+            giaiKey,
+            windowSize
+          );
+
+
+        if (
+          !Array.isArray(rows) ||
+          !rows.length
+        ) {
+
+          status.innerHTML =
+            `
+              ⚠️ Không có kết quả Model Lab
+              cho <b>${provinceName}</b>.
+            `;
+
+          return;
+
+        }
+
+
+        renderModelLabV23Results(
+          rows,
+          provinceName,
+          giaiKey,
+          windowSize
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          'Model Lab V2.3 UI:',
+          error
+        );
+
+
+        status.innerHTML =
+          `
+            ❌ Model Lab gặp lỗi:
+            <b>
+              ${String(
+                error.message ||
+                error
+              )}
+            </b>
+          `;
+
+      }
+
+    },
+    50
+  );
+
+}
+
+
+/* =========================================================================
+   CHUYỂN GIÁ TRỊ THÀNH SỐ
+   ========================================================================= */
+
+function modelLabNumberV23(
+  value
+) {
+
+  if (
+    value === null ||
+    value === undefined
+  ) {
+
+    return 0;
+
+  }
+
+
+  const cleaned =
+    String(value)
+      .replace(
+        '%',
+        ''
+      )
+      .trim();
+
+
+  const n =
+    Number(cleaned);
+
+
+  return Number.isFinite(n)
+    ? n
+    : 0;
+
+}
+
+
+/* =========================================================================
+   RENDER KẾT QUẢ
+   ========================================================================= */
+
+function renderModelLabV23Results(
+  rows,
+  provinceName,
+  giaiKey,
+  windowSize
+) {
+
+  const status =
+    document.getElementById(
+      'modelLabStatusV23'
+    );
+
+
+  const results =
+    document.getElementById(
+      'modelLabResultsV23'
+    );
+
+
+  const bestBox =
+    document.getElementById(
+      'modelLabBestV23'
+    );
+
+
+  if (
+    !status ||
+    !results ||
+    !bestBox
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * compareModelsV23 đã sắp xếp theo
+   * Quality.
+   *
+   * Tuy nhiên sort lại ở UI
+   * để chắc chắn.
+   */
+
+  const sorted =
+    [...rows]
+      .sort(
+        (a, b) =>
+          modelLabNumberV23(
+            b.Quality
+          ) -
+          modelLabNumberV23(
+            a.Quality
+          )
+      );
+
+
+  const best =
+    sorted[0];
+
+
+  const prize =
+    prizeMetaOf(
+      giaiKey
+    );
+
+
+  const prizeLabel =
+    prize
+      ? prize.label
+      : giaiKey.toUpperCase();
+
+
+  status.innerHTML =
+    `
+      ✅ Hoàn tất
+      <b>${provinceName}</b>
+      · ${prizeLabel}
+      · Window ${windowSize} kỳ
+    `;
+
+
+  /*
+   * BEST MODEL
+   */
+
+  bestBox.style.display =
+    'block';
+
+
+  bestBox.innerHTML =
+    `
+      <div
+        style="
+          font-size:14px;
+          font-weight:700;
+          opacity:.8;
+          margin-bottom:5px;
+        "
+      >
+        🏆 MODEL TỐT NHẤT
+      </div>
+
+      <div
+        style="
+          font-size:25px;
+          font-weight:900;
+          color:#ffc447;
+        "
+      >
+        ${best.Model}
+      </div>
+
+      <div
+        style="
+          margin-top:7px;
+          line-height:1.55;
+        "
+      >
+        Quality:
+        <b>${best.Quality}</b>
+
+        · MRR:
+        <b>${best.MRR}</b>
+
+        · Average Rank:
+        <b>${best.AvgRank}</b>
+      </div>
+    `;
+
+
+  /*
+   * CARDS
+   *
+   * Mobile dễ đọc hơn table ngang.
+   */
+
+  results.innerHTML =
+    sorted
+      .map(
+        (row, index) => {
+
+          const medal =
+            index === 0
+              ? '🏆'
+              : index === 1
+                ? '🥈'
+                : index === 2
+                  ? '🥉'
+                  : '📊';
+
+
+          return `
+            <div
+              style="
+                margin-bottom:12px;
+                padding:15px;
+                border-radius:14px;
+                background:rgba(
+                  255,
+                  255,
+                  255,
+                  0.055
+                );
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  justify-content:space-between;
+                  gap:10px;
+                  align-items:center;
+                  margin-bottom:12px;
+                "
+              >
+
+                <div
+                  style="
+                    font-size:18px;
+                    font-weight:900;
+                  "
+                >
+                  ${medal}
+                  ${row.Model}
+                </div>
+
+                <div
+                  style="
+                    color:#ffc447;
+                    font-weight:900;
+                  "
+                >
+                  Q ${row.Quality}
+                </div>
+
+              </div>
+
+
+              <div
+                style="
+                  display:grid;
+                  grid-template-columns:
+                    repeat(3, 1fr);
+                  gap:8px;
+                  text-align:center;
+                "
+              >
+
+                <div
+                  style="
+                    padding:10px 4px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .05
+                    );
+                  "
+                >
+                  <div
+                    style="
+                      font-weight:900;
+                      color:#ffc447;
+                    "
+                  >
+                    ${row.Top1}
+                  </div>
+
+                  <div
+                    class="sub"
+                    style="font-size:12px;"
+                  >
+                    TOP 1
+                  </div>
+                </div>
+
+
+                <div
+                  style="
+                    padding:10px 4px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .05
+                    );
+                  "
+                >
+                  <div
+                    style="
+                      font-weight:900;
+                      color:#ffc447;
+                    "
+                  >
+                    ${
+                      row.Top2 !== undefined
+                        ? row.Top2
+                        : '—'
+                    }
+                  </div>
+
+                  <div
+                    class="sub"
+                    style="font-size:12px;"
+                  >
+                    TOP 2
+                  </div>
+                </div>
+
+
+                <div
+                  style="
+                    padding:10px 4px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .05
+                    );
+                  "
+                >
+                  <div
+                    style="
+                      font-weight:900;
+                      color:#ffc447;
+                    "
+                  >
+                    ${row.Top3}
+                  </div>
+
+                  <div
+                    class="sub"
+                    style="font-size:12px;"
+                  >
+                    TOP 3
+                  </div>
+                </div>
+
+              </div>
+
+
+              <div
+                class="sub"
+                style="
+                  margin-top:11px;
+                  line-height:1.55;
+                "
+              >
+                MRR:
+                <b>${row.MRR}</b>
+
+                · Avg Rank:
+                <b>${row.AvgRank}</b>
+
+                ${
+                  row.Tests !== undefined
+                    ? `· Tests: <b>${row.Tests}</b>`
+                    : ''
+                }
+              </div>
+
+            </div>
+          `;
+
+        }
+      )
+      .join('');
+
+}
+
+
+/* =========================================================================
+   TỰ KHỞI TẠO UI
+
+   init() của app đã chạy khi DOMContentLoaded.
+   Patch V2.3 nằm cuối app.js nên xử lý cả hai trường hợp:
+   - DOM đang loading
+   - DOM đã sẵn sàng
+   ========================================================================= */
+
+function initModelLabV23UI() {
+
+  ensureModelLabV23UI();
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initModelLabV23UI
+  );
+
+} else {
+
+  initModelLabV23UI();
+
+}
+
+
+console.log(
+  'XSMN V2.3 Model Lab Mobile UI Patch loaded'
+);
+
