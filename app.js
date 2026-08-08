@@ -6783,6 +6783,42 @@ async function init() {
 /* =========================================================================
    47. START
    ========================================================================= */
+/* =========================================================================
+   FIX TP.HCM SLUG
+   Database dùng: tphcm
+   App dùng: tp-hcm
+   ========================================================================= */
+
+const _originalLoadSeedData = loadSeedData;
+
+loadSeedData = async function () {
+
+  await _originalLoadSeedData();
+
+  SEED_DRAWS = SEED_DRAWS.map(draw => {
+
+    if (draw.province === 'tphcm') {
+
+      return {
+        ...draw,
+        province: 'tp-hcm'
+      };
+
+    }
+
+    return draw;
+
+  });
+
+  console.log(
+    '✓ TP.HCM slug fixed:',
+    SEED_DRAWS.filter(
+      draw => draw.province === 'tp-hcm'
+    ).length,
+    'draws'
+  );
+
+};
 
 document.addEventListener(
   'DOMContentLoaded',
