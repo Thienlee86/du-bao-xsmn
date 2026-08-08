@@ -1,0 +1,116 @@
+{
+  "generatedAt": "2026-08-08T03:32:12.754Z",
+  "totalProvinces": 21,
+  "latestReady": 21,
+  "predictionsReady": 21,
+  "errorCount": 0,
+  "ready": true,
+  "errors": [],
+  "provinces": {
+    "an-giang": {
+      "provinceName": "An Giang",
+      "latest": true,
+      "prediction": true
+    },
+    "bac-lieu": {
+      "provinceName": "Bạc Liêu",
+      "latest": true,
+      "prediction": true
+    },
+    "ben-tre": {
+      "provinceName": "Bến Tre",
+      "latest": true,
+      "prediction": true
+    },
+    "binh-duong": {
+      "provinceName": "Bình Dương",
+      "latest": true,
+      "prediction": true
+    },
+    "binh-phuoc": {
+      "provinceName": "Bình Phước",
+      "latest": true,
+      "prediction": true
+    },
+    "binh-thuan": {
+      "provinceName": "Bình Thuận",
+      "latest": true,
+      "prediction": true
+    },
+    "ca-mau": {
+      "provinceName": "Cà Mau",
+      "latest": true,
+      "prediction": true
+    },
+    "can-tho": {
+      "provinceName": "Cần Thơ",
+      "latest": true,
+      "prediction": true
+    },
+    "da-lat": {
+      "provinceName": "Đà Lạt",
+      "latest": true,
+      "prediction": true
+    },
+    "dong-nai": {
+      "provinceName": "Đồng Nai",
+      "latest": true,
+      "prediction": true
+    },
+    "dong-thap": {
+      "provinceName": "Đồng Tháp",
+      "latest": true,
+      "prediction": true
+    },
+    "hau-giang": {
+      "provinceName": "Hậu Giang",
+      "latest": true,
+      "prediction": true
+    },
+    "kien-giang": {
+      "provinceName": "Kiên Giang",
+      "latest": true,
+      "prediction": true
+    },
+    "long-an": {
+      "provinceName": "Long An",
+      "latest": true,
+      "prediction": true
+    },
+    "soc-trang": {
+      "provinceName": "Sóc Trăng",
+      "latest": true,
+      "prediction": true
+    },
+    "tay-ninh": {
+      "provinceName": "Tây Ninh",
+      "latest": true,
+      "prediction": true
+    },
+    "tien-giang": {
+      "provinceName": "Tiền Giang",
+      "latest": true,
+      "prediction": true
+    },
+    "tphcm": {
+      "provinceName": "TP.HCM",
+      "latest": true,
+      "prediction": true
+    },
+    "tra-vinh": {
+      "provinceName": "Trà Vinh",
+      "latest": true,
+      "prediction": true
+    },
+    "vinh-long": {
+      "provinceName": "Vĩnh Long",
+      "latest": true,
+      "prediction": true
+    },
+    "vung-tau": {
+      "provinceName": "Vũng Tàu",
+      "latest": true,
+      "prediction": true
+    }
+  }
+}
