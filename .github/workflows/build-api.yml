@@ -3,11 +3,21 @@ name: Build XSMN API
 on:
   workflow_dispatch:
 
+  workflow_run:
+    workflows:
+      - Build XSMN Predictions
+    types:
+      - completed
+
 permissions:
   contents: write
 
 jobs:
   build-api:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+   
     runs-on: ubuntu-latest
 
     steps:
