@@ -1,0 +1,5171 @@
+{
+  "generatedAt": "2026-08-08T02:46:02.885Z",
+  "sourceStatsGeneratedAt": "2026-08-08T01:35:02.295Z",
+  "model": {
+    "version": "XSMN-PRED-V1",
+    "specialPrizeDigits": 6,
+    "scoreType": "ranking-score",
+    "scoreIsProbability": false,
+    "topPredictions": 10,
+    "topLast2": 10,
+    "candidateDigitsPerPosition": 4
+  },
+  "database": {
+    "draws": 2100,
+    "provinces": 21
+  },
+  "status": {
+    "success": 21,
+    "failed": 0,
+    "total": 21,
+    "predictionReady": true,
+    "failures": []
+  },
+  "provinces": {
+    "an-giang": {
+      "province": "an-giang",
+      "provinceName": "An Giang",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-06",
+      "latestSpecialPrize": "245836",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "577313",
+            "score": 82.78
+          },
+          {
+            "number": "577213",
+            "score": 81.78
+          },
+          {
+            "number": "877313",
+            "score": 81.75
+          },
+          {
+            "number": "572313",
+            "score": 81.29
+          },
+          {
+            "number": "872313",
+            "score": 80.8
+          },
+          {
+            "number": "877213",
+            "score": 80.8
+          },
+          {
+            "number": "577413",
+            "score": 80.76
+          },
+          {
+            "number": "577303",
+            "score": 80.37
+          },
+          {
+            "number": "577317",
+            "score": 80.35
+          },
+          {
+            "number": "572213",
+            "score": 80.34
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "13",
+            "score": 83.75
+          },
+          {
+            "number": "17",
+            "score": 78.75
+          },
+          {
+            "number": "03",
+            "score": 77.13
+          },
+          {
+            "number": "19",
+            "score": 77
+          },
+          {
+            "number": "12",
+            "score": 73.63
+          },
+          {
+            "number": "07",
+            "score": 72.13
+          },
+          {
+            "number": "83",
+            "score": 72.13
+          },
+          {
+            "number": "09",
+            "score": 70.38
+          },
+          {
+            "number": "93",
+            "score": 70.38
+          },
+          {
+            "number": "11",
+            "score": 70.25
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 77.25
+              },
+              {
+                "digit": "8",
+                "score": 73.75
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "2",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 93.5
+              },
+              {
+                "digit": "2",
+                "score": 73.75
+              },
+              {
+                "digit": "5",
+                "score": 70.25
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 80.5
+              },
+              {
+                "digit": "2",
+                "score": 73.75
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 83.75
+              },
+              {
+                "digit": "2",
+                "score": 77
+              },
+              {
+                "digit": "4",
+                "score": 73.5
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 87
+              },
+              {
+                "digit": "0",
+                "score": 73.75
+              },
+              {
+                "digit": "8",
+                "score": 63.75
+              },
+              {
+                "digit": "9",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 80.5
+              },
+              {
+                "digit": "7",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "2",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "bac-lieu": {
+      "province": "bac-lieu",
+      "provinceName": "Bạc Liêu",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-04",
+      "latestSpecialPrize": "268193",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "087090",
+            "score": 83.24
+          },
+          {
+            "number": "387090",
+            "score": 82.7
+          },
+          {
+            "number": "087092",
+            "score": 82.21
+          },
+          {
+            "number": "089090",
+            "score": 81.75
+          },
+          {
+            "number": "387092",
+            "score": 81.72
+          },
+          {
+            "number": "089092",
+            "score": 81.26
+          },
+          {
+            "number": "389090",
+            "score": 81.26
+          },
+          {
+            "number": "087096",
+            "score": 81.19
+          },
+          {
+            "number": "087190",
+            "score": 80.83
+          },
+          {
+            "number": "389092",
+            "score": 80.76
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "90",
+            "score": 82.13
+          },
+          {
+            "number": "92",
+            "score": 80.38
+          },
+          {
+            "number": "96",
+            "score": 78.63
+          },
+          {
+            "number": "98",
+            "score": 75.25
+          },
+          {
+            "number": "00",
+            "score": 73.88
+          },
+          {
+            "number": "02",
+            "score": 72.13
+          },
+          {
+            "number": "60",
+            "score": 72.13
+          },
+          {
+            "number": "06",
+            "score": 70.38
+          },
+          {
+            "number": "62",
+            "score": 70.38
+          },
+          {
+            "number": "97",
+            "score": 70.25
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 80.5
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "2",
+                "score": 70.25
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 93.5
+              },
+              {
+                "digit": "6",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 80.5
+              },
+              {
+                "digit": "9",
+                "score": 73.75
+              },
+              {
+                "digit": "5",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "1",
+                "score": 73.75
+              },
+              {
+                "digit": "4",
+                "score": 67
+              },
+              {
+                "digit": "5",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 87
+              },
+              {
+                "digit": "0",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "5",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 77.25
+              },
+              {
+                "digit": "2",
+                "score": 73.75
+              },
+              {
+                "digit": "6",
+                "score": 70.25
+              },
+              {
+                "digit": "8",
+                "score": 63.5
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "ben-tre": {
+      "province": "ben-tre",
+      "provinceName": "Bến Tre",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-04",
+      "latestSpecialPrize": "814620",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "950566",
+            "score": 84.62
+          },
+          {
+            "number": "950560",
+            "score": 83.66
+          },
+          {
+            "number": "950506",
+            "score": 83.14
+          },
+          {
+            "number": "951566",
+            "score": 82.74
+          },
+          {
+            "number": "950366",
+            "score": 82.67
+          },
+          {
+            "number": "150566",
+            "score": 82.65
+          },
+          {
+            "number": "930566",
+            "score": 82.21
+          },
+          {
+            "number": "950500",
+            "score": 82.18
+          },
+          {
+            "number": "950526",
+            "score": 82.11
+          },
+          {
+            "number": "951560",
+            "score": 81.78
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "66",
+            "score": 85.38
+          },
+          {
+            "number": "06",
+            "score": 82
+          },
+          {
+            "number": "60",
+            "score": 82
+          },
+          {
+            "number": "26",
+            "score": 80.25
+          },
+          {
+            "number": "00",
+            "score": 78.63
+          },
+          {
+            "number": "20",
+            "score": 76.88
+          },
+          {
+            "number": "76",
+            "score": 76.88
+          },
+          {
+            "number": "61",
+            "score": 75.38
+          },
+          {
+            "number": "16",
+            "score": 73.5
+          },
+          {
+            "number": "70",
+            "score": 73.5
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 96.75
+              },
+              {
+                "digit": "1",
+                "score": 83.5
+              },
+              {
+                "digit": "8",
+                "score": 76.75
+              },
+              {
+                "digit": "9",
+                "score": 57
+              },
+              {
+                "digit": "4",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 83.75
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "4",
+                "score": 70.25
+              },
+              {
+                "digit": "6",
+                "score": 66.75
+              },
+              {
+                "digit": "9",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 80.5
+              },
+              {
+                "digit": "0",
+                "score": 73.75
+              },
+              {
+                "digit": "2",
+                "score": 70.25
+              },
+              {
+                "digit": "7",
+                "score": 63.5
+              },
+              {
+                "digit": "1",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 90.25
+              },
+              {
+                "digit": "0",
+                "score": 83.5
+              },
+              {
+                "digit": "1",
+                "score": 70.25
+              },
+              {
+                "digit": "9",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "binh-duong": {
+      "province": "binh-duong",
+      "provinceName": "Bình Dương",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-07",
+      "latestSpecialPrize": "276274",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "240982",
+            "score": 86
+          },
+          {
+            "number": "240482",
+            "score": 84.06
+          },
+          {
+            "number": "240912",
+            "score": 84.03
+          },
+          {
+            "number": "260982",
+            "score": 83.2
+          },
+          {
+            "number": "242982",
+            "score": 83.08
+          },
+          {
+            "number": "240932",
+            "score": 83.01
+          },
+          {
+            "number": "240412",
+            "score": 82.61
+          },
+          {
+            "number": "242912",
+            "score": 82.13
+          },
+          {
+            "number": "240282",
+            "score": 82.09
+          },
+          {
+            "number": "243982",
+            "score": 82.06
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "82",
+            "score": 87
+          },
+          {
+            "number": "12",
+            "score": 83.63
+          },
+          {
+            "number": "32",
+            "score": 81.88
+          },
+          {
+            "number": "62",
+            "score": 78.5
+          },
+          {
+            "number": "42",
+            "score": 75.13
+          },
+          {
+            "number": "80",
+            "score": 73.88
+          },
+          {
+            "number": "52",
+            "score": 73.38
+          },
+          {
+            "number": "72",
+            "score": 71.63
+          },
+          {
+            "number": "10",
+            "score": 70.5
+          },
+          {
+            "number": "84",
+            "score": 70.5
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 90.25
+              },
+              {
+                "digit": "0",
+                "score": 67.25
+              },
+              {
+                "digit": "3",
+                "score": 63.75
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 100
+              },
+              {
+                "digit": "6",
+                "score": 80.25
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "9",
+                "score": 57
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 77.25
+              },
+              {
+                "digit": "2",
+                "score": 67.25
+              },
+              {
+                "digit": "3",
+                "score": 63.75
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "6",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 83.75
+              },
+              {
+                "digit": "4",
+                "score": 73.75
+              },
+              {
+                "digit": "2",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 96.75
+              },
+              {
+                "digit": "0",
+                "score": 70.5
+              },
+              {
+                "digit": "4",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "binh-phuoc": {
+      "province": "binh-phuoc",
+      "provinceName": "Bình Phước",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-01",
+      "latestSpecialPrize": "876950",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "300632",
+            "score": 84.18
+          },
+          {
+            "number": "350632",
+            "score": 83.65
+          },
+          {
+            "number": "302632",
+            "score": 82.24
+          },
+          {
+            "number": "300532",
+            "score": 82.21
+          },
+          {
+            "number": "400632",
+            "score": 82.21
+          },
+          {
+            "number": "352632",
+            "score": 81.75
+          },
+          {
+            "number": "350532",
+            "score": 81.72
+          },
+          {
+            "number": "450632",
+            "score": 81.72
+          },
+          {
+            "number": "300639",
+            "score": 81.32
+          },
+          {
+            "number": "400532",
+            "score": 81.26
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "32",
+            "score": 88.63
+          },
+          {
+            "number": "12",
+            "score": 82
+          },
+          {
+            "number": "39",
+            "score": 80.38
+          },
+          {
+            "number": "22",
+            "score": 80.25
+          },
+          {
+            "number": "62",
+            "score": 78.5
+          },
+          {
+            "number": "37",
+            "score": 77
+          },
+          {
+            "number": "52",
+            "score": 75.13
+          },
+          {
+            "number": "19",
+            "score": 73.75
+          },
+          {
+            "number": "82",
+            "score": 73.38
+          },
+          {
+            "number": "29",
+            "score": 72
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 80.5
+              },
+              {
+                "digit": "4",
+                "score": 73.75
+              },
+              {
+                "digit": "6",
+                "score": 70.25
+              },
+              {
+                "digit": "7",
+                "score": 66.75
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 83.75
+              },
+              {
+                "digit": "5",
+                "score": 80.25
+              },
+              {
+                "digit": "7",
+                "score": 63.75
+              },
+              {
+                "digit": "2",
+                "score": 57
+              },
+              {
+                "digit": "8",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "2",
+                "score": 77
+              },
+              {
+                "digit": "4",
+                "score": 63.75
+              },
+              {
+                "digit": "6",
+                "score": 57
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 80.5
+              },
+              {
+                "digit": "5",
+                "score": 73.75
+              },
+              {
+                "digit": "4",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 57
+              },
+              {
+                "digit": "8",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 83.75
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "2",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 93.5
+              },
+              {
+                "digit": "9",
+                "score": 77
+              },
+              {
+                "digit": "7",
+                "score": 70.25
+              },
+              {
+                "digit": "6",
+                "score": 57
+              },
+              {
+                "digit": "0",
+                "score": 47
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "binh-thuan": {
+      "province": "binh-thuan",
+      "provinceName": "Bình Thuận",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-06",
+      "latestSpecialPrize": "457729",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "256105",
+            "score": 79.06
+          },
+          {
+            "number": "356105",
+            "score": 78.53
+          },
+          {
+            "number": "252105",
+            "score": 78.11
+          },
+          {
+            "number": "216105",
+            "score": 78.07
+          },
+          {
+            "number": "256305",
+            "score": 78.04
+          },
+          {
+            "number": "316105",
+            "score": 77.58
+          },
+          {
+            "number": "352105",
+            "score": 77.58
+          },
+          {
+            "number": "356305",
+            "score": 77.55
+          },
+          {
+            "number": "756105",
+            "score": 77.51
+          },
+          {
+            "number": "256102",
+            "score": 77.12
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "05",
+            "score": 80.5
+          },
+          {
+            "number": "02",
+            "score": 75.5
+          },
+          {
+            "number": "35",
+            "score": 73.88
+          },
+          {
+            "number": "08",
+            "score": 72.13
+          },
+          {
+            "number": "55",
+            "score": 72.13
+          },
+          {
+            "number": "09",
+            "score": 70.38
+          },
+          {
+            "number": "32",
+            "score": 68.88
+          },
+          {
+            "number": "15",
+            "score": 68.75
+          },
+          {
+            "number": "52",
+            "score": 67.12
+          },
+          {
+            "number": "04",
+            "score": 67
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 77.25
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "7",
+                "score": 70.25
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "6",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "1",
+                "score": 73.75
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 87
+              },
+              {
+                "digit": "2",
+                "score": 80.25
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 53.75
+              },
+              {
+                "digit": "8",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 74
+              },
+              {
+                "digit": "3",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "2",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 80.5
+              },
+              {
+                "digit": "3",
+                "score": 67.25
+              },
+              {
+                "digit": "5",
+                "score": 63.75
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "6",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "2",
+                "score": 70.5
+              },
+              {
+                "digit": "8",
+                "score": 63.75
+              },
+              {
+                "digit": "9",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "ca-mau": {
+      "province": "ca-mau",
+      "provinceName": "Cà Mau",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-03",
+      "latestSpecialPrize": "427004",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "837207",
+            "score": 85.54
+          },
+          {
+            "number": "737207",
+            "score": 84.58
+          },
+          {
+            "number": "831207",
+            "score": 84.54
+          },
+          {
+            "number": "837307",
+            "score": 84.08
+          },
+          {
+            "number": "837203",
+            "score": 83.62
+          },
+          {
+            "number": "731207",
+            "score": 83.59
+          },
+          {
+            "number": "837227",
+            "score": 83.57
+          },
+          {
+            "number": "737307",
+            "score": 83.13
+          },
+          {
+            "number": "831307",
+            "score": 83.13
+          },
+          {
+            "number": "837907",
+            "score": 83.06
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "07",
+            "score": 83.75
+          },
+          {
+            "number": "27",
+            "score": 80.38
+          },
+          {
+            "number": "37",
+            "score": 78.63
+          },
+          {
+            "number": "03",
+            "score": 77.13
+          },
+          {
+            "number": "17",
+            "score": 75.25
+          },
+          {
+            "number": "23",
+            "score": 73.75
+          },
+          {
+            "number": "33",
+            "score": 72
+          },
+          {
+            "number": "57",
+            "score": 71.88
+          },
+          {
+            "number": "05",
+            "score": 70.5
+          },
+          {
+            "number": "87",
+            "score": 70.13
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 90.25
+              },
+              {
+                "digit": "7",
+                "score": 83.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "2",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 93.5
+              },
+              {
+                "digit": "0",
+                "score": 67.25
+              },
+              {
+                "digit": "5",
+                "score": 63.75
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 83.75
+              },
+              {
+                "digit": "1",
+                "score": 77
+              },
+              {
+                "digit": "6",
+                "score": 70.25
+              },
+              {
+                "digit": "2",
+                "score": 63.5
+              },
+              {
+                "digit": "8",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "9",
+                "score": 73.5
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 77.25
+              },
+              {
+                "digit": "2",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 90.25
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "5",
+                "score": 63.75
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "can-tho": {
+      "province": "can-tho",
+      "provinceName": "Cần Thơ",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-05",
+      "latestSpecialPrize": "685468",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "783941",
+            "score": 84.62
+          },
+          {
+            "number": "787941",
+            "score": 84.12
+          },
+          {
+            "number": "783961",
+            "score": 84.08
+          },
+          {
+            "number": "787961",
+            "score": 83.59
+          },
+          {
+            "number": "283941",
+            "score": 82.74
+          },
+          {
+            "number": "783947",
+            "score": 82.65
+          },
+          {
+            "number": "287941",
+            "score": 82.24
+          },
+          {
+            "number": "283961",
+            "score": 82.21
+          },
+          {
+            "number": "783967",
+            "score": 82.15
+          },
+          {
+            "number": "787947",
+            "score": 82.15
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "41",
+            "score": 78.88
+          },
+          {
+            "number": "61",
+            "score": 77.13
+          },
+          {
+            "number": "47",
+            "score": 75.5
+          },
+          {
+            "number": "67",
+            "score": 73.75
+          },
+          {
+            "number": "43",
+            "score": 72.13
+          },
+          {
+            "number": "11",
+            "score": 70.5
+          },
+          {
+            "number": "48",
+            "score": 70.38
+          },
+          {
+            "number": "63",
+            "score": 70.38
+          },
+          {
+            "number": "31",
+            "score": 68.75
+          },
+          {
+            "number": "68",
+            "score": 68.63
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 96.75
+              },
+              {
+                "digit": "2",
+                "score": 83.5
+              },
+              {
+                "digit": "6",
+                "score": 76.75
+              },
+              {
+                "digit": "4",
+                "score": 57
+              },
+              {
+                "digit": "0",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 87
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 87
+              },
+              {
+                "digit": "7",
+                "score": 83.5
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 70.5
+              },
+              {
+                "digit": "4",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 57
+              },
+              {
+                "digit": "2",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 80.5
+              },
+              {
+                "digit": "6",
+                "score": 77
+              },
+              {
+                "digit": "1",
+                "score": 63.75
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "0",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 77.25
+              },
+              {
+                "digit": "7",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 63.75
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "da-lat": {
+      "province": "da-lat",
+      "provinceName": "Đà Lạt",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-02",
+      "latestSpecialPrize": "681870",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "652030",
+            "score": 84.64
+          },
+          {
+            "number": "652031",
+            "score": 84.11
+          },
+          {
+            "number": "652530",
+            "score": 83.62
+          },
+          {
+            "number": "652531",
+            "score": 83.13
+          },
+          {
+            "number": "658030",
+            "score": 82.21
+          },
+          {
+            "number": "682030",
+            "score": 81.75
+          },
+          {
+            "number": "658031",
+            "score": 81.72
+          },
+          {
+            "number": "658530",
+            "score": 81.72
+          },
+          {
+            "number": "652830",
+            "score": 81.65
+          },
+          {
+            "number": "352030",
+            "score": 81.29
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "30",
+            "score": 85.38
+          },
+          {
+            "number": "31",
+            "score": 83.63
+          },
+          {
+            "number": "37",
+            "score": 78.63
+          },
+          {
+            "number": "20",
+            "score": 77.13
+          },
+          {
+            "number": "50",
+            "score": 75.38
+          },
+          {
+            "number": "21",
+            "score": 75.37
+          },
+          {
+            "number": "34",
+            "score": 73.63
+          },
+          {
+            "number": "51",
+            "score": 73.63
+          },
+          {
+            "number": "70",
+            "score": 73.63
+          },
+          {
+            "number": "71",
+            "score": 71.88
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 90.25
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 63.75
+              },
+              {
+                "digit": "5",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 87
+              },
+              {
+                "digit": "8",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 83.75
+              },
+              {
+                "digit": "8",
+                "score": 73.75
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 80.5
+              },
+              {
+                "digit": "5",
+                "score": 77
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 87
+              },
+              {
+                "digit": "2",
+                "score": 70.5
+              },
+              {
+                "digit": "5",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 83.75
+              },
+              {
+                "digit": "1",
+                "score": 80.25
+              },
+              {
+                "digit": "7",
+                "score": 70.25
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "2",
+                "score": 47
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "dong-nai": {
+      "province": "dong-nai",
+      "provinceName": "Đồng Nai",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-05",
+      "latestSpecialPrize": "658328",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "041881",
+            "score": 83.24
+          },
+          {
+            "number": "071881",
+            "score": 82.7
+          },
+          {
+            "number": "040881",
+            "score": 82.24
+          },
+          {
+            "number": "070881",
+            "score": 81.75
+          },
+          {
+            "number": "641881",
+            "score": 81.36
+          },
+          {
+            "number": "041181",
+            "score": 81.27
+          },
+          {
+            "number": "041861",
+            "score": 81.27
+          },
+          {
+            "number": "671881",
+            "score": 80.82
+          },
+          {
+            "number": "071181",
+            "score": 80.77
+          },
+          {
+            "number": "071861",
+            "score": 80.77
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "81",
+            "score": 85.38
+          },
+          {
+            "number": "61",
+            "score": 82
+          },
+          {
+            "number": "71",
+            "score": 80.25
+          },
+          {
+            "number": "01",
+            "score": 76.88
+          },
+          {
+            "number": "21",
+            "score": 75.13
+          },
+          {
+            "number": "86",
+            "score": 73.88
+          },
+          {
+            "number": "11",
+            "score": 71.75
+          },
+          {
+            "number": "66",
+            "score": 70.5
+          },
+          {
+            "number": "84",
+            "score": 70.5
+          },
+          {
+            "number": "76",
+            "score": 68.75
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 93.5
+              },
+              {
+                "digit": "6",
+                "score": 80.25
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "2",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 80.5
+              },
+              {
+                "digit": "7",
+                "score": 77
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "2",
+                "score": 63.5
+              },
+              {
+                "digit": "9",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 83.75
+              },
+              {
+                "digit": "0",
+                "score": 77
+              },
+              {
+                "digit": "9",
+                "score": 70.25
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "8",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 77.25
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "7",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "2",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 93.5
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "4",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "dong-thap": {
+      "province": "dong-thap",
+      "provinceName": "Đồng Tháp",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-03",
+      "latestSpecialPrize": "409865",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "507512",
+            "score": 80.47
+          },
+          {
+            "number": "707512",
+            "score": 79.94
+          },
+          {
+            "number": "507518",
+            "score": 79.45
+          },
+          {
+            "number": "707518",
+            "score": 78.96
+          },
+          {
+            "number": "507502",
+            "score": 78.5
+          },
+          {
+            "number": "501512",
+            "score": 78.04
+          },
+          {
+            "number": "507212",
+            "score": 78.04
+          },
+          {
+            "number": "507508",
+            "score": 78.01
+          },
+          {
+            "number": "707502",
+            "score": 78.01
+          },
+          {
+            "number": "501518",
+            "score": 77.55
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "12",
+            "score": 77.25
+          },
+          {
+            "number": "18",
+            "score": 75.5
+          },
+          {
+            "number": "02",
+            "score": 73.88
+          },
+          {
+            "number": "08",
+            "score": 72.13
+          },
+          {
+            "number": "15",
+            "score": 72.13
+          },
+          {
+            "number": "62",
+            "score": 72.13
+          },
+          {
+            "number": "68",
+            "score": 70.38
+          },
+          {
+            "number": "82",
+            "score": 70.38
+          },
+          {
+            "number": "05",
+            "score": 68.75
+          },
+          {
+            "number": "11",
+            "score": 68.75
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "7",
+                "score": 77
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 90.25
+              },
+              {
+                "digit": "5",
+                "score": 70.5
+              },
+              {
+                "digit": "1",
+                "score": 63.75
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "6",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 80.5
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "2",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "2",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 77.25
+              },
+              {
+                "digit": "0",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "8",
+                "score": 63.5
+              },
+              {
+                "digit": "9",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 77.25
+              },
+              {
+                "digit": "8",
+                "score": 73.75
+              },
+              {
+                "digit": "5",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "hau-giang": {
+      "province": "hau-giang",
+      "provinceName": "Hậu Giang",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-01",
+      "latestSpecialPrize": "678539",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "793536",
+            "score": 81.39
+          },
+          {
+            "number": "793537",
+            "score": 80.9
+          },
+          {
+            "number": "793596",
+            "score": 80.9
+          },
+          {
+            "number": "795536",
+            "score": 80.86
+          },
+          {
+            "number": "993536",
+            "score": 80.44
+          },
+          {
+            "number": "793597",
+            "score": 80.4
+          },
+          {
+            "number": "795537",
+            "score": 80.36
+          },
+          {
+            "number": "795596",
+            "score": 80.36
+          },
+          {
+            "number": "993537",
+            "score": 79.94
+          },
+          {
+            "number": "993596",
+            "score": 79.94
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "36",
+            "score": 83.75
+          },
+          {
+            "number": "37",
+            "score": 82
+          },
+          {
+            "number": "96",
+            "score": 82
+          },
+          {
+            "number": "97",
+            "score": 80.25
+          },
+          {
+            "number": "06",
+            "score": 73.75
+          },
+          {
+            "number": "32",
+            "score": 72.13
+          },
+          {
+            "number": "07",
+            "score": 72
+          },
+          {
+            "number": "86",
+            "score": 72
+          },
+          {
+            "number": "35",
+            "score": 70.38
+          },
+          {
+            "number": "92",
+            "score": 70.38
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 87
+              },
+              {
+                "digit": "9",
+                "score": 80.25
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 77.25
+              },
+              {
+                "digit": "4",
+                "score": 70.5
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "6",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 80.5
+              },
+              {
+                "digit": "5",
+                "score": 77
+              },
+              {
+                "digit": "9",
+                "score": 73.5
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "8",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "0",
+                "score": 67
+              },
+              {
+                "digit": "8",
+                "score": 63.5
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 83.75
+              },
+              {
+                "digit": "9",
+                "score": 80.25
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 83.75
+              },
+              {
+                "digit": "7",
+                "score": 80.25
+              },
+              {
+                "digit": "2",
+                "score": 60.5
+              },
+              {
+                "digit": "5",
+                "score": 57
+              },
+              {
+                "digit": "8",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "kien-giang": {
+      "province": "kien-giang",
+      "provinceName": "Kiên Giang",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-02",
+      "latestSpecialPrize": "853883",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "450785",
+            "score": 82.75
+          },
+          {
+            "number": "050785",
+            "score": 81.75
+          },
+          {
+            "number": "450786",
+            "score": 81.73
+          },
+          {
+            "number": "450285",
+            "score": 81.27
+          },
+          {
+            "number": "050786",
+            "score": 80.77
+          },
+          {
+            "number": "450286",
+            "score": 80.77
+          },
+          {
+            "number": "350785",
+            "score": 80.73
+          },
+          {
+            "number": "450788",
+            "score": 80.71
+          },
+          {
+            "number": "452785",
+            "score": 80.41
+          },
+          {
+            "number": "450765",
+            "score": 80.37
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "85",
+            "score": 82.13
+          },
+          {
+            "number": "86",
+            "score": 80.38
+          },
+          {
+            "number": "88",
+            "score": 78.63
+          },
+          {
+            "number": "83",
+            "score": 75.25
+          },
+          {
+            "number": "65",
+            "score": 73.88
+          },
+          {
+            "number": "66",
+            "score": 72.13
+          },
+          {
+            "number": "84",
+            "score": 71.88
+          },
+          {
+            "number": "15",
+            "score": 70.5
+          },
+          {
+            "number": "68",
+            "score": 70.38
+          },
+          {
+            "number": "89",
+            "score": 70.13
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 80.5
+              },
+              {
+                "digit": "0",
+                "score": 73.75
+              },
+              {
+                "digit": "3",
+                "score": 70.25
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 87
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 96.75
+              },
+              {
+                "digit": "2",
+                "score": 80.25
+              },
+              {
+                "digit": "7",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 57
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 77.25
+              },
+              {
+                "digit": "2",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "6",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 90.25
+              },
+              {
+                "digit": "6",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "2",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 74
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "long-an": {
+      "province": "long-an",
+      "provinceName": "Long An",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-01",
+      "latestSpecialPrize": "177081",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "282402",
+            "score": 80.45
+          },
+          {
+            "number": "382402",
+            "score": 79.49
+          },
+          {
+            "number": "282702",
+            "score": 79.43
+          },
+          {
+            "number": "287402",
+            "score": 79.42
+          },
+          {
+            "number": "287702",
+            "score": 78.93
+          },
+          {
+            "number": "212402",
+            "score": 78.53
+          },
+          {
+            "number": "282412",
+            "score": 78.5
+          },
+          {
+            "number": "382702",
+            "score": 78.47
+          },
+          {
+            "number": "387402",
+            "score": 78.47
+          },
+          {
+            "number": "182402",
+            "score": 78.46
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "02",
+            "score": 83.75
+          },
+          {
+            "number": "12",
+            "score": 78.75
+          },
+          {
+            "number": "07",
+            "score": 75.5
+          },
+          {
+            "number": "32",
+            "score": 75.37
+          },
+          {
+            "number": "52",
+            "score": 73.63
+          },
+          {
+            "number": "00",
+            "score": 72.13
+          },
+          {
+            "number": "72",
+            "score": 71.88
+          },
+          {
+            "number": "17",
+            "score": 70.5
+          },
+          {
+            "number": "01",
+            "score": 70.38
+          },
+          {
+            "number": "82",
+            "score": 70.13
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 80.25
+              },
+              {
+                "digit": "1",
+                "score": 73.5
+              },
+              {
+                "digit": "0",
+                "score": 66.75
+              },
+              {
+                "digit": "7",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 87
+              },
+              {
+                "digit": "1",
+                "score": 73.75
+              },
+              {
+                "digit": "4",
+                "score": 70.25
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 74
+              },
+              {
+                "digit": "7",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 63.75
+              },
+              {
+                "digit": "9",
+                "score": 60.25
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 74
+              },
+              {
+                "digit": "7",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "3",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 80.5
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 63.75
+              },
+              {
+                "digit": "5",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 87
+              },
+              {
+                "digit": "7",
+                "score": 70.5
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "soc-trang": {
+      "province": "soc-trang",
+      "provinceName": "Sóc Trăng",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-05",
+      "latestSpecialPrize": "577545",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "373199",
+            "score": 83.21
+          },
+          {
+            "number": "273199",
+            "score": 82.25
+          },
+          {
+            "number": "333199",
+            "score": 81.79
+          },
+          {
+            "number": "373191",
+            "score": 81.75
+          },
+          {
+            "number": "377199",
+            "score": 81.33
+          },
+          {
+            "number": "373299",
+            "score": 81.24
+          },
+          {
+            "number": "233199",
+            "score": 80.84
+          },
+          {
+            "number": "273191",
+            "score": 80.8
+          },
+          {
+            "number": "073199",
+            "score": 80.73
+          },
+          {
+            "number": "277199",
+            "score": 80.38
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "99",
+            "score": 85.38
+          },
+          {
+            "number": "91",
+            "score": 80.38
+          },
+          {
+            "number": "09",
+            "score": 77.13
+          },
+          {
+            "number": "95",
+            "score": 77
+          },
+          {
+            "number": "69",
+            "score": 73.75
+          },
+          {
+            "number": "93",
+            "score": 73.63
+          },
+          {
+            "number": "01",
+            "score": 72.13
+          },
+          {
+            "number": "19",
+            "score": 70.38
+          },
+          {
+            "number": "90",
+            "score": 70.25
+          },
+          {
+            "number": "05",
+            "score": 68.75
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 83.75
+              },
+              {
+                "digit": "2",
+                "score": 77
+              },
+              {
+                "digit": "0",
+                "score": 70.25
+              },
+              {
+                "digit": "5",
+                "score": 66.75
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 93.5
+              },
+              {
+                "digit": "7",
+                "score": 80.25
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "1",
+                "score": 53.75
+              },
+              {
+                "digit": "2",
+                "score": 47
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 74
+              },
+              {
+                "digit": "2",
+                "score": 67.25
+              },
+              {
+                "digit": "5",
+                "score": 63.75
+              },
+              {
+                "digit": "0",
+                "score": 57
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 87
+              },
+              {
+                "digit": "0",
+                "score": 70.5
+              },
+              {
+                "digit": "6",
+                "score": 63.75
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 83.75
+              },
+              {
+                "digit": "1",
+                "score": 73.75
+              },
+              {
+                "digit": "5",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "tay-ninh": {
+      "province": "tay-ninh",
+      "provinceName": "Tây Ninh",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-06",
+      "latestSpecialPrize": "241657",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "095051",
+            "score": 82.78
+          },
+          {
+            "number": "295051",
+            "score": 81.36
+          },
+          {
+            "number": "055051",
+            "score": 80.81
+          },
+          {
+            "number": "095054",
+            "score": 80.81
+          },
+          {
+            "number": "091051",
+            "score": 80.35
+          },
+          {
+            "number": "095151",
+            "score": 79.89
+          },
+          {
+            "number": "055054",
+            "score": 79.85
+          },
+          {
+            "number": "075051",
+            "score": 79.79
+          },
+          {
+            "number": "051051",
+            "score": 79.39
+          },
+          {
+            "number": "091054",
+            "score": 79.39
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "51",
+            "score": 85.38
+          },
+          {
+            "number": "54",
+            "score": 82
+          },
+          {
+            "number": "50",
+            "score": 78.63
+          },
+          {
+            "number": "57",
+            "score": 76.88
+          },
+          {
+            "number": "52",
+            "score": 73.5
+          },
+          {
+            "number": "11",
+            "score": 72.25
+          },
+          {
+            "number": "53",
+            "score": 71.75
+          },
+          {
+            "number": "61",
+            "score": 70.5
+          },
+          {
+            "number": "14",
+            "score": 68.88
+          },
+          {
+            "number": "81",
+            "score": 68.75
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 90.25
+              },
+              {
+                "digit": "2",
+                "score": 80.25
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 63.5
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 77.25
+              },
+              {
+                "digit": "5",
+                "score": 70.5
+              },
+              {
+                "digit": "7",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 80.5
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "2",
+                "score": 63.75
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 83.75
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "4",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 93.5
+              },
+              {
+                "digit": "1",
+                "score": 67.25
+              },
+              {
+                "digit": "6",
+                "score": 63.75
+              },
+              {
+                "digit": "8",
+                "score": 60.25
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 77.25
+              },
+              {
+                "digit": "4",
+                "score": 70.5
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "2",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "tien-giang": {
+      "province": "tien-giang",
+      "provinceName": "Tiền Giang",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-02",
+      "latestSpecialPrize": "361087",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "068380",
+            "score": 80.93
+          },
+          {
+            "number": "068350",
+            "score": 79.94
+          },
+          {
+            "number": "068382",
+            "score": 79.48
+          },
+          {
+            "number": "018380",
+            "score": 78.96
+          },
+          {
+            "number": "061380",
+            "score": 78.96
+          },
+          {
+            "number": "068980",
+            "score": 78.96
+          },
+          {
+            "number": "368380",
+            "score": 78.53
+          },
+          {
+            "number": "068352",
+            "score": 78.52
+          },
+          {
+            "number": "011380",
+            "score": 78.01
+          },
+          {
+            "number": "018350",
+            "score": 78.01
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "80",
+            "score": 85.38
+          },
+          {
+            "number": "50",
+            "score": 82
+          },
+          {
+            "number": "82",
+            "score": 80.38
+          },
+          {
+            "number": "52",
+            "score": 77
+          },
+          {
+            "number": "84",
+            "score": 77
+          },
+          {
+            "number": "20",
+            "score": 75.37
+          },
+          {
+            "number": "54",
+            "score": 73.63
+          },
+          {
+            "number": "70",
+            "score": 73.63
+          },
+          {
+            "number": "22",
+            "score": 70.38
+          },
+          {
+            "number": "81",
+            "score": 70.38
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 63.75
+              },
+              {
+                "digit": "5",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "2",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "5",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 57
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 77.25
+              },
+              {
+                "digit": "9",
+                "score": 70.5
+              },
+              {
+                "digit": "0",
+                "score": 63.75
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 83.75
+              },
+              {
+                "digit": "5",
+                "score": 77
+              },
+              {
+                "digit": "2",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "0",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "2",
+                "score": 77
+              },
+              {
+                "digit": "4",
+                "score": 70.25
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "6",
+                "score": 50.25
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "tphcm": {
+      "province": "tphcm",
+      "provinceName": "TP.HCM",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-03",
+      "latestSpecialPrize": "574027",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "397824",
+            "score": 84.18
+          },
+          {
+            "number": "397829",
+            "score": 83.19
+          },
+          {
+            "number": "597824",
+            "score": 83.16
+          },
+          {
+            "number": "597829",
+            "score": 82.21
+          },
+          {
+            "number": "897824",
+            "score": 82.14
+          },
+          {
+            "number": "347824",
+            "score": 81.75
+          },
+          {
+            "number": "397624",
+            "score": 81.27
+          },
+          {
+            "number": "547824",
+            "score": 81.26
+          },
+          {
+            "number": "897829",
+            "score": 81.19
+          },
+          {
+            "number": "393824",
+            "score": 80.81
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "24",
+            "score": 90.25
+          },
+          {
+            "number": "29",
+            "score": 86.88
+          },
+          {
+            "number": "26",
+            "score": 81.88
+          },
+          {
+            "number": "74",
+            "score": 80.38
+          },
+          {
+            "number": "64",
+            "score": 77
+          },
+          {
+            "number": "79",
+            "score": 77
+          },
+          {
+            "number": "22",
+            "score": 76.88
+          },
+          {
+            "number": "94",
+            "score": 75.25
+          },
+          {
+            "number": "69",
+            "score": 73.63
+          },
+          {
+            "number": "76",
+            "score": 72
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 80.5
+              },
+              {
+                "digit": "5",
+                "score": 77
+              },
+              {
+                "digit": "8",
+                "score": 73.5
+              },
+              {
+                "digit": "9",
+                "score": 66.75
+              },
+              {
+                "digit": "2",
+                "score": 60
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 83.75
+              },
+              {
+                "digit": "4",
+                "score": 73.75
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "8",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 83.75
+              },
+              {
+                "digit": "3",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 80.5
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "0",
+                "score": 60.5
+              },
+              {
+                "digit": "5",
+                "score": 57
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 93.5
+              },
+              {
+                "digit": "7",
+                "score": 73.75
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "3",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 87
+              },
+              {
+                "digit": "9",
+                "score": 80.25
+              },
+              {
+                "digit": "6",
+                "score": 70.25
+              },
+              {
+                "digit": "2",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 50.25
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "tra-vinh": {
+      "province": "tra-vinh",
+      "provinceName": "Trà Vinh",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-07",
+      "latestSpecialPrize": "414382",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "040647",
+            "score": 83.7
+          },
+          {
+            "number": "040667",
+            "score": 82.67
+          },
+          {
+            "number": "050647",
+            "score": 82.28
+          },
+          {
+            "number": "340647",
+            "score": 82.24
+          },
+          {
+            "number": "040640",
+            "score": 82.21
+          },
+          {
+            "number": "040660",
+            "score": 81.72
+          },
+          {
+            "number": "040947",
+            "score": 81.29
+          },
+          {
+            "number": "044647",
+            "score": 81.29
+          },
+          {
+            "number": "050667",
+            "score": 81.26
+          },
+          {
+            "number": "340667",
+            "score": 81.26
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "47",
+            "score": 78.88
+          },
+          {
+            "number": "67",
+            "score": 77.13
+          },
+          {
+            "number": "40",
+            "score": 75.5
+          },
+          {
+            "number": "07",
+            "score": 73.75
+          },
+          {
+            "number": "42",
+            "score": 73.75
+          },
+          {
+            "number": "60",
+            "score": 73.75
+          },
+          {
+            "number": "37",
+            "score": 72
+          },
+          {
+            "number": "62",
+            "score": 72
+          },
+          {
+            "number": "00",
+            "score": 70.38
+          },
+          {
+            "number": "49",
+            "score": 70.38
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "7",
+                "score": 73.5
+              },
+              {
+                "digit": "1",
+                "score": 57
+              },
+              {
+                "digit": "2",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 90.25
+              },
+              {
+                "digit": "5",
+                "score": 80.25
+              },
+              {
+                "digit": "6",
+                "score": 67
+              },
+              {
+                "digit": "1",
+                "score": 53.75
+              },
+              {
+                "digit": "2",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "4",
+                "score": 73.75
+              },
+              {
+                "digit": "1",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 87
+              },
+              {
+                "digit": "9",
+                "score": 73.75
+              },
+              {
+                "digit": "2",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "4",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "4",
+                "score": 77.25
+              },
+              {
+                "digit": "6",
+                "score": 73.75
+              },
+              {
+                "digit": "0",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 63.5
+              },
+              {
+                "digit": "2",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 80.5
+              },
+              {
+                "digit": "0",
+                "score": 73.75
+              },
+              {
+                "digit": "2",
+                "score": 70.25
+              },
+              {
+                "digit": "9",
+                "score": 63.5
+              },
+              {
+                "digit": "3",
+                "score": 53.5
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "vinh-long": {
+      "province": "vinh-long",
+      "provinceName": "Vĩnh Long",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-07",
+      "latestSpecialPrize": "779240",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "560228",
+            "score": 80.01
+          },
+          {
+            "number": "560828",
+            "score": 79.52
+          },
+          {
+            "number": "560248",
+            "score": 79.48
+          },
+          {
+            "number": "860228",
+            "score": 79.02
+          },
+          {
+            "number": "565228",
+            "score": 78.99
+          },
+          {
+            "number": "560848",
+            "score": 78.98
+          },
+          {
+            "number": "860248",
+            "score": 78.52
+          },
+          {
+            "number": "860828",
+            "score": 78.52
+          },
+          {
+            "number": "565248",
+            "score": 78.5
+          },
+          {
+            "number": "565828",
+            "score": 78.5
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "28",
+            "score": 78.88
+          },
+          {
+            "number": "48",
+            "score": 77.13
+          },
+          {
+            "number": "22",
+            "score": 73.88
+          },
+          {
+            "number": "23",
+            "score": 72.13
+          },
+          {
+            "number": "42",
+            "score": 72.13
+          },
+          {
+            "number": "88",
+            "score": 72.13
+          },
+          {
+            "number": "26",
+            "score": 70.38
+          },
+          {
+            "number": "43",
+            "score": 70.38
+          },
+          {
+            "number": "38",
+            "score": 68.75
+          },
+          {
+            "number": "29",
+            "score": 68.63
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "5",
+                "score": 83.75
+              },
+              {
+                "digit": "8",
+                "score": 77
+              },
+              {
+                "digit": "2",
+                "score": 67
+              },
+              {
+                "digit": "7",
+                "score": 63.5
+              },
+              {
+                "digit": "0",
+                "score": 50.25
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "6",
+                "score": 80.5
+              },
+              {
+                "digit": "0",
+                "score": 70.5
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 77.25
+              },
+              {
+                "digit": "5",
+                "score": 73.75
+              },
+              {
+                "digit": "8",
+                "score": 70.25
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "7",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 83.75
+              },
+              {
+                "digit": "8",
+                "score": 80.25
+              },
+              {
+                "digit": "9",
+                "score": 67
+              },
+              {
+                "digit": "0",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "2",
+                "score": 80.5
+              },
+              {
+                "digit": "4",
+                "score": 77
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "8",
+                "score": 77.25
+              },
+              {
+                "digit": "2",
+                "score": 67.25
+              },
+              {
+                "digit": "3",
+                "score": 63.75
+              },
+              {
+                "digit": "6",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "vung-tau": {
+      "province": "vung-tau",
+      "provinceName": "Vũng Tàu",
+      "basedOnDraws": 100,
+      "latestDrawDate": "2026-08-04",
+      "latestSpecialPrize": "384788",
+      "prediction": {
+        "specialPrize6Digits": [
+          {
+            "number": "019037",
+            "score": 80.93
+          },
+          {
+            "number": "319037",
+            "score": 79.94
+          },
+          {
+            "number": "018037",
+            "score": 79.45
+          },
+          {
+            "number": "019077",
+            "score": 78.99
+          },
+          {
+            "number": "019031",
+            "score": 78.96
+          },
+          {
+            "number": "049037",
+            "score": 78.96
+          },
+          {
+            "number": "318037",
+            "score": 78.5
+          },
+          {
+            "number": "018077",
+            "score": 78.04
+          },
+          {
+            "number": "319077",
+            "score": 78.04
+          },
+          {
+            "number": "018031",
+            "score": 78.01
+          }
+        ],
+        "last2Digits": [
+          {
+            "number": "37",
+            "score": 80.5
+          },
+          {
+            "number": "31",
+            "score": 77.13
+          },
+          {
+            "number": "77",
+            "score": 75.5
+          },
+          {
+            "number": "33",
+            "score": 75.38
+          },
+          {
+            "number": "97",
+            "score": 73.75
+          },
+          {
+            "number": "36",
+            "score": 73.63
+          },
+          {
+            "number": "71",
+            "score": 72.13
+          },
+          {
+            "number": "73",
+            "score": 70.38
+          },
+          {
+            "number": "91",
+            "score": 70.38
+          },
+          {
+            "number": "34",
+            "score": 70.25
+          }
+        ],
+        "positions": [
+          {
+            "position": 1,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 83.75
+              },
+              {
+                "digit": "3",
+                "score": 77
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "9",
+                "score": 60.25
+              },
+              {
+                "digit": "1",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 2,
+            "candidates": [
+              {
+                "digit": "1",
+                "score": 77.25
+              },
+              {
+                "digit": "4",
+                "score": 70.5
+              },
+              {
+                "digit": "8",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 60.25
+              },
+              {
+                "digit": "5",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 3,
+            "candidates": [
+              {
+                "digit": "9",
+                "score": 80.5
+              },
+              {
+                "digit": "8",
+                "score": 73.75
+              },
+              {
+                "digit": "2",
+                "score": 67
+              },
+              {
+                "digit": "3",
+                "score": 63.5
+              },
+              {
+                "digit": "7",
+                "score": 53.5
+              }
+            ]
+          },
+          {
+            "position": 4,
+            "candidates": [
+              {
+                "digit": "0",
+                "score": 87
+              },
+              {
+                "digit": "6",
+                "score": 70.5
+              },
+              {
+                "digit": "5",
+                "score": 63.75
+              },
+              {
+                "digit": "7",
+                "score": 60.25
+              },
+              {
+                "digit": "9",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 5,
+            "candidates": [
+              {
+                "digit": "3",
+                "score": 83.75
+              },
+              {
+                "digit": "7",
+                "score": 73.75
+              },
+              {
+                "digit": "9",
+                "score": 70.25
+              },
+              {
+                "digit": "4",
+                "score": 60.25
+              },
+              {
+                "digit": "6",
+                "score": 56.75
+              }
+            ]
+          },
+          {
+            "position": 6,
+            "candidates": [
+              {
+                "digit": "7",
+                "score": 77.25
+              },
+              {
+                "digit": "1",
+                "score": 70.5
+              },
+              {
+                "digit": "3",
+                "score": 67
+              },
+              {
+                "digit": "6",
+                "score": 63.5
+              },
+              {
+                "digit": "4",
+                "score": 56.75
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
