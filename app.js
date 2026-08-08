@@ -6824,3 +6824,1738 @@ document.addEventListener(
   'DOMContentLoaded',
   init
 );
+
+/* =========================================================================
+   XSMN V2.2 — WALK-FORWARD BACKTEST ENGINE
+   -------------------------------------------------------------------------
+   MỤC TIÊU
+   - Không thay đổi engine dự báo V2.1 hiện tại.
+   - Kiểm định mô hình trên dữ liệu lịch sử.
+   - Chống data leakage:
+       tại kỳ T chỉ được sử dụng các kỳ xảy ra TRƯỚC T.
+   - Minimum training: 60 kỳ.
+   - Backtest tối đa 40 kỳ gần nhất.
+   - Đánh giá:
+       + DB Full 6 digits — Top 1 / Top 2
+       + DB Last 2 digits — Top 1 / Top 2 / Top 3
+       + G1 → G8 — Top 1 / Top 2 / Top 3
+       + Average actual rank
+       + MRR (Mean Reciprocal Rank)
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const BACKTEST_V22_CONFIG = {
+
+  minTrainingDraws: 60,
+
+  maxTestDraws: 40,
+
+  topK: 3,
+
+  version: 'V2.2'
+
+};
+
+
+/* =========================================================================
+   2. HELPER — SORT DRAW ASCENDING
+   ========================================================================= */
+
+function backtestSortAscending(draws) {
+
+  return [...draws]
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(
+          b.date
+        )
+    );
+
+}
+
+
+/* =========================================================================
+   3. HELPER — EMPTY METRIC
+   ========================================================================= */
+
+function createBacktestMetric() {
+
+  return {
+
+    tested: 0,
+
+    top1Hits: 0,
+
+    top2Hits: 0,
+
+    top3Hits: 0,
+
+    rankSum: 0,
+
+    reciprocalRankSum: 0,
+
+    rankedCases: 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. UPDATE METRIC
+   ========================================================================= */
+
+function updateBacktestMetric(
+  metric,
+  actualValues,
+  rankedCandidates
+) {
+
+  if (
+    !metric ||
+    !actualValues ||
+    !actualValues.length ||
+    !rankedCandidates ||
+    !rankedCandidates.length
+  ) {
+
+    return;
+
+  }
+
+
+  metric.tested++;
+
+
+  const actualSet =
+    new Set(
+      actualValues
+    );
+
+
+  const top1 =
+    rankedCandidates
+      .slice(0, 1);
+
+
+  const top2 =
+    rankedCandidates
+      .slice(0, 2);
+
+
+  const top3 =
+    rankedCandidates
+      .slice(0, 3);
+
+
+  if (
+    top1.some(
+      n =>
+        actualSet.has(n)
+    )
+  ) {
+
+    metric.top1Hits++;
+
+  }
+
+
+  if (
+    top2.some(
+      n =>
+        actualSet.has(n)
+    )
+  ) {
+
+    metric.top2Hits++;
+
+  }
+
+
+  if (
+    top3.some(
+      n =>
+        actualSet.has(n)
+    )
+  ) {
+
+    metric.top3Hits++;
+
+  }
+
+
+  /*
+   * Nếu một giải có nhiều số thực tế
+   * như G3/G4/G6,
+   * lấy rank tốt nhất.
+   */
+
+  let bestRank =
+    Infinity;
+
+
+  actualValues.forEach(
+    actual => {
+
+      const index =
+        rankedCandidates
+          .indexOf(actual);
+
+
+      if (
+        index >= 0
+      ) {
+
+        bestRank =
+          Math.min(
+            bestRank,
+            index + 1
+          );
+
+      }
+
+    }
+  );
+
+
+  if (
+    Number.isFinite(
+      bestRank
+    )
+  ) {
+
+    metric.rankSum +=
+      bestRank;
+
+
+    metric.reciprocalRankSum +=
+      1 / bestRank;
+
+
+    metric.rankedCases++;
+
+  }
+
+}
+
+
+/* =========================================================================
+   5. FINALIZE METRIC
+   ========================================================================= */
+
+function finalizeBacktestMetric(
+  metric
+) {
+
+  const tested =
+    metric.tested || 0;
+
+
+  return {
+
+    tested,
+
+    top1Hits:
+      metric.top1Hits,
+
+    top2Hits:
+      metric.top2Hits,
+
+    top3Hits:
+      metric.top3Hits,
+
+    top1Rate:
+      tested
+        ? metric.top1Hits /
+          tested
+        : 0,
+
+    top2Rate:
+      tested
+        ? metric.top2Hits /
+          tested
+        : 0,
+
+    top3Rate:
+      tested
+        ? metric.top3Hits /
+          tested
+        : 0,
+
+    averageActualRank:
+      metric.rankedCases
+        ? metric.rankSum /
+          metric.rankedCases
+        : null,
+
+    mrr:
+      metric.rankedCases
+        ? metric.reciprocalRankSum /
+          metric.rankedCases
+        : 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. DB FULL 6 DIGIT — RANK ALL CANDIDATES
+   ========================================================================= */
+
+function rankSpecialPrize6DBacktest(
+  trainingDraws,
+  windowSize
+) {
+
+  const history =
+    specialPrizeHistory(
+      trainingDraws
+    );
+
+
+  if (
+    !history.length
+  ) {
+
+    return [];
+
+  }
+
+
+  const effectiveWindow =
+    Math.min(
+
+      Math.max(
+        windowSize,
+        10
+      ),
+
+      history.length
+
+    );
+
+
+  const positionStats = [];
+
+
+  for (
+    let position = 0;
+    position < 6;
+    position++
+  ) {
+
+    positionStats.push(
+
+      analyzeDigitPosition(
+        history,
+        position,
+        effectiveWindow
+      )
+
+    );
+
+  }
+
+
+  /*
+   * Giữ TOP 3 digit mỗi vị trí
+   * giống V2.1.
+   */
+
+  const candidatesByPosition =
+    positionStats.map(
+      stat => {
+
+        return Object
+          .entries(
+            stat.scores
+          )
+          .sort(
+            (a, b) => {
+
+              if (
+                b[1] !== a[1]
+              ) {
+
+                return (
+                  b[1] -
+                  a[1]
+                );
+
+              }
+
+              return a[0]
+                .localeCompare(
+                  b[0]
+                );
+
+            }
+          )
+          .slice(
+            0,
+            3
+          );
+
+      }
+    );
+
+
+  const candidates = [];
+
+
+  function build(
+    position,
+    digits,
+    componentScores
+  ) {
+
+    if (
+      position === 6
+    ) {
+
+      const number =
+        digits.join('');
+
+
+      const product =
+        componentScores.reduce(
+
+          (acc, value) =>
+            acc *
+            Math.max(
+              value,
+              0.0001
+            ),
+
+          1
+
+        );
+
+
+      const positionScore =
+        Math.pow(
+          product,
+          1 / 6
+        );
+
+
+      candidates.push({
+
+        number,
+
+        positionScore,
+
+        lo:
+          number.slice(-2)
+
+      });
+
+
+      return;
+
+    }
+
+
+    candidatesByPosition[
+      position
+    ]
+    .forEach(
+      ([digit, score]) => {
+
+        build(
+
+          position + 1,
+
+          [
+            ...digits,
+            digit
+          ],
+
+          [
+            ...componentScores,
+            score
+          ]
+
+        );
+
+      }
+    );
+
+  }
+
+
+  build(
+    0,
+    [],
+    []
+  );
+
+
+  const loStat =
+    computeScoresForGiai(
+      trainingDraws,
+      'db',
+      windowSize
+    );
+
+
+  candidates.forEach(
+    candidate => {
+
+      const loScore =
+        loStat.scores[
+          candidate.lo
+        ] || 0;
+
+
+      candidate.finalScore =
+
+        candidate.positionScore *
+        0.80 +
+
+        loScore *
+        0.20;
+
+    }
+  );
+
+
+  candidates.sort(
+    (a, b) => {
+
+      if (
+        b.finalScore !==
+        a.finalScore
+      ) {
+
+        return (
+          b.finalScore -
+          a.finalScore
+        );
+
+      }
+
+
+      return a.number
+        .localeCompare(
+          b.number
+        );
+
+    }
+  );
+
+
+  return candidates;
+
+}
+
+
+/* =========================================================================
+   7. BACKTEST MỘT TỈNH
+   ========================================================================= */
+
+function backtestProvinceV22(
+  provinceSlug,
+  windowSize = 30
+) {
+
+  const source =
+    getAllDrawsForProvince(
+      provinceSlug
+    );
+
+
+  const draws =
+    backtestSortAscending(
+      source
+    );
+
+
+  const totalDraws =
+    draws.length;
+
+
+  const minTrain =
+    BACKTEST_V22_CONFIG
+      .minTrainingDraws;
+
+
+  if (
+    totalDraws <=
+    minTrain
+  ) {
+
+    return {
+
+      version:
+        BACKTEST_V22_CONFIG.version,
+
+      province:
+        provinceSlug,
+
+      totalDraws,
+
+      testedDraws: 0,
+
+      error:
+        `Cần hơn ${minTrain} kỳ để backtest.`
+
+    };
+
+  }
+
+
+  /*
+   * Tối đa kiểm định 40 kỳ cuối.
+   *
+   * Nhưng luôn bảo đảm training
+   * tối thiểu 60 kỳ.
+   */
+
+  const possibleTests =
+    totalDraws -
+    minTrain;
+
+
+  const testCount =
+    Math.min(
+
+      BACKTEST_V22_CONFIG
+        .maxTestDraws,
+
+      possibleTests
+
+    );
+
+
+  const testStartIndex =
+    totalDraws -
+    testCount;
+
+
+  const metrics = {};
+
+
+  PRIZE_META.forEach(
+    pm => {
+
+      metrics[pm.key] =
+        createBacktestMetric();
+
+    }
+  );
+
+
+  /*
+   * DB full 6 digits
+   * metric riêng.
+   */
+
+  const dbFullMetric =
+    createBacktestMetric();
+
+
+  /*
+   * DB last-2 metric riêng.
+   */
+
+  const dbLast2Metric =
+    createBacktestMetric();
+
+
+  const cases = [];
+
+
+  for (
+    let testIndex =
+      testStartIndex;
+
+    testIndex <
+      totalDraws;
+
+    testIndex++
+  ) {
+
+    const actualDraw =
+      draws[
+        testIndex
+      ];
+
+
+    /*
+     * QUAN TRỌNG:
+     *
+     * trainingDraws chỉ chứa
+     * dữ liệu TRƯỚC actualDraw.
+     *
+     * Đây là walk-forward.
+     */
+
+    const trainingAscending =
+      draws.slice(
+        0,
+        testIndex
+      );
+
+
+    /*
+     * Các engine V2/V2.1
+     * giả định draw mới nhất
+     * đứng trước.
+     */
+
+    const trainingDraws =
+      [...trainingAscending]
+        .sort(
+          (a, b) =>
+            b.date.localeCompare(
+              a.date
+            )
+        );
+
+
+    const caseResult = {
+
+      date:
+        actualDraw.date,
+
+      trainingSize:
+        trainingDraws.length,
+
+      prizes: {}
+
+    };
+
+
+    /* ===============================================================
+       A. DB FULL 6 DIGITS
+       =============================================================== */
+
+    const dbCandidates =
+      rankSpecialPrize6DBacktest(
+        trainingDraws,
+        windowSize
+      );
+
+
+    const dbRankedFull =
+      dbCandidates.map(
+        x => x.number
+      );
+
+
+    const actualDBFull =
+      fullPrizeValues(
+        actualDraw,
+        'db'
+      );
+
+
+    updateBacktestMetric(
+
+      dbFullMetric,
+
+      actualDBFull,
+
+      dbRankedFull
+
+    );
+
+
+    const actualDBNumber =
+      actualDBFull.length
+        ? actualDBFull[0]
+        : null;
+
+
+    const dbFullRank =
+      actualDBNumber
+        ? dbRankedFull
+            .indexOf(
+              actualDBNumber
+            ) + 1
+        : 0;
+
+
+    /* ===============================================================
+       B. DB LAST 2 DIGITS
+       =============================================================== */
+
+    const dbLoStat =
+      computeScoresForGiai(
+        trainingDraws,
+        'db',
+        windowSize
+      );
+
+
+    const dbLoRanked =
+      rankedNumbers(
+        dbLoStat.scores
+      )
+      .map(
+        ([n]) => n
+      );
+
+
+    const actualDBLo =
+      loOfPrize(
+        actualDraw,
+        'db'
+      );
+
+
+    updateBacktestMetric(
+
+      dbLast2Metric,
+
+      actualDBLo,
+
+      dbLoRanked
+
+    );
+
+
+    /*
+     * Giữ metric db mặc định
+     * là LAST 2 để tương thích
+     * với G1 → G8.
+     */
+
+    updateBacktestMetric(
+
+      metrics.db,
+
+      actualDBLo,
+
+      dbLoRanked
+
+    );
+
+
+    caseResult.prizes.db = {
+
+      actualFull:
+        actualDBNumber,
+
+      fullTop2:
+        dbRankedFull
+          .slice(
+            0,
+            2
+          ),
+
+      fullRank:
+        dbFullRank > 0
+          ? dbFullRank
+          : null,
+
+      actualLast2:
+        actualDBLo,
+
+      last2Top3:
+        dbLoRanked
+          .slice(
+            0,
+            3
+          ),
+
+      last2Rank:
+        actualDBLo.length
+          ? dbLoRanked
+              .indexOf(
+                actualDBLo[0]
+              ) + 1
+          : null
+
+    };
+
+
+    /* ===============================================================
+       C. G1 → G8
+       =============================================================== */
+
+    PRIZE_META
+      .filter(
+        pm =>
+          pm.key !== 'db'
+      )
+      .forEach(
+        pm => {
+
+          const stat =
+            computeScoresForGiai(
+              trainingDraws,
+              pm.key,
+              windowSize
+            );
+
+
+          const ranked =
+            rankedNumbers(
+              stat.scores
+            )
+            .map(
+              ([n]) => n
+            );
+
+
+          const actualValues =
+            loOfPrize(
+              actualDraw,
+              pm.key
+            );
+
+
+          updateBacktestMetric(
+
+            metrics[
+              pm.key
+            ],
+
+            actualValues,
+
+            ranked
+
+          );
+
+
+          let bestActualRank =
+            null;
+
+
+          actualValues
+            .forEach(
+              actual => {
+
+                const index =
+                  ranked
+                    .indexOf(
+                      actual
+                    );
+
+
+                if (
+                  index >= 0
+                ) {
+
+                  const rank =
+                    index + 1;
+
+
+                  if (
+                    bestActualRank ===
+                      null ||
+                    rank <
+                      bestActualRank
+                  ) {
+
+                    bestActualRank =
+                      rank;
+
+                  }
+
+                }
+
+              }
+            );
+
+
+          caseResult
+            .prizes[
+              pm.key
+            ] = {
+
+              actual:
+                actualValues,
+
+              predictedTop3:
+                ranked.slice(
+                  0,
+                  3
+                ),
+
+              bestActualRank
+
+            };
+
+        }
+      );
+
+
+    cases.push(
+      caseResult
+    );
+
+  }
+
+
+  const finalized = {};
+
+
+  Object.keys(
+    metrics
+  )
+  .forEach(
+    key => {
+
+      finalized[key] =
+        finalizeBacktestMetric(
+          metrics[key]
+        );
+
+    }
+  );
+
+
+  return {
+
+    version:
+      BACKTEST_V22_CONFIG.version,
+
+    province:
+      provinceSlug,
+
+    provinceName:
+      provinceBySlug(
+        provinceSlug
+      )?.name ||
+      provinceSlug,
+
+    totalDraws,
+
+    trainingMinimum:
+      minTrain,
+
+    testedDraws:
+      testCount,
+
+    testFrom:
+      draws[
+        testStartIndex
+      ]?.date ||
+      null,
+
+    testTo:
+      draws[
+        totalDraws - 1
+      ]?.date ||
+      null,
+
+    windowSize,
+
+    dbFull6:
+      finalizeBacktestMetric(
+        dbFullMetric
+      ),
+
+    dbLast2:
+      finalizeBacktestMetric(
+        dbLast2Metric
+      ),
+
+    prizes:
+      finalized,
+
+    cases
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. BACKTEST TẤT CẢ TỈNH
+   ========================================================================= */
+
+function backtestAllProvincesV22(
+  windowSize = 30
+) {
+
+  const results = [];
+
+
+  PROVINCES.forEach(
+    province => {
+
+      try {
+
+        const result =
+          backtestProvinceV22(
+            province.slug,
+            windowSize
+          );
+
+
+        results.push(
+          result
+        );
+
+
+      } catch (error) {
+
+        console.error(
+          `Backtest lỗi ${province.name}:`,
+          error
+        );
+
+
+        results.push({
+
+          version:
+            BACKTEST_V22_CONFIG.version,
+
+          province:
+            province.slug,
+
+          provinceName:
+            province.name,
+
+          error:
+            error.message ||
+            String(error)
+
+        });
+
+      }
+
+    }
+  );
+
+
+  return results;
+
+}
+
+
+/* =========================================================================
+   9. FORMAT PERCENT
+   ========================================================================= */
+
+function backtestPercent(
+  value
+) {
+
+  return (
+    (
+      Number(value) ||
+      0
+    ) *
+    100
+  )
+  .toFixed(1) +
+  '%';
+
+}
+
+
+/* =========================================================================
+   10. CONSOLE REPORT — MỘT TỈNH
+   ========================================================================= */
+
+function printBacktestProvinceV22(
+  provinceSlug =
+    SELECTED_PROVINCE,
+  windowSize =
+    WINDOW_SIZE
+) {
+
+  const result =
+    backtestProvinceV22(
+      provinceSlug,
+      windowSize
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.2 WALK-FORWARD BACKTEST'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.log(
+    'Tỉnh:',
+    result.provinceName ||
+    result.province
+  );
+
+
+  console.log(
+    'Tổng dữ liệu:',
+    result.totalDraws
+  );
+
+
+  console.log(
+    'Số kỳ kiểm định:',
+    result.testedDraws
+  );
+
+
+  console.log(
+    'Khoảng kiểm định:',
+    result.testFrom,
+    '→',
+    result.testTo
+  );
+
+
+  console.log(
+    'Window:',
+    result.windowSize
+  );
+
+
+  if (
+    result.error
+  ) {
+
+    console.error(
+      result.error
+    );
+
+    return result;
+
+  }
+
+
+  console.log(
+    '------------------------------------------'
+  );
+
+
+  console.log(
+    'DB FULL 6 DIGITS'
+  );
+
+
+  console.table([{
+
+    Tested:
+      result.dbFull6.tested,
+
+    Top1:
+      result.dbFull6.top1Hits,
+
+    Top1Rate:
+      backtestPercent(
+        result.dbFull6.top1Rate
+      ),
+
+    Top2:
+      result.dbFull6.top2Hits,
+
+    Top2Rate:
+      backtestPercent(
+        result.dbFull6.top2Rate
+      ),
+
+    AvgRank:
+      result.dbFull6
+        .averageActualRank !== null
+          ? result.dbFull6
+              .averageActualRank
+              .toFixed(2)
+          : '--',
+
+    MRR:
+      result.dbFull6
+        .mrr
+        .toFixed(4)
+
+  }]);
+
+
+  console.log(
+    '------------------------------------------'
+  );
+
+
+  console.log(
+    'DB LAST 2 DIGITS'
+  );
+
+
+  console.table([{
+
+    Tested:
+      result.dbLast2.tested,
+
+    Top1:
+      result.dbLast2.top1Hits,
+
+    Top1Rate:
+      backtestPercent(
+        result.dbLast2.top1Rate
+      ),
+
+    Top2:
+      result.dbLast2.top2Hits,
+
+    Top2Rate:
+      backtestPercent(
+        result.dbLast2.top2Rate
+      ),
+
+    Top3:
+      result.dbLast2.top3Hits,
+
+    Top3Rate:
+      backtestPercent(
+        result.dbLast2.top3Rate
+      ),
+
+    AvgRank:
+      result.dbLast2
+        .averageActualRank !== null
+          ? result.dbLast2
+              .averageActualRank
+              .toFixed(2)
+          : '--',
+
+    MRR:
+      result.dbLast2
+        .mrr
+        .toFixed(4)
+
+  }]);
+
+
+  console.log(
+    '------------------------------------------'
+  );
+
+
+  const prizeRows =
+    PRIZE_META
+      .filter(
+        pm =>
+          pm.key !== 'db'
+      )
+      .map(
+        pm => {
+
+          const m =
+            result.prizes[
+              pm.key
+            ];
+
+
+          return {
+
+            Giai:
+              pm.label,
+
+            Tested:
+              m.tested,
+
+            Top1:
+              m.top1Hits,
+
+            Top1Rate:
+              backtestPercent(
+                m.top1Rate
+              ),
+
+            Top2:
+              m.top2Hits,
+
+            Top2Rate:
+              backtestPercent(
+                m.top2Rate
+              ),
+
+            Top3:
+              m.top3Hits,
+
+            Top3Rate:
+              backtestPercent(
+                m.top3Rate
+              ),
+
+            AvgRank:
+              m.averageActualRank !==
+                null
+                  ? m
+                      .averageActualRank
+                      .toFixed(2)
+                  : '--',
+
+            MRR:
+              m.mrr
+                .toFixed(4)
+
+          };
+
+        }
+      );
+
+
+  console.table(
+    prizeRows
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   11. SUMMARY TẤT CẢ TỈNH
+   ========================================================================= */
+
+function summarizeAllBacktestsV22(
+  windowSize = 30
+) {
+
+  const results =
+    backtestAllProvincesV22(
+      windowSize
+    );
+
+
+  const rows =
+    results.map(
+      result => {
+
+        if (
+          result.error
+        ) {
+
+          return {
+
+            Tinh:
+              result.provinceName ||
+              result.province,
+
+            Tested:
+              0,
+
+            DB6_Top2:
+              'ERROR',
+
+            DB2_Top3:
+              'ERROR',
+
+            G1_Top3:
+              'ERROR'
+
+          };
+
+        }
+
+
+        return {
+
+          Tinh:
+            result.provinceName,
+
+          Tested:
+            result.testedDraws,
+
+          DB6_Top1:
+            backtestPercent(
+              result.dbFull6
+                .top1Rate
+            ),
+
+          DB6_Top2:
+            backtestPercent(
+              result.dbFull6
+                .top2Rate
+            ),
+
+          DB2_Top1:
+            backtestPercent(
+              result.dbLast2
+                .top1Rate
+            ),
+
+          DB2_Top3:
+            backtestPercent(
+              result.dbLast2
+                .top3Rate
+            ),
+
+          G1_Top1:
+            backtestPercent(
+              result.prizes
+                .g1
+                .top1Rate
+            ),
+
+          G1_Top3:
+            backtestPercent(
+              result.prizes
+                .g1
+                .top3Rate
+            )
+
+        };
+
+      }
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    `XSMN V2.2 — ALL PROVINCES — WINDOW ${windowSize}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return {
+
+    version:
+      BACKTEST_V22_CONFIG.version,
+
+    windowSize,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    results,
+
+    rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   12. SO SÁNH WINDOW 10 / 20 / 30 / 60
+   ========================================================================= */
+
+function compareBacktestWindowsV22(
+  provinceSlug =
+    SELECTED_PROVINCE
+) {
+
+  const windows = [
+    10,
+    20,
+    30,
+    60
+  ];
+
+
+  const rows = [];
+
+
+  windows.forEach(
+    windowSize => {
+
+      const result =
+        backtestProvinceV22(
+          provinceSlug,
+          windowSize
+        );
+
+
+      if (
+        result.error
+      ) {
+
+        rows.push({
+
+          Window:
+            windowSize,
+
+          Error:
+            result.error
+
+        });
+
+
+        return;
+
+      }
+
+
+      rows.push({
+
+        Window:
+          windowSize,
+
+        Tested:
+          result.testedDraws,
+
+        DB6_Top2:
+          backtestPercent(
+            result.dbFull6
+              .top2Rate
+          ),
+
+        DB2_Top3:
+          backtestPercent(
+            result.dbLast2
+              .top3Rate
+          ),
+
+        G1_Top3:
+          backtestPercent(
+            result.prizes
+              .g1
+              .top3Rate
+          ),
+
+        G2_Top3:
+          backtestPercent(
+            result.prizes
+              .g2
+              .top3Rate
+          ),
+
+        G3_Top3:
+          backtestPercent(
+            result.prizes
+              .g3
+              .top3Rate
+          ),
+
+        G4_Top3:
+          backtestPercent(
+            result.prizes
+              .g4
+              .top3Rate
+          ),
+
+        G5_Top3:
+          backtestPercent(
+            result.prizes
+              .g5
+              .top3Rate
+          ),
+
+        G6_Top3:
+          backtestPercent(
+            result.prizes
+              .g6
+              .top3Rate
+          ),
+
+        G7_Top3:
+          backtestPercent(
+            result.prizes
+              .g7
+              .top3Rate
+          ),
+
+        G8_Top3:
+          backtestPercent(
+            result.prizes
+              .g8
+              .top3Rate
+          )
+
+      });
+
+    }
+  );
+
+
+  const p =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.2 — WINDOW COMPARISON'
+  );
+
+  console.log(
+    p
+      ? p.name
+      : provinceSlug
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   13. QUICK TEST
+   ========================================================================= */
+
+/*
+   Sau khi trang load xong,
+   có thể chạy trong Console:
+
+   1 tỉnh đang chọn:
+
+   printBacktestProvinceV22();
+
+
+   Riêng An Giang:
+
+   printBacktestProvinceV22(
+     'an-giang',
+     30
+   );
+
+
+   So sánh 4 window:
+
+   compareBacktestWindowsV22(
+     'an-giang'
+   );
+
+
+   Tất cả 21 tỉnh:
+
+   summarizeAllBacktestsV22(
+     30
+   );
+*/
+
+
+console.log(
+  'XSMN V2.2 Backtest Engine loaded — Walk-Forward / No Future Leakage'
+);
