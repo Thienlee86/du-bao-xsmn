@@ -1,24 +1,42 @@
 /**
  * XSMN API BUILDER
- * ================
+ * =================
  *
- * Tạo các file JSON nhẹ để Android App sử dụng.
+ * Tạo dữ liệu API nhẹ cho ứng dụng Android.
  *
  * Input:
- * - data/xsmn_predictions.json
- * - data/*-latest.json
+ *   data/xsmn_seed.json
+ *   data/xsmn_predictions.json
  *
  * Output:
- * - data/api/predictions.json
- * - data/api/latest.json
- * - data/api/status.json
+ *   data/api/latest.json
+ *   data/api/predictions.json
+ *   data/api/status.json
  */
 
 const fs = require("fs");
 const path = require("path");
 
-const DATA_DIR = path.join(__dirname, "..", "data");
-const API_DIR = path.join(DATA_DIR, "api");
+/* =========================================================
+   PATHS
+   ========================================================= */
+
+const ROOT_DIR = path.join(__dirname, "..");
+
+const DATA_DIR = path.join(
+  ROOT_DIR,
+  "data"
+);
+
+const API_DIR = path.join(
+  DATA_DIR,
+  "api"
+);
+
+const SEED_FILE = path.join(
+  DATA_DIR,
+  "xsmn_seed.json"
+);
 
 const PREDICTIONS_FILE = path.join(
   DATA_DIR,
@@ -62,27 +80,17 @@ const PROVINCES = [
 function readJson(filePath) {
 
   if (!fs.existsSync(filePath)) {
-    return null;
+    throw new Error(
+      `File not found: ${filePath}`
+    );
   }
 
-  try {
+  const raw = fs.readFileSync(
+    filePath,
+    "utf8"
+  );
 
-    return JSON.parse(
-      fs.readFileSync(
-        filePath,
-        "utf8"
-      )
-    );
-
-  } catch (error) {
-
-    console.error(
-      `Could not read ${filePath}:`,
-      error.message
-    );
-
-    return null;
-  }
+  return JSON.parse(raw);
 }
 
 
@@ -103,112 +111,514 @@ function writeJson(
 }
 
 
-/* =========================================================
-   NORMALIZE PREDICTION
-   ========================================================= */
-
-function normalizePrediction(
-  province,
-  source
+function getProvinceName(
+  provinceId
 ) {
 
-  if (!source) {
-    return null;
+  const province =
+    PROVINCES.find(
+      item =>
+        item.id === provinceId
+    );
+
+  return province
+    ? province.name
+    : provinceId;
+}
+
+
+/* =========================================================
+   VALIDATE DRAW
+   ========================================================= */
+
+function isValidDraw(draw) {
+
+  if (
+    !draw ||
+    !draw.province ||
+    !draw.date ||
+    !draw.prizes
+  ) {
+    return false;
   }
 
+  const prizes =
+    draw.prizes;
 
-  /*
-   * build-predictions.js có thể sử dụng
-   * một trong các tên field dưới đây.
-   *
-   * Phần này giúp API chịu được thay đổi nhỏ
-   * của prediction builder.
-   */
+  if (
+    typeof prizes.db !== "string" ||
+    prizes.db.length !== 6
+  ) {
+    return false;
+  }
 
-  const sixDigit =
-    source.topPredictions ||
-    source.predictions ||
-    source.specialPrizePredictions ||
-    source.top6 ||
-    [];
+  return true;
+}
 
 
-  const last2 =
-    source.last2 ||
-    source.lastTwo ||
-    source.last2Predictions ||
-    [];
+/* =========================================================
+   BUILD LATEST RESULTS
+   ========================================================= */
 
+function buildLatest(seed) {
+
+  const draws =
+    Array.isArray(seed.draws)
+      ? seed.draws.filter(isValidDraw)
+      : [];
+
+  const provinces = {};
+
+  for (
+    const province
+    of PROVINCES
+  ) {
+
+    const provinceDraws =
+      draws
+        .filter(
+          draw =>
+            draw.province ===
+            province.id
+        )
+        .sort(
+          (a, b) =>
+            b.date.localeCompare(
+              a.date
+            )
+        );
+
+    if (
+      provinceDraws.length === 0
+    ) {
+      continue;
+    }
+
+    const latest =
+      provinceDraws[0];
+
+    provinces[province.id] = {
+
+      province:
+        province.id,
+
+      provinceName:
+        province.name,
+
+      date:
+        latest.date,
+
+      ticketCode:
+        latest.ticketCode || "",
+
+      prizes:
+        latest.prizes
+    };
+  }
 
   return {
-    province:
-      province.id,
 
-    provinceName:
-      province.name,
+    generatedAt:
+      new Date().toISOString(),
 
-    basedOnDraws:
-      source.basedOnDraws ??
-      source.drawCount ??
-      null,
+    sourceGeneratedAt:
+      seed.generatedAt || null,
 
-    latestDate:
-      source.latestDate ??
-      null,
+    provinceCount:
+      Object.keys(
+        provinces
+      ).length,
 
-    latestSpecialPrize:
-      source.latestSpecialPrize ??
-      null,
-
-    sixDigit:
-      sixDigit,
-
-    last2:
-      last2
+    provinces
   };
 }
 
 
 /* =========================================================
-   BUILD PREDICTIONS API
+   NORMALIZE PREDICTIONS
    ========================================================= */
 
-function buildPredictionsApi() {
+function normalizePredictions(
+  predictionsData
+) {
 
-  console.log("");
+  const source =
+    predictionsData &&
+    predictionsData.provinces &&
+    typeof predictionsData.provinces === "object"
+      ? predictionsData.provinces
+      : {};
+
+  const provinces = {};
+
+  for (
+    const province
+    of PROVINCES
+  ) {
+
+    const prediction =
+      source[province.id];
+
+    if (!prediction) {
+      continue;
+    }
+
+    provinces[province.id] = {
+      ...prediction,
+
+      province:
+        province.id,
+
+      provinceName:
+        province.name
+    };
+  }
+
+  return {
+
+    generatedAt:
+      predictionsData.generatedAt ||
+      new Date().toISOString(),
+
+    sourceGeneratedAt:
+      predictionsData.sourceGeneratedAt ||
+      null,
+
+    provinceCount:
+      Object.keys(
+        provinces
+      ).length,
+
+    ready:
+      Object.keys(
+        provinces
+      ).length ===
+      PROVINCES.length,
+
+    provinces
+  };
+}
+
+
+/* =========================================================
+   BUILD STATUS
+   ========================================================= */
+
+function buildStatus(
+  latest,
+  predictions
+) {
+
+  const errors = [];
+
+  const provinces = {};
+
+  for (
+    const province
+    of PROVINCES
+  ) {
+
+    const hasLatest =
+      Boolean(
+        latest.provinces[
+          province.id
+        ]
+      );
+
+    const hasPrediction =
+      Boolean(
+        predictions.provinces[
+          province.id
+        ]
+      );
+
+    provinces[province.id] = {
+
+      provinceName:
+        province.name,
+
+      latest:
+        hasLatest,
+
+      prediction:
+        hasPrediction
+    };
+
+    if (!hasLatest) {
+
+      errors.push(
+        `${province.name}: latest result missing`
+      );
+    }
+
+    if (!hasPrediction) {
+
+      errors.push(
+        `${province.name}: prediction missing`
+      );
+    }
+  }
+
+  const latestReady =
+    Object.values(
+      provinces
+    ).filter(
+      item => item.latest
+    ).length;
+
+  const predictionsReady =
+    Object.values(
+      provinces
+    ).filter(
+      item => item.prediction
+    ).length;
+
+  return {
+
+    generatedAt:
+      new Date().toISOString(),
+
+    totalProvinces:
+      PROVINCES.length,
+
+    latestReady,
+
+    predictionsReady,
+
+    errorCount:
+      errors.length,
+
+    ready:
+      latestReady ===
+        PROVINCES.length &&
+      predictionsReady ===
+        PROVINCES.length &&
+      errors.length === 0,
+
+    errors,
+
+    provinces
+  };
+}
+
+
+/* =========================================================
+   MAIN
+   ========================================================= */
+
+function main() {
+
   console.log(
-    "Building predictions API..."
+    "========================================"
+  );
+
+  console.log(
+    "XSMN API BUILDER"
+  );
+
+  console.log(
+    "========================================"
+  );
+
+  fs.mkdirSync(
+    API_DIR,
+    {
+      recursive: true
+    }
   );
 
 
-  const source =
+  /* ---------- LOAD DATABASE ---------- */
+
+  console.log(
+    "Loading xsmn_seed.json..."
+  );
+
+  const seed =
+    readJson(
+      SEED_FILE
+    );
+
+  console.log(
+    `Database draws: ${
+      Array.isArray(seed.draws)
+        ? seed.draws.length
+        : 0
+    }`
+  );
+
+
+  /* ---------- LOAD PREDICTIONS ---------- */
+
+  console.log(
+    "Loading xsmn_predictions.json..."
+  );
+
+  const predictionsData =
     readJson(
       PREDICTIONS_FILE
     );
 
 
-  if (!source) {
+  /* ---------- BUILD LATEST ---------- */
 
-    throw new Error(
-      "data/xsmn_predictions.json not found or invalid"
+  console.log(
+    "Building latest results..."
+  );
+
+  const latest =
+    buildLatest(
+      seed
     );
+
+
+  /* ---------- BUILD PREDICTIONS ---------- */
+
+  console.log(
+    "Building predictions..."
+  );
+
+  const predictions =
+    normalizePredictions(
+      predictionsData
+    );
+
+
+  /* ---------- BUILD STATUS ---------- */
+
+  console.log(
+    "Building API status..."
+  );
+
+  const status =
+    buildStatus(
+      latest,
+      predictions
+    );
+
+
+  /* ---------- WRITE FILES ---------- */
+
+  writeJson(
+    path.join(
+      API_DIR,
+      "latest.json"
+    ),
+    latest
+  );
+
+  writeJson(
+    path.join(
+      API_DIR,
+      "predictions.json"
+    ),
+    predictions
+  );
+
+  writeJson(
+    path.join(
+      API_DIR,
+      "status.json"
+    ),
+    status
+  );
+
+
+  /* ---------- RESULT ---------- */
+
+  console.log("");
+  console.log(
+    "========================================"
+  );
+
+  console.log(
+    "XSMN API RESULT"
+  );
+
+  console.log(
+    "========================================"
+  );
+
+  console.log(
+    `Latest      : ${status.latestReady}/${status.totalProvinces}`
+  );
+
+  console.log(
+    `Predictions : ${status.predictionsReady}/${status.totalProvinces}`
+  );
+
+  console.log(
+    `Errors      : ${status.errorCount}`
+  );
+
+  console.log(
+    `Ready       : ${status.ready}`
+  );
+
+  console.log(
+    "----------------------------------------"
+  );
+
+
+  if (
+    status.errors.length > 0
+  ) {
+
+    for (
+      const error
+      of status.errors
+    ) {
+
+      console.log(
+        `ERROR: ${error}`
+      );
+    }
   }
 
 
-  const output = {
+  if (!status.ready) {
 
-    generatedAt:
-      source.generatedAt ||
-      new Date().toISOString(),
+    console.log(
+      "✗ XSMN API NOT READY"
+    );
 
-    ready:
-      source.ready !== false,
+    process.exitCode = 1;
 
-    provinceCount:
-      PROVINCES.length,
-
-    provinces: {}
-  };
+    return;
+  }
 
 
-  for (const province of PROVINCES) {
+  console.log(
+    "✓ XSMN API READY"
+  );
+
+  console.log(
+    "========================================"
+  );
+}
+
+
+/* =========================================================
+   RUN
+   ========================================================= */
+
+try {
+
+  main();
+
+} catch (error) {
+
+  console.error("");
+  console.error(
+    "FATAL ERROR:"
+  );
+
+  console.error(
+    error &&
+    error.stack
+      ? error.stack
+      : error
+  );
+
+  process.exit(1);
+}
