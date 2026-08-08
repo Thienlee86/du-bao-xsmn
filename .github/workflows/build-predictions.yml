@@ -163,9 +163,7 @@ jobs:
             );
           }
 
-
           let invalid = 0;
-
 
           for (
             const [
@@ -186,7 +184,6 @@ jobs:
                     .specialPrize6Digits
                 : [];
 
-
             if (
               predictions.length !== 10
             ) {
@@ -199,7 +196,6 @@ jobs:
 
               continue;
             }
-
 
             for (
               const item
@@ -222,16 +218,13 @@ jobs:
               }
             }
 
-
             const best =
               predictions[0];
-
 
             console.log(
               `${provinceId.padEnd(12)} | ${best.number} | score ${best.score}`
             );
           }
-
 
           console.log(
             "----------------------------------------"
@@ -242,14 +235,12 @@ jobs:
             invalid
           );
 
-
           if (invalid > 0) {
 
             throw new Error(
               `${invalid} invalid prediction records`
             );
           }
-
 
           if (
             !data.status ||
@@ -260,7 +251,6 @@ jobs:
               "predictionReady is not true"
             );
           }
-
 
           console.log(
             "✓ Prediction database valid"
@@ -287,7 +277,6 @@ jobs:
               "utf8"
             )
           );
-
 
           for (
             const province
@@ -321,12 +310,10 @@ jobs:
               "Top 6-digit predictions:"
             );
 
-
             const full =
               province
                 .prediction
                 .specialPrize6Digits;
-
 
             full
               .slice(0, 5)
@@ -339,7 +326,6 @@ jobs:
                 }
               );
 
-
             const last2 =
               province
                 .prediction
@@ -351,12 +337,10 @@ jobs:
                 )
                 .join("  ");
 
-
             console.log(
               `Last 2: ${last2}`
             );
           }
-
 
           console.log("");
           console.log(
@@ -378,30 +362,50 @@ jobs:
 
 
       # =====================================================
-      # FILE SIZE
+      # BUILD API
       # =====================================================
 
-      - name: Show output file
+      - name: Build XSMN API
+        run: |
+          echo "========================================"
+          echo "BUILDING XSMN API"
+          echo "========================================"
+
+          node scripts/build-api.js
+
+          echo ""
+          echo "===== API STATUS ====="
+          cat data/api/status.json
+
+
+      # =====================================================
+      # SHOW OUTPUT FILES
+      # =====================================================
+
+      - name: Show output files
         run: |
           echo "===== PREDICTION FILE ====="
-
           ls -lh data/xsmn_predictions.json
+
+          echo ""
+          echo "===== API FILES ====="
+          ls -lh data/api/
 
 
       # =====================================================
       # COMMIT
       # =====================================================
 
-      - name: Commit prediction database
+      - name: Commit prediction and API database
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add data/xsmn_predictions.json
+          git add data/xsmn_predictions.json data/api/
 
           if git diff --cached --quiet; then
-            echo "No prediction changes to commit."
+            echo "No prediction or API changes to commit."
           else
-            git commit -m "Update XSMN predictions"
+            git commit -m "Update XSMN predictions and API"
             git push
           fi
