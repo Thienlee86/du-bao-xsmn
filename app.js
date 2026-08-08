@@ -8559,3 +8559,1032 @@ function compareBacktestWindowsV22(
 console.log(
   'XSMN V2.2 Backtest Engine loaded — Walk-Forward / No Future Leakage'
 );
+
+/* =========================================================================
+   XSMN V2.3 MODEL LAB
+   Walk-Forward Weight Research Engine
+
+   Mục tiêu:
+   - Không thay đổi Production Engine.
+   - Backtest nhiều bộ trọng số.
+   - Không sử dụng dữ liệu tương lai.
+   - So sánh Top 1 / Top 2 / Top 3 / MRR / Average Rank.
+   - Tìm candidate model tốt hơn baseline V2.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. MODEL CONFIGS
+   ========================================================================= */
+
+const MODEL_LAB_V23_CONFIGS = [
+
+  {
+    id: 'BASELINE',
+    name: 'V2 Baseline',
+    weights: {
+      frequency: 0.25,
+      recent: 0.18,
+      momentum: 0.12,
+      gan: 0.15,
+      cycle: 0.12,
+      headTail: 0.08,
+      stability: 0.10
+    }
+  },
+
+  {
+    id: 'RECENT',
+    name: 'Recent Trend',
+    weights: {
+      frequency: 0.20,
+      recent: 0.28,
+      momentum: 0.17,
+      gan: 0.10,
+      cycle: 0.10,
+      headTail: 0.07,
+      stability: 0.08
+    }
+  },
+
+  {
+    id: 'FREQUENCY',
+    name: 'Frequency',
+    weights: {
+      frequency: 0.35,
+      recent: 0.18,
+      momentum: 0.10,
+      gan: 0.10,
+      cycle: 0.10,
+      headTail: 0.07,
+      stability: 0.10
+    }
+  },
+
+  {
+    id: 'BALANCED',
+    name: 'Balanced',
+    weights: {
+      frequency: 0.22,
+      recent: 0.20,
+      momentum: 0.14,
+      gan: 0.12,
+      cycle: 0.12,
+      headTail: 0.08,
+      stability: 0.12
+    }
+  },
+
+  {
+    id: 'CYCLE',
+    name: 'Cycle + Gan',
+    weights: {
+      frequency: 0.18,
+      recent: 0.15,
+      momentum: 0.10,
+      gan: 0.20,
+      cycle: 0.20,
+      headTail: 0.07,
+      stability: 0.10
+    }
+  }
+
+];
+
+
+/* =========================================================================
+   2. SCORE USING CUSTOM WEIGHTS
+   ========================================================================= */
+
+function modelLabScoresV23(
+  draws,
+  giaiKey,
+  windowSize,
+  weights
+) {
+
+  const base =
+    computeScoresForGiai(
+      draws,
+      giaiKey,
+      windowSize
+    );
+
+
+  const scores = {};
+
+
+  for (
+    let i = 0;
+    i < 100;
+    i++
+  ) {
+
+    const n =
+      pad2(i);
+
+
+    const c =
+      base.components[n] || {};
+
+
+    scores[n] =
+      clamp(
+
+        (c.frequency || 0) *
+        weights.frequency +
+
+        (c.recent || 0) *
+        weights.recent +
+
+        (c.momentum || 0) *
+        weights.momentum +
+
+        (c.gan || 0) *
+        weights.gan +
+
+        (c.cycle || 0) *
+        weights.cycle +
+
+        (c.headTail || 0) *
+        weights.headTail +
+
+        (c.stability || 0) *
+        weights.stability,
+
+        0,
+        1
+
+      );
+
+  }
+
+
+  return scores;
+
+}
+
+
+/* =========================================================================
+   3. EMPTY METRIC
+   ========================================================================= */
+
+function createModelLabMetricV23() {
+
+  return {
+
+    tests: 0,
+
+    top1: 0,
+
+    top2: 0,
+
+    top3: 0,
+
+    reciprocalRank: 0,
+
+    rankSum: 0,
+
+    rankedHits: 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. UPDATE METRIC
+   ========================================================================= */
+
+function updateModelLabMetricV23(
+  metric,
+  actualNumbers,
+  ranked
+) {
+
+  metric.tests++;
+
+
+  let bestRank =
+    Infinity;
+
+
+  actualNumbers
+    .forEach(
+      actual => {
+
+        const index =
+          ranked.indexOf(
+            actual
+          );
+
+
+        if (
+          index >= 0
+        ) {
+
+          bestRank =
+            Math.min(
+              bestRank,
+              index + 1
+            );
+
+        }
+
+      }
+    );
+
+
+  if (
+    bestRank === Infinity
+  ) {
+
+    return;
+
+  }
+
+
+  metric.rankedHits++;
+
+
+  metric.rankSum +=
+    bestRank;
+
+
+  metric.reciprocalRank +=
+    1 / bestRank;
+
+
+  if (
+    bestRank <= 1
+  ) {
+
+    metric.top1++;
+
+  }
+
+
+  if (
+    bestRank <= 2
+  ) {
+
+    metric.top2++;
+
+  }
+
+
+  if (
+    bestRank <= 3
+  ) {
+
+    metric.top3++;
+
+  }
+
+}
+
+
+/* =========================================================================
+   5. FINALIZE METRIC
+   ========================================================================= */
+
+function finalizeModelLabMetricV23(
+  metric
+) {
+
+  const tests =
+    metric.tests || 1;
+
+
+  return {
+
+    tests:
+      metric.tests,
+
+    top1:
+      metric.top1,
+
+    top2:
+      metric.top2,
+
+    top3:
+      metric.top3,
+
+    top1Rate:
+      metric.top1 /
+      tests,
+
+    top2Rate:
+      metric.top2 /
+      tests,
+
+    top3Rate:
+      metric.top3 /
+      tests,
+
+    mrr:
+      metric.reciprocalRank /
+      tests,
+
+    averageRank:
+      metric.rankedHits
+        ? metric.rankSum /
+          metric.rankedHits
+        : 100
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. BACKTEST ONE MODEL
+   ========================================================================= */
+
+function backtestModelV23(
+  provinceSlug,
+  giaiKey,
+  windowSize,
+  config
+) {
+
+  /*
+   * getAllDrawsForProvince()
+   * trả newest -> oldest.
+   *
+   * Backtest cần oldest -> newest.
+   */
+
+  const draws =
+    getAllDrawsForProvince(
+      provinceSlug
+    )
+    .slice()
+    .reverse();
+
+
+  const metric =
+    createModelLabMetricV23();
+
+
+  /*
+   * Cần tối thiểu 30 kỳ training.
+   */
+
+  const minimumTraining =
+    30;
+
+
+  if (
+    draws.length <=
+    minimumTraining
+  ) {
+
+    return finalizeModelLabMetricV23(
+      metric
+    );
+
+  }
+
+
+  for (
+    let targetIndex =
+      minimumTraining;
+
+    targetIndex <
+      draws.length;
+
+    targetIndex++
+  ) {
+
+    /*
+     * CHỈ dữ liệu trước target.
+     * Không future leakage.
+     */
+
+    const trainingChronological =
+      draws.slice(
+        0,
+        targetIndex
+      );
+
+
+    /*
+     * Engine hiện tại yêu cầu
+     * newest -> oldest.
+     */
+
+    const trainingDraws =
+      trainingChronological
+        .slice()
+        .reverse();
+
+
+    const actualDraw =
+      draws[
+        targetIndex
+      ];
+
+
+    const scores =
+      modelLabScoresV23(
+        trainingDraws,
+        giaiKey,
+        windowSize,
+        config.weights
+      );
+
+
+    const ranked =
+      rankedNumbers(
+        scores
+      )
+      .map(
+        ([n]) => n
+      );
+
+
+    const actual =
+      loOfPrize(
+        actualDraw,
+        giaiKey
+      );
+
+
+    updateModelLabMetricV23(
+      metric,
+      actual,
+      ranked
+    );
+
+  }
+
+
+  return finalizeModelLabMetricV23(
+    metric
+  );
+
+}
+
+
+/* =========================================================================
+   7. MODEL QUALITY SCORE
+   ========================================================================= */
+
+function modelQualityScoreV23(
+  metric
+) {
+
+  /*
+   * Ưu tiên:
+   *
+   * Top1 = 35%
+   * Top3 = 30%
+   * MRR  = 25%
+   * Avg Rank = 10%
+   */
+
+
+  const rankQuality =
+    clamp(
+      1 -
+      (
+        metric.averageRank -
+        1
+      ) /
+      99
+    );
+
+
+  return (
+
+    metric.top1Rate *
+    0.35 +
+
+    metric.top3Rate *
+    0.30 +
+
+    metric.mrr *
+    0.25 +
+
+    rankQuality *
+    0.10
+
+  );
+
+}
+
+
+/* =========================================================================
+   8. TEST ALL MODELS — ONE PROVINCE / ONE PRIZE
+   ========================================================================= */
+
+function compareModelsV23(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey = 'db',
+
+  windowSize = 30
+) {
+
+  const rows = [];
+
+
+  MODEL_LAB_V23_CONFIGS
+    .forEach(
+      config => {
+
+        const metric =
+          backtestModelV23(
+            provinceSlug,
+            giaiKey,
+            windowSize,
+            config
+          );
+
+
+        const quality =
+          modelQualityScoreV23(
+            metric
+          );
+
+
+        rows.push({
+
+          Model:
+            config.id,
+
+          Name:
+            config.name,
+
+          Tests:
+            metric.tests,
+
+          Top1:
+            (
+              metric.top1Rate *
+              100
+            ).toFixed(2) + '%',
+
+          Top2:
+            (
+              metric.top2Rate *
+              100
+            ).toFixed(2) + '%',
+
+          Top3:
+            (
+              metric.top3Rate *
+              100
+            ).toFixed(2) + '%',
+
+          MRR:
+            metric.mrr
+              .toFixed(4),
+
+          AvgRank:
+            metric.averageRank
+              .toFixed(2),
+
+          Quality:
+            (
+              quality *
+              100
+            ).toFixed(2)
+
+        });
+
+      }
+    );
+
+
+  rows.sort(
+    (a, b) =>
+      Number(
+        b.Quality
+      ) -
+      Number(
+        a.Quality
+      )
+  );
+
+
+  const p =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.3 MODEL LAB'
+  );
+
+  console.log(
+    `${p ? p.name : provinceSlug} · ${giaiKey.toUpperCase()} · Window ${windowSize}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  if (
+    rows.length
+  ) {
+
+    console.log(
+      `BEST MODEL: ${rows[0].Model} — Quality ${rows[0].Quality}`
+    );
+
+  }
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   9. TEST WINDOWS
+   ========================================================================= */
+
+function compareModelWindowsV23(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey = 'db'
+) {
+
+  const windows = [
+    10,
+    20,
+    30,
+    60
+  ];
+
+
+  const rows = [];
+
+
+  windows.forEach(
+    windowSize => {
+
+      MODEL_LAB_V23_CONFIGS
+        .forEach(
+          config => {
+
+            const metric =
+              backtestModelV23(
+                provinceSlug,
+                giaiKey,
+                windowSize,
+                config
+              );
+
+
+            rows.push({
+
+              Window:
+                windowSize,
+
+              Model:
+                config.id,
+
+              Top1:
+                (
+                  metric.top1Rate *
+                  100
+                ).toFixed(2) + '%',
+
+              Top3:
+                (
+                  metric.top3Rate *
+                  100
+                ).toFixed(2) + '%',
+
+              MRR:
+                metric.mrr
+                  .toFixed(4),
+
+              AvgRank:
+                metric.averageRank
+                  .toFixed(2),
+
+              Quality:
+                (
+                  modelQualityScoreV23(
+                    metric
+                  ) *
+                  100
+                ).toFixed(2)
+
+            });
+
+          }
+        );
+
+    }
+  );
+
+
+  rows.sort(
+    (a, b) =>
+      Number(
+        b.Quality
+      ) -
+      Number(
+        a.Quality
+      )
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.3 — MODEL + WINDOW LAB'
+  );
+
+  console.log(
+    provinceSlug,
+    giaiKey
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  if (
+    rows.length
+  ) {
+
+    console.log(
+      `BEST: ${rows[0].Model} · Window ${rows[0].Window} · Quality ${rows[0].Quality}`
+    );
+
+  }
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   10. ALL 21 PROVINCES
+   ========================================================================= */
+
+function summarizeAllModelsV23(
+  giaiKey = 'db',
+  windowSize = 30
+) {
+
+  const summary = {};
+
+
+  MODEL_LAB_V23_CONFIGS
+    .forEach(
+      config => {
+
+        summary[
+          config.id
+        ] = {
+
+          quality: 0,
+
+          top1: 0,
+
+          top3: 0,
+
+          mrr: 0,
+
+          avgRank: 0,
+
+          provinces: 0
+
+        };
+
+      }
+    );
+
+
+  PROVINCES.forEach(
+    province => {
+
+      MODEL_LAB_V23_CONFIGS
+        .forEach(
+          config => {
+
+            const metric =
+              backtestModelV23(
+                province.slug,
+                giaiKey,
+                windowSize,
+                config
+              );
+
+
+            const s =
+              summary[
+                config.id
+              ];
+
+
+            s.quality +=
+              modelQualityScoreV23(
+                metric
+              );
+
+
+            s.top1 +=
+              metric.top1Rate;
+
+
+            s.top3 +=
+              metric.top3Rate;
+
+
+            s.mrr +=
+              metric.mrr;
+
+
+            s.avgRank +=
+              metric.averageRank;
+
+
+            s.provinces++;
+
+          }
+        );
+
+    }
+  );
+
+
+  const rows =
+    MODEL_LAB_V23_CONFIGS
+      .map(
+        config => {
+
+          const s =
+            summary[
+              config.id
+            ];
+
+
+          const count =
+            Math.max(
+              s.provinces,
+              1
+            );
+
+
+          return {
+
+            Model:
+              config.id,
+
+            Provinces:
+              s.provinces,
+
+            Top1:
+              (
+                s.top1 /
+                count *
+                100
+              ).toFixed(2) + '%',
+
+            Top3:
+              (
+                s.top3 /
+                count *
+                100
+              ).toFixed(2) + '%',
+
+            MRR:
+              (
+                s.mrr /
+                count
+              ).toFixed(4),
+
+            AvgRank:
+              (
+                s.avgRank /
+                count
+              ).toFixed(2),
+
+            Quality:
+              (
+                s.quality /
+                count *
+                100
+              ).toFixed(2)
+
+          };
+
+        }
+      );
+
+
+  rows.sort(
+    (a, b) =>
+      Number(
+        b.Quality
+      ) -
+      Number(
+        a.Quality
+      )
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.3 — ALL PROVINCES MODEL LAB'
+  );
+
+  console.log(
+    `Prize: ${giaiKey.toUpperCase()} · Window: ${windowSize}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  if (
+    rows.length
+  ) {
+
+    console.log(
+      `GLOBAL BEST MODEL: ${rows[0].Model} — Quality ${rows[0].Quality}`
+    );
+
+  }
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   11. QUICK TEST
+
+   Sau khi GitHub Pages cập nhật,
+   mở Chrome Console và chạy:
+
+   1. An Giang — DB — Window 30
+
+      compareModelsV23(
+        'an-giang',
+        'db',
+        30
+      );
+
+
+   2. So sánh Model + Window:
+
+      compareModelWindowsV23(
+        'an-giang',
+        'db'
+      );
+
+
+   3. Test 21 tỉnh:
+
+      summarizeAllModelsV23(
+        'db',
+        30
+      );
+
+   ========================================================================= */
+
+
+console.log(
+  'XSMN V2.3 Model Lab loaded — Production Engine unchanged'
+);
