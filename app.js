@@ -5215,90 +5215,429 @@ function initSettingsTab() {
 
 
 /* =========================================================================
-   44. LOAD SEED
+   44. LOAD DATABASE
+   XSMN V2.1
+   Ưu tiên database lịch sử mới → fallback seed cũ
    ========================================================================= */
 
 async function loadSeedData() {
 
-  /*
-   * Ưu tiên xsmn_seed.js
-   * để vẫn chạy được khi mở file trực tiếp.
-   */
+  console.log('======================================');
+  console.log('XSMN V2.1 - LOADING DATABASE');
+  console.log('======================================');
 
-  if (
-    window.__XSMN_SEED__ &&
-    Array.isArray(
-      window.__XSMN_SEED__.draws
-    )
-  ) {
-
-    SEED_DRAWS =
-      window.__XSMN_SEED__.draws;
-
-    console.log(
-      `XSMN V2: loaded ${SEED_DRAWS.length} seed draws từ xsmn_seed.js`
-    );
-
-    return;
-
-  }
+  SEED_DRAWS = [];
 
 
-  /*
-   * Fallback JSON
-   */
+  /* =======================================================================
+     HÀM CHUẨN HÓA DATABASE
 
-  try {
+     Hỗ trợ:
+     1. { draws: [...] }
 
-    const response =
-      await fetch(
-        `data/xsmn_seed.json?t=${Date.now()}`,
-        {
-          cache:
-            'no-store'
+     2. {
+          provinces: {
+            "an-giang": {
+              draws: [...]
+            }
+          }
         }
-      );
+
+     3. {
+          provinces: {
+            "an-giang": {
+              history: [...]
+            }
+          }
+        }
+     ======================================================================= */
+
+  function normalizeDatabase(json) {
+
+    if (!json) {
+      return [];
+    }
 
 
-    if (
-      !response.ok
-    ) {
+    /* ---------------------------------------------------------------------
+       FORMAT 1
+       --------------------------------------------------------------------- */
 
-      throw new Error(
-        `HTTP ${response.status}`
-      );
+    if (Array.isArray(json.draws)) {
+
+      return json.draws
+        .filter(draw =>
+          draw &&
+          draw.province &&
+          draw.date &&
+          draw.prizes
+        );
 
     }
 
 
-    const json =
-      await response.json();
+    /* ---------------------------------------------------------------------
+       FORMAT 2 / 3
+       --------------------------------------------------------------------- */
+
+    if (
+      json.provinces &&
+      typeof json.provinces === 'object'
+    ) {
+
+      const output = [];
 
 
-    SEED_DRAWS =
+      Object.entries(json.provinces)
+        .forEach(([slug, provinceData]) => {
+
+          if (!provinceData) {
+            return;
+          }
+
+
+          let provinceDraws = [];
+
+
+          if (
+            Array.isArray(
+              provinceData.draws
+            )
+          ) {
+
+            provinceDraws =
+              provinceData.draws;
+
+          } else if (
+            Array.isArray(
+              provinceData.history
+            )
+          ) {
+
+            provinceDraws =
+              provinceData.history;
+
+          }
+
+
+          provinceDraws
+            .forEach(draw => {
+
+              if (!draw) {
+                return;
+              }
+
+
+              const normalized = {
+
+                ...draw,
+
+                province:
+                  draw.province ||
+                  slug
+
+              };
+
+
+              if (
+                normalized.date &&
+                normalized.prizes
+              ) {
+
+                output.push(
+                  normalized
+                );
+
+              }
+
+            });
+
+        });
+
+
+      return output;
+
+    }
+
+
+    return [];
+
+  }
+
+
+  /* =======================================================================
+     DANH SÁCH NGUỒN DATABASE
+
+     Ưu tiên database lịch sử mới.
+     Nếu không tồn tại thì tự fallback.
+     ======================================================================= */
+
+  const sources = [
+
+    'data/xsmn_history.json',
+
+    'data/xsmn_seed.json'
+
+  ];
+
+
+  /* =======================================================================
+     THỬ TỪNG DATABASE
+     ======================================================================= */
+
+  for (
+    const source
+    of sources
+  ) {
+
+    try {
+
+      console.log(
+        `Đang tải database: ${source}`
+      );
+
+
+      const separator =
+        source.includes('?')
+          ? '&'
+          : '?';
+
+
+      const response =
+        await fetch(
+
+          `${source}${separator}t=${Date.now()}`,
+
+          {
+            cache: 'no-store'
+          }
+
+        );
+
+
+      if (!response.ok) {
+
+        throw new Error(
+          `HTTP ${response.status}`
+        );
+
+      }
+
+
+      const json =
+        await response.json();
+
+
+      const draws =
+        normalizeDatabase(
+          json
+        );
+
+
+      if (!draws.length) {
+
+        throw new Error(
+          'Database không có draw hợp lệ'
+        );
+
+      }
+
+
+      /* -------------------------------------------------------------------
+         LOẠI TRÙNG
+         province + date
+         ------------------------------------------------------------------- */
+
+      const map =
+        new Map();
+
+
+      draws.forEach(draw => {
+
+        const key =
+          `${draw.province}|${draw.date}`;
+
+
+        map.set(
+          key,
+          draw
+        );
+
+      });
+
+
+      SEED_DRAWS =
+        Array.from(
+          map.values()
+        );
+
+
+      /* -------------------------------------------------------------------
+         SẮP XẾP
+         tỉnh → ngày mới nhất trước
+         ------------------------------------------------------------------- */
+
+      SEED_DRAWS.sort(
+        (a, b) => {
+
+          if (
+            a.province !==
+            b.province
+          ) {
+
+            return a.province
+              .localeCompare(
+                b.province
+              );
+
+          }
+
+
+          return b.date
+            .localeCompare(
+              a.date
+            );
+
+        }
+      );
+
+
+      console.log(
+        `✓ DATABASE OK: ${source}`
+      );
+
+
+      console.log(
+        `✓ Tổng số kỳ: ${SEED_DRAWS.length}`
+      );
+
+
+      /* -------------------------------------------------------------------
+         THỐNG KÊ SỐ KỲ/TỈNH
+         ------------------------------------------------------------------- */
+
+      const counts = {};
+
+
+      SEED_DRAWS
+        .forEach(draw => {
+
+          counts[
+            draw.province
+          ] =
+            (
+              counts[
+                draw.province
+              ] || 0
+            ) + 1;
+
+        });
+
+
+      console.log(
+        'Số kỳ theo tỉnh:',
+        counts
+      );
+
+
+      console.log(
+        `✓ Số tỉnh có dữ liệu: ${Object.keys(counts).length}`
+      );
+
+
+      /* -------------------------------------------------------------------
+         Nếu đã tải thành công thì dừng.
+         ------------------------------------------------------------------- */
+
+      return;
+
+    } catch (error) {
+
+      console.warn(
+        `Không tải được ${source}:`,
+        error.message ||
+        error
+      );
+
+    }
+
+  }
+
+
+  /* =======================================================================
+     FALLBACK CUỐI CÙNG
+     xsmn_seed.js
+
+     Chỉ chạy nếu JSON phía trên đều thất bại.
+     ======================================================================= */
+
+  try {
+
+    if (
+      window.__XSMN_SEED__ &&
       Array.isArray(
-        json.draws
-      )
-        ? json.draws
-        : [];
+        window.__XSMN_SEED__.draws
+      ) &&
+      window.__XSMN_SEED__.draws.length
+    ) {
+
+      SEED_DRAWS =
+        window.__XSMN_SEED__.draws;
 
 
-    console.log(
-      `XSMN V2: loaded ${SEED_DRAWS.length} seed draws từ JSON`
-    );
+      console.warn(
+        `⚠ Đang dùng fallback xsmn_seed.js: ${SEED_DRAWS.length} kỳ`
+      );
 
 
-  } catch (e) {
+      return;
 
-    SEED_DRAWS = [];
+    }
 
+  } catch (error) {
 
-    console.error(
-      'Không tải được dữ liệu seed:',
-      e
+    console.warn(
+      'Không đọc được xsmn_seed.js:',
+      error
     );
 
   }
+
+
+  /* =======================================================================
+     KHÔNG CÓ DATABASE
+     ======================================================================= */
+
+  SEED_DRAWS = [];
+
+
+  console.error(
+    '======================================'
+  );
+
+  console.error(
+    '❌ KHÔNG TẢI ĐƯỢC DATABASE XSMN'
+  );
+
+  console.error(
+    'Đã thử:'
+  );
+
+  console.error(
+    '- data/xsmn_history.json'
+  );
+
+  console.error(
+    '- data/xsmn_seed.json'
+  );
+
+  console.error(
+    '- window.__XSMN_SEED__'
+  );
+
+  console.error(
+    '======================================'
+  );
 
 }
 
