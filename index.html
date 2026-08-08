@@ -150,5 +150,736 @@
 
 <script src="data/xsmn_seed.js"></script>
 <script src="app.js"></script>
+<!-- ================================================================
+     XSMN V2.2 — MOBILE BACKTEST UI
+     ================================================================ -->
+
+<style>
+  #v22BacktestPanel {
+    margin: 18px 0 30px;
+  }
+
+  .v22-bt-card {
+    background: rgba(30, 36, 78, 0.96);
+    border: 1px solid rgba(135, 145, 255, 0.25);
+    border-radius: 22px;
+    padding: 18px;
+    margin-bottom: 16px;
+    color: #fff;
+  }
+
+  .v22-bt-title {
+    font-size: 21px;
+    font-weight: 800;
+    margin-bottom: 7px;
+  }
+
+  .v22-bt-sub {
+    color: rgba(255,255,255,.68);
+    line-height: 1.55;
+    font-size: 14px;
+  }
+
+  .v22-window-row {
+    display: grid;
+    grid-template-columns: repeat(4,1fr);
+    gap: 7px;
+    margin: 16px 0;
+  }
+
+  .v22-window-btn {
+    border: 1px solid rgba(255,255,255,.22);
+    background: rgba(255,255,255,.07);
+    color: #fff;
+    padding: 10px 3px;
+    border-radius: 13px;
+    font-weight: 700;
+    font-size: 13px;
+  }
+
+  .v22-window-btn.active {
+    background: #ffbd3c;
+    color: #17192f;
+    border-color: #ffbd3c;
+  }
+
+  #v22RunBacktest {
+    width: 100%;
+    border: 0;
+    border-radius: 16px;
+    padding: 16px 10px;
+    font-size: 17px;
+    font-weight: 800;
+    background: linear-gradient(90deg,#ffbd3c,#ff8b3d);
+    color: #17171e;
+    box-shadow: 0 7px 20px rgba(255,160,50,.22);
+  }
+
+  #v22RunBacktest:disabled {
+    opacity: .55;
+  }
+
+  #v22BacktestStatus {
+    margin-top: 13px;
+    font-size: 14px;
+    color: rgba(255,255,255,.72);
+    line-height: 1.5;
+  }
+
+  .v22-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2,1fr);
+    gap: 10px;
+    margin-top: 15px;
+  }
+
+  .v22-summary-box {
+    background: rgba(255,255,255,.06);
+    border-radius: 15px;
+    padding: 13px;
+  }
+
+  .v22-summary-label {
+    color: rgba(255,255,255,.62);
+    font-size: 12px;
+    margin-bottom: 5px;
+  }
+
+  .v22-summary-value {
+    color: #ffbd3c;
+    font-size: 20px;
+    font-weight: 800;
+  }
+
+  .v22-section-title {
+    color: #ffbd3c;
+    font-size: 17px;
+    font-weight: 800;
+    margin: 18px 0 10px;
+  }
+
+  .v22-result-row {
+    background: rgba(255,255,255,.055);
+    border-radius: 14px;
+    padding: 13px;
+    margin-bottom: 9px;
+  }
+
+  .v22-result-name {
+    font-weight: 800;
+    margin-bottom: 9px;
+  }
+
+  .v22-metrics {
+    display: grid;
+    grid-template-columns: repeat(3,1fr);
+    gap: 6px;
+  }
+
+  .v22-metric {
+    text-align: center;
+    background: rgba(0,0,0,.13);
+    border-radius: 10px;
+    padding: 8px 3px;
+  }
+
+  .v22-metric strong {
+    display: block;
+    color: #ffbd3c;
+    font-size: 15px;
+  }
+
+  .v22-metric span {
+    display: block;
+    color: rgba(255,255,255,.58);
+    font-size: 10px;
+    margin-top: 3px;
+  }
+
+  .v22-rank {
+    margin-top: 8px;
+    color: rgba(255,255,255,.64);
+    font-size: 12px;
+  }
+
+  .v22-warning {
+    background: rgba(255,189,60,.08);
+    border: 1px dashed rgba(255,189,60,.35);
+    border-radius: 13px;
+    padding: 11px;
+    margin-top: 15px;
+    color: rgba(255,255,255,.7);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+</style>
+
+
+<script>
+(function () {
+
+  let v22Window = 30;
+
+
+  function pct(v) {
+
+    return (
+      (
+        Number(v) || 0
+      ) * 100
+    ).toFixed(1) + '%';
+
+  }
+
+
+  function avgRank(v) {
+
+    if (
+      v === null ||
+      v === undefined ||
+      !Number.isFinite(Number(v))
+    ) {
+
+      return '--';
+
+    }
+
+    return Number(v)
+      .toFixed(1);
+
+  }
+
+
+  function metricRow(
+    title,
+    metric,
+    top2Only
+  ) {
+
+    if (!metric) return '';
+
+
+    return `
+      <div class="v22-result-row">
+
+        <div class="v22-result-name">
+          ${title}
+        </div>
+
+        <div class="v22-metrics">
+
+          <div class="v22-metric">
+            <strong>
+              ${pct(metric.top1Rate)}
+            </strong>
+            <span>
+              TOP 1
+            </span>
+          </div>
+
+          <div class="v22-metric">
+            <strong>
+              ${pct(metric.top2Rate)}
+            </strong>
+            <span>
+              TOP 2
+            </span>
+          </div>
+
+          <div class="v22-metric">
+            <strong>
+              ${
+                top2Only
+                  ? '—'
+                  : pct(metric.top3Rate)
+              }
+            </strong>
+            <span>
+              TOP 3
+            </span>
+          </div>
+
+        </div>
+
+        <div class="v22-rank">
+          Số kỳ kiểm định:
+          <b>${metric.tested || 0}</b>
+          · Average Rank:
+          <b>${avgRank(metric.averageActualRank)}</b>
+          · MRR:
+          <b>${Number(metric.mrr || 0).toFixed(3)}</b>
+        </div>
+
+      </div>
+    `;
+
+  }
+
+
+  function buildPanel() {
+
+    if (
+      document.getElementById(
+        'v22BacktestPanel'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      console.warn(
+        'V2.2 UI: không tìm thấy tab-settings'
+      );
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      'v22BacktestPanel';
+
+
+    panel.innerHTML = `
+      <div class="v22-bt-card">
+
+        <div class="v22-bt-title">
+          🧪 Kiểm định mô hình V2.2
+        </div>
+
+        <div class="v22-bt-sub">
+          Walk-forward backtest trên dữ liệu lịch sử.
+          Mỗi kỳ chỉ sử dụng dữ liệu xảy ra trước kỳ đó,
+          giúp hạn chế nhìn trước kết quả.
+        </div>
+
+
+        <div class="v22-window-row">
+
+          <button
+            type="button"
+            class="v22-window-btn"
+            data-v22-window="10">
+            10 kỳ
+          </button>
+
+          <button
+            type="button"
+            class="v22-window-btn"
+            data-v22-window="20">
+            20 kỳ
+          </button>
+
+          <button
+            type="button"
+            class="v22-window-btn active"
+            data-v22-window="30">
+            30 kỳ
+          </button>
+
+          <button
+            type="button"
+            class="v22-window-btn"
+            data-v22-window="60">
+            60 kỳ
+          </button>
+
+        </div>
+
+
+        <button
+          type="button"
+          id="v22RunBacktest">
+
+          🧪 Chạy Backtest tỉnh đang chọn
+
+        </button>
+
+
+        <div id="v22BacktestStatus">
+          Chọn tỉnh ở tab Dự Báo,
+          sau đó quay lại đây và chạy kiểm định.
+        </div>
+
+      </div>
+
+
+      <div
+        id="v22BacktestResults">
+      </div>
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    panel
+      .querySelectorAll(
+        '[data-v22-window]'
+      )
+      .forEach(
+        button => {
+
+          button.addEventListener(
+            'click',
+            function () {
+
+              panel
+                .querySelectorAll(
+                  '[data-v22-window]'
+                )
+                .forEach(
+                  b =>
+                    b.classList.remove(
+                      'active'
+                    )
+                );
+
+
+              this.classList.add(
+                'active'
+              );
+
+
+              v22Window =
+                Number(
+                  this.dataset
+                    .v22Window
+                );
+
+            }
+          );
+
+        }
+      );
+
+
+    const runButton =
+      document.getElementById(
+        'v22RunBacktest'
+      );
+
+
+    runButton.addEventListener(
+      'click',
+      function () {
+
+        runBacktest(
+          runButton
+        );
+
+      }
+    );
+
+  }
+
+
+  function runBacktest(
+    button
+  ) {
+
+    const status =
+      document.getElementById(
+        'v22BacktestStatus'
+      );
+
+
+    const output =
+      document.getElementById(
+        'v22BacktestResults'
+      );
+
+
+    if (
+      typeof backtestProvinceV22 !==
+      'function'
+    ) {
+
+      status.innerHTML =
+        '❌ Backtest Engine V2.2 chưa được tải. Hãy refresh trang sau khi GitHub Pages cập nhật.';
+
+      return;
+
+    }
+
+
+    const slug =
+      typeof SELECTED_PROVINCE !==
+        'undefined'
+          ? SELECTED_PROVINCE
+          : null;
+
+
+    if (!slug) {
+
+      status.innerHTML =
+        '❌ Không xác định được tỉnh đang chọn.';
+
+      return;
+
+    }
+
+
+    const province =
+      typeof provinceBySlug ===
+        'function'
+          ? provinceBySlug(slug)
+          : null;
+
+
+    const provinceName =
+      province
+        ? province.name
+        : slug;
+
+
+    button.disabled =
+      true;
+
+
+    button.textContent =
+      '⏳ Đang kiểm định...';
+
+
+    status.innerHTML =
+      `Đang chạy walk-forward backtest <b>${provinceName}</b> với cửa sổ <b>${v22Window} kỳ</b>...`;
+
+
+    output.innerHTML =
+      '';
+
+
+    /*
+     * Cho trình duyệt một nhịp render UI
+     * trước khi bắt đầu tính toán.
+     */
+
+    setTimeout(
+      function () {
+
+        try {
+
+          const result =
+            backtestProvinceV22(
+              slug,
+              v22Window
+            );
+
+
+          if (
+            result.error
+          ) {
+
+            throw new Error(
+              result.error
+            );
+
+          }
+
+
+          renderResult(
+            result,
+            output,
+            status
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            'V2.2 Backtest UI:',
+            error
+          );
+
+
+          status.innerHTML =
+            `❌ Backtest lỗi: ${error.message || error}`;
+
+
+        } finally {
+
+          button.disabled =
+            false;
+
+
+          button.textContent =
+            '🧪 Chạy Backtest tỉnh đang chọn';
+
+        }
+
+      },
+
+      80
+    );
+
+  }
+
+
+  function renderResult(
+    result,
+    output,
+    status
+  ) {
+
+    status.innerHTML =
+      `✅ Hoàn tất <b>${result.provinceName}</b> · ${result.testedDraws} kỳ kiểm định · ${result.testFrom} → ${result.testTo}.`;
+
+
+    let html = `
+      <div class="v22-bt-card">
+
+        <div class="v22-bt-title">
+          📊 ${result.provinceName}
+        </div>
+
+        <div class="v22-bt-sub">
+          Walk-forward V2.2 · Window ${result.windowSize} kỳ
+        </div>
+
+
+        <div class="v22-summary-grid">
+
+          <div class="v22-summary-box">
+            <div class="v22-summary-label">
+              Dữ liệu hiện có
+            </div>
+            <div class="v22-summary-value">
+              ${result.totalDraws}
+            </div>
+          </div>
+
+          <div class="v22-summary-box">
+            <div class="v22-summary-label">
+              Kỳ kiểm định
+            </div>
+            <div class="v22-summary-value">
+              ${result.testedDraws}
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="v22-section-title">
+          🎯 Giải Đặc Biệt
+        </div>
+
+        ${metricRow(
+          'Full 6 chữ số',
+          result.dbFull6,
+          true
+        )}
+
+        ${metricRow(
+          '2 số cuối ĐB',
+          result.dbLast2,
+          false
+        )}
+
+
+        <div class="v22-section-title">
+          📈 G1 → G8
+        </div>
+    `;
+
+
+    if (
+      typeof PRIZE_META !==
+      'undefined'
+    ) {
+
+      PRIZE_META
+        .filter(
+          pm =>
+            pm.key !== 'db'
+        )
+        .forEach(
+          pm => {
+
+            html +=
+              metricRow(
+                pm.label,
+                result.prizes[
+                  pm.key
+                ],
+                false
+              );
+
+          }
+        );
+
+    }
+
+
+    html += `
+        <div class="v22-warning">
+          ⚠️ Backtest đo hiệu quả của mô hình trên dữ liệu lịch sử.
+          TOP 1 / TOP 2 / TOP 3 là tỷ lệ số thực tế nằm trong nhóm
+          ứng viên đứng đầu của mô hình, không phải xác suất trúng
+          của kỳ quay tiếp theo.
+        </div>
+
+      </div>
+    `;
+
+
+    output.innerHTML =
+      html;
+
+
+    output.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
+
+  }
+
+
+  /*
+   * index.html có thể chạy script này
+   * trước hoặc sau app.js.
+   *
+   * DOMContentLoaded bảo đảm tab-settings
+   * đã tồn tại.
+   */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildPanel
+    );
+
+  } else {
+
+    buildPanel();
+
+  }
+
+})();
+</script>
+
+<!-- END XSMN V2.2 MOBILE BACKTEST UI -->
 </body>
 </html>
