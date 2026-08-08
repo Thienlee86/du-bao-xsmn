@@ -1,0 +1,104 @@
+name: Test XSMN History Bootstrap
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Check Node version
+        run: node --version
+
+      - name: Check bootstrap script
+        run: |
+          echo "Checking bootstrap-history.js..."
+          node --check scripts/bootstrap-history.js
+
+      - name: Backup current database
+        run: |
+          if [ -f data/xsmn_seed.json ]; then
+            cp data/xsmn_seed.json /tmp/xsmn_seed_before_test.json
+            echo "Current database backed up."
+          else
+            echo "No existing xsmn_seed.json found."
+          fi
+
+      - name: Run history bootstrap test
+        continue-on-error: true
+        run: |
+          echo "========================================"
+          echo "STARTING HISTORY BOOTSTRAP TEST"
+          echo "========================================"
+
+          node scripts/bootstrap-history.js
+
+      - name: Inspect database after test
+        if: always()
+        run: |
+          echo "========================================"
+          echo "DATABASE CHECK"
+          echo "========================================"
+
+          if [ -f data/xsmn_seed.json ]; then
+            node -e "
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('data/xsmn_seed.json','utf8'));
+            const draws = Array.isArray(data.draws) ? data.draws : [];
+
+            const ag = draws
+              .filter(d => d.province === 'an-giang')
+              .sort((a,b) => b.date.localeCompare(a.date));
+
+            console.log('TOTAL DATABASE:', draws.length);
+            console.log('AN GIANG:', ag.length);
+
+            if (ag.length) {
+              console.log('NEWEST:', ag[0].date);
+              console.log('OLDEST:', ag[ag.length - 1].date);
+
+              console.log('');
+              console.log('LATEST 10 AN GIANG DRAWS:');
+
+              ag.slice(0,10).forEach((d,i) => {
+                console.log(
+                  (i+1) + '.',
+                  d.date,
+                  '| DB:',
+                  d.prizes && d.prizes.db
+                );
+              });
+            }
+            "
+          else
+            echo "xsmn_seed.json not found."
+          fi
+
+      - name: Restore original database
+        if: always()
+        run: |
+          if [ -f /tmp/xsmn_seed_before_test.json ]; then
+            cp /tmp/xsmn_seed_before_test.json data/xsmn_seed.json
+            echo "Original database restored."
+          fi
+
+      - name: Test completed
+        if: always()
+        run: |
+          echo "========================================"
+          echo "TEST FINISHED"
+          echo "No repository files were committed."
+          echo "========================================"
