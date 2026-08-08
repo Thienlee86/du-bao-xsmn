@@ -1,0 +1,407 @@
+name: Build XSMN Predictions
+
+on:
+  workflow_dispatch:
+
+  workflow_run:
+    workflows:
+      - Build XSMN Statistics
+    types:
+      - completed
+
+permissions:
+  contents: write
+
+jobs:
+  build-predictions:
+
+    # Chạy thủ công hoặc chỉ chạy tiếp khi Statistics thành công
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      # =====================================================
+      # CHECKOUT
+      # =====================================================
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+
+      # =====================================================
+      # NODE
+      # =====================================================
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+
+      # =====================================================
+      # SHOW INPUT
+      # =====================================================
+
+      - name: Check statistics database
+        run: |
+          echo "========================================"
+          echo "XSMN PREDICTION INPUT"
+          echo "========================================"
+
+          if [ ! -f data/xsmn_stats.json ]; then
+            echo "ERROR: data/xsmn_stats.json not found"
+            exit 1
+          fi
+
+          ls -lh data/xsmn_stats.json
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const stats = JSON.parse(
+            fs.readFileSync(
+              "data/xsmn_stats.json",
+              "utf8"
+            )
+          );
+
+          console.log(
+            "Database draws :",
+            stats.databaseDraws
+          );
+
+          console.log(
+            "Province count :",
+            stats.provinceCount
+          );
+
+          console.log(
+            "Stats generated:",
+            stats.generatedAt
+          );
+
+          if (
+            stats.databaseDraws !== 2100
+          ) {
+            throw new Error(
+              `Expected 2100 draws, got ${stats.databaseDraws}`
+            );
+          }
+
+          if (
+            stats.provinceCount !== 21
+          ) {
+            throw new Error(
+              `Expected 21 provinces, got ${stats.provinceCount}`
+            );
+          }
+
+          console.log(
+            "✓ Statistics database ready"
+          );
+          NODE
+
+
+      # =====================================================
+      # BUILD PREDICTIONS
+      # =====================================================
+
+      - name: Build XSMN predictions
+        run: |
+          echo "========================================"
+          echo "BUILDING XSMN PREDICTIONS"
+          echo "========================================"
+
+          node scripts/build-predictions.js
+
+
+      # =====================================================
+      # VALIDATE OUTPUT
+      # =====================================================
+
+      - name: Validate predictions
+        run: |
+          echo "========================================"
+          echo "VALIDATING PREDICTIONS"
+          echo "========================================"
+
+          if [ ! -f data/xsmn_predictions.json ]; then
+            echo "ERROR: prediction file not created"
+            exit 1
+          fi
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const data = JSON.parse(
+            fs.readFileSync(
+              "data/xsmn_predictions.json",
+              "utf8"
+            )
+          );
+
+          const provinces =
+            data.provinces || {};
+
+          const ids =
+            Object.keys(provinces);
+
+          console.log(
+            "Prediction provinces:",
+            ids.length
+          );
+
+          if (ids.length !== 21) {
+            throw new Error(
+              `Expected 21 provinces, got ${ids.length}`
+            );
+          }
+
+
+          let invalid = 0;
+
+
+          for (
+            const [
+              provinceId,
+              province
+            ]
+            of Object.entries(provinces)
+          ) {
+
+            const predictions =
+              province &&
+              province.prediction &&
+              Array.isArray(
+                province.prediction
+                  .specialPrize6Digits
+              )
+                ? province.prediction
+                    .specialPrize6Digits
+                : [];
+
+
+            if (
+              predictions.length !== 10
+            ) {
+
+              console.log(
+                `INVALID ${provinceId}: expected 10 predictions, got ${predictions.length}`
+              );
+
+              invalid++;
+
+              continue;
+            }
+
+
+            for (
+              const item
+              of predictions
+            ) {
+
+              if (
+                !item ||
+                !/^\d{6}$/.test(
+                  String(item.number)
+                )
+              ) {
+
+                console.log(
+                  `INVALID ${provinceId}:`,
+                  item
+                );
+
+                invalid++;
+              }
+            }
+
+
+            const best =
+              predictions[0];
+
+
+            console.log(
+              `${provinceId.padEnd(12)} | ${best.number} | score ${best.score}`
+            );
+          }
+
+
+          console.log(
+            "----------------------------------------"
+          );
+
+          console.log(
+            "Invalid predictions:",
+            invalid
+          );
+
+
+          if (invalid > 0) {
+
+            throw new Error(
+              `${invalid} invalid prediction records`
+            );
+          }
+
+
+          if (
+            !data.status ||
+            data.status.predictionReady !== true
+          ) {
+
+            throw new Error(
+              "predictionReady is not true"
+            );
+          }
+
+
+          console.log(
+            "✓ Prediction database valid"
+          );
+          NODE
+
+
+      # =====================================================
+      # SHOW RESULTS
+      # =====================================================
+
+      - name: Show prediction results
+        run: |
+          echo "========================================"
+          echo "XSMN 6-DIGIT PREDICTION RESULT"
+          echo "========================================"
+
+          node - <<'NODE'
+          const fs = require("fs");
+
+          const data = JSON.parse(
+            fs.readFileSync(
+              "data/xsmn_predictions.json",
+              "utf8"
+            )
+          );
+
+
+          for (
+            const province
+            of Object.values(
+              data.provinces
+            )
+          ) {
+
+            console.log("");
+            console.log(
+              "----------------------------------------"
+            );
+
+            console.log(
+              province.provinceName
+            );
+
+            console.log(
+              `Based on: ${province.basedOnDraws} draws`
+            );
+
+            console.log(
+              `Latest: ${province.latestDrawDate}`
+            );
+
+            console.log(
+              `Latest DB: ${province.latestSpecialPrize}`
+            );
+
+            console.log(
+              "Top 6-digit predictions:"
+            );
+
+
+            const full =
+              province
+                .prediction
+                .specialPrize6Digits;
+
+
+            full
+              .slice(0, 5)
+              .forEach(
+                (item, index) => {
+
+                  console.log(
+                    `#${index + 1} ${item.number} | score ${item.score}`
+                  );
+                }
+              );
+
+
+            const last2 =
+              province
+                .prediction
+                .last2Digits
+                .slice(0, 5)
+                .map(
+                  item =>
+                    `${item.number}(${item.score})`
+                )
+                .join("  ");
+
+
+            console.log(
+              `Last 2: ${last2}`
+            );
+          }
+
+
+          console.log("");
+          console.log(
+            "========================================"
+          );
+
+          console.log(
+            `Ready: ${data.status.predictionReady}`
+          );
+
+          console.log(
+            `Success: ${data.status.success}/${data.status.total}`
+          );
+
+          console.log(
+            "========================================"
+          );
+          NODE
+
+
+      # =====================================================
+      # FILE SIZE
+      # =====================================================
+
+      - name: Show output file
+        run: |
+          echo "===== PREDICTION FILE ====="
+
+          ls -lh data/xsmn_predictions.json
+
+
+      # =====================================================
+      # COMMIT
+      # =====================================================
+
+      - name: Commit prediction database
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/xsmn_predictions.json
+
+          if git diff --cached --quiet; then
+            echo "No prediction changes to commit."
+          else
+            git commit -m "Update XSMN predictions"
+            git push
+          fi
