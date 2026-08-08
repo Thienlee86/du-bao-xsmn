@@ -1,3 +1,4 @@
+name: Build XSMN Statistics
 on:
   workflow_dispatch:
 
