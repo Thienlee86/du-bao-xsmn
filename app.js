@@ -25319,3 +25319,1018 @@ console.log(
   'XSMN V2.6 Block 7A loaded — Province Adaptive Gate Research Engine ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 7B
+   MOBILE PROVINCE ADAPTIVE GATE PANEL
+
+   Mục tiêu:
+   - Hiển thị kết quả Block 7A trên điện thoại.
+   - Không cần Chrome Console.
+   - Hiển thị:
+       + ADAPTIVE
+       + WATCH
+       + BASELINE
+       + REJECT
+       + Gate Score
+       + Delta
+       + Win Rate
+       + Model
+       + Window
+   - Research Only.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   20. CREATE MOBILE PANEL
+   ========================================================================= */
+
+function ensureProvinceGatePanelV26() {
+
+  if (
+    document.getElementById(
+      'provinceGatePanelV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    console.warn(
+      'V2.6 7B: Không tìm thấy tab-settings'
+    );
+
+    return;
+
+  }
+
+
+  const card =
+    document.createElement(
+      'div'
+    );
+
+
+  card.id =
+    'provinceGatePanelV26';
+
+
+  card.className =
+    'card';
+
+
+  card.style.marginTop =
+    '18px';
+
+
+  card.innerHTML = `
+
+    <div
+      style="
+        font-size:22px;
+        font-weight:900;
+        margin-bottom:8px;
+      "
+    >
+      🚦 Province Adaptive Gate
+    </div>
+
+
+    <div
+      class="sub"
+      style="
+        line-height:1.6;
+        margin-bottom:14px;
+      "
+    >
+      V2.6 Block 7B phân loại từng tỉnh
+      dựa trên kết quả Out-of-Sample.
+      Research only — chưa thay Production.
+    </div>
+
+
+    <button
+      id="btnRunProvinceGateV26"
+      style="
+        width:100%;
+        padding:16px 12px;
+        border:0;
+        border-radius:14px;
+        font-size:17px;
+        font-weight:900;
+        cursor:pointer;
+      "
+    >
+      🚦 Phân tích Province Gate
+    </button>
+
+
+    <div
+      id="provinceGateStatusV26"
+      class="sub"
+      style="
+        margin-top:14px;
+        line-height:1.6;
+      "
+    >
+      Chưa chạy Province Gate.
+    </div>
+
+
+    <div
+      id="provinceGateSummaryV26"
+      style="
+        display:none;
+        margin-top:16px;
+      "
+    >
+    </div>
+
+
+    <div
+      id="provinceGateResultsV26"
+      style="
+        margin-top:16px;
+      "
+    >
+    </div>
+
+
+    <div
+      class="sub"
+      style="
+        margin-top:16px;
+        line-height:1.55;
+      "
+    >
+      📌 Gate Score là Research Score,
+      không phải xác suất trúng.
+    </div>
+
+  `;
+
+
+  settings.appendChild(
+    card
+  );
+
+
+  const button =
+    document.getElementById(
+      'btnRunProvinceGateV26'
+    );
+
+
+  if (button) {
+
+    button.addEventListener(
+      'click',
+      runProvinceGateMobileV26
+    );
+
+  }
+
+
+  console.log(
+    'XSMN V2.6 Block 7B Mobile Panel ready'
+  );
+
+}
+
+
+/* =========================================================================
+   21. FORMAT HELPERS
+   ========================================================================= */
+
+function provinceGateSignedV26(
+  value,
+  digits = 4
+) {
+
+  const n =
+    Number(
+      value || 0
+    );
+
+
+  return (
+    n > 0
+      ? '+'
+      : ''
+  ) +
+  n.toFixed(
+    digits
+  );
+
+}
+
+
+function provinceGateColorV26(
+  gate
+) {
+
+  switch (
+    String(
+      gate || ''
+    ).toUpperCase()
+  ) {
+
+    case 'ADAPTIVE':
+
+      return '#35d07f';
+
+
+    case 'WATCH':
+
+      return '#ffc447';
+
+
+    case 'REJECT':
+
+      return '#ff6666';
+
+
+    case 'BASELINE':
+
+      return '#b8bec8';
+
+
+    default:
+
+      return '#ffffff';
+
+  }
+
+}
+
+
+/* =========================================================================
+   22. RUN MOBILE GATE
+   ========================================================================= */
+
+function runProvinceGateMobileV26() {
+
+  const status =
+    document.getElementById(
+      'provinceGateStatusV26'
+    );
+
+
+  const summaryBox =
+    document.getElementById(
+      'provinceGateSummaryV26'
+    );
+
+
+  const resultsBox =
+    document.getElementById(
+      'provinceGateResultsV26'
+    );
+
+
+  if (
+    !status ||
+    !summaryBox ||
+    !resultsBox
+  ) {
+
+    return;
+
+  }
+
+
+  if (
+    typeof runProvinceAdaptiveGateV26 !==
+    'function'
+  ) {
+
+    status.innerHTML =
+      `
+        ❌ Không tìm thấy
+        <b>Block 7A Engine</b>.
+      `;
+
+    return;
+
+  }
+
+
+  status.innerHTML =
+    `
+      ⏳ Đang phân tích
+      Province Adaptive Gate...
+    `;
+
+
+  summaryBox.style.display =
+    'none';
+
+
+  resultsBox.innerHTML =
+    '';
+
+
+  setTimeout(
+    () => {
+
+      try {
+
+        const result =
+          runProvinceAdaptiveGateV26();
+
+
+        if (
+          !result ||
+          !result.ready
+        ) {
+
+          const reason =
+            result &&
+            result.reason
+              ? result.reason
+              : 'UNKNOWN';
+
+
+          status.innerHTML =
+            `
+              ⚠️ Chưa có dữ liệu
+              Cross-Province OOS.
+
+              <br><br>
+
+              Reason:
+              <b>${reason}</b>
+
+              <br><br>
+
+              Hãy chạy
+              <b>Cross-Province OOS 21 tỉnh</b>
+              trước, sau đó bấm lại
+              Province Gate.
+            `;
+
+
+          return;
+
+        }
+
+
+        renderProvinceGateMobileV26(
+          result
+        );
+
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          'V2.6 Province Gate UI:',
+          error
+        );
+
+
+        status.innerHTML =
+          `
+            ❌ Province Gate Error:
+
+            <br><br>
+
+            <b>
+              ${String(
+                error.message ||
+                error
+              )}
+            </b>
+          `;
+
+      }
+
+    },
+    50
+  );
+
+}
+
+
+/* =========================================================================
+   23. RENDER SUMMARY
+   ========================================================================= */
+
+function renderProvinceGateSummaryV26(
+  result
+) {
+
+  const summaryBox =
+    document.getElementById(
+      'provinceGateSummaryV26'
+    );
+
+
+  if (!summaryBox) {
+
+    return;
+
+  }
+
+
+  const s =
+    result.summary;
+
+
+  summaryBox.style.display =
+    'block';
+
+
+  summaryBox.innerHTML = `
+
+    <div
+      style="
+        padding:16px;
+        border-radius:14px;
+        background:rgba(
+          255,
+          255,
+          255,
+          .055
+        );
+      "
+    >
+
+      <div
+        style="
+          font-size:18px;
+          font-weight:900;
+          margin-bottom:13px;
+        "
+      >
+        📊 GATE SUMMARY
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            repeat(2, 1fr);
+          gap:9px;
+        "
+      >
+
+        <div
+          style="
+            padding:12px 8px;
+            border-radius:11px;
+            background:rgba(
+              53,
+              208,
+              127,
+              .10
+            );
+            text-align:center;
+          "
+        >
+
+          <div
+            style="
+              font-size:24px;
+              font-weight:900;
+              color:#35d07f;
+            "
+          >
+            ${s.adaptive}
+          </div>
+
+          <div
+            class="sub"
+          >
+            🟢 ADAPTIVE
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:12px 8px;
+            border-radius:11px;
+            background:rgba(
+              255,
+              196,
+              71,
+              .10
+            );
+            text-align:center;
+          "
+        >
+
+          <div
+            style="
+              font-size:24px;
+              font-weight:900;
+              color:#ffc447;
+            "
+          >
+            ${s.watch}
+          </div>
+
+          <div
+            class="sub"
+          >
+            🟡 WATCH
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:12px 8px;
+            border-radius:11px;
+            background:rgba(
+              184,
+              190,
+              200,
+              .08
+            );
+            text-align:center;
+          "
+        >
+
+          <div
+            style="
+              font-size:24px;
+              font-weight:900;
+              color:#b8bec8;
+            "
+          >
+            ${s.baseline}
+          </div>
+
+          <div
+            class="sub"
+          >
+            ⚪ BASELINE
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            padding:12px 8px;
+            border-radius:11px;
+            background:rgba(
+              255,
+              102,
+              102,
+              .10
+            );
+            text-align:center;
+          "
+        >
+
+          <div
+            style="
+              font-size:24px;
+              font-weight:900;
+              color:#ff6666;
+            "
+          >
+            ${s.reject}
+          </div>
+
+          <div
+            class="sub"
+          >
+            🔴 REJECT
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <div
+        class="sub"
+        style="
+          margin-top:13px;
+          line-height:1.6;
+        "
+      >
+
+        Provinces:
+        <b>${result.provinceCount}</b>
+
+        <br>
+
+        Adaptive Rate:
+        <b>
+          ${
+            (
+              s.adaptiveRate *
+              100
+            ).toFixed(2)
+          }%
+        </b>
+
+        <br>
+
+        Average Gate Score:
+        <b>
+          ${s.averageGateScore}
+        </b>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   24. RENDER PROVINCE RESULTS
+   ========================================================================= */
+
+function renderProvinceGateResultsV26(
+  result
+) {
+
+  const resultsBox =
+    document.getElementById(
+      'provinceGateResultsV26'
+    );
+
+
+  if (!resultsBox) {
+
+    return;
+
+  }
+
+
+  resultsBox.innerHTML =
+    result.results
+      .map(
+        item => {
+
+          const color =
+            provinceGateColorV26(
+              item.gate
+            );
+
+
+          const windowText =
+            item.window != null
+              ? item.window +
+                ' kỳ'
+              : '-';
+
+
+          return `
+
+            <div
+              style="
+                margin-bottom:12px;
+                padding:15px;
+                border-radius:14px;
+                background:rgba(
+                  255,
+                  255,
+                  255,
+                  .05
+                );
+                border-left:
+                  4px solid
+                  ${color};
+              "
+            >
+
+              <div
+                style="
+                  display:flex;
+                  justify-content:
+                    space-between;
+                  gap:10px;
+                  align-items:flex-start;
+                "
+              >
+
+                <div>
+
+                  <div
+                    style="
+                      font-size:18px;
+                      font-weight:900;
+                    "
+                  >
+                    ${item.emoji}
+                    ${item.province}
+                  </div>
+
+
+                  <div
+                    style="
+                      margin-top:4px;
+                      color:${color};
+                      font-weight:900;
+                    "
+                  >
+                    ${item.gate}
+                  </div>
+
+                </div>
+
+
+                <div
+                  style="
+                    text-align:right;
+                  "
+                >
+
+                  <div
+                    class="sub"
+                  >
+                    GATE SCORE
+                  </div>
+
+                  <div
+                    style="
+                      font-size:20px;
+                      font-weight:900;
+                      color:${color};
+                    "
+                  >
+                    ${
+                      item.gateScore
+                        .toFixed(2)
+                    }
+                  </div>
+
+                </div>
+
+              </div>
+
+
+              <div
+                style="
+                  margin-top:13px;
+                  display:grid;
+                  grid-template-columns:
+                    repeat(2, 1fr);
+                  gap:8px;
+                "
+              >
+
+                <div
+                  style="
+                    padding:9px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .04
+                    );
+                  "
+                >
+
+                  <div
+                    class="sub"
+                  >
+                    MODEL
+                  </div>
+
+                  <b>
+                    ${item.model}
+                  </b>
+
+                </div>
+
+
+                <div
+                  style="
+                    padding:9px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .04
+                    );
+                  "
+                >
+
+                  <div
+                    class="sub"
+                  >
+                    WINDOW
+                  </div>
+
+                  <b>
+                    ${windowText}
+                  </b>
+
+                </div>
+
+
+                <div
+                  style="
+                    padding:9px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .04
+                    );
+                  "
+                >
+
+                  <div
+                    class="sub"
+                  >
+                    OOS DELTA
+                  </div>
+
+                  <b>
+                    ${
+                      provinceGateSignedV26(
+                        item.delta,
+                        4
+                      )
+                    }
+                  </b>
+
+                </div>
+
+
+                <div
+                  style="
+                    padding:9px;
+                    border-radius:10px;
+                    background:rgba(
+                      255,
+                      255,
+                      255,
+                      .04
+                    );
+                  "
+                >
+
+                  <div
+                    class="sub"
+                  >
+                    WIN RATE
+                  </div>
+
+                  <b>
+                    ${
+                      (
+                        item.winRate *
+                        100
+                      ).toFixed(0)
+                    }%
+                  </b>
+
+                </div>
+
+              </div>
+
+
+              <div
+                class="sub"
+                style="
+                  margin-top:11px;
+                  line-height:1.55;
+                "
+              >
+
+                MRR Δ:
+                <b>
+                  ${
+                    provinceGateSignedV26(
+                      item.mrrDelta,
+                      4
+                    )
+                  }
+                </b>
+
+                · Rank Gain:
+                <b>
+                  ${
+                    provinceGateSignedV26(
+                      item.rankImprovement,
+                      2
+                    )
+                  }
+                </b>
+
+                <br>
+
+                Tests:
+                <b>${item.tests}</b>
+
+                · Reason:
+                <b>${item.reason}</b>
+
+              </div>
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join('');
+
+}
+
+
+/* =========================================================================
+   25. MASTER RENDER
+   ========================================================================= */
+
+function renderProvinceGateMobileV26(
+  result
+) {
+
+  const status =
+    document.getElementById(
+      'provinceGateStatusV26'
+    );
+
+
+  if (status) {
+
+    status.innerHTML =
+      `
+        ✅ Province Adaptive Gate
+        hoàn tất.
+
+        <br>
+
+        Đã phân tích
+        <b>${result.provinceCount}</b>
+        tỉnh.
+      `;
+
+  }
+
+
+  renderProvinceGateSummaryV26(
+    result
+  );
+
+
+  renderProvinceGateResultsV26(
+    result
+  );
+
+}
+
+
+/* =========================================================================
+   26. INIT BLOCK 7B
+   ========================================================================= */
+
+function initProvinceGateMobileV26() {
+
+  ensureProvinceGatePanelV26();
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initProvinceGateMobileV26
+  );
+
+} else {
+
+  initProvinceGateMobileV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 7B loaded — Mobile Province Adaptive Gate Panel ready'
+);
+
