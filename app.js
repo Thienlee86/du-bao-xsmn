@@ -11760,56 +11760,57 @@ function printValidationV25(
 
 
   console.table(
-    result.periods.map(
-      item => ({
+  result.periods.map(
+    item => ({
 
-        Period:
-          item.period,
+      Period:
+        item.period,
 
-        Training:
-          item.trainingCount ||
-          '-',
+      Training:
+        item.trainingCount ||
+        '-',
 
-        Test:
-          item.testingCount ||
-          '-',
+      Test:
+        item.testingCount ||
+        '-',
 
-        Model:
-          item.model ||
-          '-',
+      Model:
+        item.model ||
+        '-',
 
-        Window:
-          item.window ||
-          '-',
+      Window:
+        item.window ||
+        '-',
 
-        Quality:
-          item.quality != null
-            ? Number(
-                item.quality
-              ).toFixed(2)
-            : '-',
+      Quality:
+        item.quality != null
+          ? Number(
+              item.quality
+            ).toFixed(2)
+          : '-',
 
-        Margin:
-          item.margin != null
-            ? Number(
-                item.margin
-              ).toFixed(2)
-            : '-',
+      Margin:
+        item.margin != null
+          ? Number(
+              item.margin
+            ).toFixed(2)
+          : '-',
 
-        Stability:
-          item.stability ||
-          '-'
+      Stability:
+        item.stability ||
+        '-'
 
-      }))
-  );
+    }))
+  )
+);
+
+console.log(
+  `V2.5 SCORE: ${result.validation.stabilityScore}/100`
+);
 
 
-  console.log(
-    `V2.5 SCORE: ${result.validation.stabilityScore}/100`
-  );
 
-
-  console.log(
+console.log(
     `CLASSIFICATION: ${result.validation.classification}`
   );
 
