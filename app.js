@@ -25319,6 +25319,505 @@ console.log(
   'XSMN V2.6 Block 7A loaded — Province Adaptive Gate Research Engine ready'
 );
 
+
+/* =========================================================================
+   XSMN V2.6 — BLOCK 7A FIX 1
+   NORMALIZE CROSS-PROVINCE RESULT
+
+   Fix:
+   - Block 7A cũ giả định mỗi province item có item.summary.
+   - Block 6 có thể lưu chính OOS result trực tiếp hoặc qua
+     nhiều wrapper khác nhau.
+   - Patch chỉ mở rộng khả năng READ dữ liệu.
+   - KHÔNG thay OOS Engine.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   20. ROBUST OOS SUMMARY EXTRACTOR
+   ========================================================================= */
+
+function gateSummaryV26(
+  item
+) {
+
+  if (!item) {
+    return null;
+  }
+
+
+  /*
+   * CASE 1
+   * Province item chính là OOS result:
+   *
+   * {
+   *   ready: true,
+   *   classification: ...,
+   *   summary: {...},
+   *   periods: [...]
+   * }
+   */
+
+  if (
+    item.summary &&
+    item.summary.adaptive &&
+    item.summary.baseline
+  ) {
+
+    return item.summary;
+
+  }
+
+
+  /*
+   * CASE 2
+   * Wrapped trong .oos
+   */
+
+  if (
+    item.oos &&
+    item.oos.summary &&
+    item.oos.summary.adaptive &&
+    item.oos.summary.baseline
+  ) {
+
+    return item.oos.summary;
+
+  }
+
+
+  /*
+   * CASE 3
+   * Wrapped trong .result
+   */
+
+  if (
+    item.result &&
+    item.result.summary &&
+    item.result.summary.adaptive &&
+    item.result.summary.baseline
+  ) {
+
+    return item.result.summary;
+
+  }
+
+
+  /*
+   * CASE 4
+   * Wrapped trong .oosResult
+   */
+
+  if (
+    item.oosResult &&
+    item.oosResult.summary &&
+    item.oosResult.summary.adaptive &&
+    item.oosResult.summary.baseline
+  ) {
+
+    return item.oosResult.summary;
+
+  }
+
+
+  /*
+   * CASE 5
+   * Wrapped trong .evaluation
+   */
+
+  if (
+    item.evaluation &&
+    item.evaluation.summary &&
+    item.evaluation.summary.adaptive &&
+    item.evaluation.summary.baseline
+  ) {
+
+    return item.evaluation.summary;
+
+  }
+
+
+  /*
+   * CASE 6
+   * Cross Province item đã flatten summary.
+   *
+   * Nếu Block 6 lưu:
+   *
+   * adaptiveQuality
+   * baselineQuality
+   * adaptiveMRR
+   * baselineMRR
+   * adaptiveRank
+   * baselineRank
+   * improvement / delta
+   * tests
+   * winRate
+   */
+
+  const adaptiveQuality =
+    item.adaptiveQuality ??
+    item.adaptiveQ;
+
+
+  const baselineQuality =
+    item.baselineQuality ??
+    item.baselineQ;
+
+
+  const adaptiveMRR =
+    item.adaptiveMRR;
+
+
+  const baselineMRR =
+    item.baselineMRR;
+
+
+  const adaptiveRank =
+    item.adaptiveRank;
+
+
+  const baselineRank =
+    item.baselineRank;
+
+
+  if (
+    adaptiveQuality != null &&
+    baselineQuality != null &&
+    adaptiveMRR != null &&
+    baselineMRR != null &&
+    adaptiveRank != null &&
+    baselineRank != null
+  ) {
+
+    const improvement =
+      item.improvement ??
+      item.delta ??
+      (
+        Number(adaptiveQuality) -
+        Number(baselineQuality)
+      );
+
+
+    const periods =
+      Number(
+        item.periodCount ??
+        item.periods ??
+        3
+      );
+
+
+    const winningPeriods =
+      Number(
+        item.winningPeriods ??
+        item.wins ??
+        0
+      );
+
+
+    const tiedPeriods =
+      Number(
+        item.tiedPeriods ??
+        item.ties ??
+        0
+      );
+
+
+    const losingPeriods =
+      Number(
+        item.losingPeriods ??
+        item.losses ??
+        Math.max(
+          0,
+          periods -
+          winningPeriods -
+          tiedPeriods
+        )
+      );
+
+
+    const winRate =
+      item.winRate != null
+        ? Number(item.winRate)
+        : periods
+          ? winningPeriods / periods
+          : 0;
+
+
+    return {
+
+      periods,
+
+      tests:
+        Number(
+          item.tests ??
+          item.oosTests ??
+          0
+        ),
+
+      adaptive: {
+
+        quality:
+          Number(
+            adaptiveQuality
+          ),
+
+        mrr:
+          Number(
+            adaptiveMRR
+          ),
+
+        averageRank:
+          Number(
+            adaptiveRank
+          )
+
+      },
+
+      baseline: {
+
+        quality:
+          Number(
+            baselineQuality
+          ),
+
+        mrr:
+          Number(
+            baselineMRR
+          ),
+
+        averageRank:
+          Number(
+            baselineRank
+          )
+
+      },
+
+      improvement:
+        Number(
+          improvement
+        ),
+
+      winningPeriods,
+
+      tiedPeriods,
+
+      losingPeriods,
+
+      winRate
+
+    };
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   21. ROBUST PROVINCE NAME
+   ========================================================================= */
+
+function gateProvinceNameV26(
+  item
+) {
+
+  if (!item) {
+    return '-';
+  }
+
+
+  const directName =
+    item.provinceName ||
+    item.name ||
+    item.label;
+
+
+  if (directName) {
+    return directName;
+  }
+
+
+  const slug =
+    item.province ||
+    item.provinceSlug ||
+    item.slug;
+
+
+  if (slug) {
+
+    try {
+
+      const p =
+        provinceBySlug(
+          slug
+        );
+
+
+      if (p) {
+        return p.name;
+      }
+
+    } catch (error) {
+      /* ignore */
+    }
+
+
+    return slug;
+
+  }
+
+
+  /*
+   * Một số Cross Province wrappers
+   * giữ province bên trong result.
+   */
+
+  if (
+    item.result
+  ) {
+
+    return gateProvinceNameV26(
+      item.result
+    );
+
+  }
+
+
+  if (
+    item.oos
+  ) {
+
+    return gateProvinceNameV26(
+      item.oos
+    );
+
+  }
+
+
+  if (
+    item.oosResult
+  ) {
+
+    return gateProvinceNameV26(
+      item.oosResult
+    );
+
+  }
+
+
+  return '-';
+
+}
+
+
+/* =========================================================================
+   22. DEBUG CROSS RESULT SHAPE
+
+   Nếu Gate vẫn lỗi, hàm này sẽ cho biết chính xác
+   Block 6 đang lưu object như thế nào.
+   ========================================================================= */
+
+function inspectCrossProvinceShapeV26() {
+
+  const source =
+    getLastCrossProvinceResultV26();
+
+
+  if (
+    !source ||
+    !Array.isArray(
+      source.results
+    )
+  ) {
+
+    return {
+      ready: false,
+      reason: 'NO_CROSS_RESULT'
+    };
+
+  }
+
+
+  const sample =
+    source.results[0];
+
+
+  const report = {
+
+    ready: true,
+
+    provinceCount:
+      source.results.length,
+
+    sourceKeys:
+      Object.keys(
+        source
+      ),
+
+    firstItemKeys:
+      sample
+        ? Object.keys(
+            sample
+          )
+        : [],
+
+    hasSummary:
+      !!(
+        sample &&
+        sample.summary
+      ),
+
+    hasOOS:
+      !!(
+        sample &&
+        sample.oos
+      ),
+
+    hasResult:
+      !!(
+        sample &&
+        sample.result
+      ),
+
+    hasOOSResult:
+      !!(
+        sample &&
+        sample.oosResult
+      ),
+
+    summaryDetected:
+      !!gateSummaryV26(
+        sample
+      )
+
+  };
+
+
+  console.log(
+    'V2.6 CROSS SHAPE:',
+    report
+  );
+
+
+  console.log(
+    'V2.6 FIRST PROVINCE:',
+    sample
+  );
+
+
+  return report;
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 7A FIX 1 loaded — Cross Province normalization ready'
+);
+
+
 /* =========================================================================
    XSMN V2.6 — BLOCK 7B
    MOBILE PROVINCE ADAPTIVE GATE PANEL
