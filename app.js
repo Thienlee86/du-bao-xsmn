@@ -13680,3 +13680,494 @@ console.log(
   'XSMN V2.6 Block 1 loaded — OOS Core Helpers ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 2
+   BUILD TRUE OUT-OF-SAMPLE PERIODS
+
+   Nguyên tắc:
+
+   Period 1:
+   [ TRAINING ---------------- ][ TEST ]
+
+   Period 2:
+   [ TRAINING ------------------------ ][ TEST ]
+
+   Period 3:
+   [ TRAINING ------------------------------- ][ TEST ]
+
+   Mỗi TEST block tuyệt đối không xuất hiện
+   trong training của chính period đó.
+   ========================================================================= */
+
+
+/* =========================================================================
+   9. BUILD OOS PERIODS
+   ========================================================================= */
+
+function buildOOSPeriodsV26(
+  provinceSlug
+) {
+
+  /*
+   * Chuẩn hóa:
+   * oldest -> newest
+   */
+
+  const draws =
+    getAllDrawsForProvince(
+      provinceSlug
+    )
+    .slice()
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(
+          b.date
+        )
+    );
+
+
+  const total =
+    draws.length;
+
+
+  const minRequired =
+    V26_CONFIG.minTrainingDraws +
+    V26_CONFIG.testPeriodSize;
+
+
+  if (
+    total <
+    minRequired
+  ) {
+
+    return [];
+
+  }
+
+
+  /*
+   * Số period có thể tạo sau khi
+   * giữ lại minimum training.
+   */
+
+  const availableForTesting =
+    total -
+    V26_CONFIG.minTrainingDraws;
+
+
+  const possiblePeriods =
+    Math.floor(
+      availableForTesting /
+      V26_CONFIG.testPeriodSize
+    );
+
+
+  const periodCount =
+    Math.min(
+      possiblePeriods,
+      V26_CONFIG.maxTestPeriods
+    );
+
+
+  if (
+    periodCount <= 0
+  ) {
+
+    return [];
+
+  }
+
+
+  /*
+   * Ta ưu tiên các period gần hiện tại nhất.
+   *
+   * Ví dụ 100 kỳ:
+   *
+   * total = 100
+   * periodCount = 3
+   * testPeriodSize = 20
+   *
+   * firstTestStart = 40
+   *
+   * Period 1:
+   * training 0..39
+   * test     40..59
+   *
+   * Period 2:
+   * training 0..59
+   * test     60..79
+   *
+   * Period 3:
+   * training 0..79
+   * test     80..99
+   */
+
+  const firstTestStart =
+    total -
+    periodCount *
+    V26_CONFIG.testPeriodSize;
+
+
+  const periods = [];
+
+
+  for (
+    let index = 0;
+    index < periodCount;
+    index++
+  ) {
+
+    const testStart =
+      firstTestStart +
+      index *
+      V26_CONFIG.testPeriodSize;
+
+
+    const testEnd =
+      Math.min(
+        testStart +
+        V26_CONFIG.testPeriodSize,
+        total
+      );
+
+
+    /*
+     * Expanding-window training.
+     *
+     * Chỉ lấy dữ liệu TRƯỚC testStart.
+     */
+
+    const trainingChronological =
+      draws.slice(
+        0,
+        testStart
+      );
+
+
+    const testingChronological =
+      draws.slice(
+        testStart,
+        testEnd
+      );
+
+
+    if (
+      trainingChronological.length <
+        V26_CONFIG.minTrainingDraws ||
+      !testingChronological.length
+    ) {
+
+      continue;
+
+    }
+
+
+    /*
+     * Engine V2.3 / V2.4 sử dụng
+     * newest -> oldest.
+     *
+     * Lưu thêm bản này để Block 3
+     * có thể đưa thẳng vào engine.
+     */
+
+    const trainingNewestFirst =
+      trainingChronological
+        .slice()
+        .reverse();
+
+
+    periods.push({
+
+      period:
+        index + 1,
+
+      training:
+        trainingNewestFirst,
+
+      testing:
+        testingChronological,
+
+      trainingCount:
+        trainingChronological.length,
+
+      testingCount:
+        testingChronological.length,
+
+      trainingFrom:
+        trainingChronological[0]
+          .date,
+
+      trainingUntil:
+        trainingChronological[
+          trainingChronological.length - 1
+        ].date,
+
+      testFrom:
+        testingChronological[0]
+          .date,
+
+      testTo:
+        testingChronological[
+          testingChronological.length - 1
+        ].date
+
+    });
+
+  }
+
+
+  return periods;
+
+}
+
+
+/* =========================================================================
+   10. VERIFY NO FUTURE LEAKAGE
+
+   Hàm kiểm tra độc lập:
+   ngày cuối training PHẢI nhỏ hơn
+   ngày đầu testing.
+   ========================================================================= */
+
+function verifyOOSPeriodV26(
+  period
+) {
+
+  if (
+    !period ||
+    !Array.isArray(
+      period.training
+    ) ||
+    !Array.isArray(
+      period.testing
+    ) ||
+    !period.training.length ||
+    !period.testing.length
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'EMPTY_PERIOD'
+
+    };
+
+  }
+
+
+  /*
+   * Không phụ thuộc thứ tự array.
+   * Tìm ngày lớn nhất của training
+   * và ngày nhỏ nhất của testing.
+   */
+
+  const trainingDates =
+    period.training
+      .map(
+        draw =>
+          draw.date
+      )
+      .filter(
+        Boolean
+      );
+
+
+  const testingDates =
+    period.testing
+      .map(
+        draw =>
+          draw.date
+      )
+      .filter(
+        Boolean
+      );
+
+
+  if (
+    !trainingDates.length ||
+    !testingDates.length
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'MISSING_DATE'
+
+    };
+
+  }
+
+
+  const lastTrainingDate =
+    trainingDates
+      .slice()
+      .sort()
+      .pop();
+
+
+  const firstTestingDate =
+    testingDates
+      .slice()
+      .sort()[0];
+
+
+  const valid =
+    lastTrainingDate <
+    firstTestingDate;
+
+
+  return {
+
+    valid,
+
+    lastTrainingDate,
+
+    firstTestingDate,
+
+    reason:
+      valid
+        ? 'NO_FUTURE_LEAKAGE'
+        : 'FUTURE_LEAKAGE_DETECTED'
+
+  };
+
+}
+
+
+/* =========================================================================
+   11. INSPECT OOS PERIODS
+
+   Dùng để kiểm tra cấu trúc trước khi
+   thực sự chạy model.
+   ========================================================================= */
+
+function inspectOOSPeriodsV26(
+  provinceSlug =
+    SELECTED_PROVINCE
+) {
+
+  const periods =
+    buildOOSPeriodsV26(
+      provinceSlug
+    );
+
+
+  const province =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  const provinceName =
+    province
+      ? province.name
+      : provinceSlug;
+
+
+  const rows =
+    periods.map(
+      period => {
+
+        const verification =
+          verifyOOSPeriodV26(
+            period
+          );
+
+
+        return {
+
+          Period:
+            period.period,
+
+          Training:
+            period.trainingCount,
+
+          TrainingFrom:
+            period.trainingFrom,
+
+          TrainingUntil:
+            period.trainingUntil,
+
+          Test:
+            period.testingCount,
+
+          TestFrom:
+            period.testFrom,
+
+          TestTo:
+            period.testTo,
+
+          Leakage:
+            verification.valid
+              ? 'NO'
+              : 'YES',
+
+          Status:
+            verification.reason
+
+        };
+
+      }
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — OOS PERIOD INSPECTION'
+  );
+
+  console.log(
+    provinceName
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  if (
+    !rows.length
+  ) {
+
+    console.warn(
+      'V2.6: Không đủ dữ liệu để tạo OOS periods.'
+    );
+
+  }
+
+
+  return {
+
+    province:
+      provinceSlug,
+
+    periodCount:
+      periods.length,
+
+    periods,
+
+    rows
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 2 loaded — OOS Period Builder ready'
+);
+
