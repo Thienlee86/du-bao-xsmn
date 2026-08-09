@@ -21554,3 +21554,1443 @@ console.log(
   'XSMN V2.6 Block 6A loaded — Cross-Province OOS Engine ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 6B
+   CROSS-PROVINCE MOBILE BATCH RUNNER
+
+   Mục tiêu:
+   - Chạy Cross-Province OOS tuần tự trên mobile.
+   - Không khóa UI quá lâu.
+   - Hiển thị tiến độ từng tỉnh.
+   - Tổng hợp kết quả sau khi chạy xong.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   50. BATCH STATE
+   ========================================================================= */
+
+const CROSS_OOS_BATCH_V26 = {
+
+  running: false,
+
+  cancelled: false,
+
+  currentIndex: 0,
+
+  total: 0,
+
+  prize: 'db',
+
+  results: [],
+
+  startedAt: null,
+
+  finishedAt: null
+
+};
+
+
+/* =========================================================================
+   51. WAIT / YIELD TO BROWSER
+   ========================================================================= */
+
+function crossOOSWaitV26(
+  milliseconds = 80
+) {
+
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        milliseconds
+      )
+  );
+
+}
+
+
+/* =========================================================================
+   52. GET BATCH PANEL
+   ========================================================================= */
+
+function getCrossOOSPanelV26() {
+
+  let panel =
+    document.getElementById(
+      'crossOOSPanelV26'
+    );
+
+
+  if (panel) {
+
+    return panel;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return null;
+
+  }
+
+
+  panel =
+    document.createElement(
+      'div'
+    );
+
+
+  panel.id =
+    'crossOOSPanelV26';
+
+
+  panel.style.cssText = `
+
+    margin-top:16px;
+    padding:16px;
+    border-radius:16px;
+    background:rgba(255,255,255,.06);
+    line-height:1.55;
+    overflow-wrap:anywhere;
+
+  `;
+
+
+  settings.appendChild(
+    panel
+  );
+
+
+  return panel;
+
+}
+
+
+/* =========================================================================
+   53. PROGRESS BAR
+   ========================================================================= */
+
+function renderCrossOOSProgressV26(
+  current,
+  total,
+  provinceName
+) {
+
+  const panel =
+    getCrossOOSPanelV26();
+
+
+  if (!panel) {
+
+    return;
+
+  }
+
+
+  const percentage =
+    total
+      ? Math.round(
+          current /
+          total *
+          100
+        )
+      : 0;
+
+
+  panel.innerHTML = `
+
+    <div
+      style="
+        font-size:20px;
+        font-weight:900;
+        margin-bottom:8px;
+      "
+    >
+      🌐 V2.6 CROSS-PROVINCE OOS
+    </div>
+
+
+    <div
+      style="
+        margin-bottom:12px;
+      "
+    >
+      Đang kiểm định:
+      <b>
+        ${provinceName || '...'}
+      </b>
+    </div>
+
+
+    <div
+      style="
+        display:flex;
+        justify-content:space-between;
+        gap:10px;
+        margin-bottom:7px;
+        font-weight:800;
+      "
+    >
+
+      <span>
+        ${current}/${total}
+      </span>
+
+      <span>
+        ${percentage}%
+      </span>
+
+    </div>
+
+
+    <div
+      style="
+        width:100%;
+        height:14px;
+        border-radius:999px;
+        overflow:hidden;
+        background:rgba(255,255,255,.12);
+      "
+    >
+
+      <div
+        style="
+          width:${percentage}%;
+          height:100%;
+          background:#ffc447;
+          transition:width .2s ease;
+        "
+      >
+      </div>
+
+    </div>
+
+
+    <div
+      style="
+        margin-top:12px;
+        opacity:.75;
+        font-size:13px;
+      "
+    >
+      Không đóng trang trong khi
+      quá trình kiểm định đang chạy.
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   54. FORMAT DELTA
+   ========================================================================= */
+
+function crossOOSDeltaTextV26(
+  value
+) {
+
+  const n =
+    Number(
+      value || 0
+    );
+
+
+  return (
+    n > 0
+      ? '+'
+      : ''
+  ) +
+  n.toFixed(
+    4
+  );
+
+}
+
+
+/* =========================================================================
+   55. CLASSIFICATION ICON
+   ========================================================================= */
+
+function crossOOSClassIconV26(
+  classification
+) {
+
+  switch (
+    classification
+  ) {
+
+    case 'PASS':
+      return '🟢';
+
+    case 'WEAK':
+      return '🟡';
+
+    case 'FAIL':
+      return '🔴';
+
+    case 'ERROR':
+      return '❌';
+
+    default:
+      return '⚪';
+
+  }
+
+}
+
+
+/* =========================================================================
+   56. RUN ONE PROVINCE
+
+   Có yield trước và sau calculation
+   để browser có cơ hội cập nhật UI.
+   ========================================================================= */
+
+async function runOneCrossOOSV26(
+  province,
+  giaiKey
+) {
+
+  await crossOOSWaitV26(
+    60
+  );
+
+
+  let result;
+
+
+  try {
+
+    result =
+      evaluateCrossProvinceItemV26(
+        province,
+        giaiKey
+      );
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Mobile Batch:',
+      province.slug,
+      error
+    );
+
+
+    result = {
+
+      ready: false,
+
+      province:
+        province.slug,
+
+      provinceName:
+        province.name,
+
+      prize:
+        giaiKey,
+
+      classification:
+        'ERROR',
+
+      reason:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  await crossOOSWaitV26(
+    60
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   57. RUN BATCH
+
+   Chạy tuần tự:
+   Province 1 -> yield
+   Province 2 -> yield
+   ...
+   Province 21.
+   ========================================================================= */
+
+async function runCrossProvinceBatchV26(
+  giaiKey = 'db'
+) {
+
+  if (
+    CROSS_OOS_BATCH_V26.running
+  ) {
+
+    alert(
+      'V2.6 Cross-Province đang chạy.'
+    );
+
+    return null;
+
+  }
+
+
+  if (
+    !Array.isArray(
+      PROVINCES
+    ) ||
+    !PROVINCES.length
+  ) {
+
+    alert(
+      'Không tìm thấy danh sách tỉnh.'
+    );
+
+    return null;
+
+  }
+
+
+  CROSS_OOS_BATCH_V26.running =
+    true;
+
+
+  CROSS_OOS_BATCH_V26.cancelled =
+    false;
+
+
+  CROSS_OOS_BATCH_V26.currentIndex =
+    0;
+
+
+  CROSS_OOS_BATCH_V26.total =
+    PROVINCES.length;
+
+
+  CROSS_OOS_BATCH_V26.prize =
+    giaiKey;
+
+
+  CROSS_OOS_BATCH_V26.results =
+    [];
+
+
+  CROSS_OOS_BATCH_V26.startedAt =
+    new Date();
+
+
+  CROSS_OOS_BATCH_V26.finishedAt =
+    null;
+
+
+  /*
+   * Scroll tới panel.
+   */
+
+  const panel =
+    getCrossOOSPanelV26();
+
+
+  if (panel) {
+
+    panel.scrollIntoView({
+
+      behavior:
+        'smooth',
+
+      block:
+        'start'
+
+    });
+
+  }
+
+
+  try {
+
+    for (
+      let index = 0;
+      index < PROVINCES.length;
+      index++
+    ) {
+
+      if (
+        CROSS_OOS_BATCH_V26.cancelled
+      ) {
+
+        break;
+
+      }
+
+
+      const province =
+        PROVINCES[index];
+
+
+      CROSS_OOS_BATCH_V26.currentIndex =
+        index + 1;
+
+
+      renderCrossOOSProgressV26(
+
+        index,
+
+        PROVINCES.length,
+
+        province.name
+
+      );
+
+
+      /*
+       * Cho browser render progress
+       * trước calculation nặng.
+       */
+
+      await crossOOSWaitV26(
+        120
+      );
+
+
+      const item =
+        await runOneCrossOOSV26(
+          province,
+          giaiKey
+        );
+
+
+      CROSS_OOS_BATCH_V26.results.push(
+        item
+      );
+
+
+      renderCrossOOSProgressV26(
+
+        index + 1,
+
+        PROVINCES.length,
+
+        province.name
+
+      );
+
+
+      /*
+       * Nghỉ ngắn giữa hai tỉnh.
+       */
+
+      await crossOOSWaitV26(
+        120
+      );
+
+    }
+
+
+    CROSS_OOS_BATCH_V26.finishedAt =
+      new Date();
+
+
+    if (
+      CROSS_OOS_BATCH_V26.cancelled
+    ) {
+
+      renderCrossOOSCancelledV26();
+
+      return {
+
+        ready: false,
+
+        cancelled: true,
+
+        results:
+          CROSS_OOS_BATCH_V26.results
+
+      };
+
+    }
+
+
+    const summary =
+      aggregateCrossProvinceOOSV26(
+        CROSS_OOS_BATCH_V26.results
+      );
+
+
+    const classification =
+      classifyCrossProvinceOOSV26(
+        summary
+      );
+
+
+    const finalResult = {
+
+      ready:
+        Boolean(
+          summary
+        ),
+
+      version:
+        'V2.6',
+
+      engine:
+        'CROSS_PROVINCE_MOBILE_BATCH',
+
+      prize:
+        giaiKey,
+
+      classification,
+
+      summary,
+
+      results:
+        CROSS_OOS_BATCH_V26.results,
+
+      startedAt:
+        CROSS_OOS_BATCH_V26.startedAt,
+
+      finishedAt:
+        CROSS_OOS_BATCH_V26.finishedAt
+
+    };
+
+
+    renderCrossOOSFinalV26(
+      finalResult
+    );
+
+
+    /*
+     * Giữ lại kết quả để có thể
+     * đọc lại bằng Console sau này.
+     */
+
+    window.LAST_CROSS_OOS_V26 =
+      finalResult;
+
+
+    return finalResult;
+
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Cross Province Batch:',
+      error
+    );
+
+
+    const panel =
+      getCrossOOSPanelV26();
+
+
+    if (panel) {
+
+      panel.innerHTML = `
+
+        <div
+          style="
+            font-size:20px;
+            font-weight:900;
+          "
+        >
+          ❌ CROSS-PROVINCE ERROR
+        </div>
+
+        <div style="margin-top:12px;">
+          ${
+            String(
+              error.message ||
+              error
+            )
+          }
+        </div>
+
+      `;
+
+    }
+
+
+    return null;
+
+
+  } finally {
+
+    CROSS_OOS_BATCH_V26.running =
+      false;
+
+  }
+
+}
+
+
+/* =========================================================================
+   58. CANCEL BATCH
+   ========================================================================= */
+
+function cancelCrossProvinceBatchV26() {
+
+  if (
+    !CROSS_OOS_BATCH_V26.running
+  ) {
+
+    return;
+
+  }
+
+
+  CROSS_OOS_BATCH_V26.cancelled =
+    true;
+
+}
+
+
+/* =========================================================================
+   59. CANCELLED UI
+   ========================================================================= */
+
+function renderCrossOOSCancelledV26() {
+
+  const panel =
+    getCrossOOSPanelV26();
+
+
+  if (!panel) {
+
+    return;
+
+  }
+
+
+  panel.innerHTML = `
+
+    <div
+      style="
+        font-size:20px;
+        font-weight:900;
+      "
+    >
+      ⛔ Cross-Province OOS đã dừng
+    </div>
+
+
+    <div style="margin-top:10px;">
+      Đã hoàn thành:
+      <b>
+        ${CROSS_OOS_BATCH_V26.results.length}
+        /
+        ${CROSS_OOS_BATCH_V26.total}
+      </b>
+      tỉnh.
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   60. PROVINCE RESULT CARD
+   ========================================================================= */
+
+function buildCrossOOSProvinceCardV26(
+  item
+) {
+
+  if (
+    !item.ready
+  ) {
+
+    return `
+
+      <div
+        style="
+          margin-top:10px;
+          padding:13px;
+          border-radius:13px;
+          background:rgba(255,255,255,.06);
+        "
+      >
+
+        ❌
+        <b>${item.provinceName}</b>
+
+        <div
+          style="
+            margin-top:5px;
+            font-size:13px;
+            opacity:.75;
+          "
+        >
+          ${
+            item.reason ||
+            'NO DATA'
+          }
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  const icon =
+    crossOOSClassIconV26(
+      item.classification
+    );
+
+
+  return `
+
+    <div
+      style="
+        margin-top:10px;
+        padding:13px;
+        border-radius:13px;
+        background:rgba(255,255,255,.06);
+      "
+    >
+
+      <div
+        style="
+          display:flex;
+          justify-content:space-between;
+          gap:8px;
+          align-items:center;
+        "
+      >
+
+        <div
+          style="
+            font-weight:900;
+          "
+        >
+          ${icon}
+          ${item.provinceName}
+        </div>
+
+        <div
+          style="
+            font-weight:900;
+          "
+        >
+          ${item.classification}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:8px;
+          font-size:14px;
+        "
+      >
+        Delta:
+        <b>
+          ${crossOOSDeltaTextV26(
+            item.improvement
+          )}
+        </b>
+
+        · Win:
+        <b>
+          ${
+            (
+              item.winRate *
+              100
+            ).toFixed(0)
+          }%
+        </b>
+      </div>
+
+
+      <div
+        style="
+          margin-top:4px;
+          font-size:13px;
+          opacity:.78;
+        "
+      >
+        Model:
+        ${item.dominantModel || '-'}
+
+        · Window:
+        ${
+          item.dominantWindow ||
+          '-'
+        }
+
+        · Tests:
+        ${item.tests}
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   61. FINAL RESULT UI
+   ========================================================================= */
+
+function renderCrossOOSFinalV26(
+  result
+) {
+
+  const panel =
+    getCrossOOSPanelV26();
+
+
+  if (!panel) {
+
+    return;
+
+  }
+
+
+  if (
+    !result ||
+    !result.ready ||
+    !result.summary
+  ) {
+
+    panel.innerHTML = `
+
+      <div
+        style="
+          font-size:20px;
+          font-weight:900;
+        "
+      >
+        ❌ Không có Cross-Province Result
+      </div>
+
+    `;
+
+
+    return;
+
+  }
+
+
+  const s =
+    result.summary;
+
+
+  const globalIcon =
+    crossOOSClassIconV26(
+      result.classification
+    );
+
+
+  const validResults =
+    result.results
+      .filter(
+        item =>
+          item.ready
+      )
+      .slice()
+      .sort(
+        (a, b) =>
+          b.improvement -
+          a.improvement
+      );
+
+
+  let html = `
+
+    <div
+      style="
+        font-size:21px;
+        font-weight:900;
+        margin-bottom:5px;
+      "
+    >
+      🌐 V2.6 CROSS-PROVINCE OOS
+    </div>
+
+
+    <div
+      style="
+        font-size:14px;
+        opacity:.75;
+      "
+    >
+      Prize:
+      ${String(
+        result.prize
+      ).toUpperCase()}
+    </div>
+
+
+    <div
+      style="
+        margin-top:15px;
+        padding:16px;
+        border-radius:15px;
+        background:rgba(255,255,255,.07);
+      "
+    >
+
+      <div
+        style="
+          font-size:21px;
+          font-weight:900;
+        "
+      >
+        ${globalIcon}
+        GLOBAL:
+        ${result.classification}
+      </div>
+
+
+      <div style="margin-top:12px;">
+        <b>Provinces:</b>
+        ${s.provinceCount}
+      </div>
+
+
+      <div>
+        <b>OOS Tests:</b>
+        ${s.totalTests}
+      </div>
+
+
+      <div>
+        <b>OOS Periods:</b>
+        ${s.totalPeriods}
+      </div>
+
+
+      <div style="margin-top:10px;">
+        <b>PASS / WEAK / FAIL:</b>
+        ${s.classifications.pass}
+        /
+        ${s.classifications.weak}
+        /
+        ${s.classifications.fail}
+      </div>
+
+
+      <div>
+        <b>Positive Provinces:</b>
+        ${s.provinces.positive}
+        /
+        ${s.provinceCount}
+        (
+        ${
+          (
+            s.provinces
+              .positiveRate *
+            100
+          ).toFixed(2)
+        }%
+        )
+      </div>
+
+
+      <div>
+        <b>Period Win Rate:</b>
+        ${
+          (
+            s.periods
+              .winRate *
+            100
+          ).toFixed(2)
+        }%
+      </div>
+
+    </div>
+
+
+    <div
+      style="
+        margin-top:13px;
+        padding:16px;
+        border-radius:15px;
+        background:rgba(255,255,255,.07);
+      "
+    >
+
+      <div
+        style="
+          font-size:17px;
+          font-weight:900;
+          margin-bottom:9px;
+        "
+      >
+        📊 ADAPTIVE vs BASELINE
+      </div>
+
+
+      <div>
+        Adaptive Q:
+        <b>
+          ${s.adaptive
+            .quality
+            .toFixed(4)}
+        </b>
+      </div>
+
+
+      <div>
+        Baseline Q:
+        <b>
+          ${s.baseline
+            .quality
+            .toFixed(4)}
+        </b>
+      </div>
+
+
+      <div style="margin-top:7px;">
+        Delta:
+        <b>
+          ${crossOOSDeltaTextV26(
+            s.improvement
+          )}
+        </b>
+      </div>
+
+
+      <div style="margin-top:9px;">
+        Adaptive MRR:
+        <b>
+          ${s.adaptive
+            .mrr
+            .toFixed(4)}
+        </b>
+      </div>
+
+
+      <div>
+        Baseline MRR:
+        <b>
+          ${s.baseline
+            .mrr
+            .toFixed(4)}
+        </b>
+      </div>
+
+
+      <div style="margin-top:9px;">
+        Adaptive Rank:
+        <b>
+          ${s.adaptive
+            .averageRank
+            .toFixed(2)}
+        </b>
+      </div>
+
+
+      <div>
+        Baseline Rank:
+        <b>
+          ${s.baseline
+            .averageRank
+            .toFixed(2)}
+        </b>
+      </div>
+
+    </div>
+
+
+    <div
+      style="
+        margin-top:13px;
+        padding:16px;
+        border-radius:15px;
+        background:rgba(255,255,255,.07);
+      "
+    >
+
+      <div
+        style="
+          font-size:17px;
+          font-weight:900;
+          margin-bottom:9px;
+        "
+      >
+        🧠 SELECTION PATTERN
+      </div>
+
+
+      <div>
+        Dominant Model:
+        <b>
+          ${s.dominantModel || '-'}
+        </b>
+      </div>
+
+
+      <div>
+        Model Rate:
+        <b>
+          ${
+            (
+              s.dominantModelRate *
+              100
+            ).toFixed(2)
+          }%
+        </b>
+      </div>
+
+
+      <div style="margin-top:8px;">
+        Dominant Window:
+        <b>
+          ${s.dominantWindow || '-'}
+        </b>
+      </div>
+
+
+      <div>
+        Window Rate:
+        <b>
+          ${
+            (
+              s.dominantWindowRate *
+              100
+            ).toFixed(2)
+          }%
+        </b>
+      </div>
+
+    </div>
+
+
+    <div
+      style="
+        margin-top:18px;
+        font-size:18px;
+        font-weight:900;
+      "
+    >
+      🏆 PROVINCE RESULTS
+    </div>
+
+  `;
+
+
+  validResults.forEach(
+    item => {
+
+      html +=
+        buildCrossOOSProvinceCardV26(
+          item
+        );
+
+    }
+  );
+
+
+  html += `
+
+    <div
+      style="
+        margin-top:18px;
+        padding:14px;
+        border-radius:14px;
+        background:rgba(255,255,255,.06);
+        font-size:13px;
+        opacity:.8;
+      "
+    >
+      📌 Research only.
+      Cross-Province OOS chưa thay đổi
+      Production Engine.
+    </div>
+
+  `;
+
+
+  panel.innerHTML =
+    html;
+
+
+  panel.scrollIntoView({
+
+    behavior:
+      'smooth',
+
+    block:
+      'start'
+
+  });
+
+}
+
+
+/* =========================================================================
+   62. ADD MOBILE CONTROLS
+   ========================================================================= */
+
+function addCrossOOSBatchControlsV26() {
+
+  if (
+    document.getElementById(
+      'crossOOSControlsV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const wrapper =
+    document.createElement(
+      'div'
+    );
+
+
+  wrapper.id =
+    'crossOOSControlsV26';
+
+
+  wrapper.style.cssText = `
+
+    margin-top:16px;
+
+  `;
+
+
+  wrapper.innerHTML = `
+
+    <button
+      id="btnRunCrossOOSV26"
+      style="
+        width:100%;
+        padding:17px 12px;
+        border:0;
+        border-radius:14px;
+        font-size:17px;
+        font-weight:900;
+        cursor:pointer;
+      "
+    >
+      🌐 Chạy V2.6 Cross-Province OOS
+    </button>
+
+
+    <button
+      id="btnCancelCrossOOSV26"
+      style="
+        width:100%;
+        margin-top:9px;
+        padding:13px 12px;
+        border:0;
+        border-radius:14px;
+        font-size:15px;
+        font-weight:800;
+        cursor:pointer;
+        opacity:.8;
+      "
+    >
+      ⛔ Dừng Cross-Province Test
+    </button>
+
+  `;
+
+
+  settings.appendChild(
+    wrapper
+  );
+
+
+  const runButton =
+    document.getElementById(
+      'btnRunCrossOOSV26'
+    );
+
+
+  const cancelButton =
+    document.getElementById(
+      'btnCancelCrossOOSV26'
+    );
+
+
+  if (runButton) {
+
+    runButton.addEventListener(
+      'click',
+      function() {
+
+        runCrossProvinceBatchV26(
+          'db'
+        );
+
+      }
+    );
+
+  }
+
+
+  if (cancelButton) {
+
+    cancelButton.addEventListener(
+      'click',
+      cancelCrossProvinceBatchV26
+    );
+
+  }
+
+}
+
+
+/* =========================================================================
+   63. INIT BLOCK 6B
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addCrossOOSBatchControlsV26
+  );
+
+} else {
+
+  addCrossOOSBatchControlsV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 6B loaded — Mobile Batch Runner ready'
+);
+
