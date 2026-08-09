@@ -12130,3 +12130,988 @@ console.log(
   'XSMN V2.5 Stability Validation loaded — Multi-Period / Production unchanged'
 );
 
+/* =========================================================================
+   XSMN V2.5 — SAFE MOBILE UI
+   Multi-Period Stability Validation
+
+   - Chỉ tạo UI trong tab Cài đặt
+   - Không thay Production Engine
+   - Không thay init()
+   - Không thay nút Dự Báo Ngay
+   - Không overlay / fixed position
+   ========================================================================= */
+
+(function () {
+
+  function v25UiEscape(value) {
+
+    return String(
+      value === null ||
+      value === undefined
+        ? ''
+        : value
+    )
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  }
+
+
+  function v25UiProvinceSlug() {
+
+    if (
+      typeof SELECTED_PROVINCE !==
+      'undefined' &&
+      SELECTED_PROVINCE
+    ) {
+
+      return SELECTED_PROVINCE;
+
+    }
+
+    return null;
+
+  }
+
+
+  function v25UiProvinceName(
+    slug
+  ) {
+
+    try {
+
+      if (
+        typeof provinceBySlug ===
+        'function'
+      ) {
+
+        const province =
+          provinceBySlug(
+            slug
+          );
+
+        if (
+          province &&
+          province.name
+        ) {
+
+          return province.name;
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.warn(
+        'V2.5 UI province name:',
+        error
+      );
+
+    }
+
+
+    return slug || '--';
+
+  }
+
+
+  function v25UiClassInfo(
+    classification
+  ) {
+
+    switch (
+      String(
+        classification || ''
+      ).toUpperCase()
+    ) {
+
+      case 'STRONG':
+
+        return {
+          icon: '🟢',
+          label: 'STRONG'
+        };
+
+
+      case 'GOOD':
+
+        return {
+          icon: '🔵',
+          label: 'GOOD'
+        };
+
+
+      case 'WEAK':
+
+        return {
+          icon: '🟡',
+          label: 'WEAK'
+        };
+
+
+      default:
+
+        return {
+          icon: '🔴',
+          label: 'UNSTABLE'
+        };
+
+    }
+
+  }
+
+
+  function buildV25SafeUI() {
+
+    /*
+     * Không tạo card lần thứ hai.
+     */
+
+    if (
+      document.getElementById(
+        'v25SafeCard'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settingsTab =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (
+      !settingsTab
+    ) {
+
+      console.warn(
+        'V2.5 UI: không tìm thấy tab-settings'
+      );
+
+      return;
+
+    }
+
+
+    const card =
+      document.createElement(
+        'div'
+      );
+
+
+    card.id =
+      'v25SafeCard';
+
+
+    card.className =
+      'card';
+
+
+    card.style.marginTop =
+      '18px';
+
+
+    card.innerHTML = `
+
+      <div
+        style="
+          font-size:22px;
+          font-weight:900;
+          margin-bottom:8px;
+        "
+      >
+        🛡️ Stability Validation V2.5
+      </div>
+
+
+      <div
+        class="sub"
+        style="
+          line-height:1.6;
+          margin-bottom:16px;
+        "
+      >
+        Kiểm tra độ ổn định của Model + Window
+        qua nhiều giai đoạn lịch sử độc lập.
+        V2.5 hiện chỉ dùng để validation,
+        chưa thay đổi Production Engine.
+      </div>
+
+
+      <div
+        style="
+          margin-bottom:14px;
+        "
+      >
+
+        <div
+          class="sub"
+          style="
+            margin-bottom:6px;
+          "
+        >
+          Giải kiểm định
+        </div>
+
+
+        <select
+          id="v25PrizeSelect"
+          style="
+            width:100%;
+            padding:13px 10px;
+            border-radius:12px;
+            font-size:16px;
+          "
+        >
+
+          <option value="db">
+            Giải Đặc Biệt
+          </option>
+
+          <option value="g1">
+            Giải Nhất
+          </option>
+
+          <option value="g2">
+            Giải Nhì
+          </option>
+
+          <option value="g3">
+            Giải Ba
+          </option>
+
+          <option value="g4">
+            Giải Tư
+          </option>
+
+          <option value="g5">
+            Giải Năm
+          </option>
+
+          <option value="g6">
+            Giải Sáu
+          </option>
+
+          <option value="g7">
+            Giải Bảy
+          </option>
+
+          <option value="g8">
+            Giải Tám
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <button
+        id="v25RunButton"
+        type="button"
+        style="
+          width:100%;
+          border:none;
+          border-radius:16px;
+          padding:17px 12px;
+          font-size:18px;
+          font-weight:900;
+          cursor:pointer;
+          background:linear-gradient(
+            135deg,
+            #ffc447,
+            #ff8a3d
+          );
+          color:#201600;
+        "
+      >
+        🛡️ Chạy Validation V2.5
+      </button>
+
+
+      <div
+        id="v25Status"
+        class="sub"
+        style="
+          margin-top:14px;
+          line-height:1.6;
+        "
+      >
+        Chưa chạy validation.
+      </div>
+
+
+      <div
+        id="v25Results"
+        style="
+          display:none;
+          margin-top:16px;
+        "
+      >
+      </div>
+
+
+      <div
+        class="sub"
+        style="
+          margin-top:16px;
+          line-height:1.6;
+          padding:13px;
+          border-radius:12px;
+          background:rgba(
+            255,
+            255,
+            255,
+            0.035
+          );
+        "
+      >
+        V2.5 đánh giá tính ổn định của mô hình
+        trên dữ liệu lịch sử. Stability Score
+        không phải xác suất trúng ở kỳ tiếp theo.
+      </div>
+
+    `;
+
+
+    settingsTab.appendChild(
+      card
+    );
+
+
+    const button =
+      document.getElementById(
+        'v25RunButton'
+      );
+
+
+    if (
+      button
+    ) {
+
+      button.addEventListener(
+        'click',
+        runV25SafeUI
+      );
+
+    }
+
+
+    console.log(
+      'XSMN V2.5 Safe Mobile UI ready'
+    );
+
+  }
+
+
+  function runV25SafeUI() {
+
+    const button =
+      document.getElementById(
+        'v25RunButton'
+      );
+
+
+    const status =
+      document.getElementById(
+        'v25Status'
+      );
+
+
+    const results =
+      document.getElementById(
+        'v25Results'
+      );
+
+
+    const prizeSelect =
+      document.getElementById(
+        'v25PrizeSelect'
+      );
+
+
+    if (
+      !status ||
+      !results
+    ) {
+
+      return;
+
+    }
+
+
+    const provinceSlug =
+      v25UiProvinceSlug();
+
+
+    const giaiKey =
+      prizeSelect
+        ? prizeSelect.value
+        : 'db';
+
+
+    if (
+      !provinceSlug
+    ) {
+
+      status.innerHTML =
+        '❌ Không xác định được tỉnh đang chọn.';
+
+      return;
+
+    }
+
+
+    if (
+      typeof validateModelStabilityV25 !==
+      'function'
+    ) {
+
+      status.innerHTML =
+        '❌ Không tìm thấy V2.5 Validation Engine.';
+
+      return;
+
+    }
+
+
+    const provinceName =
+      v25UiProvinceName(
+        provinceSlug
+      );
+
+
+    if (
+      button
+    ) {
+
+      button.disabled =
+        true;
+
+
+      button.textContent =
+        '⏳ Đang Validation...';
+
+    }
+
+
+    status.innerHTML =
+      `
+        ⏳ Đang kiểm định
+        <b>${v25UiEscape(
+          provinceName
+        )}</b>...
+      `;
+
+
+    results.style.display =
+      'none';
+
+
+    results.innerHTML =
+      '';
+
+
+    /*
+     * Cho browser render trạng thái trước
+     * khi chạy validation.
+     */
+
+    setTimeout(
+      function () {
+
+        try {
+
+          const result =
+            validateModelStabilityV25(
+              provinceSlug,
+              giaiKey
+            );
+
+
+          if (
+            !result ||
+            !result.ready
+          ) {
+
+            const reason =
+              result &&
+              result.reason
+                ? result.reason
+                : 'UNKNOWN';
+
+
+            status.innerHTML =
+              `
+                ⚠️ V2.5 chưa thể validation:
+                <b>${v25UiEscape(
+                  reason
+                )}</b>
+              `;
+
+
+            return;
+
+          }
+
+
+          renderV25SafeUI(
+            result,
+            provinceName
+          );
+
+
+        } catch (error) {
+
+          console.error(
+            'V2.5 UI error:',
+            error
+          );
+
+
+          status.innerHTML =
+            `
+              ❌ Validation gặp lỗi:
+              <b>${v25UiEscape(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )}</b>
+            `;
+
+        } finally {
+
+          if (
+            button
+          ) {
+
+            button.disabled =
+              false;
+
+
+            button.textContent =
+              '🛡️ Chạy Validation V2.5';
+
+          }
+
+        }
+
+      },
+      80
+    );
+
+  }
+
+
+  function renderV25SafeUI(
+    result,
+    provinceName
+  ) {
+
+    const status =
+      document.getElementById(
+        'v25Status'
+      );
+
+
+    const results =
+      document.getElementById(
+        'v25Results'
+      );
+
+
+    if (
+      !status ||
+      !results
+    ) {
+
+      return;
+
+    }
+
+
+    const current =
+      result.current || {};
+
+
+    const validation =
+      result.validation || {};
+
+
+    const classInfo =
+      v25UiClassInfo(
+        validation.classification
+      );
+
+
+    status.innerHTML =
+      `
+        ✅ Hoàn tất
+        <b>${v25UiEscape(
+          provinceName
+        )}</b>
+        · ${v25UiEscape(
+          String(
+            result.prize || ''
+          ).toUpperCase()
+        )}
+      `;
+
+
+    results.style.display =
+      'block';
+
+
+    results.innerHTML = `
+
+      <div
+        style="
+          padding:16px;
+          border-radius:15px;
+          background:rgba(
+            255,
+            193,
+            61,
+            0.10
+          );
+          border:1px solid rgba(
+            255,
+            193,
+            61,
+            0.30
+          );
+          margin-bottom:14px;
+        "
+      >
+
+        <div
+          class="sub"
+          style="
+            font-weight:800;
+            margin-bottom:7px;
+          "
+        >
+          CURRENT V2.4
+        </div>
+
+
+        <div
+          style="
+            font-size:24px;
+            font-weight:900;
+            color:#ffc447;
+          "
+        >
+          ${v25UiEscape(
+            current.model || '--'
+          )}
+          ·
+          ${v25UiEscape(
+            current.window || '--'
+          )} kỳ
+        </div>
+
+
+        <div
+          class="sub"
+          style="
+            margin-top:8px;
+            line-height:1.6;
+          "
+        >
+          Quality:
+          <b>${v25UiEscape(
+            current.quality !== undefined
+              ? Number(
+                  current.quality
+                ).toFixed(2)
+              : '--'
+          )}</b>
+
+          · Margin:
+          <b>${v25UiEscape(
+            current.margin !== undefined
+              ? Number(
+                  current.margin
+                ).toFixed(2)
+              : '--'
+          )}</b>
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          padding:16px;
+          border-radius:15px;
+          background:rgba(
+            255,
+            255,
+            255,
+            0.055
+          );
+          margin-bottom:14px;
+        "
+      >
+
+        <div
+          style="
+            font-size:15px;
+            font-weight:800;
+            opacity:.8;
+          "
+        >
+          🛡️ STABILITY SCORE
+        </div>
+
+
+        <div
+          style="
+            font-size:34px;
+            font-weight:900;
+            color:#ffc447;
+            margin-top:5px;
+          "
+        >
+          ${v25UiEscape(
+            validation.stabilityScore
+          )}/100
+        </div>
+
+
+        <div
+          style="
+            font-size:19px;
+            font-weight:900;
+            margin-top:6px;
+          "
+        >
+          ${classInfo.icon}
+          ${classInfo.label}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          display:grid;
+          grid-template-columns:
+            1fr 1fr;
+          gap:10px;
+          margin-bottom:14px;
+        "
+      >
+
+        ${v25MetricCard(
+          'Model consistency',
+          validation.modelConsistency
+        )}
+
+        ${v25MetricCard(
+          'Window consistency',
+          validation.windowConsistency
+        )}
+
+        ${v25MetricCard(
+          'Config consistency',
+          validation.configConsistency
+        )}
+
+        ${v25MetricCard(
+          'Current config',
+          validation.currentConfigConsistency
+        )}
+
+      </div>
+
+
+      <div
+        style="
+          padding:15px;
+          border-radius:14px;
+          background:rgba(
+            255,
+            255,
+            255,
+            0.045
+          );
+          line-height:1.7;
+        "
+      >
+
+        <div>
+          🏆 Model thường thắng:
+          <b>
+            ${v25UiEscape(
+              validation.modelWinner ||
+              '--'
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          🪟 Window thường thắng:
+          <b>
+            ${v25UiEscape(
+              validation.windowWinner ||
+              '--'
+            )} kỳ
+          </b>
+        </div>
+
+
+        <div>
+          📚 Số giai đoạn kiểm định:
+          <b>
+            ${v25UiEscape(
+              validation.periodCount ||
+              0
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          📊 Average Quality:
+          <b>
+            ${v25UiEscape(
+              validation.averageQuality
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          📉 Quality SD:
+          <b>
+            ${v25UiEscape(
+              validation.qualityStdDev
+            )}
+          </b>
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  function v25MetricCard(
+    label,
+    value
+  ) {
+
+    const safeValue =
+      value === null ||
+      value === undefined
+        ? '--'
+        : value + '%';
+
+
+    return `
+
+      <div
+        style="
+          padding:13px 8px;
+          border-radius:13px;
+          background:rgba(
+            255,
+            255,
+            255,
+            0.05
+          );
+          text-align:center;
+        "
+      >
+
+        <div
+          style="
+            font-size:21px;
+            font-weight:900;
+            color:#ffc447;
+          "
+        >
+          ${v25UiEscape(
+            safeValue
+          )}
+        </div>
+
+
+        <div
+          class="sub"
+          style="
+            font-size:12px;
+            margin-top:4px;
+          "
+        >
+          ${v25UiEscape(
+            label
+          )}
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /*
+   * SAFE INIT
+   */
+
+  function initV25SafeUI() {
+
+    try {
+
+      buildV25SafeUI();
+
+    } catch (error) {
+
+      console.error(
+        'V2.5 Safe UI init error:',
+        error
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      initV25SafeUI,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    initV25SafeUI();
+
+  }
+
+
+  console.log(
+    'XSMN V2.5 Safe Mobile UI Patch loaded'
+  );
+
+})();
