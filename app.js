@@ -17666,3 +17666,769 @@ console.log(
   'XSMN V2.6 Short Period Diagnostics ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — MOBILE RESEARCH PANEL
+   PERIOD DIAGNOSTICS VIEWER
+
+   Mục tiêu:
+   - Không dùng alert dài.
+   - Hiển thị toàn bộ Period Diagnostics ngay trong app.
+   - Cuộn thoải mái trên mobile.
+   - Có thể nhấn giữ để copy nội dung.
+   - Không thay đổi Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CREATE / GET RESEARCH PANEL
+   ========================================================================= */
+
+function getResearchPanelV26() {
+
+  let panel =
+    document.getElementById(
+      'researchPanelV26'
+    );
+
+
+  if (panel) {
+    return panel;
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+    return null;
+  }
+
+
+  panel =
+    document.createElement(
+      'div'
+    );
+
+
+  panel.id =
+    'researchPanelV26';
+
+
+  panel.style.cssText = `
+    margin-top:18px;
+    margin-bottom:30px;
+    padding:18px;
+    border-radius:18px;
+    background:#ffffff;
+    color:#111111;
+    font-size:15px;
+    line-height:1.55;
+    overflow:visible;
+    user-select:text;
+    -webkit-user-select:text;
+    word-break:break-word;
+    box-sizing:border-box;
+  `;
+
+
+  settings.appendChild(
+    panel
+  );
+
+
+  return panel;
+
+}
+
+
+/* =========================================================================
+   2. FORMAT %
+   ========================================================================= */
+
+function formatPercentV26(
+  value
+) {
+
+  return (
+    Number(
+      value || 0
+    ) *
+    100
+  ).toFixed(2) + '%';
+
+}
+
+
+/* =========================================================================
+   3. FORMAT NUMBER
+   ========================================================================= */
+
+function formatNumberV26(
+  value,
+  digits = 4
+) {
+
+  return Number(
+    value || 0
+  ).toFixed(
+    digits
+  );
+
+}
+
+
+/* =========================================================================
+   4. BUILD PERIOD CARD
+   ========================================================================= */
+
+function buildPeriodCardV26(
+  item
+) {
+
+  const adaptive =
+    item.adaptive || {};
+
+
+  const baseline =
+    item.baseline || {};
+
+
+  const delta =
+    Number(
+      item.improvement || 0
+    );
+
+
+  let status =
+    'TIE';
+
+
+  if (delta > 0.0000001) {
+    status = 'WIN';
+  }
+
+
+  if (delta < -0.0000001) {
+    status = 'LOSS';
+  }
+
+
+  const statusIcon =
+    status === 'WIN'
+      ? '🟢'
+      : status === 'LOSS'
+        ? '🔴'
+        : '🟡';
+
+
+  return `
+    <div
+      style="
+        margin-top:16px;
+        padding:16px;
+        border-radius:16px;
+        background:#f4f5f8;
+        border:1px solid #dddddd;
+      "
+    >
+
+      <div
+        style="
+          font-size:18px;
+          font-weight:800;
+          margin-bottom:14px;
+        "
+      >
+        ${statusIcon}
+        PERIOD ${item.period} — ${status}
+      </div>
+
+
+      <div>
+        <b>Model:</b>
+        ${item.model || '-'}
+      </div>
+
+      <div>
+        <b>Window:</b>
+        ${item.window || '-'} kỳ
+      </div>
+
+      <div>
+        <b>Selection Q:</b>
+        ${formatNumberV26(
+          item.selectionQuality,
+          2
+        )}
+      </div>
+
+      <div>
+        <b>Margin:</b>
+        ${formatNumberV26(
+          item.selectionMargin,
+          4
+        )}
+      </div>
+
+
+      <hr
+        style="
+          margin:14px 0;
+          border:0;
+          border-top:1px solid #cccccc;
+        "
+      >
+
+
+      <div
+        style="
+          font-weight:800;
+          margin-bottom:8px;
+        "
+      >
+        ADAPTIVE / BASELINE
+      </div>
+
+
+      <div>
+        <b>Top1:</b>
+        ${formatPercentV26(
+          adaptive.top1Rate
+        )}
+        /
+        ${formatPercentV26(
+          baseline.top1Rate
+        )}
+      </div>
+
+
+      <div>
+        <b>Top3:</b>
+        ${formatPercentV26(
+          adaptive.top3Rate
+        )}
+        /
+        ${formatPercentV26(
+          baseline.top3Rate
+        )}
+      </div>
+
+
+      <div>
+        <b>MRR:</b>
+        ${formatNumberV26(
+          adaptive.mrr,
+          4
+        )}
+        /
+        ${formatNumberV26(
+          baseline.mrr,
+          4
+        )}
+      </div>
+
+
+      <div>
+        <b>Avg Rank:</b>
+        ${formatNumberV26(
+          adaptive.averageRank,
+          2
+        )}
+        /
+        ${formatNumberV26(
+          baseline.averageRank,
+          2
+        )}
+      </div>
+
+
+      <div>
+        <b>Quality:</b>
+        ${formatNumberV26(
+          adaptive.quality,
+          4
+        )}
+        /
+        ${formatNumberV26(
+          baseline.quality,
+          4
+        )}
+      </div>
+
+
+      <div
+        style="
+          margin-top:12px;
+          font-size:17px;
+          font-weight:800;
+        "
+      >
+        Delta Q:
+        ${delta >= 0 ? '+' : ''}
+        ${formatNumberV26(
+          delta,
+          4
+        )}
+      </div>
+
+    </div>
+  `;
+
+}
+
+
+/* =========================================================================
+   5. SHOW FULL PERIOD DIAGNOSTICS
+   ========================================================================= */
+
+function showPeriodDiagnosticsPanelV26(
+  provinceSlug = 'kien-giang',
+  giaiKey = 'db'
+) {
+
+  const panel =
+    getResearchPanelV26();
+
+
+  if (!panel) {
+
+    alert(
+      'Không tìm thấy tab Cài đặt.'
+    );
+
+    return;
+
+  }
+
+
+  panel.innerHTML = `
+    <div
+      style="
+        font-size:18px;
+        font-weight:800;
+      "
+    >
+      ⏳ Đang chạy V2.6 Period Diagnostics...
+    </div>
+  `;
+
+
+  try {
+
+    const result =
+      evaluateProvinceOOSV26(
+        provinceSlug,
+        giaiKey
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      panel.innerHTML = `
+        <b>❌ Không thể chạy Diagnostics</b>
+        <br><br>
+        Reason:
+        ${
+          result
+            ? result.reason
+            : 'UNKNOWN'
+        }
+      `;
+
+      return result;
+
+    }
+
+
+    const validPeriods =
+      result.periods.filter(
+        item =>
+          item.valid
+      );
+
+
+    const wins =
+      validPeriods.filter(
+        item =>
+          Number(
+            item.improvement || 0
+          ) > 0.0000001
+      );
+
+
+    const losses =
+      validPeriods.filter(
+        item =>
+          Number(
+            item.improvement || 0
+          ) < -0.0000001
+      );
+
+
+    const ties =
+      validPeriods.filter(
+        item =>
+          Math.abs(
+            Number(
+              item.improvement || 0
+            )
+          ) <= 0.0000001
+      );
+
+
+    const sorted =
+      validPeriods
+        .slice()
+        .sort(
+          (a, b) =>
+            Number(
+              b.improvement || 0
+            ) -
+            Number(
+              a.improvement || 0
+            )
+        );
+
+
+    const best =
+      sorted[0];
+
+
+    const worst =
+      sorted[
+        sorted.length - 1
+      ];
+
+
+    const models =
+      validPeriods.map(
+        item =>
+          item.model
+      );
+
+
+    const windows =
+      validPeriods.map(
+        item =>
+          Number(
+            item.window
+          )
+      );
+
+
+    const modelStable =
+      models.length > 0 &&
+      models.every(
+        model =>
+          model === models[0]
+      );
+
+
+    const windowStable =
+      windows.length > 0 &&
+      windows.every(
+        window =>
+          window === windows[0]
+      );
+
+
+    let html = `
+
+      <div
+        style="
+          font-size:21px;
+          font-weight:900;
+          margin-bottom:14px;
+        "
+      >
+        🔬 V2.6 PERIOD DIAGNOSTICS
+      </div>
+
+
+      <div>
+        <b>Province:</b>
+        ${provinceSlug}
+      </div>
+
+
+      <div>
+        <b>Prize:</b>
+        ${String(
+          giaiKey
+        ).toUpperCase()}
+      </div>
+
+
+      <div>
+        <b>OOS:</b>
+        ${result.classification}
+      </div>
+
+
+      <div
+        style="
+          margin-top:16px;
+          padding:14px;
+          border-radius:14px;
+          background:#f4f5f8;
+        "
+      >
+
+        <div>
+          <b>WIN / LOSS / TIE:</b>
+          ${wins.length}
+          /
+          ${losses.length}
+          /
+          ${ties.length}
+        </div>
+
+
+        <div style="margin-top:8px;">
+          <b>Best Period:</b>
+          ${best ? best.period : '-'}
+        </div>
+
+
+        <div>
+          <b>Best Delta:</b>
+          ${
+            best
+              ? (
+                  Number(
+                    best.improvement
+                  ) >= 0
+                    ? '+'
+                    : ''
+                ) +
+                formatNumberV26(
+                  best.improvement,
+                  4
+                )
+              : '-'
+          }
+        </div>
+
+
+        <div style="margin-top:8px;">
+          <b>Worst Period:</b>
+          ${worst ? worst.period : '-'}
+        </div>
+
+
+        <div>
+          <b>Worst Delta:</b>
+          ${
+            worst
+              ? formatNumberV26(
+                  worst.improvement,
+                  4
+                )
+              : '-'
+          }
+        </div>
+
+
+        <div style="margin-top:8px;">
+          <b>Model stable:</b>
+          ${modelStable ? 'YES' : 'NO'}
+        </div>
+
+
+        <div>
+          <b>Window stable:</b>
+          ${windowStable ? 'YES' : 'NO'}
+        </div>
+
+      </div>
+
+    `;
+
+
+    validPeriods.forEach(
+      item => {
+
+        html +=
+          buildPeriodCardV26(
+            item
+          );
+
+      }
+    );
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:18px;
+          padding:14px;
+          border-radius:14px;
+          background:#f4f5f8;
+          font-size:13px;
+        "
+      >
+        📌 Research only —
+        V2.6 chưa thay đổi Production Engine.
+      </div>
+
+    `;
+
+
+    panel.innerHTML =
+      html;
+
+
+    panel.scrollIntoView({
+      behavior:
+        'smooth',
+
+      block:
+        'start'
+    });
+
+
+    return result;
+
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Research Panel:',
+      error
+    );
+
+
+    panel.innerHTML = `
+      <div
+        style="
+          font-weight:800;
+          color:#b00020;
+        "
+      >
+        ❌ V2.6 PANEL ERROR
+      </div>
+
+      <br>
+
+      ${
+        String(
+          error.message ||
+          error
+        )
+      }
+    `;
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   6. ADD MOBILE PANEL BUTTON
+   ========================================================================= */
+
+function addResearchPanelButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnResearchPanelV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+    return;
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnResearchPanelV26';
+
+
+  button.textContent =
+    '🔬 Xem Full Period Diagnostics';
+
+
+  button.style.cssText = `
+    width:100%;
+    margin-top:16px;
+    padding:17px 12px;
+    border:0;
+    border-radius:14px;
+    font-size:17px;
+    font-weight:800;
+    cursor:pointer;
+  `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showPeriodDiagnosticsPanelV26(
+        'kien-giang',
+        'db'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   7. INIT MOBILE RESEARCH PANEL
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addResearchPanelButtonV26
+  );
+
+} else {
+
+  addResearchPanelButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Mobile Research Panel ready'
+);
+
