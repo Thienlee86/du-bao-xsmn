@@ -13055,3 +13055,44 @@ console.log(
   'XSMN V2.5 Stability Validation loaded — Multi-Period / Production unchanged'
 );
 
+/* ================================================================
+   TEMP V2.5 DIAGNOSTIC
+   ================================================================ */
+
+document.addEventListener('DOMContentLoaded', function () {
+
+  setTimeout(function () {
+
+    const box = document.createElement('div');
+
+    box.id = 'v25Diagnostic';
+
+    box.style.cssText = `
+      position:fixed;
+      left:10px;
+      right:10px;
+      bottom:10px;
+      z-index:999999;
+      padding:12px;
+      border-radius:12px;
+      background:#111;
+      color:#00ff88;
+      font-size:13px;
+      font-weight:700;
+      text-align:center;
+      border:1px solid #00ff88;
+    `;
+
+    box.textContent =
+      '✅ app.js chạy đến cuối — V2.5 loaded';
+
+    document.body.appendChild(box);
+
+    setTimeout(function () {
+      box.remove();
+    }, 8000);
+
+  }, 1000);
+
+});
+
