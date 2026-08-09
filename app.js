@@ -17375,3 +17375,294 @@ console.log(
   'XSMN V2.6 Block 4 loaded — Period Diagnostics ready'
 );
 
+/* =========================================================================
+   V2.6 BLOCK 4 — SHORT MOBILE DIAGNOSTICS
+
+   Mỗi lần chỉ hiển thị 1 Period
+   để tránh Chrome/Samsung cắt alert.
+   ========================================================================= */
+
+function showPeriodDiagnosticV26Short(
+  provinceSlug = 'kien-giang',
+  giaiKey = 'db'
+) {
+
+  try {
+
+    const result =
+      diagnoseOOSPeriodsV26(
+        provinceSlug,
+        giaiKey
+      );
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+        'V2.6 DIAGNOSTICS\n\nKhông có dữ liệu.'
+      );
+
+      return;
+
+    }
+
+
+    const items =
+      result.diagnostics.filter(
+        item => item.valid
+      );
+
+
+    items.forEach(
+      (item, index) => {
+
+        setTimeout(
+          function() {
+
+            const text =
+
+              'PERIOD ' +
+              item.period +
+              ' — ' +
+              item.status +
+              '\n\n' +
+
+              'Model: ' +
+              item.model +
+              '\n' +
+
+              'Window: ' +
+              item.window +
+              ' kỳ\n' +
+
+              'Selection Q: ' +
+              item.selectionQuality.toFixed(2) +
+              '\n' +
+
+              'Margin: ' +
+              item.selectionMargin.toFixed(4) +
+              '\n\n' +
+
+              'ADAPTIVE / BASELINE\n' +
+
+              'Top3: ' +
+              (
+                item.adaptive.top3 * 100
+              ).toFixed(2) +
+              '% / ' +
+              (
+                item.baseline.top3 * 100
+              ).toFixed(2) +
+              '%\n' +
+
+              'MRR: ' +
+              item.adaptive.mrr.toFixed(4) +
+              ' / ' +
+              item.baseline.mrr.toFixed(4) +
+              '\n' +
+
+              'Rank: ' +
+              item.adaptive.averageRank.toFixed(2) +
+              ' / ' +
+              item.baseline.averageRank.toFixed(2) +
+              '\n' +
+
+              'Quality: ' +
+              item.adaptive.quality.toFixed(4) +
+              ' / ' +
+              item.baseline.quality.toFixed(4) +
+              '\n\n' +
+
+              'Delta Q: ' +
+              item.delta.quality.toFixed(4);
+
+
+            alert(
+              text
+            );
+
+          },
+
+          index * 300
+
+        );
+
+      }
+    );
+
+
+    const s =
+      result.summary;
+
+
+    setTimeout(
+      function() {
+
+        alert(
+
+          'V2.6 DIAGNOSTIC SUMMARY\n\n' +
+
+          'WIN / LOSS / TIE: ' +
+          s.wins +
+          ' / ' +
+          s.losses +
+          ' / ' +
+          s.ties +
+          '\n\n' +
+
+          'Best Period: ' +
+          s.strongestPeriod +
+          '\n' +
+
+          'Delta: ' +
+          s.strongestImprovement.toFixed(4) +
+          '\n\n' +
+
+          'Worst Period: ' +
+          s.weakestPeriod +
+          '\n' +
+
+          'Delta: ' +
+          s.weakestImprovement.toFixed(4) +
+          '\n\n' +
+
+          'Model stable: ' +
+          (
+            s.modelConsistency
+              ? 'YES'
+              : 'NO'
+          ) +
+          '\n' +
+
+          'Window stable: ' +
+          (
+            s.windowConsistency
+              ? 'YES'
+              : 'NO'
+          )
+
+        );
+
+      },
+
+      items.length * 300
+
+    );
+
+
+    return result;
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Short Diagnostics:',
+      error
+    );
+
+    alert(
+      '❌ V2.6 SHORT DIAGNOSTICS ERROR\n\n' +
+      String(
+        error.message || error
+      )
+    );
+
+  }
+
+}
+
+
+/* =========================================================================
+   SHORT DIAGNOSTICS BUTTON
+   ========================================================================= */
+
+function addShortDiagnosticsButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShortDiagnosticsV26'
+    )
+  ) {
+    return;
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+    return;
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShortDiagnosticsV26';
+
+
+  button.textContent =
+    '🔎 V2.6 Diagnostics — từng Period';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showPeriodDiagnosticV26Short(
+        'kien-giang',
+        'db'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState === 'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShortDiagnosticsButtonV26
+  );
+
+} else {
+
+  addShortDiagnosticsButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Short Period Diagnostics ready'
+);
+
