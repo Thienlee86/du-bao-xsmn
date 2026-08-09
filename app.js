@@ -32169,54 +32169,164 @@ function ensureProvinceDecisionLayerV26() {
    * 2. chỉ ghi result vào window.
    */
 
-  const finalResult =
+  /* ================================================================
+   FIX V2.6 — DECISION RESULT CONTRACT
 
-    (
+   Block 7C trả:
+     decisions: [...]
+
+   Shadow Bootstrap trước đây lại chờ:
+     results: [...]
+
+   Chuẩn hóa ở đây để Shadow Engine
+   có thể đọc cả hai cấu trúc.
+   ================================================================ */
+
+let finalResult =
+  null;
+
+
+/*
+ * CASE 1:
+ * Runner Block 7C return result trực tiếp.
+ */
+
+if (
+  decisionResult &&
+  decisionResult.ready
+) {
+
+  finalResult =
+    decisionResult;
+
+}
+
+
+/*
+ * CASE 2:
+ * Runner ghi kết quả vào global.
+ */
+
+if (
+  !finalResult &&
+  window.LAST_PROVINCE_DECISION_V26 &&
+  window.LAST_PROVINCE_DECISION_V26.ready
+) {
+
+  finalResult =
+    window.LAST_PROVINCE_DECISION_V26;
+
+}
+
+
+/*
+ * Không có Decision Result thật sự.
+ */
+
+if (
+  !finalResult
+) {
+
+  return {
+
+    ready: false,
+
+    reason:
+      'DECISION_RESULT_NOT_CREATED',
+
+    runner:
+      runnerName,
+
+    returnedKeys:
       decisionResult &&
-      decisionResult.ready &&
-      Array.isArray(
-        decisionResult.results
+      typeof decisionResult ===
+        'object'
+        ? Object.keys(
+            decisionResult
+          )
+        : []
+
+  };
+
+}
+
+
+/*
+ * Block 7C chuẩn sử dụng:
+ *
+ * decisions: [...]
+ *
+ * Shadow Engine cũ có thể sử dụng:
+ *
+ * results: [...]
+ *
+ * Tạo alias results nhưng KHÔNG
+ * thay đổi decisions gốc.
+ */
+
+if (
+  Array.isArray(
+    finalResult.decisions
+  ) &&
+  finalResult.decisions.length
+) {
+
+  finalResult.results =
+    finalResult.decisions;
+
+}
+
+
+/*
+ * Fallback ngược lại:
+ * nếu một phiên bản khác dùng results.
+ */
+
+if (
+  !Array.isArray(
+    finalResult.decisions
+  ) &&
+  Array.isArray(
+    finalResult.results
+  )
+) {
+
+  finalResult.decisions =
+    finalResult.results;
+
+}
+
+
+/*
+ * Sau normalize phải có Decision rows.
+ */
+
+if (
+  !Array.isArray(
+    finalResult.decisions
+  ) ||
+  !finalResult.decisions.length
+) {
+
+  return {
+
+    ready: false,
+
+    reason:
+      'DECISION_ROWS_NOT_FOUND',
+
+    runner:
+      runnerName,
+
+    resultKeys:
+      Object.keys(
+        finalResult
       )
-    )
 
-      ? decisionResult
+  };
 
-      : window
-          .LAST_PROVINCE_DECISION_V26;
-
-
-  if (
-    !finalResult ||
-    !finalResult.ready ||
-    !Array.isArray(
-      finalResult.results
-    ) ||
-    !finalResult.results.length
-  ) {
-
-    return {
-
-      ready: false,
-
-      reason:
-        'DECISION_RESULT_NOT_CREATED',
-
-      runner:
-        runnerName,
-
-      returnedKeys:
-        decisionResult &&
-        typeof decisionResult ===
-          'object'
-          ? Object.keys(
-              decisionResult
-            )
-          : []
-
-    };
-
-  }
-
+}
+   
 
   /*
    * Chuẩn hóa:
