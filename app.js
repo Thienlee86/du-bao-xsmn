@@ -31894,3 +31894,801 @@ console.log(
   'XSMN V2.6 Shadow Mobile Test ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX
+   DECISION LAYER BOOTSTRAP FOR SHADOW TEST
+
+   Mục tiêu:
+   - Tự tìm / tạo Province Gate nếu cần.
+   - Tự chạy Decision Layer 7C nếu cần.
+   - Sau đó mới chạy Shadow 8A.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. FIND DECISION LAYER RUNNER
+   ========================================================================= */
+
+function ensureProvinceDecisionLayerV26() {
+
+  /*
+   * Nếu Decision Layer đã tồn tại
+   * và hợp lệ thì dùng luôn.
+   */
+
+  if (
+    window.LAST_PROVINCE_DECISION_V26 &&
+    window.LAST_PROVINCE_DECISION_V26.ready &&
+    Array.isArray(
+      window.LAST_PROVINCE_DECISION_V26.results
+    ) &&
+    window.LAST_PROVINCE_DECISION_V26.results.length
+  ) {
+
+    return {
+
+      ready: true,
+
+      source:
+        'EXISTING_DECISION_LAYER',
+
+      result:
+        window.LAST_PROVINCE_DECISION_V26
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BƯỚC A
+   * Bảo đảm Province Gate tồn tại.
+   * -------------------------------------------------------------
+   */
+
+  let gate =
+    window.LAST_PROVINCE_GATE_V26;
+
+
+  if (
+    !gate ||
+    !gate.ready ||
+    !Array.isArray(
+      gate.results
+    ) ||
+    !gate.results.length
+  ) {
+
+    if (
+      typeof runProvinceAdaptiveGateV26 ===
+      'function'
+    ) {
+
+      try {
+
+        gate =
+          runProvinceAdaptiveGateV26();
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          'V2.6 Gate Bootstrap Error:',
+          error
+        );
+
+      }
+
+    }
+
+  }
+
+
+  if (
+    !gate ||
+    !gate.ready ||
+    !Array.isArray(
+      gate.results
+    ) ||
+    !gate.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_GATE_NOT_READY'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BƯỚC B
+   * Tìm hàm runner của Block 7C.
+   *
+   * Vì các phiên bản 7C có thể đặt tên
+   * hơi khác nhau, kiểm tra các tên
+   * runner phổ biến.
+   * -------------------------------------------------------------
+   */
+
+  const runnerCandidates = [
+
+    'runProvinceDecisionLayerV26',
+
+    'buildProvinceDecisionLayerV26',
+
+    'evaluateProvinceDecisionLayerV26',
+
+    'createProvinceDecisionLayerV26',
+
+    'runAdaptiveDecisionLayerV26'
+
+  ];
+
+
+  let runnerName =
+    null;
+
+
+  let runner =
+    null;
+
+
+  for (
+    const name of
+    runnerCandidates
+  ) {
+
+    if (
+      typeof window[name] ===
+      'function'
+    ) {
+
+      runnerName =
+        name;
+
+      runner =
+        window[name];
+
+      break;
+
+    }
+
+  }
+
+
+  if (!runner) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_RUNNER_NOT_FOUND',
+
+      gateReady:
+        true,
+
+      gateCount:
+        gate.results.length,
+
+      checked:
+        runnerCandidates
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BƯỚC C
+   * Chạy Block 7C.
+   *
+   * Thử truyền Gate trước.
+   * Nếu runner không cần argument,
+   * JavaScript vẫn cho phép gọi.
+   * -------------------------------------------------------------
+   */
+
+  let decisionResult =
+    null;
+
+
+  try {
+
+    decisionResult =
+      runner(
+        gate
+      );
+
+  } catch (
+    firstError
+  ) {
+
+    console.warn(
+      'V2.6 Decision runner with gate failed:',
+      firstError
+    );
+
+
+    /*
+     * Fallback:
+     * thử gọi không argument.
+     */
+
+    try {
+
+      decisionResult =
+        runner();
+
+    } catch (
+      secondError
+    ) {
+
+      console.error(
+        'V2.6 Decision Bootstrap Error:',
+        secondError
+      );
+
+
+      return {
+
+        ready: false,
+
+        reason:
+          'DECISION_RUNNER_ERROR',
+
+        runner:
+          runnerName,
+
+        error:
+          String(
+            secondError.message ||
+            secondError
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Runner có thể:
+   * 1. return result
+   * 2. chỉ ghi result vào window.
+   */
+
+  const finalResult =
+
+    (
+      decisionResult &&
+      decisionResult.ready &&
+      Array.isArray(
+        decisionResult.results
+      )
+    )
+
+      ? decisionResult
+
+      : window
+          .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !finalResult ||
+    !finalResult.ready ||
+    !Array.isArray(
+      finalResult.results
+    ) ||
+    !finalResult.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_RESULT_NOT_CREATED',
+
+      runner:
+        runnerName,
+
+      returnedKeys:
+        decisionResult &&
+        typeof decisionResult ===
+          'object'
+          ? Object.keys(
+              decisionResult
+            )
+          : []
+
+    };
+
+  }
+
+
+  /*
+   * Chuẩn hóa:
+   * bảo đảm Shadow Engine đọc được
+   * đúng global variable.
+   */
+
+  window.LAST_PROVINCE_DECISION_V26 =
+    finalResult;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'DECISION_LAYER_BOOTSTRAPPED',
+
+    runner:
+      runnerName,
+
+    result:
+      finalResult
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. FIXED SHADOW MOBILE TEST
+   ========================================================================= */
+
+function showShadowTestV26MobileFixed() {
+
+  try {
+
+    /*
+     * STEP 1:
+     * Bootstrap Decision Layer.
+     */
+
+    const bootstrap =
+      ensureProvinceDecisionLayerV26();
+
+
+    if (
+      !bootstrap.ready
+    ) {
+
+      let text =
+
+        '❌ V2.6 SHADOW BOOTSTRAP\n\n' +
+
+        'Reason: ' +
+        bootstrap.reason;
+
+
+      if (
+        bootstrap.runner
+      ) {
+
+        text +=
+          '\nRunner: ' +
+          bootstrap.runner;
+
+      }
+
+
+      if (
+        bootstrap.gateCount != null
+      ) {
+
+        text +=
+          '\nGate Provinces: ' +
+          bootstrap.gateCount;
+
+      }
+
+
+      if (
+        Array.isArray(
+          bootstrap.checked
+        )
+      ) {
+
+        text +=
+          '\n\nChecked runners:\n' +
+          bootstrap.checked.join(
+            '\n'
+          );
+
+      }
+
+
+      if (
+        bootstrap.error
+      ) {
+
+        text +=
+          '\n\nError:\n' +
+          bootstrap.error;
+
+      }
+
+
+      alert(
+        text
+      );
+
+
+      window
+        .LAST_SHADOW_BOOTSTRAP_DEBUG_V26 =
+        bootstrap;
+
+
+      return bootstrap;
+
+    }
+
+
+    /*
+     * STEP 2:
+     * Kiểm tra Decision Layer.
+     */
+
+    const decisionLayer =
+      bootstrap.result;
+
+
+    const adaptiveItems =
+      decisionLayer.results.filter(
+        item => {
+
+          const decision =
+            normalizeShadowDecisionV26(
+              item.decision ||
+              item.action ||
+              item.recommendation
+            );
+
+
+          return (
+            decision ===
+            SHADOW_ENGINE_V26_CONFIG
+              .requiredDecision
+          );
+
+        }
+      );
+
+
+    /*
+     * STEP 3:
+     * Chạy Shadow.
+     */
+
+    const result =
+      runApprovedShadowPredictionsV26(
+        'db',
+        false
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+
+        '❌ V2.6 SHADOW TEST\n\n' +
+
+        'Decision Layer: READY\n' +
+
+        'Decision Provinces: ' +
+        decisionLayer.results.length +
+        '\n' +
+
+        'Adaptive Approved: ' +
+        adaptiveItems.length +
+        '\n\n' +
+
+        'Shadow Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN_ERROR'
+        )
+
+      );
+
+
+      return result;
+
+    }
+
+
+    /*
+     * STEP 4:
+     * Hiển thị kết quả ngắn,
+     * phù hợp màn hình điện thoại.
+     */
+
+    const lines = [];
+
+
+    lines.push(
+      '👻 V2.6 SHADOW TEST'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Decision Layer: READY'
+    );
+
+    lines.push(
+      'Approved: ' +
+      result.approvedCount
+    );
+
+    lines.push(
+      'Successful: ' +
+      result.successfulCount
+    );
+
+    lines.push(
+      'Failed: ' +
+      result.failedCount
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    result.results.forEach(
+      item => {
+
+        lines.push(
+          item.ready
+            ? '✅ ' +
+              item.province
+            : '❌ ' +
+              (
+                item.province ||
+                'UNKNOWN'
+              )
+        );
+
+
+        if (
+          item.ready
+        ) {
+
+          lines.push(
+            item.model +
+            ' / ' +
+            item.window +
+            ' kỳ'
+          );
+
+
+          lines.push(
+            'Top1: ' +
+            (
+              item.top1 &&
+              item.top1.length
+                ? item.top1.join(
+                    ', '
+                  )
+                : '-'
+            )
+          );
+
+
+          lines.push(
+            'Top3: ' +
+            (
+              item.top3 &&
+              item.top3.length
+                ? item.top3.join(
+                    ', '
+                  )
+                : '-'
+            )
+          );
+
+        } else {
+
+          lines.push(
+            'Reason: ' +
+            (
+              item.reason ||
+              'UNKNOWN'
+            )
+          );
+
+        }
+
+
+        lines.push(
+          '--------------------'
+        );
+
+      }
+    );
+
+
+    if (
+      result.approvedCount === 4 &&
+      result.successfulCount === 4 &&
+      result.failedCount === 0
+    ) {
+
+      lines.push(
+        '✅ ALL 4 SHADOWS READY'
+      );
+
+    } else {
+
+      lines.push(
+        '⚠️ SHADOW NEEDS CHECK'
+      );
+
+    }
+
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window.LAST_SHADOW_TEST_V26 =
+      result;
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Fixed Shadow Test:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 FIXED SHADOW ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. REPLACE OLD BUTTON ACTION
+
+   Không tạo thêm nút.
+   Dùng lại nút:
+   👻 Test V2.6 Shadow
+   ========================================================================= */
+
+function patchShadowTestButtonV26() {
+
+  const button =
+    document.getElementById(
+      'btnShadowTestV26'
+    );
+
+
+  if (!button) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Clone button để loại bỏ
+   * event listener cũ.
+   */
+
+  const replacement =
+    button.cloneNode(
+      true
+    );
+
+
+  replacement.onclick =
+    function() {
+
+      showShadowTestV26MobileFixed();
+
+    };
+
+
+  button.parentNode.replaceChild(
+    replacement,
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   4. INIT PATCH
+
+   Chạy sau khi các Block trước
+   đã tạo UI.
+   ========================================================================= */
+
+function initShadowDecisionFixV26() {
+
+  const patched =
+    patchShadowTestButtonV26();
+
+
+  /*
+   * Nếu button chưa được tạo kịp,
+   * thử lại một lần sau DOMContentLoaded.
+   */
+
+  if (
+    !patched &&
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      patchShadowTestButtonV26
+    );
+
+  }
+
+}
+
+
+initShadowDecisionFixV26();
+
+
+console.log(
+  'XSMN V2.6 Shadow Decision Layer Fix ready'
+);
+
