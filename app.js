@@ -16345,3 +16345,1033 @@ console.log(
 );
 
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 4
+   PERIOD DIAGNOSTICS
+
+   Mục tiêu:
+   - Phân tích từng OOS Period riêng biệt.
+   - KHÔNG thay Production Engine.
+   - KHÔNG thay model selection.
+   - KHÔNG tối ưu weights.
+   - Chỉ đọc kết quả từ Block 3.
+
+   Chẩn đoán:
+   - Model / Window được chọn.
+   - Selection Quality / Margin.
+   - Adaptive vs Baseline.
+   - Top1 / Top3.
+   - MRR.
+   - Average Rank.
+   - Quality.
+   - Improvement.
+   - Period WIN / TIE / LOSS.
+   - Xác định period gây suy giảm tổng thể.
+   ========================================================================= */
+
+
+/* =========================================================================
+   27. CLASSIFY ONE PERIOD
+   ========================================================================= */
+
+function classifyOOSPeriodV26(
+  item
+) {
+
+  if (
+    !item ||
+    !item.valid
+  ) {
+
+    return 'INVALID';
+
+  }
+
+
+  const improvement =
+    Number(
+      item.improvement || 0
+    );
+
+
+  if (
+    improvement > 0.0000001
+  ) {
+
+    return 'WIN';
+
+  }
+
+
+  if (
+    improvement < -0.0000001
+  ) {
+
+    return 'LOSS';
+
+  }
+
+
+  return 'TIE';
+
+}
+
+
+/* =========================================================================
+   28. BUILD PERIOD DIAGNOSTIC
+   ========================================================================= */
+
+function buildPeriodDiagnosticV26(
+  item
+) {
+
+  if (
+    !item ||
+    !item.valid
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      period:
+        item
+          ? item.period
+          : null,
+
+      reason:
+        item &&
+        item.reason
+          ? item.reason
+          : 'INVALID_PERIOD'
+
+    };
+
+  }
+
+
+  const adaptive =
+    item.adaptive;
+
+
+  const baseline =
+    item.baseline;
+
+
+  const adaptiveQuality =
+    Number(
+      adaptive.quality || 0
+    );
+
+
+  const baselineQuality =
+    Number(
+      baseline.quality || 0
+    );
+
+
+  const qualityDelta =
+    adaptiveQuality -
+    baselineQuality;
+
+
+  const mrrDelta =
+    Number(
+      adaptive.mrr || 0
+    ) -
+    Number(
+      baseline.mrr || 0
+    );
+
+
+  /*
+   * Average Rank càng THẤP càng tốt.
+   *
+   * Vì vậy:
+   * baseline - adaptive
+   *
+   * > 0 = Adaptive tốt hơn.
+   */
+
+  const rankGain =
+    Number(
+      baseline.averageRank || 0
+    ) -
+    Number(
+      adaptive.averageRank || 0
+    );
+
+
+  const top3Delta =
+    Number(
+      adaptive.top3Rate || 0
+    ) -
+    Number(
+      baseline.top3Rate || 0
+    );
+
+
+  return {
+
+    valid:
+      true,
+
+    period:
+      item.period,
+
+    status:
+      classifyOOSPeriodV26(
+        item
+      ),
+
+    trainingCount:
+      item.trainingCount,
+
+    testingCount:
+      item.testingCount,
+
+    trainUntil:
+      item.trainUntil,
+
+    testFrom:
+      item.testFrom,
+
+    testTo:
+      item.testTo,
+
+    model:
+      item.model,
+
+    window:
+      item.window,
+
+    selectionQuality:
+      Number(
+        item.selectionQuality || 0
+      ),
+
+    selectionMargin:
+      Number(
+        item.selectionMargin || 0
+      ),
+
+    adaptive: {
+
+      top1:
+        Number(
+          adaptive.top1Rate || 0
+        ),
+
+      top3:
+        Number(
+          adaptive.top3Rate || 0
+        ),
+
+      mrr:
+        Number(
+          adaptive.mrr || 0
+        ),
+
+      averageRank:
+        Number(
+          adaptive.averageRank || 0
+        ),
+
+      quality:
+        adaptiveQuality
+
+    },
+
+    baseline: {
+
+      top1:
+        Number(
+          baseline.top1Rate || 0
+        ),
+
+      top3:
+        Number(
+          baseline.top3Rate || 0
+        ),
+
+      mrr:
+        Number(
+          baseline.mrr || 0
+        ),
+
+      averageRank:
+        Number(
+          baseline.averageRank || 0
+        ),
+
+      quality:
+        baselineQuality
+
+    },
+
+    delta: {
+
+      quality:
+        qualityDelta,
+
+      mrr:
+        mrrDelta,
+
+      top3:
+        top3Delta,
+
+      rankGain:
+        rankGain
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   29. FIND STRONGEST / WEAKEST PERIOD
+   ========================================================================= */
+
+function summarizePeriodDiagnosticsV26(
+  diagnostics
+) {
+
+  const valid =
+    diagnostics.filter(
+      item =>
+        item.valid
+    );
+
+
+  if (
+    !valid.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const sorted =
+    valid
+      .slice()
+      .sort(
+        (a, b) =>
+          b.delta.quality -
+          a.delta.quality
+      );
+
+
+  const strongest =
+    sorted[0];
+
+
+  const weakest =
+    sorted[
+      sorted.length - 1
+    ];
+
+
+  const wins =
+    valid.filter(
+      item =>
+        item.status ===
+        'WIN'
+    ).length;
+
+
+  const losses =
+    valid.filter(
+      item =>
+        item.status ===
+        'LOSS'
+    ).length;
+
+
+  const ties =
+    valid.filter(
+      item =>
+        item.status ===
+        'TIE'
+    ).length;
+
+
+  /*
+   * Kiểm tra Model consistency.
+   */
+
+  const models =
+    [
+      ...new Set(
+        valid.map(
+          item =>
+            item.model
+        )
+      )
+    ];
+
+
+  const windows =
+    [
+      ...new Set(
+        valid.map(
+          item =>
+            item.window
+        )
+      )
+    ];
+
+
+  return {
+
+    periods:
+      valid.length,
+
+    wins,
+
+    losses,
+
+    ties,
+
+    strongestPeriod:
+      strongest.period,
+
+    strongestImprovement:
+      strongest.delta.quality,
+
+    weakestPeriod:
+      weakest.period,
+
+    weakestImprovement:
+      weakest.delta.quality,
+
+    models,
+
+    windows,
+
+    modelConsistency:
+      models.length === 1,
+
+    windowConsistency:
+      windows.length === 1
+
+  };
+
+}
+
+
+/* =========================================================================
+   30. RUN PERIOD DIAGNOSTICS
+   ========================================================================= */
+
+function diagnoseOOSPeriodsV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey =
+    'db'
+) {
+
+  const result =
+    evaluateProvinceOOSV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'OOS_NOT_READY'
+
+    };
+
+  }
+
+
+  const diagnostics =
+    result.periods.map(
+      item =>
+        buildPeriodDiagnosticV26(
+          item
+        )
+    );
+
+
+  const summary =
+    summarizePeriodDiagnosticsV26(
+      diagnostics
+    );
+
+
+  return {
+
+    ready:
+      Boolean(
+        summary
+      ),
+
+    version:
+      'V2.6',
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    oosClassification:
+      result.classification,
+
+    diagnostics,
+
+    summary
+
+  };
+
+}
+
+
+/* =========================================================================
+   31. PRINT PERIOD DIAGNOSTICS
+   ========================================================================= */
+
+function printPeriodDiagnosticsV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey =
+    'db'
+) {
+
+  const result =
+    diagnoseOOSPeriodsV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — PERIOD DIAGNOSTICS'
+  );
+
+  console.log(
+    provinceSlug,
+    String(
+      giaiKey
+    ).toUpperCase()
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.table(
+
+    result.diagnostics
+      .filter(
+        item =>
+          item.valid
+      )
+      .map(
+        item => ({
+
+          Period:
+            item.period,
+
+          Status:
+            item.status,
+
+          Model:
+            item.model,
+
+          Window:
+            item.window,
+
+          SelectionQ:
+            item.selectionQuality
+              .toFixed(2),
+
+          Margin:
+            item.selectionMargin
+              .toFixed(4),
+
+          AdaptiveTop3:
+            (
+              item.adaptive.top3 *
+              100
+            ).toFixed(2) +
+            '%',
+
+          BaselineTop3:
+            (
+              item.baseline.top3 *
+              100
+            ).toFixed(2) +
+            '%',
+
+          AdaptiveMRR:
+            item.adaptive.mrr
+              .toFixed(4),
+
+          BaselineMRR:
+            item.baseline.mrr
+              .toFixed(4),
+
+          AdaptiveRank:
+            item.adaptive
+              .averageRank
+              .toFixed(2),
+
+          BaselineRank:
+            item.baseline
+              .averageRank
+              .toFixed(2),
+
+          AdaptiveQ:
+            item.adaptive.quality
+              .toFixed(4),
+
+          BaselineQ:
+            item.baseline.quality
+              .toFixed(4),
+
+          DeltaQ:
+            item.delta.quality
+              .toFixed(4)
+
+        }))
+
+  );
+
+
+  console.log(
+    'DIAGNOSTIC SUMMARY:',
+    result.summary
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   32. MOBILE PERIOD DIAGNOSTICS
+
+   Hiển thị ngắn gọn để dùng tốt
+   trên Samsung / Chrome mobile.
+   ========================================================================= */
+
+function showPeriodDiagnosticsV26Mobile(
+  provinceSlug =
+    'kien-giang',
+
+  giaiKey =
+    'db'
+) {
+
+  try {
+
+    const result =
+      diagnoseOOSPeriodsV26(
+        provinceSlug,
+        giaiKey
+      );
+
+
+    if (
+      !result.ready
+    ) {
+
+      alert(
+        'V2.6 PERIOD DIAGNOSTICS\n\n' +
+        'Không thể phân tích.\n' +
+        'Reason: ' +
+        result.reason
+      );
+
+
+      return result;
+
+    }
+
+
+    const lines = [];
+
+
+    lines.push(
+      'V2.6 PERIOD DIAGNOSTICS'
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Province: ' +
+      provinceSlug
+    );
+
+
+    lines.push(
+      'Prize: ' +
+      giaiKey.toUpperCase()
+    );
+
+
+    lines.push(
+      'OOS: ' +
+      result.oosClassification
+    );
+
+
+    lines.push(
+      '-------------------------'
+    );
+
+
+    result.diagnostics
+      .filter(
+        item =>
+          item.valid
+      )
+      .forEach(
+        item => {
+
+          lines.push(
+            'Period ' +
+            item.period +
+            ' — ' +
+            item.status
+          );
+
+
+          lines.push(
+            'Model: ' +
+            item.model +
+            ' / ' +
+            item.window +
+            ' ky'
+          );
+
+
+          lines.push(
+            'Selection Q: ' +
+            item.selectionQuality
+              .toFixed(2)
+          );
+
+
+          lines.push(
+            'Margin: ' +
+            item.selectionMargin
+              .toFixed(4)
+          );
+
+
+          lines.push(
+            'A Top3: ' +
+            (
+              item.adaptive.top3 *
+              100
+            ).toFixed(2) +
+            '%'
+          );
+
+
+          lines.push(
+            'B Top3: ' +
+            (
+              item.baseline.top3 *
+              100
+            ).toFixed(2) +
+            '%'
+          );
+
+
+          lines.push(
+            'A MRR: ' +
+            item.adaptive.mrr
+              .toFixed(4)
+          );
+
+
+          lines.push(
+            'B MRR: ' +
+            item.baseline.mrr
+              .toFixed(4)
+          );
+
+
+          lines.push(
+            'A Rank: ' +
+            item.adaptive
+              .averageRank
+              .toFixed(2)
+          );
+
+
+          lines.push(
+            'B Rank: ' +
+            item.baseline
+              .averageRank
+              .toFixed(2)
+          );
+
+
+          lines.push(
+            'Delta Q: ' +
+            item.delta.quality
+              .toFixed(4)
+          );
+
+
+          lines.push(
+            '-------------------------'
+          );
+
+        }
+      );
+
+
+    const s =
+      result.summary;
+
+
+    lines.push(
+      'SUMMARY'
+    );
+
+
+    lines.push(
+      'Win/Loss/Tie: ' +
+      s.wins +
+      '/' +
+      s.losses +
+      '/' +
+      s.ties
+    );
+
+
+    lines.push(
+      'Best Period: ' +
+      s.strongestPeriod +
+      ' (' +
+      s.strongestImprovement
+        .toFixed(4) +
+      ')'
+    );
+
+
+    lines.push(
+      'Worst Period: ' +
+      s.weakestPeriod +
+      ' (' +
+      s.weakestImprovement
+        .toFixed(4) +
+      ')'
+    );
+
+
+    lines.push(
+      'Model stable: ' +
+      (
+        s.modelConsistency
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+
+    lines.push(
+      'Window stable: ' +
+      (
+        s.windowConsistency
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Period Diagnostics:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 BLOCK 4 ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   33. TEMP MOBILE BUTTON
+   ========================================================================= */
+
+function addPeriodDiagnosticsButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnPeriodDiagnosticsV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (
+    !settings
+  ) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnPeriodDiagnosticsV26';
+
+
+  button.textContent =
+    '🔬 V2.6 Period Diagnostics — Kiên Giang';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showPeriodDiagnosticsV26Mobile(
+        'kien-giang',
+        'db'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   34. INIT BLOCK 4
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addPeriodDiagnosticsButtonV26
+  );
+
+} else {
+
+  addPeriodDiagnosticsButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 4 loaded — Period Diagnostics ready'
+);
+
