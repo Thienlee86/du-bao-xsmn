@@ -14191,7 +14191,9 @@ function showOOSTestV26Mobile(
 
     if (
       !result ||
-      !Array.isArray(result.periods)
+      !Array.isArray(
+        result.periods
+      )
     ) {
 
       alert(
@@ -14216,107 +14218,216 @@ function showOOSTestV26Mobile(
     }
 
 
-    const lines = [];
+    const oldPanel =
+      document.getElementById(
+        'oosResultV26'
+      );
 
 
-    lines.push(
-      'XSMN V2.6 — OOS TEST'
-    );
+    if (oldPanel) {
 
-    lines.push(
-      'Tỉnh: ' + provinceSlug
-    );
+      oldPanel.remove();
 
-    lines.push(
-      'Periods: ' +
-      result.periods.length
-    );
-
-    lines.push(
-      '-------------------------'
-    );
+    }
 
 
-    let allPassed = true;
+    let allPassed =
+      true;
 
 
-    result.periods.forEach(
-      period => {
+    const periodHTML =
+      result.periods
+        .map(
+          period => {
 
-        const check =
-          verifyOOSPeriodV26(
-            period
-          );
-
-
-        if (
-          !check.valid
-        ) {
-
-          allPassed = false;
-
-        }
+            const check =
+              verifyOOSPeriodV26(
+                period
+              );
 
 
-        lines.push(
-          'Period ' +
-          period.period
+            if (
+              !check.valid
+            ) {
+
+              allPassed =
+                false;
+
+            }
+
+
+            return `
+              <div
+                style="
+                  padding:14px;
+                  margin-top:12px;
+                  border-radius:14px;
+                  background:rgba(
+                    255,
+                    255,
+                    255,
+                    0.06
+                  );
+                "
+              >
+
+                <div
+                  style="
+                    font-size:18px;
+                    font-weight:800;
+                    margin-bottom:10px;
+                  "
+                >
+                  Period ${period.period}
+                </div>
+
+                <div
+                  style="
+                    line-height:1.7;
+                  "
+                >
+                  Training:
+                  <b>${period.trainingCount}</b>
+                  <br>
+
+                  Test:
+                  <b>${period.testingCount}</b>
+                  <br>
+
+                  Train until:
+                  <b>${period.trainingUntil}</b>
+                  <br>
+
+                  Test from:
+                  <b>${period.testFrom}</b>
+                  <br>
+
+                  Leakage:
+                  <b>
+                    ${
+                      check.valid
+                        ? 'NO'
+                        : 'YES'
+                    }
+                  </b>
+                  <br>
+
+                  Status:
+                  <b>
+                    ${check.reason}
+                  </b>
+                </div>
+
+              </div>
+            `;
+
+          }
+        )
+        .join('');
+
+
+    const panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      'oosResultV26';
+
+
+    panel.style.cssText =
+      `
+        margin-top:16px;
+        padding:16px;
+        border-radius:16px;
+        background:rgba(
+          255,
+          255,
+          255,
+          0.05
         );
-
-        lines.push(
-          'Training: ' +
-          period.trainingCount
-        );
-
-        lines.push(
-          'Test: ' +
-          period.testingCount
-        );
-
-        lines.push(
-          'Train until: ' +
-          period.trainingUntil
-        );
-
-        lines.push(
-          'Test from: ' +
-          period.testFrom
-        );
-
-        lines.push(
-          'Leakage: ' +
-          (
-            check.valid
-              ? 'NO'
-              : 'YES'
-          )
-        );
-
-        lines.push(
-          'Status: ' +
-          check.reason
-        );
-
-        lines.push(
-          '-------------------------'
-        );
-
-      }
-    );
+      `;
 
 
-    lines.push(
-      allPassed
-        ? '✅ ALL PERIODS PASSED'
-        : '❌ LEAKAGE DETECTED'
-    );
+    panel.innerHTML =
+      `
+        <div
+          style="
+            font-size:21px;
+            font-weight:900;
+            margin-bottom:8px;
+          "
+        >
+          🧪 XSMN V2.6 — OOS TEST
+        </div>
+
+        <div
+          style="
+            line-height:1.6;
+            margin-bottom:10px;
+          "
+        >
+          Tỉnh:
+          <b>${provinceSlug}</b>
+          <br>
+
+          Tổng số Period:
+          <b>${result.periods.length}</b>
+        </div>
+
+        ${periodHTML}
+
+        <div
+          style="
+            margin-top:16px;
+            padding:15px;
+            border-radius:14px;
+            font-size:18px;
+            font-weight:900;
+            text-align:center;
+            background:rgba(
+              255,
+              193,
+              61,
+              0.12
+            );
+          "
+        >
+          ${
+            allPassed
+              ? '✅ ALL PERIODS PASSED'
+              : '❌ LEAKAGE DETECTED'
+          }
+        </div>
+      `;
 
 
-    alert(
-      lines.join(
-        '\n'
-      )
-    );
+    const button =
+      document.getElementById(
+        'btnOOSTestV26'
+      );
+
+
+    if (button) {
+
+      button.insertAdjacentElement(
+        'afterend',
+        panel
+      );
+
+    }
+
+
+    panel.scrollIntoView({
+
+      behavior:
+        'smooth',
+
+      block:
+        'start'
+
+    });
 
 
     return {
