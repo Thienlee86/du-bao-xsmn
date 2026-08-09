@@ -14171,3 +14171,280 @@ console.log(
   'XSMN V2.6 Block 2 loaded — OOS Period Builder ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — MOBILE OOS TEST
+   Test Block 2 trực tiếp trên điện thoại
+   Không cần Chrome Console
+   ========================================================================= */
+
+function showOOSTestV26Mobile(
+  provinceSlug = 'kien-giang'
+) {
+
+  try {
+
+    const result =
+      inspectOOSPeriodsV26(
+        provinceSlug
+      );
+
+
+    if (
+      !result ||
+      !Array.isArray(result.periods)
+    ) {
+
+      alert(
+        'V2.6 TEST\n\nKhông lấy được dữ liệu OOS.'
+      );
+
+      return;
+
+    }
+
+
+    if (
+      !result.periods.length
+    ) {
+
+      alert(
+        'V2.6 TEST\n\nKhông đủ dữ liệu để tạo OOS periods.'
+      );
+
+      return;
+
+    }
+
+
+    const lines = [];
+
+
+    lines.push(
+      'XSMN V2.6 — OOS TEST'
+    );
+
+    lines.push(
+      'Tỉnh: ' + provinceSlug
+    );
+
+    lines.push(
+      'Periods: ' +
+      result.periods.length
+    );
+
+    lines.push(
+      '-------------------------'
+    );
+
+
+    let allPassed = true;
+
+
+    result.periods.forEach(
+      period => {
+
+        const check =
+          verifyOOSPeriodV26(
+            period
+          );
+
+
+        if (
+          !check.valid
+        ) {
+
+          allPassed = false;
+
+        }
+
+
+        lines.push(
+          'Period ' +
+          period.period
+        );
+
+        lines.push(
+          'Training: ' +
+          period.trainingCount
+        );
+
+        lines.push(
+          'Test: ' +
+          period.testingCount
+        );
+
+        lines.push(
+          'Train until: ' +
+          period.trainingUntil
+        );
+
+        lines.push(
+          'Test from: ' +
+          period.testFrom
+        );
+
+        lines.push(
+          'Leakage: ' +
+          (
+            check.valid
+              ? 'NO'
+              : 'YES'
+          )
+        );
+
+        lines.push(
+          'Status: ' +
+          check.reason
+        );
+
+        lines.push(
+          '-------------------------'
+        );
+
+      }
+    );
+
+
+    lines.push(
+      allPassed
+        ? '✅ ALL PERIODS PASSED'
+        : '❌ LEAKAGE DETECTED'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return {
+
+      passed:
+        allPassed,
+
+      result
+
+    };
+
+
+  } catch (error) {
+
+    alert(
+      '❌ V2.6 TEST ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    console.error(
+      'V2.6 Mobile Test:',
+      error
+    );
+
+  }
+
+}
+
+
+/*
+ * Tạo nút test tạm thời trong tab Cài đặt.
+ */
+
+function addOOSTestButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnOOSTestV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (
+    !settings
+  ) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnOOSTestV26';
+
+
+  button.textContent =
+    '🧪 Test V2.6 OOS — Kiên Giang';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showOOSTestV26Mobile(
+        'kien-giang'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addOOSTestButtonV26
+  );
+
+} else {
+
+  addOOSTestButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Mobile OOS Test ready'
+);
