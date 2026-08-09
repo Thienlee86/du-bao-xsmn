@@ -10514,3 +10514,836 @@ console.log(
   'XSMN V2.3 Model Lab Mobile UI Patch loaded'
 );
 
+/* =========================================================================
+   XSMN STATISTICAL ENGINE V2.4
+   AUTO MODEL SELECTION LAB
+
+   Mục tiêu:
+   - Tự động tìm Model tốt nhất
+   - Tự động tìm Window tốt nhất
+   - Chạy riêng theo từng tỉnh + từng giải
+   - Dựa hoàn toàn trên Walk-Forward Backtest V2.3
+   - KHÔNG thay đổi Production Engine hiện tại
+
+   Phụ thuộc:
+   - V2.2 Backtest Engine
+   - V2.3 Model Lab
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const XSMN_V24_WINDOWS = [
+  10,
+  20,
+  30,
+  60
+];
+
+
+const XSMN_V24_PRIZES = [
+  'db',
+  'g1',
+  'g2',
+  'g3',
+  'g4',
+  'g5',
+  'g6',
+  'g7',
+  'g8'
+];
+
+
+/* =========================================================================
+   2. NORMALIZE MODEL RESULT
+   ========================================================================= */
+
+function normalizeV24Number(
+  value,
+  fallback = 0
+) {
+
+  const n =
+    Number(
+      value
+    );
+
+  return Number.isFinite(n)
+    ? n
+    : fallback;
+
+}
+
+
+/* =========================================================================
+   3. FIND BEST MODEL FOR ONE WINDOW
+   ========================================================================= */
+
+function findBestModelV24(
+  provinceSlug,
+  giaiKey,
+  windowSize
+) {
+
+  let results;
+
+  try {
+
+    results =
+      compareModelsV23(
+        provinceSlug,
+        giaiKey,
+        windowSize
+      );
+
+  } catch (error) {
+
+    console.warn(
+      'V2.4 compareModelsV23 failed:',
+      provinceSlug,
+      giaiKey,
+      windowSize,
+      error
+    );
+
+    return null;
+
+  }
+
+
+  if (
+    !Array.isArray(results) ||
+    !results.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const normalized =
+    results
+      .map(
+        row => {
+
+          const quality =
+            normalizeV24Number(
+              row.Quality
+            );
+
+          const mrr =
+            normalizeV24Number(
+              row.MRR
+            );
+
+          const avgRank =
+            normalizeV24Number(
+              row.AvgRank,
+              999
+            );
+
+          const top1 =
+            normalizeV24Number(
+              String(
+                row.Top1 || 0
+              ).replace(
+                '%',
+                ''
+              )
+            );
+
+          const top3 =
+            normalizeV24Number(
+              String(
+                row.Top3 || 0
+              ).replace(
+                '%',
+                ''
+              )
+            );
+
+          return {
+
+            province:
+              provinceSlug,
+
+            prize:
+              giaiKey,
+
+            window:
+              windowSize,
+
+            model:
+              row.Model,
+
+            quality,
+
+            mrr,
+
+            avgRank,
+
+            top1,
+
+            top3,
+
+            raw:
+              row
+
+          };
+
+        }
+      );
+
+
+  normalized.sort(
+    (a, b) => {
+
+      if (
+        b.quality !==
+        a.quality
+      ) {
+
+        return (
+          b.quality -
+          a.quality
+        );
+
+      }
+
+
+      if (
+        b.top3 !==
+        a.top3
+      ) {
+
+        return (
+          b.top3 -
+          a.top3
+        );
+
+      }
+
+
+      if (
+        b.mrr !==
+        a.mrr
+      ) {
+
+        return (
+          b.mrr -
+          a.mrr
+        );
+
+      }
+
+
+      return (
+        a.avgRank -
+        b.avgRank
+      );
+
+    }
+  );
+
+
+  return normalized[0];
+
+}
+
+
+/* =========================================================================
+   4. FIND BEST MODEL + WINDOW
+   ========================================================================= */
+
+function findBestModelWindowV24(
+  provinceSlug,
+  giaiKey
+) {
+
+  const candidates = [];
+
+
+  XSMN_V24_WINDOWS.forEach(
+    windowSize => {
+
+      const best =
+        findBestModelV24(
+          provinceSlug,
+          giaiKey,
+          windowSize
+        );
+
+
+      if (
+        best
+      ) {
+
+        candidates.push(
+          best
+        );
+
+      }
+
+    }
+  );
+
+
+  if (
+    !candidates.length
+  ) {
+
+    return null;
+
+  }
+
+
+  candidates.sort(
+    (a, b) => {
+
+      if (
+        b.quality !==
+        a.quality
+      ) {
+
+        return (
+          b.quality -
+          a.quality
+        );
+
+      }
+
+
+      if (
+        b.top3 !==
+        a.top3
+      ) {
+
+        return (
+          b.top3 -
+          a.top3
+        );
+
+      }
+
+
+      if (
+        b.mrr !==
+        a.mrr
+      ) {
+
+        return (
+          b.mrr -
+          a.mrr
+        );
+
+      }
+
+
+      return (
+        a.avgRank -
+        b.avgRank
+      );
+
+    }
+  );
+
+
+  const winner =
+    candidates[0];
+
+
+  const runnerUp =
+    candidates.length > 1
+      ? candidates[1]
+      : null;
+
+
+  const margin =
+    runnerUp
+      ? (
+          winner.quality -
+          runnerUp.quality
+        )
+      : winner.quality;
+
+
+  return {
+
+    ...winner,
+
+    margin:
+      Number(
+        margin.toFixed(2)
+      ),
+
+    runnerUp:
+      runnerUp
+        ? {
+            model:
+              runnerUp.model,
+
+            window:
+              runnerUp.window,
+
+            quality:
+              runnerUp.quality
+          }
+        : null,
+
+    candidates
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. STABILITY / CONFIDENCE LABEL
+   ========================================================================= */
+
+function classifySelectionV24(
+  result
+) {
+
+  if (
+    !result
+  ) {
+
+    return 'NO_DATA';
+
+  }
+
+
+  const margin =
+    normalizeV24Number(
+      result.margin
+    );
+
+
+  const quality =
+    normalizeV24Number(
+      result.quality
+    );
+
+
+  if (
+    quality >= 10 &&
+    margin >= 2
+  ) {
+
+    return 'STRONG';
+
+  }
+
+
+  if (
+    quality >= 7 &&
+    margin >= 1
+  ) {
+
+    return 'GOOD';
+
+  }
+
+
+  if (
+    margin >= 0.5
+  ) {
+
+    return 'WEAK';
+
+  }
+
+
+  return 'UNSTABLE';
+
+}
+
+
+/* =========================================================================
+   6. TEST ONE PROVINCE + ONE PRIZE
+   ========================================================================= */
+
+function testAutoSelectionV24(
+  provinceSlug = null,
+  giaiKey = 'db'
+) {
+
+  let slug =
+    provinceSlug;
+
+
+  if (
+    !slug &&
+    typeof getSelectedProvince ===
+      'function'
+  ) {
+
+    const selected =
+      getSelectedProvince();
+
+    if (
+      selected
+    ) {
+
+      slug =
+        selected.slug ||
+        selected.id ||
+        selected.value ||
+        null;
+
+    }
+
+  }
+
+
+  if (
+    !slug
+  ) {
+
+    console.warn(
+      'V2.4: Không xác định được tỉnh.'
+    );
+
+    return null;
+
+  }
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.4 — AUTO MODEL SELECTION'
+  );
+
+  console.log(
+    `Province: ${slug}`
+  );
+
+  console.log(
+    `Prize: ${giaiKey.toUpperCase()}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  const result =
+    findBestModelWindowV24(
+      slug,
+      giaiKey
+    );
+
+
+  if (
+    !result
+  ) {
+
+    console.warn(
+      'V2.4: Không có kết quả.'
+    );
+
+    return null;
+
+  }
+
+
+  const confidence =
+    classifySelectionV24(
+      result
+    );
+
+
+  console.table(
+    result.candidates.map(
+      item => ({
+
+        Model:
+          item.model,
+
+        Window:
+          item.window,
+
+        Quality:
+          item.quality.toFixed(2),
+
+        Top1:
+          item.top1.toFixed(2) +
+          '%',
+
+        Top3:
+          item.top3.toFixed(2) +
+          '%',
+
+        MRR:
+          item.mrr.toFixed(4),
+
+        AvgRank:
+          item.avgRank.toFixed(2)
+
+      })
+    )
+  );
+
+
+  console.log(
+    '🏆 BEST MODEL:',
+    result.model
+  );
+
+  console.log(
+    '🪟 BEST WINDOW:',
+    result.window
+  );
+
+  console.log(
+    '⭐ QUALITY:',
+    result.quality.toFixed(2)
+  );
+
+  console.log(
+    '📏 MARGIN:',
+    result.margin.toFixed(2)
+  );
+
+  console.log(
+    '🛡️ STABILITY:',
+    confidence
+  );
+
+
+  return {
+
+    ...result,
+
+    confidence
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. AUTO SELECT ALL PRIZES OF ONE PROVINCE
+   ========================================================================= */
+
+function autoSelectProvinceV24(
+  provinceSlug
+) {
+
+  const rows = [];
+
+
+  XSMN_V24_PRIZES.forEach(
+    giaiKey => {
+
+      const result =
+        findBestModelWindowV24(
+          provinceSlug,
+          giaiKey
+        );
+
+
+      if (
+        !result
+      ) {
+
+        return;
+
+      }
+
+
+      rows.push({
+
+        Province:
+          provinceSlug,
+
+        Prize:
+          giaiKey.toUpperCase(),
+
+        BestModel:
+          result.model,
+
+        BestWindow:
+          result.window,
+
+        Quality:
+          result.quality.toFixed(2),
+
+        Top1:
+          result.top1.toFixed(2) +
+          '%',
+
+        Top3:
+          result.top3.toFixed(2) +
+          '%',
+
+        MRR:
+          result.mrr.toFixed(4),
+
+        AvgRank:
+          result.avgRank.toFixed(2),
+
+        Margin:
+          result.margin.toFixed(2),
+
+        Stability:
+          classifySelectionV24(
+            result
+          )
+
+      });
+
+    }
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.4 — PROVINCE AUTO SELECTION'
+  );
+
+  console.log(
+    provinceSlug
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   8. SAFE PRODUCTION DECISION
+
+   Chưa thay Production Engine.
+
+   Chỉ đánh dấu xem kết quả có đủ ổn định
+   để xem xét sử dụng hay không.
+   ========================================================================= */
+
+function productionDecisionV24(
+  provinceSlug,
+  giaiKey
+) {
+
+  const result =
+    findBestModelWindowV24(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !result
+  ) {
+
+    return {
+
+      useAdaptiveModel:
+        false,
+
+      reason:
+        'NO_DATA'
+
+    };
+
+  }
+
+
+  const stability =
+    classifySelectionV24(
+      result
+    );
+
+
+  const useAdaptiveModel =
+    stability === 'STRONG' ||
+    stability === 'GOOD';
+
+
+  return {
+
+    useAdaptiveModel,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    model:
+      result.model,
+
+    window:
+      result.window,
+
+    quality:
+      result.quality,
+
+    margin:
+      result.margin,
+
+    stability,
+
+    reason:
+      useAdaptiveModel
+        ? 'BACKTEST_ACCEPTED'
+        : 'KEEP_CURRENT_PRODUCTION'
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. QUICK TEST
+
+   Sau khi GitHub Pages cập nhật:
+
+   Kiên Giang - Giải Đặc Biệt:
+
+   testAutoSelectionV24(
+     'kien-giang',
+     'db'
+   );
+
+
+   Toàn bộ giải của Kiên Giang:
+
+   autoSelectProvinceV24(
+     'kien-giang'
+   );
+
+
+   Kiểm tra Production Decision:
+
+   productionDecisionV24(
+     'kien-giang',
+     'db'
+   );
+
+   ========================================================================= */
+
+
+console.log(
+  'XSMN V2.4 Auto Model Selection loaded — Production Engine unchanged'
+);
+
