@@ -19405,3 +19405,714 @@ console.log(
   'XSMN V2.6 Block 5A loaded — Selection Reliability Engine ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 5B
+   SELECTION RELIABILITY MOBILE PANEL
+
+   - Hiển thị kết quả Block 5A trong app.
+   - Có thể cuộn / copy trên mobile.
+   - Research ONLY.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   35. RELIABILITY LABEL
+   ========================================================================= */
+
+function reliabilityIconV26(
+  classification
+) {
+
+  switch (
+    String(
+      classification || ''
+    )
+  ) {
+
+    case 'STRONG':
+      return '🟢';
+
+    case 'MODERATE':
+      return '🟡';
+
+    case 'WEAK':
+      return '🟠';
+
+    case 'FAIL':
+      return '🔴';
+
+    default:
+      return '⚪';
+
+  }
+
+}
+
+
+/* =========================================================================
+   36. SIGNED NUMBER
+   ========================================================================= */
+
+function signedNumberV26(
+  value,
+  digits = 4
+) {
+
+  const n =
+    Number(
+      value || 0
+    );
+
+
+  return (
+    n > 0
+      ? '+'
+      : ''
+  ) +
+  n.toFixed(
+    digits
+  );
+
+}
+
+
+/* =========================================================================
+   37. PERCENT
+   ========================================================================= */
+
+function reliabilityPercentV26(
+  value
+) {
+
+  return (
+    Number(
+      value || 0
+    ) *
+    100
+  ).toFixed(2) + '%';
+
+}
+
+
+/* =========================================================================
+   38. BUILD ONE RELIABILITY PERIOD
+   ========================================================================= */
+
+function buildReliabilityPeriodCardV26(
+  row
+) {
+
+  const outcomeIcon =
+    row.outcome === 'WIN'
+      ? '🟢'
+      : row.outcome === 'LOSS'
+        ? '🔴'
+        : '🟡';
+
+
+  return `
+
+    <div
+      style="
+        margin-top:14px;
+        padding:15px;
+        border-radius:15px;
+        background:#f4f5f8;
+        border:1px solid #dddddd;
+      "
+    >
+
+      <div
+        style="
+          font-size:18px;
+          font-weight:900;
+          margin-bottom:10px;
+        "
+      >
+        ${outcomeIcon}
+        PERIOD ${row.period} — ${row.outcome}
+      </div>
+
+
+      <div>
+        <b>Model:</b>
+        ${row.model}
+      </div>
+
+
+      <div>
+        <b>Window:</b>
+        ${row.window} kỳ
+      </div>
+
+
+      <div>
+        <b>Selection Quality:</b>
+        ${row.selectionQuality.toFixed(2)}
+      </div>
+
+
+      <div>
+        <b>Selection Margin:</b>
+        ${row.selectionMargin.toFixed(4)}
+      </div>
+
+
+      <div>
+        <b>Training Confidence:</b>
+        ${row.selectionConfidence}
+      </div>
+
+
+      <div
+        style="
+          margin-top:9px;
+          font-weight:800;
+        "
+      >
+        OOS Delta:
+        ${signedNumberV26(
+          row.oosDelta,
+          4
+        )}
+      </div>
+
+
+      <div style="margin-top:9px;">
+        <b>Fragile Selection:</b>
+        ${
+          row.fragileSelection
+            ? '⚠️ YES'
+            : 'NO'
+        }
+      </div>
+
+
+      <div>
+        <b>Overfit Signal:</b>
+        ${
+          row.overfitSignal
+            ? '⚠️ YES'
+            : 'NO'
+        }
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   39. SHOW RELIABILITY PANEL
+   ========================================================================= */
+
+function showSelectionReliabilityPanelV26(
+  provinceSlug = 'kien-giang',
+  giaiKey = 'db'
+) {
+
+  const panel =
+    getResearchPanelV26();
+
+
+  if (!panel) {
+
+    alert(
+      'Không tìm thấy Research Panel.'
+    );
+
+    return;
+
+  }
+
+
+  panel.innerHTML = `
+
+    <div
+      style="
+        font-size:18px;
+        font-weight:900;
+      "
+    >
+      ⏳ Đang chạy Selection Reliability...
+    </div>
+
+  `;
+
+
+  try {
+
+    const result =
+      evaluateSelectionReliabilityV26(
+        provinceSlug,
+        giaiKey
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      panel.innerHTML = `
+
+        <div
+          style="
+            font-size:19px;
+            font-weight:900;
+          "
+        >
+          ❌ Selection Reliability không sẵn sàng
+        </div>
+
+        <br>
+
+        Reason:
+        ${
+          result
+            ? result.reason
+            : 'UNKNOWN'
+        }
+
+      `;
+
+
+      return result;
+
+    }
+
+
+    const s =
+      result.summary;
+
+
+    const icon =
+      reliabilityIconV26(
+        result.classification
+      );
+
+
+    let html = `
+
+      <div
+        style="
+          font-size:21px;
+          font-weight:900;
+          margin-bottom:12px;
+        "
+      >
+        🧠 V2.6 SELECTION RELIABILITY
+      </div>
+
+
+      <div>
+        <b>Province:</b>
+        ${provinceSlug}
+      </div>
+
+
+      <div>
+        <b>Prize:</b>
+        ${String(
+          giaiKey
+        ).toUpperCase()}
+      </div>
+
+
+      <div>
+        <b>OOS Classification:</b>
+        ${result.oosClassification}
+      </div>
+
+
+      <div
+        style="
+          margin-top:14px;
+          padding:16px;
+          border-radius:15px;
+          background:#f4f5f8;
+        "
+      >
+
+        <div
+          style="
+            font-size:20px;
+            font-weight:900;
+          "
+        >
+          ${icon}
+          RELIABILITY:
+          ${result.classification}
+        </div>
+
+
+        <div style="margin-top:12px;">
+          <b>Periods:</b>
+          ${s.periods}
+        </div>
+
+
+        <div>
+          <b>WIN / LOSS / TIE:</b>
+          ${s.wins}
+          /
+          ${s.losses}
+          /
+          ${s.ties}
+        </div>
+
+
+        <div>
+          <b>Win Rate:</b>
+          ${reliabilityPercentV26(
+            s.winRate
+          )}
+        </div>
+
+
+        <div>
+          <b>Average OOS Delta:</b>
+          ${signedNumberV26(
+            s.averageDelta,
+            4
+          )}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:14px;
+          padding:16px;
+          border-radius:15px;
+          background:#f4f5f8;
+        "
+      >
+
+        <div
+          style="
+            font-size:17px;
+            font-weight:900;
+            margin-bottom:10px;
+          "
+        >
+          📈 IN-SAMPLE → OOS
+        </div>
+
+
+        <div>
+          <b>Quality Correlation:</b>
+          ${signedNumberV26(
+            s.qualityCorrelation,
+            4
+          )}
+        </div>
+
+
+        <div>
+          <b>Quality Signal:</b>
+          ${s.qualityCorrelationClass}
+        </div>
+
+
+        <div style="margin-top:9px;">
+          <b>Margin Correlation:</b>
+          ${signedNumberV26(
+            s.marginCorrelation,
+            4
+          )}
+        </div>
+
+
+        <div>
+          <b>Margin Signal:</b>
+          ${s.marginCorrelationClass}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:14px;
+          padding:16px;
+          border-radius:15px;
+          background:#f4f5f8;
+        "
+      >
+
+        <div
+          style="
+            font-size:17px;
+            font-weight:900;
+            margin-bottom:10px;
+          "
+        >
+          🛡️ ROBUSTNESS
+        </div>
+
+
+        <div>
+          <b>Dominant Model:</b>
+          ${
+            s.stability
+              .dominantModel ||
+            '-'
+          }
+        </div>
+
+
+        <div>
+          <b>Model Stability:</b>
+          ${reliabilityPercentV26(
+            s.stability
+              .modelStability
+          )}
+        </div>
+
+
+        <div style="margin-top:9px;">
+          <b>Dominant Window:</b>
+          ${
+            s.stability
+              .dominantWindow ??
+            '-'
+          }
+        </div>
+
+
+        <div>
+          <b>Window Stability:</b>
+          ${reliabilityPercentV26(
+            s.stability
+              .windowStability
+          )}
+        </div>
+
+
+        <div style="margin-top:9px;">
+          <b>Fragile Periods:</b>
+          ${s.fragilePeriods}
+          /
+          ${s.periods}
+        </div>
+
+
+        <div>
+          <b>Overfit Signals:</b>
+          ${s.overfitPeriods}
+          /
+          ${s.periods}
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:18px;
+          font-size:18px;
+          font-weight:900;
+        "
+      >
+        PERIOD DETAILS
+      </div>
+
+    `;
+
+
+    result.periods.forEach(
+      row => {
+
+        html +=
+          buildReliabilityPeriodCardV26(
+            row
+          );
+
+      }
+    );
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:18px;
+          padding:14px;
+          border-radius:14px;
+          background:#f4f5f8;
+          font-size:13px;
+        "
+      >
+        📌 Correlation hiện chỉ dựa trên
+        ${s.periods} OOS periods.
+        Đây là diagnostic signal,
+        không phải bằng chứng thống kê
+        đủ mạnh để tự động thay Production.
+      </div>
+
+    `;
+
+
+    panel.innerHTML =
+      html;
+
+
+    panel.scrollIntoView({
+
+      behavior:
+        'smooth',
+
+      block:
+        'start'
+
+    });
+
+
+    return result;
+
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Selection Reliability Panel:',
+      error
+    );
+
+
+    panel.innerHTML = `
+
+      <div
+        style="
+          font-size:19px;
+          font-weight:900;
+          color:#b00020;
+        "
+      >
+        ❌ V2.6 BLOCK 5B ERROR
+      </div>
+
+      <br>
+
+      ${
+        String(
+          error.message ||
+          error
+        )
+      }
+
+    `;
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   40. ADD RELIABILITY BUTTON
+   ========================================================================= */
+
+function addSelectionReliabilityButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnSelectionReliabilityV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+    return;
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSelectionReliabilityV26';
+
+
+  button.textContent =
+    '🧠 V2.6 Selection Reliability';
+
+
+  button.style.cssText = `
+
+    width:100%;
+    margin-top:16px;
+    padding:17px 12px;
+    border:0;
+    border-radius:14px;
+    font-size:17px;
+    font-weight:800;
+    cursor:pointer;
+
+  `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showSelectionReliabilityPanelV26(
+        'kien-giang',
+        'db'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   41. INIT BLOCK 5B
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addSelectionReliabilityButtonV26
+  );
+
+} else {
+
+  addSelectionReliabilityButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 5B loaded — Selection Reliability Mobile Panel ready'
+);
+
