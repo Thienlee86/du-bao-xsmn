@@ -28021,3 +28021,363 @@ console.log(
   'XSMN V2.6 Cross-Province Structure Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — SHORT PROVINCE STRUCTURE DEBUG
+   Chỉ đọc 1 tỉnh + 3 periods để tránh popup bị cắt.
+   ========================================================================= */
+
+function debugOneProvinceStructureV26() {
+
+  const cross =
+    getLastCrossProvinceResultV26();
+
+
+  if (
+    !cross ||
+    !Array.isArray(cross.results) ||
+    !cross.results.length
+  ) {
+
+    alert(
+      'DEBUG V2.6\n\n' +
+      'Không có Cross-Province data.'
+    );
+
+    return;
+
+  }
+
+
+  /*
+   * Ưu tiên TP.HCM vì kết quả trước đó
+   * cho biết:
+   *
+   * Model: RECENT
+   * Window: 60
+   */
+
+  let item =
+    cross.results.find(
+      row =>
+        row &&
+        (
+          row.province === 'tp-hcm' ||
+          row.slug === 'tp-hcm' ||
+          row.provinceName === 'TP. HCM' ||
+          row.name === 'TP. HCM'
+        )
+    );
+
+
+  /*
+   * Nếu không tìm thấy thì dùng tỉnh đầu tiên.
+   */
+
+  if (!item) {
+
+    item =
+      cross.results[0];
+
+  }
+
+
+  const periods =
+
+    Array.isArray(
+      item.periods
+    )
+      ? item.periods
+
+      : item.oos &&
+        Array.isArray(
+          item.oos.periods
+        )
+        ? item.oos.periods
+
+        : item.result &&
+          Array.isArray(
+            item.result.periods
+          )
+          ? item.result.periods
+
+          : [];
+
+
+  const lines = [];
+
+
+  lines.push(
+    'V2.6 SHORT STRUCTURE DEBUG'
+  );
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'Province: ' +
+    (
+      item.provinceName ||
+      item.name ||
+      item.province ||
+      item.slug ||
+      '-'
+    )
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'ITEM KEYS:'
+  );
+
+
+  lines.push(
+    Object.keys(item)
+      .join(', ')
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'Direct model: ' +
+    String(
+      item.model
+    )
+  );
+
+
+  lines.push(
+    'Direct window: ' +
+    String(
+      item.window
+    )
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'Periods found: ' +
+    periods.length
+  );
+
+
+  periods
+    .slice(
+      0,
+      3
+    )
+    .forEach(
+      (period, index) => {
+
+        lines.push(
+          ''
+        );
+
+
+        lines.push(
+          '--- PERIOD ' +
+          (index + 1) +
+          ' ---'
+        );
+
+
+        lines.push(
+          'Keys: ' +
+          Object.keys(period)
+            .join(', ')
+        );
+
+
+        lines.push(
+          'model=' +
+          String(
+            period.model
+          )
+        );
+
+
+        lines.push(
+          'window=' +
+          String(
+            period.window
+          )
+        );
+
+
+        lines.push(
+          'valid=' +
+          String(
+            period.valid
+          )
+        );
+
+
+        if (
+          period.selection
+        ) {
+
+          lines.push(
+            'selection.model=' +
+            String(
+              period.selection.model
+            )
+          );
+
+
+          lines.push(
+            'selection.window=' +
+            String(
+              period.selection.window
+            )
+          );
+
+        }
+
+
+        if (
+          period.adaptive
+        ) {
+
+          lines.push(
+            'adaptive.model=' +
+            String(
+              period.adaptive.model
+            )
+          );
+
+
+          lines.push(
+            'adaptive.window=' +
+            String(
+              period.adaptive.window
+            )
+          );
+
+        }
+
+      }
+    );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return {
+
+    item,
+
+    periods
+
+  };
+
+}
+
+
+/* =========================================================================
+   SHORT DEBUG BUTTON
+   ========================================================================= */
+
+function addShortProvinceDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShortProvinceDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShortProvinceDebugV26';
+
+
+  button.textContent =
+    '🔬 Debug 1 Province V2.6';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    debugOneProvinceStructureV26
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState === 'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShortProvinceDebugButtonV26
+  );
+
+} else {
+
+  addShortProvinceDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Short Province Structure Debug ready'
+);
+
