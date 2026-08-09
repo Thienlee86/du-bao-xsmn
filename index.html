@@ -881,5 +881,1071 @@
 </script>
 
 <!-- END XSMN V2.2 MOBILE BACKTEST UI -->
+<!-- ================================================================
+     XSMN V2.4 AUTO MODEL SELECTION — MOBILE UI
+     ================================================================ -->
+
+<script>
+(function () {
+
+  'use strict';
+
+
+  function getV24SelectedProvince() {
+
+    const possibleSelectors = [
+      '#provinceSelect',
+      '#province',
+      'select[name="province"]'
+    ];
+
+
+    for (
+      const selector
+      of possibleSelectors
+    ) {
+
+      const el =
+        document.querySelector(
+          selector
+        );
+
+
+      if (
+        el &&
+        el.value
+      ) {
+
+        return el.value;
+
+      }
+
+    }
+
+
+    /*
+     * Fallback:
+     * V2.4 vẫn có thể chạy bằng tỉnh
+     * được chọn thủ công trong panel.
+     */
+
+    return 'kien-giang';
+
+  }
+
+
+  function escapeV24Html(
+    value
+  ) {
+
+    return String(
+      value ?? ''
+    )
+      .replace(
+        /&/g,
+        '&amp;'
+      )
+      .replace(
+        /</g,
+        '&lt;'
+      )
+      .replace(
+        />/g,
+        '&gt;'
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      )
+      .replace(
+        /'/g,
+        '&#039;'
+      );
+
+  }
+
+
+  function provinceNameV24(
+    slug
+  ) {
+
+    try {
+
+      if (
+        typeof provinceBySlug ===
+        'function'
+      ) {
+
+        const p =
+          provinceBySlug(
+            slug
+          );
+
+
+        if (
+          p &&
+          p.name
+        ) {
+
+          return p.name;
+
+        }
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      console.warn(
+        'V2.4 province name:',
+        error
+      );
+
+    }
+
+
+    return slug;
+
+  }
+
+
+  function stabilityLabelV24(
+    stability
+  ) {
+
+    const labels = {
+
+      STRONG:
+        '🟢 RẤT TỐT',
+
+      GOOD:
+        '🟢 TỐT',
+
+      WEAK:
+        '🟡 YẾU',
+
+      UNSTABLE:
+        '🟠 CHƯA ỔN ĐỊNH',
+
+      NO_DATA:
+        '⚪ KHÔNG CÓ DỮ LIỆU'
+
+    };
+
+
+    return (
+      labels[
+        stability
+      ] ||
+      stability
+    );
+
+  }
+
+
+  function modelIconV24(
+    model
+  ) {
+
+    const icons = {
+
+      CYCLE:
+        '🔄',
+
+      FREQUENCY:
+        '📊',
+
+      BALANCED:
+        '⚖️',
+
+      RECENT:
+        '📈',
+
+      BASELINE:
+        '📋'
+
+    };
+
+
+    return (
+      icons[
+        String(
+          model
+        ).toUpperCase()
+      ] ||
+      '🧠'
+    );
+
+  }
+
+
+  function createV24Styles() {
+
+    if (
+      document.getElementById(
+        'xsmn-v24-style'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const style =
+      document.createElement(
+        'style'
+      );
+
+
+    style.id =
+      'xsmn-v24-style';
+
+
+    style.textContent = `
+
+      #xsmn-v24-panel {
+        margin: 24px;
+        padding: 26px;
+        border-radius: 28px;
+        background:
+          linear-gradient(
+            145deg,
+            rgba(38,47,101,.98),
+            rgba(27,34,78,.98)
+          );
+        border:
+          1px solid
+          rgba(120,130,255,.25);
+        box-shadow:
+          0 18px 45px
+          rgba(0,0,0,.20);
+        color: #fff;
+      }
+
+
+      #xsmn-v24-panel * {
+        box-sizing: border-box;
+      }
+
+
+      .v24-title {
+        font-size: 28px;
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+
+      .v24-subtitle {
+        color: #b9bfdc;
+        font-size: 17px;
+        line-height: 1.55;
+        margin-bottom: 22px;
+      }
+
+
+      .v24-field {
+        margin-bottom: 16px;
+      }
+
+
+      .v24-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 700;
+        color: #d9dcf2;
+      }
+
+
+      .v24-select {
+        width: 100%;
+        padding: 15px 16px;
+        border-radius: 15px;
+        border:
+          1px solid
+          rgba(255,255,255,.16);
+        background: #303966;
+        color: white;
+        font-size: 17px;
+        outline: none;
+      }
+
+
+      .v24-button {
+        width: 100%;
+        margin-top: 8px;
+        padding: 18px 14px;
+        border: none;
+        border-radius: 18px;
+        font-size: 19px;
+        font-weight: 800;
+        color: #17182a;
+        background:
+          linear-gradient(
+            90deg,
+            #ffc13d,
+            #ff8b3d
+          );
+        box-shadow:
+          0 10px 25px
+          rgba(255,164,55,.20);
+      }
+
+
+      .v24-button:disabled {
+        opacity: .55;
+      }
+
+
+      .v24-status {
+        margin-top: 18px;
+        color: #bec4e1;
+        line-height: 1.5;
+      }
+
+
+      .v24-winner {
+        margin-top: 22px;
+        padding: 22px;
+        border-radius: 22px;
+        border:
+          1px solid
+          rgba(255,193,61,.45);
+        background:
+          rgba(255,193,61,.09);
+      }
+
+
+      .v24-winner-label {
+        color: #c9cce0;
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+
+      .v24-model {
+        color: #ffc13d;
+        font-size: 34px;
+        font-weight: 900;
+        margin-bottom: 12px;
+      }
+
+
+      .v24-info {
+        color: #f3f4ff;
+        font-size: 18px;
+        line-height: 1.65;
+      }
+
+
+      .v24-ranking-title {
+        margin-top: 24px;
+        margin-bottom: 12px;
+        font-size: 21px;
+        font-weight: 800;
+      }
+
+
+      .v24-row {
+        padding: 17px;
+        margin-top: 12px;
+        border-radius: 18px;
+        background:
+          rgba(255,255,255,.055);
+      }
+
+
+      .v24-row-head {
+        display: flex;
+        justify-content:
+          space-between;
+        gap: 10px;
+        font-size: 18px;
+        font-weight: 800;
+      }
+
+
+      .v24-quality {
+        color: #ffc13d;
+      }
+
+
+      .v24-row-info {
+        margin-top: 9px;
+        color: #b9bfdc;
+        line-height: 1.55;
+      }
+
+
+      .v24-note {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 15px;
+        background:
+          rgba(0,0,0,.13);
+        color: #aeb5d4;
+        line-height: 1.55;
+        font-size: 14px;
+      }
+
+    `;
+
+
+    document.head.appendChild(
+      style
+    );
+
+  }
+
+
+  function buildV24Panel() {
+
+    if (
+      document.getElementById(
+        'xsmn-v24-panel'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    createV24Styles();
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (
+      !settings
+    ) {
+
+      console.warn(
+        'V2.4 UI: tab-settings not found'
+      );
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement(
+        'section'
+      );
+
+
+    panel.id =
+      'xsmn-v24-panel';
+
+
+    panel.innerHTML = `
+
+      <div class="v24-title">
+        🧠 Auto Model Selection V2.4
+      </div>
+
+      <div class="v24-subtitle">
+        Tự động so sánh Model × Window bằng
+        Walk-Forward Backtest để tìm cấu hình
+        thống kê phù hợp nhất.
+      </div>
+
+
+      <div class="v24-field">
+
+        <label class="v24-label">
+          Tỉnh
+        </label>
+
+        <select
+          id="v24-province"
+          class="v24-select"
+        >
+
+          <option value="an-giang">
+            An Giang
+          </option>
+
+          <option value="bac-lieu">
+            Bạc Liêu
+          </option>
+
+          <option value="ben-tre">
+            Bến Tre
+          </option>
+
+          <option value="binh-duong">
+            Bình Dương
+          </option>
+
+          <option value="binh-phuoc">
+            Bình Phước
+          </option>
+
+          <option value="binh-thuan">
+            Bình Thuận
+          </option>
+
+          <option value="ca-mau">
+            Cà Mau
+          </option>
+
+          <option value="can-tho">
+            Cần Thơ
+          </option>
+
+          <option value="da-lat">
+            Đà Lạt
+          </option>
+
+          <option value="dong-nai">
+            Đồng Nai
+          </option>
+
+          <option value="dong-thap">
+            Đồng Tháp
+          </option>
+
+          <option value="hau-giang">
+            Hậu Giang
+          </option>
+
+          <option value="kien-giang">
+            Kiên Giang
+          </option>
+
+          <option value="long-an">
+            Long An
+          </option>
+
+          <option value="soc-trang">
+            Sóc Trăng
+          </option>
+
+          <option value="tay-ninh">
+            Tây Ninh
+          </option>
+
+          <option value="tien-giang">
+            Tiền Giang
+          </option>
+
+          <option value="tphcm">
+            TP. HCM
+          </option>
+
+          <option value="tra-vinh">
+            Trà Vinh
+          </option>
+
+          <option value="vinh-long">
+            Vĩnh Long
+          </option>
+
+          <option value="vung-tau">
+            Vũng Tàu
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <div class="v24-field">
+
+        <label class="v24-label">
+          Giải
+        </label>
+
+        <select
+          id="v24-prize"
+          class="v24-select"
+        >
+
+          <option value="db">
+            Giải Đặc Biệt
+          </option>
+
+          <option value="g1">
+            Giải Nhất
+          </option>
+
+          <option value="g2">
+            Giải Nhì
+          </option>
+
+          <option value="g3">
+            Giải Ba
+          </option>
+
+          <option value="g4">
+            Giải Tư
+          </option>
+
+          <option value="g5">
+            Giải Năm
+          </option>
+
+          <option value="g6">
+            Giải Sáu
+          </option>
+
+          <option value="g7">
+            Giải Bảy
+          </option>
+
+          <option value="g8">
+            Giải Tám
+          </option>
+
+        </select>
+
+      </div>
+
+
+      <button
+        id="v24-run"
+        class="v24-button"
+        type="button"
+      >
+        🔬 Tìm Model + Window tốt nhất
+      </button>
+
+
+      <div
+        id="v24-status"
+        class="v24-status"
+      >
+        Sẵn sàng kiểm định.
+      </div>
+
+
+      <div
+        id="v24-result"
+      ></div>
+
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    const currentProvince =
+      getV24SelectedProvince();
+
+
+    const provinceSelect =
+      document.getElementById(
+        'v24-province'
+      );
+
+
+    if (
+      provinceSelect &&
+      Array.from(
+        provinceSelect.options
+      ).some(
+        option =>
+          option.value ===
+          currentProvince
+      )
+    ) {
+
+      provinceSelect.value =
+        currentProvince;
+
+    }
+
+
+    const button =
+      document.getElementById(
+        'v24-run'
+      );
+
+
+    button.addEventListener(
+      'click',
+      runV24UI
+    );
+
+  }
+
+
+  function runV24UI() {
+
+    const province =
+      document.getElementById(
+        'v24-province'
+      ).value;
+
+
+    const prize =
+      document.getElementById(
+        'v24-prize'
+      ).value;
+
+
+    const status =
+      document.getElementById(
+        'v24-status'
+      );
+
+
+    const resultBox =
+      document.getElementById(
+        'v24-result'
+      );
+
+
+    const button =
+      document.getElementById(
+        'v24-run'
+      );
+
+
+    if (
+      typeof findBestModelWindowV24 !==
+      'function'
+    ) {
+
+      status.innerHTML =
+        '❌ Không tìm thấy V2.4 Engine. Hãy kiểm tra app.js đã được cập nhật.';
+
+      return;
+
+    }
+
+
+    button.disabled =
+      true;
+
+
+    button.textContent =
+      '⏳ Đang kiểm định...';
+
+
+    status.innerHTML =
+      '🔬 Đang chạy các Model × Window...';
+
+
+    resultBox.innerHTML =
+      '';
+
+
+    /*
+     * Cho browser một nhịp render UI
+     * trước khi bắt đầu backtest.
+     */
+
+    setTimeout(
+      function () {
+
+        try {
+
+          const result =
+            findBestModelWindowV24(
+              province,
+              prize
+            );
+
+
+          if (
+            !result
+          ) {
+
+            status.innerHTML =
+              '⚠️ Không có đủ dữ liệu để kiểm định.';
+
+            return;
+
+          }
+
+
+          const stability =
+            typeof classifySelectionV24 ===
+              'function'
+              ? classifySelectionV24(
+                  result
+                )
+              : 'UNKNOWN';
+
+
+          const provinceName =
+            provinceNameV24(
+              province
+            );
+
+
+          status.innerHTML =
+            '✅ Hoàn tất <b>' +
+            escapeV24Html(
+              provinceName
+            ) +
+            '</b> · ' +
+            escapeV24Html(
+              prize.toUpperCase()
+            ) +
+            '.';
+
+
+          const candidates =
+            Array.isArray(
+              result.candidates
+            )
+              ? result.candidates
+              : [];
+
+
+          const rankingHtml =
+            candidates
+              .map(
+                function (
+                  item,
+                  index
+                ) {
+
+                  return `
+
+                    <div class="v24-row">
+
+                      <div class="v24-row-head">
+
+                        <span>
+                          ${
+                            index === 0
+                              ? '🏆'
+                              : index === 1
+                                ? '🥈'
+                                : index === 2
+                                  ? '🥉'
+                                  : '•'
+                          }
+
+                          ${escapeV24Html(
+                            modelIconV24(
+                              item.model
+                            )
+                          )}
+
+                          ${escapeV24Html(
+                            item.model
+                          )}
+
+                          · ${escapeV24Html(
+                            item.window
+                          )} kỳ
+                        </span>
+
+                        <span class="v24-quality">
+                          Q ${Number(
+                            item.quality
+                          ).toFixed(2)}
+                        </span>
+
+                      </div>
+
+
+                      <div class="v24-row-info">
+
+                        Top1:
+                        <b>
+                          ${Number(
+                            item.top1
+                          ).toFixed(2)}%
+                        </b>
+
+                        · Top3:
+                        <b>
+                          ${Number(
+                            item.top3
+                          ).toFixed(2)}%
+                        </b>
+
+                        <br>
+
+                        MRR:
+                        <b>
+                          ${Number(
+                            item.mrr
+                          ).toFixed(4)}
+                        </b>
+
+                        · Avg Rank:
+                        <b>
+                          ${Number(
+                            item.avgRank
+                          ).toFixed(2)}
+                        </b>
+
+                      </div>
+
+                    </div>
+
+                  `;
+
+                }
+              )
+              .join(
+                ''
+              );
+
+
+          resultBox.innerHTML = `
+
+            <div class="v24-winner">
+
+              <div class="v24-winner-label">
+                🏆 MODEL + WINDOW TỐT NHẤT
+              </div>
+
+              <div class="v24-model">
+                ${escapeV24Html(
+                  modelIconV24(
+                    result.model
+                  )
+                )}
+
+                ${escapeV24Html(
+                  result.model
+                )}
+              </div>
+
+              <div class="v24-info">
+
+                Window:
+                <b>
+                  ${Number(
+                    result.window
+                  )} kỳ
+                </b>
+
+                <br>
+
+                Quality:
+                <b>
+                  ${Number(
+                    result.quality
+                  ).toFixed(2)}
+                </b>
+
+                <br>
+
+                Margin:
+                <b>
+                  ${Number(
+                    result.margin
+                  ).toFixed(2)}
+                </b>
+
+                <br>
+
+                Stability:
+                <b>
+                  ${escapeV24Html(
+                    stabilityLabelV24(
+                      stability
+                    )
+                  )}
+                </b>
+
+              </div>
+
+            </div>
+
+
+            <div class="v24-ranking-title">
+              📊 Xếp hạng Window tốt nhất
+            </div>
+
+            ${rankingHtml}
+
+
+            <div class="v24-note">
+
+              V2.4 hiện chỉ kiểm định và lựa chọn
+              cấu hình thống kê.
+
+              Chưa thay đổi nút Dự Báo Ngay
+              và chưa thay Production Engine.
+
+            </div>
+
+          `;
+
+
+        } catch (
+          error
+        ) {
+
+          console.error(
+            error
+          );
+
+
+          status.innerHTML =
+            '❌ V2.4 gặp lỗi: ' +
+            escapeV24Html(
+              error &&
+              error.message
+                ? error.message
+                : error
+            );
+
+
+        } finally {
+
+          button.disabled =
+            false;
+
+
+          button.textContent =
+            '🔬 Tìm Model + Window tốt nhất';
+
+        }
+
+      },
+      50
+    );
+
+  }
+
+
+  function initV24UI() {
+
+    buildV24Panel();
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      initV24UI
+    );
+
+  } else {
+
+    initV24UI();
+
+  }
+
+
+})();
+</script>
+
+<!-- END XSMN V2.4 AUTO MODEL SELECTION UI -->
+
 </body>
 </html>
