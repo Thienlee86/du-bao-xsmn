@@ -32802,3 +32802,423 @@ console.log(
   'XSMN V2.6 Shadow Decision Layer Fix ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — SHADOW ERROR DIAGNOSTIC
+   Hiển thị lỗi thật bên trong Shadow Engine.
+   Research only.
+   ========================================================================= */
+
+function debugShadowEngineV26Mobile() {
+
+  try {
+
+    const bootstrap =
+      ensureProvinceDecisionLayerV26();
+
+
+    if (
+      !bootstrap ||
+      !bootstrap.ready
+    ) {
+
+      alert(
+        '❌ SHADOW DEBUG\n\n' +
+        'Bootstrap failed\n\n' +
+        'Reason: ' +
+        (
+          bootstrap &&
+          bootstrap.reason
+            ? bootstrap.reason
+            : 'UNKNOWN'
+        )
+      );
+
+      return;
+
+    }
+
+
+    const layer =
+      bootstrap.result;
+
+
+    const approved =
+      layer.results.filter(
+        item =>
+          normalizeShadowDecisionV26(
+            item.decision ||
+            item.action ||
+            item.recommendation
+          ) ===
+          SHADOW_ENGINE_V26_CONFIG
+            .requiredDecision
+      );
+
+
+    const lines = [];
+
+    lines.push(
+      'V2.6 SHADOW DEBUG'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Decision Layer: READY'
+    );
+
+    lines.push(
+      'Approved: ' +
+      approved.length
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    approved.forEach(
+      (item, index) => {
+
+        let slug =
+          item.provinceSlug ||
+          item.slug ||
+          null;
+
+
+        if (!slug) {
+
+          try {
+
+            const provinces =
+              Array.isArray(
+                PROVINCES
+              )
+                ? PROVINCES
+                : [];
+
+
+            const found =
+              provinces.find(
+                province =>
+                  province.name ===
+                  item.province
+              );
+
+
+            if (found) {
+
+              slug =
+                found.slug;
+
+            }
+
+          } catch (
+            error
+          ) {
+
+            lines.push(
+              'Province lookup error: ' +
+              String(
+                error.message ||
+                error
+              )
+            );
+
+          }
+
+        }
+
+
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          '#' +
+          (index + 1) +
+          ' ' +
+          (
+            item.province ||
+            slug ||
+            'UNKNOWN'
+          )
+        );
+
+        lines.push(
+          'Slug: ' +
+          (
+            slug ||
+            'NOT_FOUND'
+          )
+        );
+
+        lines.push(
+          'Decision: ' +
+          (
+            item.action ||
+            item.decision ||
+            item.recommendation ||
+            '-'
+          )
+        );
+
+        lines.push(
+          'Model: ' +
+          (
+            item.model ||
+            '-'
+          )
+        );
+
+        lines.push(
+          'Window: ' +
+          (
+            item.window != null
+              ? item.window
+              : '-'
+          )
+        );
+
+
+        if (!slug) {
+
+          lines.push(
+            '❌ PROVINCE_SLUG_NOT_FOUND'
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          const shadow =
+            buildShadowRankingV26(
+              slug,
+              'db'
+            );
+
+
+          if (!shadow) {
+
+            lines.push(
+              '❌ buildShadowRanking returned NULL'
+            );
+
+            return;
+
+          }
+
+
+          lines.push(
+            'Returned: YES'
+          );
+
+          lines.push(
+            'Ready: ' +
+            String(
+              shadow.ready
+            )
+          );
+
+
+          if (
+            shadow.reason
+          ) {
+
+            lines.push(
+              'Reason: ' +
+              shadow.reason
+            );
+
+          }
+
+
+          if (
+            shadow.ready
+          ) {
+
+            lines.push(
+              'Shadow Model: ' +
+              (
+                shadow.model ||
+                '-'
+              )
+            );
+
+            lines.push(
+              'Shadow Window: ' +
+              (
+                shadow.window != null
+                  ? shadow.window
+                  : '-'
+              )
+            );
+
+          }
+
+        } catch (
+          error
+        ) {
+
+          lines.push(
+            '❌ ERROR'
+          );
+
+          lines.push(
+            String(
+              error.message ||
+              error
+            )
+          );
+
+
+          if (
+            error &&
+            error.stack
+          ) {
+
+            console.error(
+              error.stack
+            );
+
+          }
+
+        }
+
+      }
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return {
+
+      ready: true,
+
+      approved
+
+    };
+
+
+  } catch (
+    error
+  ) {
+
+    alert(
+      '❌ SHADOW DEBUG FATAL\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    console.error(
+      'Shadow Debug Fatal:',
+      error
+    );
+
+  }
+
+}
+
+
+/* =========================================================================
+   TEMP DEBUG BUTTON
+   ========================================================================= */
+
+function addShadowDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowDebugV26';
+
+
+  button.textContent =
+    '🔬 Debug V2.6 Shadow';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.onclick =
+    debugShadowEngineV26Mobile;
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowDebugButtonV26
+  );
+
+} else {
+
+  addShadowDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Shadow Error Diagnostic ready'
+);
+
