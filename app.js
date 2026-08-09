@@ -20116,3 +20116,1441 @@ console.log(
   'XSMN V2.6 Block 5B loaded — Selection Reliability Mobile Panel ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 6A
+   CROSS-PROVINCE OUT-OF-SAMPLE ENGINE
+
+   Mục tiêu:
+   - Chạy True OOS Evaluation cho nhiều tỉnh.
+   - Mặc định kiểm định Giải Đặc Biệt.
+   - Adaptive Selection phải dùng Training ONLY.
+   - Testing chỉ dùng để đánh giá.
+   - So sánh Adaptive vs BASELINE.
+   - Tổng hợp:
+       + PASS / WEAK / FAIL
+       + Adaptive Quality
+       + Baseline Quality
+       + OOS Delta
+       + Win Rate
+       + Model / Window dominance
+       + Positive / Negative provinces
+   - Research ONLY.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   42. SAFE NUMBER
+   ========================================================================= */
+
+function crossProvinceNumberV26(
+  value,
+  fallback = 0
+) {
+
+  const n =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(n)
+    ? n
+    : fallback;
+
+}
+
+
+/* =========================================================================
+   43. MODE WITH RATIO
+
+   Tìm Model hoặc Window xuất hiện
+   nhiều nhất trong các OOS periods.
+   ========================================================================= */
+
+function crossProvinceModeV26(
+  values
+) {
+
+  if (
+    !Array.isArray(values) ||
+    !values.length
+  ) {
+
+    return {
+
+      value: null,
+
+      count: 0,
+
+      ratio: 0
+
+    };
+
+  }
+
+
+  const counts = {};
+
+
+  values.forEach(
+    value => {
+
+      const key =
+        String(
+          value
+        );
+
+
+      counts[key] =
+        (
+          counts[key] || 0
+        ) + 1;
+
+    }
+  );
+
+
+  const ranked =
+    Object.entries(
+      counts
+    )
+    .sort(
+      (a, b) => {
+
+        if (
+          b[1] !== a[1]
+        ) {
+
+          return (
+            b[1] -
+            a[1]
+          );
+
+        }
+
+
+        return String(
+          a[0]
+        ).localeCompare(
+          String(
+            b[0]
+          )
+        );
+
+      }
+    );
+
+
+  const winner =
+    ranked[0];
+
+
+  return {
+
+    value:
+      winner
+        ? winner[0]
+        : null,
+
+    count:
+      winner
+        ? winner[1]
+        : 0,
+
+    ratio:
+      winner
+        ? winner[1] /
+          values.length
+        : 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   44. EXTRACT ONE PROVINCE OOS RESULT
+   ========================================================================= */
+
+function evaluateCrossProvinceItemV26(
+  province,
+  giaiKey = 'db'
+) {
+
+  const provinceSlug =
+    province.slug;
+
+
+  const provinceName =
+    province.name ||
+    province.slug;
+
+
+  let result;
+
+
+  try {
+
+    result =
+      evaluateProvinceOOSV26(
+        provinceSlug,
+        giaiKey
+      );
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Cross Province Error:',
+      provinceSlug,
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      provinceName,
+
+      prize:
+        giaiKey,
+
+      classification:
+        'ERROR',
+
+      reason:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !result ||
+    !result.ready ||
+    !result.summary
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      provinceName,
+
+      prize:
+        giaiKey,
+
+      classification:
+        result &&
+        result.classification
+          ? result.classification
+          : 'NO_DATA',
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'OOS_NOT_READY',
+
+      raw:
+        result
+
+    };
+
+  }
+
+
+  const summary =
+    result.summary;
+
+
+  const validPeriods =
+    Array.isArray(
+      result.periods
+    )
+      ? result.periods.filter(
+          item =>
+            item &&
+            item.valid
+        )
+      : [];
+
+
+  /*
+   * Model dominant.
+   */
+
+  const modelMode =
+    crossProvinceModeV26(
+
+      validPeriods
+        .map(
+          item =>
+            item.model
+        )
+        .filter(
+          Boolean
+        )
+
+    );
+
+
+  /*
+   * Window dominant.
+   */
+
+  const windowMode =
+    crossProvinceModeV26(
+
+      validPeriods
+        .map(
+          item =>
+            item.window
+        )
+        .filter(
+          value =>
+            value !== null &&
+            value !== undefined
+        )
+
+    );
+
+
+  const adaptiveQuality =
+    crossProvinceNumberV26(
+      summary.adaptive &&
+      summary.adaptive.quality
+    );
+
+
+  const baselineQuality =
+    crossProvinceNumberV26(
+      summary.baseline &&
+      summary.baseline.quality
+    );
+
+
+  const improvement =
+    crossProvinceNumberV26(
+      summary.improvement,
+      adaptiveQuality -
+      baselineQuality
+    );
+
+
+  return {
+
+    ready: true,
+
+    province:
+      provinceSlug,
+
+    provinceName,
+
+    prize:
+      giaiKey,
+
+    classification:
+      result.classification ||
+      'NO_DATA',
+
+    periods:
+      crossProvinceNumberV26(
+        summary.periods
+      ),
+
+    tests:
+      crossProvinceNumberV26(
+        summary.tests
+      ),
+
+    wins:
+      crossProvinceNumberV26(
+        summary.winningPeriods
+      ),
+
+    ties:
+      crossProvinceNumberV26(
+        summary.tiedPeriods
+      ),
+
+    losses:
+      crossProvinceNumberV26(
+        summary.losingPeriods
+      ),
+
+    winRate:
+      crossProvinceNumberV26(
+        summary.winRate
+      ),
+
+    adaptiveQuality,
+
+    baselineQuality,
+
+    improvement,
+
+    adaptiveTop1:
+      crossProvinceNumberV26(
+        summary.adaptive &&
+        summary.adaptive.top1Rate
+      ),
+
+    adaptiveTop3:
+      crossProvinceNumberV26(
+        summary.adaptive &&
+        summary.adaptive.top3Rate
+      ),
+
+    adaptiveMRR:
+      crossProvinceNumberV26(
+        summary.adaptive &&
+        summary.adaptive.mrr
+      ),
+
+    adaptiveRank:
+      crossProvinceNumberV26(
+        summary.adaptive &&
+        summary.adaptive.averageRank,
+        100
+      ),
+
+    baselineTop1:
+      crossProvinceNumberV26(
+        summary.baseline &&
+        summary.baseline.top1Rate
+      ),
+
+    baselineTop3:
+      crossProvinceNumberV26(
+        summary.baseline &&
+        summary.baseline.top3Rate
+      ),
+
+    baselineMRR:
+      crossProvinceNumberV26(
+        summary.baseline &&
+        summary.baseline.mrr
+      ),
+
+    baselineRank:
+      crossProvinceNumberV26(
+        summary.baseline &&
+        summary.baseline.averageRank,
+        100
+      ),
+
+    dominantModel:
+      modelMode.value,
+
+    modelStability:
+      modelMode.ratio,
+
+    dominantWindow:
+      windowMode.value !== null
+        ? Number(
+            windowMode.value
+          )
+        : null,
+
+    windowStability:
+      windowMode.ratio,
+
+    raw:
+      result
+
+  };
+
+}
+
+
+/* =========================================================================
+   45. CROSS-PROVINCE AGGREGATION
+   ========================================================================= */
+
+function aggregateCrossProvinceOOSV26(
+  results
+) {
+
+  const valid =
+    results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  if (
+    !valid.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const totalTests =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.tests,
+      0
+    );
+
+
+  /*
+   * Weighted Average theo số OOS tests.
+   */
+
+  function weightedAverage(
+    getter
+  ) {
+
+    if (
+      !totalTests
+    ) {
+
+      return 0;
+
+    }
+
+
+    return valid.reduce(
+      (sum, item) => {
+
+        return (
+          sum +
+          getter(
+            item
+          ) *
+          item.tests
+        );
+
+      },
+      0
+    ) / totalTests;
+
+  }
+
+
+  const adaptiveQuality =
+    weightedAverage(
+      item =>
+        item.adaptiveQuality
+    );
+
+
+  const baselineQuality =
+    weightedAverage(
+      item =>
+        item.baselineQuality
+    );
+
+
+  const improvement =
+    adaptiveQuality -
+    baselineQuality;
+
+
+  const adaptiveMRR =
+    weightedAverage(
+      item =>
+        item.adaptiveMRR
+    );
+
+
+  const baselineMRR =
+    weightedAverage(
+      item =>
+        item.baselineMRR
+    );
+
+
+  const adaptiveRank =
+    weightedAverage(
+      item =>
+        item.adaptiveRank
+    );
+
+
+  const baselineRank =
+    weightedAverage(
+      item =>
+        item.baselineRank
+    );
+
+
+  const adaptiveTop1 =
+    weightedAverage(
+      item =>
+        item.adaptiveTop1
+    );
+
+
+  const baselineTop1 =
+    weightedAverage(
+      item =>
+        item.baselineTop1
+    );
+
+
+  const adaptiveTop3 =
+    weightedAverage(
+      item =>
+        item.adaptiveTop3
+    );
+
+
+  const baselineTop3 =
+    weightedAverage(
+      item =>
+        item.baselineTop3
+    );
+
+
+  const passCount =
+    valid.filter(
+      item =>
+        item.classification ===
+        'PASS'
+    ).length;
+
+
+  const weakCount =
+    valid.filter(
+      item =>
+        item.classification ===
+        'WEAK'
+    ).length;
+
+
+  const failCount =
+    valid.filter(
+      item =>
+        item.classification ===
+        'FAIL'
+    ).length;
+
+
+  const positiveCount =
+    valid.filter(
+      item =>
+        item.improvement > 0
+    ).length;
+
+
+  const tiedCount =
+    valid.filter(
+      item =>
+        Math.abs(
+          item.improvement
+        ) <
+        0.0000001
+    ).length;
+
+
+  const negativeCount =
+    valid.filter(
+      item =>
+        item.improvement < 0
+    ).length;
+
+
+  const totalPeriods =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.periods,
+      0
+    );
+
+
+  const winningPeriods =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.wins,
+      0
+    );
+
+
+  const tiedPeriods =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.ties,
+      0
+    );
+
+
+  const losingPeriods =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.losses,
+      0
+    );
+
+
+  const periodWinRate =
+    totalPeriods
+      ? winningPeriods /
+        totalPeriods
+      : 0;
+
+
+  /*
+   * Global dominant Model.
+   *
+   * Mỗi tỉnh đóng góp dominant model
+   * của chính tỉnh đó.
+   */
+
+  const globalModelMode =
+    crossProvinceModeV26(
+
+      valid
+        .map(
+          item =>
+            item.dominantModel
+        )
+        .filter(
+          Boolean
+        )
+
+    );
+
+
+  const globalWindowMode =
+    crossProvinceModeV26(
+
+      valid
+        .map(
+          item =>
+            item.dominantWindow
+        )
+        .filter(
+          value =>
+            value !== null &&
+            value !== undefined
+        )
+
+    );
+
+
+  /*
+   * Best / Worst Province.
+   */
+
+  const sortedByDelta =
+    valid
+      .slice()
+      .sort(
+        (a, b) =>
+          b.improvement -
+          a.improvement
+      );
+
+
+  const bestProvince =
+    sortedByDelta.length
+      ? sortedByDelta[0]
+      : null;
+
+
+  const worstProvince =
+    sortedByDelta.length
+      ? sortedByDelta[
+          sortedByDelta.length - 1
+        ]
+      : null;
+
+
+  return {
+
+    provinceCount:
+      valid.length,
+
+    totalTests,
+
+    totalPeriods,
+
+    classifications: {
+
+      pass:
+        passCount,
+
+      weak:
+        weakCount,
+
+      fail:
+        failCount
+
+    },
+
+    provinces: {
+
+      positive:
+        positiveCount,
+
+      tied:
+        tiedCount,
+
+      negative:
+        negativeCount,
+
+      positiveRate:
+        positiveCount /
+        valid.length
+
+    },
+
+    periods: {
+
+      wins:
+        winningPeriods,
+
+      ties:
+        tiedPeriods,
+
+      losses:
+        losingPeriods,
+
+      winRate:
+        periodWinRate
+
+    },
+
+    adaptive: {
+
+      quality:
+        adaptiveQuality,
+
+      top1Rate:
+        adaptiveTop1,
+
+      top3Rate:
+        adaptiveTop3,
+
+      mrr:
+        adaptiveMRR,
+
+      averageRank:
+        adaptiveRank
+
+    },
+
+    baseline: {
+
+      quality:
+        baselineQuality,
+
+      top1Rate:
+        baselineTop1,
+
+      top3Rate:
+        baselineTop3,
+
+      mrr:
+        baselineMRR,
+
+      averageRank:
+        baselineRank
+
+    },
+
+    improvement,
+
+    dominantModel:
+      globalModelMode.value,
+
+    dominantModelRate:
+      globalModelMode.ratio,
+
+    dominantWindow:
+      globalWindowMode.value !== null
+        ? Number(
+            globalWindowMode.value
+          )
+        : null,
+
+    dominantWindowRate:
+      globalWindowMode.ratio,
+
+    bestProvince:
+      bestProvince
+        ? {
+            province:
+              bestProvince.province,
+
+            name:
+              bestProvince.provinceName,
+
+            improvement:
+              bestProvince.improvement,
+
+            classification:
+              bestProvince.classification
+          }
+        : null,
+
+    worstProvince:
+      worstProvince
+        ? {
+            province:
+              worstProvince.province,
+
+            name:
+              worstProvince.provinceName,
+
+            improvement:
+              worstProvince.improvement,
+
+            classification:
+              worstProvince.classification
+          }
+        : null
+
+  };
+
+}
+
+
+/* =========================================================================
+   46. GLOBAL CROSS-PROVINCE CLASSIFICATION
+
+   Đây vẫn chỉ là Research Gate.
+
+   PASS:
+   - Global Adaptive Quality > Baseline
+   - Global MRR >= Baseline
+   - Global Avg Rank <= Baseline
+   - >= 50% tỉnh có Delta dương
+   - >= 50% OOS periods thắng
+
+   WEAK:
+   - Có một số tín hiệu cải thiện,
+     nhưng chưa đồng thuận.
+
+   FAIL:
+   - Không cho thấy lợi thế rõ ràng.
+   ========================================================================= */
+
+function classifyCrossProvinceOOSV26(
+  summary
+) {
+
+  if (!summary) {
+
+    return 'NO_DATA';
+
+  }
+
+
+  const qualityBetter =
+    summary.improvement > 0;
+
+
+  const mrrBetter =
+    summary.adaptive.mrr >=
+    summary.baseline.mrr;
+
+
+  const rankBetter =
+    summary.adaptive.averageRank <=
+    summary.baseline.averageRank;
+
+
+  const provinceMajority =
+    summary.provinces
+      .positiveRate >=
+    0.50;
+
+
+  const periodMajority =
+    summary.periods
+      .winRate >=
+    0.50;
+
+
+  if (
+    qualityBetter &&
+    mrrBetter &&
+    rankBetter &&
+    provinceMajority &&
+    periodMajority
+  ) {
+
+    return 'PASS';
+
+  }
+
+
+  const positiveSignals = [
+
+    qualityBetter,
+
+    mrrBetter,
+
+    rankBetter,
+
+    provinceMajority,
+
+    periodMajority
+
+  ]
+  .filter(
+    Boolean
+  )
+  .length;
+
+
+  if (
+    positiveSignals >= 2
+  ) {
+
+    return 'WEAK';
+
+  }
+
+
+  return 'FAIL';
+
+}
+
+
+/* =========================================================================
+   47. RUN CROSS-PROVINCE OOS
+
+   Mặc định:
+   toàn bộ PROVINCES + DB.
+   ========================================================================= */
+
+function evaluateAllProvincesOOSV26(
+  giaiKey = 'db'
+) {
+
+  if (
+    !Array.isArray(
+      PROVINCES
+    ) ||
+    !PROVINCES.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_PROVINCES'
+
+    };
+
+  }
+
+
+  const results = [];
+
+
+  PROVINCES.forEach(
+    province => {
+
+      console.log(
+        'V2.6 Cross OOS:',
+        province.name,
+        String(
+          giaiKey
+        ).toUpperCase()
+      );
+
+
+      const item =
+        evaluateCrossProvinceItemV26(
+          province,
+          giaiKey
+        );
+
+
+      results.push(
+        item
+      );
+
+    }
+  );
+
+
+  const summary =
+    aggregateCrossProvinceOOSV26(
+      results
+    );
+
+
+  if (!summary) {
+
+    return {
+
+      ready: false,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_VALID_CROSS_PROVINCE_RESULTS',
+
+      results
+
+    };
+
+  }
+
+
+  const classification =
+    classifyCrossProvinceOOSV26(
+      summary
+    );
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'CROSS_PROVINCE_OOS',
+
+    prize:
+      giaiKey,
+
+    classification,
+
+    summary,
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   48. PRINT CROSS-PROVINCE RESULT
+   ========================================================================= */
+
+function printAllProvincesOOSV26(
+  giaiKey = 'db'
+) {
+
+  const result =
+    evaluateAllProvincesOOSV26(
+      giaiKey
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — CROSS-PROVINCE OOS'
+  );
+
+  console.log(
+    'Prize:',
+    String(
+      giaiKey
+    ).toUpperCase()
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      'V2.6 Cross Province:',
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.table(
+
+    result.results
+      .filter(
+        item =>
+          item.ready
+      )
+      .map(
+        item => ({
+
+          Province:
+            item.provinceName,
+
+          OOS:
+            item.classification,
+
+          Periods:
+            item.periods,
+
+          Tests:
+            item.tests,
+
+          Wins:
+            item.wins,
+
+          Losses:
+            item.losses,
+
+          WinRate:
+            (
+              item.winRate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          AdaptiveQ:
+            item.adaptiveQuality
+              .toFixed(4),
+
+          BaselineQ:
+            item.baselineQuality
+              .toFixed(4),
+
+          Delta:
+            (
+              item.improvement > 0
+                ? '+'
+                : ''
+            ) +
+            item.improvement
+              .toFixed(4),
+
+          Model:
+            item.dominantModel ||
+            '-',
+
+          ModelStable:
+            (
+              item.modelStability *
+              100
+            ).toFixed(2) +
+            '%',
+
+          Window:
+            item.dominantWindow ||
+            '-',
+
+          WindowStable:
+            (
+              item.windowStability *
+              100
+            ).toFixed(2) +
+            '%'
+
+        }))
+
+  );
+
+
+  console.log(
+    '------------------------------------------'
+  );
+
+
+  console.log(
+    'GLOBAL SUMMARY:',
+    result.summary
+  );
+
+
+  console.log(
+    'GLOBAL CLASSIFICATION:',
+    result.classification
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   49. SHORT MOBILE SUMMARY TEXT
+
+   Block 6A chỉ tạo engine.
+   Hàm này chuẩn bị sẵn dữ liệu ngắn
+   để test trên điện thoại nếu cần.
+   ========================================================================= */
+
+function crossProvinceSummaryTextV26(
+  result
+) {
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return (
+      'V2.6 CROSS-PROVINCE OOS\n\n' +
+      'NOT READY\n' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  const s =
+    result.summary;
+
+
+  return (
+
+    'V2.6 CROSS-PROVINCE OOS\n\n' +
+
+    'Prize: ' +
+    String(
+      result.prize
+    ).toUpperCase() +
+    '\n' +
+
+    'Provinces: ' +
+    s.provinceCount +
+    '\n' +
+
+    'OOS Tests: ' +
+    s.totalTests +
+    '\n' +
+
+    'Periods: ' +
+    s.totalPeriods +
+    '\n\n' +
+
+    'PASS / WEAK / FAIL: ' +
+    s.classifications.pass +
+    ' / ' +
+    s.classifications.weak +
+    ' / ' +
+    s.classifications.fail +
+    '\n\n' +
+
+    'Positive Provinces: ' +
+    s.provinces.positive +
+    '/' +
+    s.provinceCount +
+    '\n' +
+
+    'Province Positive Rate: ' +
+    (
+      s.provinces
+        .positiveRate *
+      100
+    ).toFixed(2) +
+    '%\n' +
+
+    'Period Win Rate: ' +
+    (
+      s.periods
+        .winRate *
+      100
+    ).toFixed(2) +
+    '%\n\n' +
+
+    'Adaptive Q: ' +
+    s.adaptive
+      .quality
+      .toFixed(4) +
+    '\n' +
+
+    'Baseline Q: ' +
+    s.baseline
+      .quality
+      .toFixed(4) +
+    '\n' +
+
+    'Delta: ' +
+    (
+      s.improvement > 0
+        ? '+'
+        : ''
+    ) +
+    s.improvement
+      .toFixed(4) +
+    '\n\n' +
+
+    'Adaptive MRR: ' +
+    s.adaptive
+      .mrr
+      .toFixed(4) +
+    '\n' +
+
+    'Baseline MRR: ' +
+    s.baseline
+      .mrr
+      .toFixed(4) +
+    '\n\n' +
+
+    'Adaptive Rank: ' +
+    s.adaptive
+      .averageRank
+      .toFixed(2) +
+    '\n' +
+
+    'Baseline Rank: ' +
+    s.baseline
+      .averageRank
+      .toFixed(2) +
+    '\n\n' +
+
+    'Dominant Model: ' +
+    (
+      s.dominantModel ||
+      '-'
+    ) +
+    '\n' +
+
+    'Dominant Window: ' +
+    (
+      s.dominantWindow ||
+      '-'
+    ) +
+    '\n\n' +
+
+    'GLOBAL RESULT: ' +
+    result.classification
+
+  );
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 6A loaded — Cross-Province OOS Engine ready'
+);
+
