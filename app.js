@@ -30092,3 +30092,1448 @@ console.log(
   'XSMN V2.6 Block 7C loaded — Province Gate Decision Layer ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8A
+   SHADOW PREDICTION ENGINE
+
+   Mục tiêu:
+   - Đọc Province Decision Layer V2.6.
+   - Chỉ chạy Shadow Adaptive cho tỉnh được:
+       RECOMMEND_ADAPTIVE
+   - Production prediction KHÔNG bị thay đổi.
+   - Shadow chạy song song để nghiên cứu.
+   - Không ghi đè Production weights/model/window.
+   - Chuẩn bị dữ liệu cho Forward Validation.
+
+   IMPORTANT:
+   SHADOW != PRODUCTION
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SHADOW CONFIG
+   ========================================================================= */
+
+const SHADOW_ENGINE_V26_CONFIG = {
+
+  enabled: true,
+
+  researchOnly: true,
+
+  allowProductionOverride: false,
+
+  requiredDecision:
+    'RECOMMEND_ADAPTIVE'
+
+};
+
+
+/* =========================================================================
+   2. NORMALIZE SHADOW DECISION
+   ========================================================================= */
+
+function normalizeShadowDecisionV26(
+  decision
+) {
+
+  if (!decision) {
+
+    return null;
+
+  }
+
+
+  return String(
+    decision
+  )
+  .trim()
+  .toUpperCase();
+
+}
+
+
+/* =========================================================================
+   3. FIND PROVINCE DECISION RESULT
+
+   Ưu tiên sử dụng kết quả Block 7C
+   đã lưu trong memory của trang.
+   ========================================================================= */
+
+function getProvinceDecisionForShadowV26(
+  provinceSlug
+) {
+
+  const layer =
+    window.LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !layer ||
+    !layer.ready ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'DECISION_LAYER_NOT_READY'
+
+    };
+
+  }
+
+
+  /*
+   * Tìm trực tiếp bằng slug.
+   */
+
+  let item =
+    layer.results.find(
+      row =>
+        row &&
+        (
+          row.provinceSlug ===
+            provinceSlug ||
+
+          row.slug ===
+            provinceSlug
+        )
+    );
+
+
+  /*
+   * Nếu không có slug,
+   * thử lookup bằng tên tỉnh.
+   */
+
+  if (!item) {
+
+    let provinceName =
+      provinceSlug;
+
+
+    try {
+
+      const province =
+        provinceBySlug(
+          provinceSlug
+        );
+
+
+      if (province) {
+
+        provinceName =
+          province.name;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore lookup error.
+       */
+
+    }
+
+
+    item =
+      layer.results.find(
+        row =>
+          row &&
+          row.province ===
+            provinceName
+      );
+
+  }
+
+
+  if (!item) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'PROVINCE_DECISION_NOT_FOUND'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    province:
+      provinceSlug,
+
+    decision:
+      normalizeShadowDecisionV26(
+        item.decision ||
+        item.action ||
+        item.recommendation
+      ),
+
+    model:
+      item.model ||
+      null,
+
+    window:
+      item.window != null
+        ? Number(
+            item.window
+          )
+        : null,
+
+    gateScore:
+      Number(
+        item.gateScore || 0
+      ),
+
+    delta:
+      Number(
+        item.delta || 0
+      ),
+
+    winRate:
+      Number(
+        item.winRate || 0
+      ),
+
+    source:
+      item
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. CHECK SHADOW ELIGIBILITY
+   ========================================================================= */
+
+function isShadowEligibleV26(
+  provinceSlug
+) {
+
+  if (
+    !SHADOW_ENGINE_V26_CONFIG
+      .enabled
+  ) {
+
+    return {
+
+      eligible: false,
+
+      reason:
+        'SHADOW_DISABLED'
+
+    };
+
+  }
+
+
+  const decision =
+    getProvinceDecisionForShadowV26(
+      provinceSlug
+    );
+
+
+  if (
+    !decision.ready
+  ) {
+
+    return {
+
+      eligible: false,
+
+      reason:
+        decision.reason,
+
+      decision
+
+    };
+
+  }
+
+
+  if (
+    decision.decision !==
+    SHADOW_ENGINE_V26_CONFIG
+      .requiredDecision
+  ) {
+
+    return {
+
+      eligible: false,
+
+      reason:
+        'NOT_ADAPTIVE_RECOMMENDED',
+
+      decision
+
+    };
+
+  }
+
+
+  if (
+    !decision.model ||
+    decision.model ===
+      'UNKNOWN'
+  ) {
+
+    return {
+
+      eligible: false,
+
+      reason:
+        'NO_SHADOW_MODEL',
+
+      decision
+
+    };
+
+  }
+
+
+  if (
+    !Number.isFinite(
+      decision.window
+    ) ||
+    decision.window <= 0
+  ) {
+
+    return {
+
+      eligible: false,
+
+      reason:
+        'NO_SHADOW_WINDOW',
+
+      decision
+
+    };
+
+  }
+
+
+  return {
+
+    eligible: true,
+
+    reason:
+      'SHADOW_ELIGIBLE',
+
+    decision
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. GET SHADOW MODEL CONFIG
+   ========================================================================= */
+
+function getShadowModelConfigV26(
+  modelId
+) {
+
+  if (
+    typeof getModelConfigV26 ===
+    'function'
+  ) {
+
+    const config =
+      getModelConfigV26(
+        modelId
+      );
+
+
+    if (config) {
+
+      return config;
+
+    }
+
+  }
+
+
+  if (
+    Array.isArray(
+      MODEL_LAB_V23_CONFIGS
+    )
+  ) {
+
+    return (
+      MODEL_LAB_V23_CONFIGS.find(
+        config =>
+          config.id ===
+          modelId
+      ) ||
+      null
+    );
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   6. BUILD SHADOW RANKING
+
+   Quan trọng:
+
+   - Chỉ READ draws hiện tại.
+   - Không thay Production.
+   - Không mutate DATA.
+   - Không mutate model config.
+   ========================================================================= */
+
+function buildShadowRankingV26(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  const eligibility =
+    isShadowEligibleV26(
+      provinceSlug
+    );
+
+
+  if (
+    !eligibility.eligible
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        eligibility.reason,
+
+      eligibility
+
+    };
+
+  }
+
+
+  const decision =
+    eligibility.decision;
+
+
+  const config =
+    getShadowModelConfigV26(
+      decision.model
+    );
+
+
+  if (!config) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_MODEL_CONFIG_NOT_FOUND',
+
+      decision
+
+    };
+
+  }
+
+
+  /*
+   * Lấy historical draws của tỉnh.
+   *
+   * drawListOfProvince() là helper
+   * an toàn nếu tồn tại.
+   *
+   * Nếu project hiện tại dùng
+   * provinceDraws(), fallback phía dưới
+   * sẽ thử helper đó.
+   */
+
+  let draws =
+    null;
+
+
+  try {
+
+    if (
+      typeof drawListOfProvince ===
+      'function'
+    ) {
+
+      draws =
+        drawListOfProvince(
+          provinceSlug
+        );
+
+    } else if (
+      typeof provinceDraws ===
+      'function'
+    ) {
+
+      draws =
+        provinceDraws(
+          provinceSlug
+        );
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Draw Error:',
+      error
+    );
+
+  }
+
+
+  /*
+   * Fallback:
+   * dùng dữ liệu tỉnh hiện có thông qua
+   * withHistoricalDrawsV25 nếu helper
+   * phía trên không tồn tại.
+   */
+
+  if (
+    !Array.isArray(
+      draws
+    ) ||
+    !draws.length
+  ) {
+
+    try {
+
+      const province =
+        provinceBySlug(
+          provinceSlug
+        );
+
+
+      if (
+        province &&
+        Array.isArray(
+          province.draws
+        )
+      ) {
+
+        draws =
+          province.draws;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore fallback error.
+       */
+
+    }
+
+  }
+
+
+  if (
+    !Array.isArray(
+      draws
+    ) ||
+    !draws.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_SHADOW_DRAWS',
+
+      decision
+
+    };
+
+  }
+
+
+  /*
+   * Clone array để Shadow không
+   * thay đổi thứ tự dữ liệu gốc.
+   */
+
+  const historical =
+    draws
+      .slice()
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(
+            a.date
+          )
+      );
+
+
+  let scores;
+
+
+  try {
+
+    scores =
+      modelLabScoresV23(
+        historical,
+        giaiKey,
+        decision.window,
+        config.weights
+      );
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Score Error:',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_SCORE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      decision
+
+    };
+
+  }
+
+
+  const ranked =
+    rankedNumbers(
+      scores
+    );
+
+
+  if (
+    !Array.isArray(
+      ranked
+    ) ||
+    !ranked.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'EMPTY_SHADOW_RANKING',
+
+      decision
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW',
+
+    researchOnly:
+      true,
+
+    productionOverride:
+      false,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    model:
+      decision.model,
+
+    window:
+      decision.window,
+
+    gateScore:
+      decision.gateScore,
+
+    oosDelta:
+      decision.delta,
+
+    winRate:
+      decision.winRate,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    historyCount:
+      historical.length,
+
+    ranked,
+
+    ranking:
+      ranked.map(
+        item =>
+          item[0]
+      ),
+
+    top1:
+      ranked
+        .slice(
+          0,
+          1
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top2:
+      ranked
+        .slice(
+          0,
+          2
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top3:
+      ranked
+        .slice(
+          0,
+          3
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top5:
+      ranked
+        .slice(
+          0,
+          5
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top10:
+      ranked
+        .slice(
+          0,
+          10
+        )
+        .map(
+          item =>
+            item[0]
+        )
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. CREATE SHADOW SNAPSHOT
+
+   Snapshot dùng cho Forward Validation.
+
+   Chúng ta lưu:
+   - tỉnh
+   - giải
+   - model
+   - window
+   - ranking
+   - timestamp
+
+   KHÔNG lưu kết quả tương lai.
+   ========================================================================= */
+
+function createShadowSnapshotV26(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  const shadow =
+    buildShadowRankingV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !shadow.ready
+  ) {
+
+    return shadow;
+
+  }
+
+
+  const snapshot = {
+
+    id:
+      [
+        'V26',
+        provinceSlug,
+        giaiKey,
+        Date.now()
+      ].join(
+        '-'
+      ),
+
+    version:
+      'V2.6',
+
+    type:
+      'SHADOW_PREDICTION',
+
+    researchOnly:
+      true,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    model:
+      shadow.model,
+
+    window:
+      shadow.window,
+
+    gateScore:
+      shadow.gateScore,
+
+    oosDelta:
+      shadow.oosDelta,
+
+    winRate:
+      shadow.winRate,
+
+    createdAt:
+      shadow.generatedAt,
+
+    historyCount:
+      shadow.historyCount,
+
+    ranking:
+      shadow.ranking
+        .slice(),
+
+    top1:
+      shadow.top1
+        .slice(),
+
+    top3:
+      shadow.top3
+        .slice(),
+
+    top5:
+      shadow.top5
+        .slice(),
+
+    evaluated:
+      false,
+
+    actual:
+      null,
+
+    result:
+      null
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    snapshot,
+
+    shadow
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. SHADOW MEMORY STORE
+
+   Chỉ lưu trong runtime hiện tại.
+
+   Block 8B/8C sau này mới quyết định
+   cách lưu persistent nếu cần.
+   ========================================================================= */
+
+if (
+  !Array.isArray(
+    window.SHADOW_SNAPSHOTS_V26
+  )
+) {
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    [];
+
+}
+
+
+/* =========================================================================
+   9. SAVE SHADOW SNAPSHOT
+   ========================================================================= */
+
+function saveShadowSnapshotV26(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  const result =
+    createShadowSnapshotV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !result.ready
+  ) {
+
+    return result;
+
+  }
+
+
+  window
+    .SHADOW_SNAPSHOTS_V26
+    .push(
+      result.snapshot
+    );
+
+
+  window.LAST_SHADOW_V26 =
+    result.snapshot;
+
+
+  return {
+
+    ready: true,
+
+    saved: true,
+
+    snapshot:
+      result.snapshot,
+
+    totalSnapshots:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length
+
+  };
+
+}
+
+
+/* =========================================================================
+   10. RUN ALL APPROVED SHADOW PROVINCES
+   ========================================================================= */
+
+function runApprovedShadowPredictionsV26(
+  giaiKey = 'db',
+  saveSnapshots = false
+) {
+
+  const layer =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !layer ||
+    !layer.ready ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_LAYER_NOT_READY'
+
+    };
+
+  }
+
+
+  const approved =
+    layer.results.filter(
+      item =>
+        normalizeShadowDecisionV26(
+          item.decision ||
+          item.action ||
+          item.recommendation
+        ) ===
+        SHADOW_ENGINE_V26_CONFIG
+          .requiredDecision
+    );
+
+
+  if (
+    !approved.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_APPROVED_SHADOW_PROVINCES'
+
+    };
+
+  }
+
+
+  const results =
+    approved.map(
+      item => {
+
+        let slug =
+          item.provinceSlug ||
+          item.slug ||
+          null;
+
+
+        /*
+         * Nếu 7C chỉ lưu tên tỉnh,
+         * thử tìm slug.
+         */
+
+        if (!slug) {
+
+          try {
+
+            const provinces =
+              Array.isArray(
+                PROVINCES
+              )
+                ? PROVINCES
+                : [];
+
+
+            const found =
+              provinces.find(
+                province =>
+                  province.name ===
+                  item.province
+              );
+
+
+            if (found) {
+
+              slug =
+                found.slug;
+
+            }
+
+          } catch (
+            error
+          ) {
+
+            /*
+             * Ignore.
+             */
+
+          }
+
+        }
+
+
+        if (!slug) {
+
+          return {
+
+            ready: false,
+
+            province:
+              item.province,
+
+            reason:
+              'PROVINCE_SLUG_NOT_FOUND'
+
+          };
+
+        }
+
+
+        if (
+          saveSnapshots
+        ) {
+
+          return (
+            saveShadowSnapshotV26(
+              slug,
+              giaiKey
+            )
+          );
+
+        }
+
+
+        return (
+          buildShadowRankingV26(
+            slug,
+            giaiKey
+          )
+        );
+
+      }
+    );
+
+
+  const successful =
+    results.filter(
+      item =>
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      successful.length > 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_BATCH',
+
+    researchOnly:
+      true,
+
+    prize:
+      giaiKey,
+
+    approvedCount:
+      approved.length,
+
+    successfulCount:
+      successful.length,
+
+    failedCount:
+      results.length -
+      successful.length,
+
+    saved:
+      Boolean(
+        saveSnapshots
+      ),
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   11. PRINT SHADOW BATCH
+   ========================================================================= */
+
+function printApprovedShadowPredictionsV26(
+  giaiKey = 'db'
+) {
+
+  const result =
+    runApprovedShadowPredictionsV26(
+      giaiKey,
+      false
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — SHADOW PREDICTION'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.log(
+    'Approved:',
+    result.approvedCount
+  );
+
+
+  console.log(
+    'Successful:',
+    result.successfulCount
+  );
+
+
+  console.log(
+    'Failed:',
+    result.failedCount
+  );
+
+
+  console.table(
+
+    result.results.map(
+      item => {
+
+        /*
+         * saveSnapshot=false nên
+         * item chính là Shadow result.
+         */
+
+        return {
+
+          Province:
+            item.province ||
+            '-',
+
+          Ready:
+            item.ready
+              ? 'YES'
+              : 'NO',
+
+          Model:
+            item.model ||
+            '-',
+
+          Window:
+            item.window ||
+            '-',
+
+          Top1:
+            item.top1
+              ? item.top1.join(
+                  ', '
+                )
+              : '-',
+
+          Top3:
+            item.top3
+              ? item.top3.join(
+                  ', '
+                )
+              : '-',
+
+          Gate:
+            item.gateScore != null
+              ? item.gateScore
+              : '-',
+
+          Reason:
+            item.ready
+              ? 'SHADOW_READY'
+              : item.reason
+
+        };
+
+      }
+    )
+
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   12. SAFETY CHECK
+
+   Đây là phần quan trọng nhất của 8A.
+
+   Shadow Engine:
+   - không hook predict button
+   - không thay selected model
+   - không thay selected window
+   - không thay Production weights
+   ========================================================================= */
+
+function shadowSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '8A',
+
+    shadowEnabled:
+      SHADOW_ENGINE_V26_CONFIG
+        .enabled,
+
+    researchOnly:
+      SHADOW_ENGINE_V26_CONFIG
+        .researchOnly,
+
+    productionOverride:
+      SHADOW_ENGINE_V26_CONFIG
+        .allowProductionOverride,
+
+    predictionButtonModified:
+      false,
+
+    productionWeightsModified:
+      false,
+
+    productionModelModified:
+      false,
+
+    productionWindowModified:
+      false,
+
+    status:
+      'SAFE_SHADOW_ONLY'
+
+  };
+
+}
+
+
+/* =========================================================================
+   13. QUICK TEST
+
+   Sau khi Block 7C đã chạy:
+
+   printApprovedShadowPredictionsV26(
+     'db'
+   );
+
+
+   Kiểm tra riêng TP.HCM:
+
+   buildShadowRankingV26(
+     'tp-hcm',
+     'db'
+   );
+
+
+   Kiểm tra Safety:
+
+   shadowSafetyCheckV26();
+
+
+   CHƯA chạy:
+
+   saveShadowSnapshotV26(...)
+
+   cho tới khi chúng ta xác nhận
+   Shadow Ranking hoạt động đúng.
+
+   Block tiếp theo:
+
+   8B — Shadow Mobile Panel
+   ========================================================================= */
+
+
+console.log(
+  'XSMN V2.6 Block 8A loaded — Shadow Prediction Research Engine ready'
+);
+
