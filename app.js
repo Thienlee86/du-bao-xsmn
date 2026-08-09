@@ -14448,3 +14448,151 @@ if (
 console.log(
   'XSMN V2.6 Mobile OOS Test ready'
 );
+
+/* =========================================================================
+   V2.6 — SHORT MOBILE LEAKAGE TEST
+   ========================================================================= */
+
+function testOOSLeakageV26Short(
+  provinceSlug = 'kien-giang'
+) {
+
+  const periods =
+    buildOOSPeriodsV26(
+      provinceSlug
+    );
+
+
+  if (!periods.length) {
+
+    alert(
+      'V2.6: Không có OOS period.'
+    );
+
+    return;
+
+  }
+
+
+  let allPassed = true;
+
+
+  const lines =
+    periods.map(
+      period => {
+
+        const check =
+          verifyOOSPeriodV26(
+            period
+          );
+
+
+        if (!check.valid) {
+
+          allPassed = false;
+
+        }
+
+
+        return (
+          'P' +
+          period.period +
+          ': ' +
+          period.trainingCount +
+          '→' +
+          period.testingCount +
+          ' | Leakage: ' +
+          (
+            check.valid
+              ? 'NO'
+              : 'YES'
+          )
+        );
+
+      }
+    );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    allPassed
+      ? '✅ ALL PERIODS PASSED'
+      : '❌ LEAKAGE DETECTED'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return allPassed;
+
+}
+
+
+/*
+ * Đổi nút test hiện tại sang
+ * phiên bản ngắn.
+ */
+
+const btnOOSV26 =
+  document.getElementById(
+    'btnOOSTestV26'
+  );
+
+
+if (btnOOSV26) {
+
+  btnOOSV26.onclick =
+    function() {
+
+      testOOSLeakageV26Short(
+        'kien-giang'
+      );
+
+    };
+
+
+  /*
+   * Xóa listener cũ bằng cách
+   * clone button.
+   */
+
+  const newButton =
+    btnOOSV26.cloneNode(
+      true
+    );
+
+
+  btnOOSV26.parentNode
+    .replaceChild(
+      newButton,
+      btnOOSV26
+    );
+
+
+  newButton.onclick =
+    function() {
+
+      testOOSLeakageV26Short(
+        'kien-giang'
+      );
+
+    };
+
+
+  newButton.textContent =
+    '🧪 Test nhanh V2.6 OOS';
+
+}
+
+
+console.log(
+  'XSMN V2.6 Short Leakage Test ready'
+);
+
