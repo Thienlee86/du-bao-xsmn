@@ -31537,3 +31537,360 @@ console.log(
   'XSMN V2.6 Block 8A loaded — Shadow Prediction Research Engine ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8A MOBILE TEST
+   SHADOW PREDICTION QUICK TEST
+   ========================================================================= */
+
+function showShadowTestV26Mobile() {
+
+  try {
+
+    /*
+     * Chạy Decision Layer trước để bảo đảm
+     * LAST_PROVINCE_DECISION_V26 tồn tại.
+     */
+
+    if (
+      typeof runProvinceDecisionLayerV26 ===
+      'function'
+    ) {
+
+      runProvinceDecisionLayerV26();
+
+    }
+
+
+    const result =
+      runApprovedShadowPredictionsV26(
+        'db',
+        false
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+        '❌ V2.6 SHADOW TEST\n\n' +
+        'Không chạy được Shadow.\n\n' +
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN_ERROR'
+        )
+      );
+
+      return result;
+
+    }
+
+
+    const lines = [];
+
+
+    lines.push(
+      '👻 V2.6 SHADOW TEST'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Approved: ' +
+      result.approvedCount
+    );
+
+    lines.push(
+      'Successful: ' +
+      result.successfulCount
+    );
+
+    lines.push(
+      'Failed: ' +
+      result.failedCount
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    result.results.forEach(
+      item => {
+
+        lines.push(
+          '-------------------------'
+        );
+
+
+        lines.push(
+          item.ready
+            ? '✅ ' +
+              item.province
+            : '❌ ' +
+              (
+                item.province ||
+                'UNKNOWN'
+              )
+        );
+
+
+        if (
+          item.ready
+        ) {
+
+          lines.push(
+            'Model: ' +
+            item.model
+          );
+
+
+          lines.push(
+            'Window: ' +
+            item.window +
+            ' kỳ'
+          );
+
+
+          lines.push(
+            'Top1: ' +
+            (
+              item.top1 &&
+              item.top1.length
+                ? item.top1.join(
+                    ', '
+                  )
+                : '-'
+            )
+          );
+
+
+          lines.push(
+            'Top3: ' +
+            (
+              item.top3 &&
+              item.top3.length
+                ? item.top3.join(
+                    ', '
+                  )
+                : '-'
+            )
+          );
+
+
+          lines.push(
+            'Gate: ' +
+            Number(
+              item.gateScore || 0
+            ).toFixed(
+              2
+            )
+          );
+
+
+          lines.push(
+            'Status: SHADOW_READY'
+          );
+
+        } else {
+
+          lines.push(
+            'Reason: ' +
+            (
+              item.reason ||
+              'UNKNOWN'
+            )
+          );
+
+        }
+
+      }
+    );
+
+
+    lines.push(
+      '-------------------------'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    if (
+      result.successfulCount ===
+      result.approvedCount &&
+      result.approvedCount === 4
+    ) {
+
+      lines.push(
+        '✅ ALL 4 SHADOWS READY'
+      );
+
+    } else {
+
+      lines.push(
+        '⚠️ CHECK SHADOW RESULTS'
+      );
+
+    }
+
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Research only'
+    );
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window.LAST_SHADOW_TEST_V26 =
+      result;
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Mobile Test:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 SHADOW TEST ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   MOBILE TEST BUTTON
+   ========================================================================= */
+
+function addShadowTestButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowTestV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowTestV26';
+
+
+  button.textContent =
+    '👻 Test V2.6 Shadow';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showShadowTestV26Mobile();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   INIT MOBILE TEST
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowTestButtonV26
+  );
+
+} else {
+
+  addShadowTestButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Shadow Mobile Test ready'
+);
+
