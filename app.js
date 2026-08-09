@@ -22994,3 +22994,364 @@ console.log(
   'XSMN V2.6 Block 6B loaded — Mobile Batch Runner ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 6B TEST PATCH
+   SAFE 3-PROVINCE MOBILE TEST
+   ========================================================================= */
+
+async function runCrossProvinceBatchTestV26(
+  giaiKey = 'db'
+) {
+
+  if (
+    CROSS_OOS_BATCH_V26.running
+  ) {
+
+    alert(
+      'Cross-Province OOS đang chạy.'
+    );
+
+    return null;
+
+  }
+
+
+  /*
+   * Chỉ test 3 tỉnh đầu tiên.
+   */
+
+  const testProvinces =
+    PROVINCES.slice(
+      0,
+      3
+    );
+
+
+  if (
+    !testProvinces.length
+  ) {
+
+    alert(
+      'Không tìm thấy dữ liệu tỉnh.'
+    );
+
+    return null;
+
+  }
+
+
+  CROSS_OOS_BATCH_V26.running =
+    true;
+
+  CROSS_OOS_BATCH_V26.cancelled =
+    false;
+
+  CROSS_OOS_BATCH_V26.currentIndex =
+    0;
+
+  CROSS_OOS_BATCH_V26.total =
+    testProvinces.length;
+
+  CROSS_OOS_BATCH_V26.prize =
+    giaiKey;
+
+  CROSS_OOS_BATCH_V26.results =
+    [];
+
+  CROSS_OOS_BATCH_V26.startedAt =
+    new Date();
+
+  CROSS_OOS_BATCH_V26.finishedAt =
+    null;
+
+
+  const panel =
+    getCrossOOSPanelV26();
+
+
+  if (panel) {
+
+    panel.scrollIntoView({
+
+      behavior:
+        'smooth',
+
+      block:
+        'start'
+
+    });
+
+  }
+
+
+  try {
+
+    for (
+      let index = 0;
+      index < testProvinces.length;
+      index++
+    ) {
+
+      if (
+        CROSS_OOS_BATCH_V26.cancelled
+      ) {
+
+        break;
+
+      }
+
+
+      const province =
+        testProvinces[index];
+
+
+      CROSS_OOS_BATCH_V26.currentIndex =
+        index + 1;
+
+
+      renderCrossOOSProgressV26(
+
+        index,
+
+        testProvinces.length,
+
+        province.name
+
+      );
+
+
+      await crossOOSWaitV26(
+        150
+      );
+
+
+      const item =
+        await runOneCrossOOSV26(
+          province,
+          giaiKey
+        );
+
+
+      CROSS_OOS_BATCH_V26.results.push(
+        item
+      );
+
+
+      renderCrossOOSProgressV26(
+
+        index + 1,
+
+        testProvinces.length,
+
+        province.name
+
+      );
+
+
+      await crossOOSWaitV26(
+        150
+      );
+
+    }
+
+
+    CROSS_OOS_BATCH_V26.finishedAt =
+      new Date();
+
+
+    if (
+      CROSS_OOS_BATCH_V26.cancelled
+    ) {
+
+      renderCrossOOSCancelledV26();
+
+      return null;
+
+    }
+
+
+    const summary =
+      aggregateCrossProvinceOOSV26(
+        CROSS_OOS_BATCH_V26.results
+      );
+
+
+    const classification =
+      classifyCrossProvinceOOSV26(
+        summary
+      );
+
+
+    const finalResult = {
+
+      ready:
+        Boolean(summary),
+
+      version:
+        'V2.6',
+
+      engine:
+        'CROSS_PROVINCE_3_TEST',
+
+      prize:
+        giaiKey,
+
+      classification,
+
+      summary,
+
+      results:
+        CROSS_OOS_BATCH_V26.results
+
+    };
+
+
+    window.LAST_CROSS_OOS_TEST_V26 =
+      finalResult;
+
+
+    renderCrossOOSFinalV26(
+      finalResult
+    );
+
+
+    return finalResult;
+
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 3 Province Test:',
+      error
+    );
+
+
+    if (panel) {
+
+      panel.innerHTML = `
+
+        <b>❌ 3-PROVINCE TEST ERROR</b>
+
+        <br><br>
+
+        ${String(
+          error.message ||
+          error
+        )}
+
+      `;
+
+    }
+
+
+    return null;
+
+
+  } finally {
+
+    CROSS_OOS_BATCH_V26.running =
+      false;
+
+  }
+
+}
+
+
+/* =========================================================================
+   ADD 3-PROVINCE TEST BUTTON
+   ========================================================================= */
+
+function addCrossOOSTest3ButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnCrossOOSTest3V26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const controls =
+    document.getElementById(
+      'crossOOSControlsV26'
+    );
+
+
+  if (!controls) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnCrossOOSTest3V26';
+
+
+  button.textContent =
+    '🧪 Test Cross-OOS — 3 tỉnh';
+
+
+  button.style.cssText = `
+
+    width:100%;
+    margin-top:9px;
+    padding:15px 12px;
+    border:0;
+    border-radius:14px;
+    font-size:16px;
+    font-weight:900;
+    cursor:pointer;
+
+  `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      runCrossProvinceBatchTestV26(
+        'db'
+      );
+
+    }
+  );
+
+
+  controls.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addCrossOOSTest3ButtonV26
+  );
+
+} else {
+
+  addCrossOOSTest3ButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 3-Province Mobile Test ready'
+);
+
