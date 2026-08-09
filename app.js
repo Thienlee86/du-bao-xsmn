@@ -28614,3 +28614,1481 @@ console.log(
   'XSMN V2.6 dominantModel / dominantWindow mapping FIX loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 7C
+   PROVINCE GATE DECISION LAYER
+
+   Mục tiêu:
+   - Chuyển Province Gate thành Decision theo từng tỉnh.
+   - ADAPTIVE:
+       đề xuất Model + Window đã qua OOS Gate.
+   - WATCH:
+       chưa cho Adaptive.
+   - BASELINE:
+       đề xuất giữ Baseline.
+   - REJECT:
+       cấm Adaptive.
+   - Có Safety Fallback.
+   - Research Only.
+   - KHÔNG thay Production Engine.
+   - KHÔNG thay nút Dự Báo Ngay.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. DECISION CONFIG
+   ========================================================================= */
+
+const PROVINCE_DECISION_V26_CONFIG = {
+
+  /*
+   * Gate Score tối thiểu để Decision Layer
+   * chấp nhận một ADAPTIVE candidate.
+   *
+   * Gate 7A hiện đã dùng threshold 70.
+   * 7C kiểm tra lại để tránh dữ liệu lỗi.
+   */
+
+  minimumAdaptiveGateScore: 70,
+
+
+  /*
+   * OOS tests tối thiểu.
+   */
+
+  minimumTests: 40,
+
+
+  /*
+   * Model hợp lệ.
+   */
+
+  allowedModels: [
+
+    'BASELINE',
+    'FREQUENCY',
+    'RECENT',
+    'CYCLE',
+    'BALANCED'
+
+  ],
+
+
+  /*
+   * Window hợp lệ hiện tại.
+   */
+
+  allowedWindows: [
+
+    10,
+    20,
+    30,
+    60
+
+  ]
+
+};
+
+
+/* =========================================================================
+   2. NORMALIZE MODEL
+   ========================================================================= */
+
+function normalizeDecisionModelV26(
+  model
+) {
+
+  if (
+    model == null
+  ) {
+
+    return null;
+
+  }
+
+
+  const normalized =
+    String(
+      model
+    )
+    .trim()
+    .toUpperCase();
+
+
+  return normalized ||
+    null;
+
+}
+
+
+/* =========================================================================
+   3. NORMALIZE WINDOW
+   ========================================================================= */
+
+function normalizeDecisionWindowV26(
+  windowSize
+) {
+
+  const value =
+    Number(
+      windowSize
+    );
+
+
+  return Number.isFinite(
+    value
+  )
+    ? value
+    : null;
+
+}
+
+
+/* =========================================================================
+   4. VALIDATE ADAPTIVE CONFIG
+   ========================================================================= */
+
+function validateAdaptiveConfigV26(
+  gateItem
+) {
+
+  if (!gateItem) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'EMPTY_GATE_ITEM'
+
+    };
+
+  }
+
+
+  const model =
+    normalizeDecisionModelV26(
+      gateItem.model
+    );
+
+
+  const windowSize =
+    normalizeDecisionWindowV26(
+      gateItem.window
+    );
+
+
+  if (
+    !model ||
+    model === 'UNKNOWN'
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'INVALID_MODEL'
+
+    };
+
+  }
+
+
+  if (
+    !PROVINCE_DECISION_V26_CONFIG
+      .allowedModels
+      .includes(
+        model
+      )
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'MODEL_NOT_ALLOWED'
+
+    };
+
+  }
+
+
+  if (
+    model === 'BASELINE'
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'BASELINE_IS_NOT_ADAPTIVE'
+
+    };
+
+  }
+
+
+  if (
+    windowSize == null ||
+    !PROVINCE_DECISION_V26_CONFIG
+      .allowedWindows
+      .includes(
+        windowSize
+      )
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'INVALID_WINDOW'
+
+    };
+
+  }
+
+
+  return {
+
+    valid:
+      true,
+
+    model,
+
+    window:
+      windowSize,
+
+    reason:
+      'VALID_ADAPTIVE_CONFIG'
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. BUILD FALLBACK DECISION
+   ========================================================================= */
+
+function buildFallbackDecisionV26(
+  gateItem,
+  reason
+) {
+
+  return {
+
+    ready:
+      true,
+
+    province:
+      gateItem
+        ? gateItem.provinceSlug
+        : null,
+
+    provinceName:
+      gateItem
+        ? gateItem.province
+        : null,
+
+    gate:
+      gateItem
+        ? gateItem.gate
+        : 'UNKNOWN',
+
+    action:
+      'KEEP_PRODUCTION',
+
+    useAdaptive:
+      false,
+
+    model:
+      null,
+
+    window:
+      null,
+
+    gateScore:
+      gateItem
+        ? gateNumberV26(
+            gateItem.gateScore
+          )
+        : 0,
+
+    oosDelta:
+      gateItem
+        ? gateNumberV26(
+            gateItem.delta
+          )
+        : 0,
+
+    winRate:
+      gateItem
+        ? gateNumberV26(
+            gateItem.winRate
+          )
+        : 0,
+
+    reason:
+      reason ||
+      'SAFE_FALLBACK',
+
+    productionModified:
+      false,
+
+    researchOnly:
+      true
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. BUILD ONE PROVINCE DECISION
+
+   QUY TẮC:
+
+   ADAPTIVE
+   --------
+   Chỉ tạo Adaptive Recommendation khi:
+   - Gate = ADAPTIVE
+   - Gate Score >= 70
+   - Tests >= 40
+   - Model hợp lệ
+   - Window hợp lệ
+
+   WATCH
+   -----
+   Chưa đủ bằng chứng.
+   Giữ Production.
+
+   BASELINE
+   --------
+   Adaptive không có lợi thế xác nhận.
+   Giữ Production.
+
+   REJECT
+   ------
+   Adaptive bị OOS bác bỏ.
+   Giữ Production và đánh dấu BLOCK_ADAPTIVE.
+   ========================================================================= */
+
+function buildProvinceDecisionV26(
+  gateItem
+) {
+
+  if (
+    !gateItem ||
+    !gateItem.ready
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      action:
+        'KEEP_PRODUCTION',
+
+      useAdaptive:
+        false,
+
+      reason:
+        'INVALID_GATE_ITEM',
+
+      productionModified:
+        false,
+
+      researchOnly:
+        true
+
+    };
+
+  }
+
+
+  const gate =
+    String(
+      gateItem.gate ||
+      ''
+    ).toUpperCase();
+
+
+  const gateScore =
+    gateNumberV26(
+      gateItem.gateScore
+    );
+
+
+  const tests =
+    gateNumberV26(
+      gateItem.tests
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * REJECT
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gate === 'REJECT'
+  ) {
+
+    const decision =
+      buildFallbackDecisionV26(
+        gateItem,
+        'ADAPTIVE_REJECTED_BY_OOS'
+      );
+
+
+    decision.action =
+      'BLOCK_ADAPTIVE';
+
+
+    return decision;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BASELINE
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gate === 'BASELINE'
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      'BASELINE_PREFERRED'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * WATCH
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gate === 'WATCH'
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      'WAIT_FOR_STRONGER_OOS_EVIDENCE'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * UNKNOWN GATE
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gate !== 'ADAPTIVE'
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      'UNKNOWN_GATE_SAFE_FALLBACK'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * ADAPTIVE SAFETY CHECK #1
+   * Gate Score.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gateScore <
+    PROVINCE_DECISION_V26_CONFIG
+      .minimumAdaptiveGateScore
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      'ADAPTIVE_GATE_SCORE_TOO_LOW'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * ADAPTIVE SAFETY CHECK #2
+   * OOS coverage.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    tests <
+    PROVINCE_DECISION_V26_CONFIG
+      .minimumTests
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      'INSUFFICIENT_OOS_TESTS'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * ADAPTIVE SAFETY CHECK #3
+   * Model + Window.
+   * -------------------------------------------------------------
+   */
+
+  const configCheck =
+    validateAdaptiveConfigV26(
+      gateItem
+    );
+
+
+  if (
+    !configCheck.valid
+  ) {
+
+    return buildFallbackDecisionV26(
+      gateItem,
+      configCheck.reason
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * SAFE ADAPTIVE RECOMMENDATION
+   *
+   * LƯU Ý:
+   * Đây mới là Recommendation.
+   * Chưa sử dụng trong Production Prediction.
+   * -------------------------------------------------------------
+   */
+
+  return {
+
+    ready:
+      true,
+
+    province:
+      gateItem.provinceSlug,
+
+    provinceName:
+      gateItem.province,
+
+    gate:
+      'ADAPTIVE',
+
+    action:
+      'RECOMMEND_ADAPTIVE',
+
+    useAdaptive:
+      true,
+
+    model:
+      configCheck.model,
+
+    window:
+      configCheck.window,
+
+    gateScore,
+
+    tests,
+
+    oosDelta:
+      gateNumberV26(
+        gateItem.delta
+      ),
+
+    winRate:
+      gateNumberV26(
+        gateItem.winRate
+      ),
+
+    mrrDelta:
+      gateNumberV26(
+        gateItem.mrrDelta
+      ),
+
+    rankImprovement:
+      gateNumberV26(
+        gateItem.rankImprovement
+      ),
+
+    reason:
+      'OOS_GATE_APPROVED',
+
+    productionModified:
+      false,
+
+    researchOnly:
+      true
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. RUN DECISION LAYER
+   ========================================================================= */
+
+function runProvinceDecisionLayerV26(
+  gateResult = null
+) {
+
+  const source =
+    gateResult ||
+    window.LAST_PROVINCE_GATE_V26;
+
+
+  if (
+    !source ||
+    !source.ready ||
+    !Array.isArray(
+      source.results
+    ) ||
+    !source.results.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'PROVINCE_GATE_NOT_READY'
+
+    };
+
+  }
+
+
+  const decisions =
+    source.results.map(
+      item =>
+        buildProvinceDecisionV26(
+          item
+        )
+    );
+
+
+  const valid =
+    decisions.filter(
+      item =>
+        item.ready
+    );
+
+
+  if (
+    !valid.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_VALID_DECISIONS',
+
+      decisions
+
+    };
+
+  }
+
+
+  const adaptive =
+    valid.filter(
+      item =>
+        item.action ===
+        'RECOMMEND_ADAPTIVE'
+    );
+
+
+  const keepProduction =
+    valid.filter(
+      item =>
+        item.action ===
+        'KEEP_PRODUCTION'
+    );
+
+
+  const blocked =
+    valid.filter(
+      item =>
+        item.action ===
+        'BLOCK_ADAPTIVE'
+    );
+
+
+  const result = {
+
+    ready:
+      true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'PROVINCE_GATE_DECISION_LAYER',
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    provinceCount:
+      valid.length,
+
+    summary: {
+
+      adaptiveRecommended:
+        adaptive.length,
+
+      keepProduction:
+        keepProduction.length,
+
+      adaptiveBlocked:
+        blocked.length,
+
+      adaptiveRate:
+        adaptive.length /
+        valid.length
+
+    },
+
+    adaptive,
+
+    keepProduction,
+
+    blocked,
+
+    decisions:
+      valid,
+
+    productionModified:
+      false,
+
+    researchOnly:
+      true
+
+  };
+
+
+  window.LAST_PROVINCE_DECISION_V26 =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   8. GET DECISION FOR ONE PROVINCE
+
+   Hàm chuẩn bị cho Block tương lai.
+
+   Hiện tại:
+   READ ONLY.
+   ========================================================================= */
+
+function getProvinceDecisionV26(
+  provinceSlug
+) {
+
+  const result =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !result ||
+    !result.ready ||
+    !Array.isArray(
+      result.decisions
+    )
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      action:
+        'KEEP_PRODUCTION',
+
+      useAdaptive:
+        false,
+
+      reason:
+        'DECISION_LAYER_NOT_RUN',
+
+      researchOnly:
+        true
+
+    };
+
+  }
+
+
+  let decision =
+    result.decisions.find(
+      item =>
+        item.province ===
+        provinceSlug
+    );
+
+
+  /*
+   * Fallback lookup bằng tên tỉnh.
+   */
+
+  if (!decision) {
+
+    let provinceName =
+      provinceSlug;
+
+
+    try {
+
+      const p =
+        provinceBySlug(
+          provinceSlug
+        );
+
+
+      if (p) {
+
+        provinceName =
+          p.name;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore lookup error.
+       */
+
+    }
+
+
+    decision =
+      result.decisions.find(
+        item =>
+          item.provinceName ===
+          provinceName
+      );
+
+  }
+
+
+  if (!decision) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      action:
+        'KEEP_PRODUCTION',
+
+      useAdaptive:
+        false,
+
+      reason:
+        'PROVINCE_DECISION_NOT_FOUND',
+
+      researchOnly:
+        true
+
+    };
+
+  }
+
+
+  return {
+
+    ...decision
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. PRINT DECISION LAYER
+   ========================================================================= */
+
+function printProvinceDecisionLayerV26() {
+
+  const result =
+    runProvinceDecisionLayerV26();
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — PROVINCE DECISION LAYER'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.log(
+    'SUMMARY:',
+    result.summary
+  );
+
+
+  console.table(
+
+    result.decisions.map(
+      item => ({
+
+        Province:
+          item.provinceName,
+
+        Gate:
+          item.gate,
+
+        Action:
+          item.action,
+
+        Adaptive:
+          item.useAdaptive
+            ? 'YES'
+            : 'NO',
+
+        Model:
+          item.model ||
+          '-',
+
+        Window:
+          item.window != null
+            ? item.window
+            : '-',
+
+        GateScore:
+          Number(
+            item.gateScore || 0
+          ).toFixed(2),
+
+        Delta:
+          (
+            Number(
+              item.oosDelta || 0
+            ) >= 0
+              ? '+'
+              : ''
+          ) +
+          Number(
+            item.oosDelta || 0
+          ).toFixed(4),
+
+        Reason:
+          item.reason
+
+      }))
+
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   10. MOBILE PANEL HTML
+   ========================================================================= */
+
+function provinceDecisionPanelHTMLV26(
+  result
+) {
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return `
+      <div style="
+        padding:18px;
+        line-height:1.6;
+      ">
+        ⚠️ Province Decision Layer chưa sẵn sàng.
+      </div>
+    `;
+
+  }
+
+
+  const summary =
+    result.summary;
+
+
+  const adaptiveCards =
+    result.adaptive.map(
+      item => {
+
+        return `
+          <div style="
+            margin-top:14px;
+            padding:16px;
+            border-radius:16px;
+            background:rgba(255,255,255,0.06);
+          ">
+
+            <div style="
+              font-size:18px;
+              font-weight:800;
+            ">
+              🟢 ${item.provinceName}
+            </div>
+
+            <div style="
+              margin-top:6px;
+              font-weight:800;
+            ">
+              RECOMMEND ADAPTIVE
+            </div>
+
+            <div style="
+              margin-top:12px;
+              line-height:1.7;
+            ">
+
+              Model:
+              <b>${item.model}</b>
+
+              <br>
+
+              Window:
+              <b>${item.window} kỳ</b>
+
+              <br>
+
+              Gate Score:
+              <b>${item.gateScore.toFixed(2)}</b>
+
+              <br>
+
+              OOS Delta:
+              <b>
+                ${
+                  item.oosDelta >= 0
+                    ? '+'
+                    : ''
+                }${item.oosDelta.toFixed(4)}
+              </b>
+
+              <br>
+
+              Win Rate:
+              <b>
+                ${(item.winRate * 100).toFixed(0)}%
+              </b>
+
+            </div>
+
+          </div>
+        `;
+
+      }
+    )
+    .join('');
+
+
+  return `
+
+    <div style="
+      padding:18px;
+      line-height:1.55;
+    ">
+
+      <div style="
+        font-size:21px;
+        font-weight:900;
+      ">
+        🧠 V2.6 PROVINCE DECISION LAYER
+      </div>
+
+
+      <div style="
+        margin-top:8px;
+        opacity:0.8;
+      ">
+        Research Decision only — chưa thay Production Engine.
+      </div>
+
+
+      <div style="
+        margin-top:20px;
+        padding:16px;
+        border-radius:16px;
+        background:rgba(255,255,255,0.06);
+      ">
+
+        <div style="
+          font-weight:900;
+          margin-bottom:10px;
+        ">
+          DECISION SUMMARY
+        </div>
+
+        🟢 Adaptive Recommended:
+        <b>${summary.adaptiveRecommended}</b>
+
+        <br>
+
+        ⚪ Keep Production:
+        <b>${summary.keepProduction}</b>
+
+        <br>
+
+        🔴 Adaptive Blocked:
+        <b>${summary.adaptiveBlocked}</b>
+
+        <br>
+
+        Provinces:
+        <b>${result.provinceCount}</b>
+
+        <br>
+
+        Adaptive Rate:
+        <b>
+          ${(summary.adaptiveRate * 100).toFixed(2)}%
+        </b>
+
+      </div>
+
+
+      <div style="
+        margin-top:22px;
+        font-size:18px;
+        font-weight:900;
+      ">
+        🟢 APPROVED ADAPTIVE CANDIDATES
+      </div>
+
+
+      ${
+        adaptiveCards ||
+        `
+          <div style="
+            margin-top:14px;
+            opacity:0.8;
+          ">
+            Không có tỉnh nào được đề xuất Adaptive.
+          </div>
+        `
+      }
+
+
+      <div style="
+        margin-top:20px;
+        padding:14px;
+        border-radius:14px;
+        background:rgba(255,255,255,0.04);
+        opacity:0.85;
+      ">
+
+        📌 Block 7C chỉ tạo Recommendation.
+
+        <br>
+
+        Nút Dự Báo Ngay vẫn sử dụng Production Engine hiện tại.
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+/* =========================================================================
+   11. SHOW MOBILE PANEL
+   ========================================================================= */
+
+function showProvinceDecisionPanelV26() {
+
+  const result =
+    runProvinceDecisionLayerV26();
+
+
+  if (
+    !result.ready
+  ) {
+
+    alert(
+      'V2.6 DECISION LAYER\n\n' +
+      'Không thể tạo Decision.\n\n' +
+      'Reason: ' +
+      result.reason +
+      '\n\n' +
+      'Hãy chạy Cross-Province OOS và Province Gate trước.'
+    );
+
+
+    return result;
+
+  }
+
+
+  let panel =
+    document.getElementById(
+      'provinceDecisionPanelV26'
+    );
+
+
+  if (!panel) {
+
+    panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      'provinceDecisionPanelV26';
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      alert(
+        'Không tìm thấy tab Cài đặt.'
+      );
+
+
+      return result;
+
+    }
+
+
+    settings.appendChild(
+      panel
+    );
+
+  }
+
+
+  panel.innerHTML =
+    provinceDecisionPanelHTMLV26(
+      result
+    );
+
+
+  panel.scrollIntoView({
+    behavior:
+      'smooth',
+
+    block:
+      'start'
+  });
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   12. MOBILE BUTTON
+   ========================================================================= */
+
+function addProvinceDecisionButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnProvinceDecisionV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnProvinceDecisionV26';
+
+
+  button.textContent =
+    '🧠 Phân tích Decision Layer V2.6';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    showProvinceDecisionPanelV26
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   13. SAFETY CHECK
+   ========================================================================= */
+
+function provinceDecisionSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '7C',
+
+    decisionLayer:
+      true,
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    adaptiveAutoEnabled:
+      false,
+
+    gateModified:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_RESEARCH_DECISION_LAYER'
+
+  };
+
+}
+
+
+/* =========================================================================
+   14. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addProvinceDecisionButtonV26
+  );
+
+} else {
+
+  addProvinceDecisionButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 7C loaded — Province Gate Decision Layer ready'
+);
+
