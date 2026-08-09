@@ -11347,3 +11347,1711 @@ console.log(
   'XSMN V2.4 Auto Model Selection loaded — Production Engine unchanged'
 );
 
+/* =========================================================================
+   XSMN V2.5
+   MULTI-PERIOD STABILITY VALIDATION ENGINE
+
+   Mục tiêu:
+   - Không thay Production Engine hiện tại.
+   - Không thay V2.4 Auto Model Selection.
+   - Kiểm tra Model + Window được V2.4 chọn có ổn định qua nhiều
+     giai đoạn lịch sử hay không.
+   - Walk-Forward / No Future Leakage.
+   - Đánh giá:
+       + Selection consistency
+       + Model consistency
+       + Window consistency
+       + Quality consistency
+       + Rank consistency
+       + Validation score
+   - Chỉ tạo Production Recommendation.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const V25_CONFIG = {
+
+  /*
+   * Mỗi validation period dùng một block
+   * các kỳ liên tiếp trong lịch sử.
+   */
+
+  periodSize: 20,
+
+
+  /*
+   * Số period tối đa dùng để validation.
+   *
+   * Với 100 kỳ:
+   * giữ lại đủ training history cho engine,
+   * sau đó chia phần còn lại thành nhiều period.
+   */
+
+  maxPeriods: 4,
+
+
+  /*
+   * Cần tối thiểu số kỳ training
+   * trước khi bắt đầu validation.
+   */
+
+  minTrainingDraws: 30,
+
+
+  /*
+   * Ngưỡng Stability Score.
+   */
+
+  strongThreshold: 75,
+
+  goodThreshold: 60,
+
+  weakThreshold: 45,
+
+
+  /*
+   * Nếu model chiến thắng xuất hiện
+   * ít hơn tỷ lệ này thì không coi
+   * là ổn định.
+   */
+
+  minModelConsistency: 0.50,
+
+
+  /*
+   * Production chỉ được đề nghị adaptive
+   * khi V2.4 và V2.5 cùng đồng thuận.
+   */
+
+  requireV24Approval: true
+
+};
+
+
+/* =========================================================================
+   2. HELPERS
+   ========================================================================= */
+
+function v25Mean(values) {
+
+  if (
+    !Array.isArray(values) ||
+    !values.length
+  ) {
+
+    return 0;
+
+  }
+
+
+  return values.reduce(
+    (sum, value) =>
+      sum +
+      Number(
+        value || 0
+      ),
+    0
+  ) / values.length;
+
+}
+
+
+function v25StdDev(values) {
+
+  if (
+    !Array.isArray(values) ||
+    values.length < 2
+  ) {
+
+    return 0;
+
+  }
+
+
+  const avg =
+    v25Mean(
+      values
+    );
+
+
+  const variance =
+    v25Mean(
+      values.map(
+        value =>
+          Math.pow(
+            Number(value || 0) -
+            avg,
+            2
+          )
+      )
+    );
+
+
+  return Math.sqrt(
+    variance
+  );
+
+}
+
+
+function v25Clamp(
+  value,
+  min = 0,
+  max = 1
+) {
+
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      value
+    )
+  );
+
+}
+
+
+function v25Percent(
+  value
+) {
+
+  return Number(
+    (
+      Number(value || 0) *
+      100
+    ).toFixed(2)
+  );
+
+}
+
+
+function v25Mode(
+  values
+) {
+
+  if (
+    !Array.isArray(values) ||
+    !values.length
+  ) {
+
+    return {
+
+      value: null,
+
+      count: 0,
+
+      ratio: 0
+
+    };
+
+  }
+
+
+  const counts = {};
+
+
+  values.forEach(
+    value => {
+
+      const key =
+        String(value);
+
+
+      counts[key] =
+        (
+          counts[key] || 0
+        ) + 1;
+
+    }
+  );
+
+
+  const ranked =
+    Object.entries(
+      counts
+    )
+    .sort(
+      (a, b) => {
+
+        if (
+          b[1] !== a[1]
+        ) {
+
+          return (
+            b[1] -
+            a[1]
+          );
+
+        }
+
+
+        return String(
+          a[0]
+        ).localeCompare(
+          String(
+            b[0]
+          )
+        );
+
+      }
+    );
+
+
+  const winner =
+    ranked[0];
+
+
+  return {
+
+    value:
+      winner
+        ? winner[0]
+        : null,
+
+    count:
+      winner
+        ? winner[1]
+        : 0,
+
+    ratio:
+      winner
+        ? winner[1] /
+          values.length
+        : 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. TEMPORARY HISTORICAL DATA CONTEXT
+
+   V2.4 đang đọc dữ liệu thông qua
+   getAllDrawsForProvince().
+
+   Khi validation một thời điểm trong quá khứ,
+   ta tạm thay dữ liệu của tỉnh bằng training set
+   tại thời điểm đó.
+
+   Sau khi chạy xong sẽ restore ngay.
+   ========================================================================= */
+
+function withHistoricalDrawsV25(
+  provinceSlug,
+  trainingDraws,
+  callback
+) {
+
+  /*
+   * V2.3/V2.4 cuối cùng đều dựa vào
+   * getAllDrawsForProvince().
+   *
+   * Ta ghi đè tạm function này để
+   * engine không nhìn thấy tương lai.
+   */
+
+  const original =
+    getAllDrawsForProvince;
+
+
+  getAllDrawsForProvince =
+    function(slug) {
+
+      if (
+        slug ===
+        provinceSlug
+      ) {
+
+        return trainingDraws
+          .slice()
+          .sort(
+            (a, b) =>
+              b.date.localeCompare(
+                a.date
+              )
+          );
+
+      }
+
+
+      return original(
+        slug
+      );
+
+    };
+
+
+  try {
+
+    return callback();
+
+  } finally {
+
+    getAllDrawsForProvince =
+      original;
+
+  }
+
+}
+
+
+/* =========================================================================
+   4. BUILD VALIDATION PERIODS
+   ========================================================================= */
+
+function buildValidationPeriodsV25(
+  provinceSlug
+) {
+
+  const draws =
+    getAllDrawsForProvince(
+      provinceSlug
+    )
+    .slice()
+    .sort(
+      (a, b) =>
+        a.date.localeCompare(
+          b.date
+        )
+    );
+
+
+  const total =
+    draws.length;
+
+
+  if (
+    total <
+    V25_CONFIG.minTrainingDraws +
+    V25_CONFIG.periodSize
+  ) {
+
+    return [];
+
+  }
+
+
+  const available =
+    total -
+    V25_CONFIG.minTrainingDraws;
+
+
+  const possiblePeriods =
+    Math.floor(
+      available /
+      V25_CONFIG.periodSize
+    );
+
+
+  const periodCount =
+    Math.min(
+      possiblePeriods,
+      V25_CONFIG.maxPeriods
+    );
+
+
+  if (
+    periodCount <= 0
+  ) {
+
+    return [];
+
+  }
+
+
+  /*
+   * Ưu tiên các period gần hiện tại nhất,
+   * nhưng mỗi period vẫn chỉ được nhìn
+   * dữ liệu trước nó.
+   */
+
+  const firstTestStart =
+    total -
+    periodCount *
+    V25_CONFIG.periodSize;
+
+
+  const periods = [];
+
+
+  for (
+    let index = 0;
+    index < periodCount;
+    index++
+  ) {
+
+    const testStart =
+      firstTestStart +
+      index *
+      V25_CONFIG.periodSize;
+
+
+    const testEnd =
+      Math.min(
+        testStart +
+        V25_CONFIG.periodSize,
+        total
+      );
+
+
+    const training =
+      draws.slice(
+        0,
+        testStart
+      );
+
+
+    const testing =
+      draws.slice(
+        testStart,
+        testEnd
+      );
+
+
+    if (
+      training.length <
+      V25_CONFIG.minTrainingDraws ||
+      !testing.length
+    ) {
+
+      continue;
+
+    }
+
+
+    periods.push({
+
+      index:
+        index + 1,
+
+      training,
+
+      testing,
+
+      trainingCount:
+        training.length,
+
+      testingCount:
+        testing.length,
+
+      trainingUntil:
+        training[
+          training.length - 1
+        ].date,
+
+      testFrom:
+        testing[0].date,
+
+      testTo:
+        testing[
+          testing.length - 1
+        ].date
+
+    });
+
+  }
+
+
+  return periods;
+
+}
+
+
+/* =========================================================================
+   5. VALIDATE ONE PERIOD
+
+   V2.4 chạy selection chỉ bằng dữ liệu training.
+   Sau đó lưu model/window được chọn.
+
+   Đây là validation về độ ổn định của việc
+   lựa chọn model, không phải "học" từ test set.
+   ========================================================================= */
+
+function validatePeriodV25(
+  provinceSlug,
+  giaiKey,
+  period
+) {
+
+  let selection = null;
+
+
+  try {
+
+    selection =
+      withHistoricalDrawsV25(
+
+        provinceSlug,
+
+        period.training,
+
+        () =>
+          findBestModelWindowV24(
+            provinceSlug,
+            giaiKey
+          )
+
+      );
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      'V2.5 period error:',
+      provinceSlug,
+      giaiKey,
+      period.index,
+      error
+    );
+
+
+    return {
+
+      period:
+        period.index,
+
+      valid:
+        false,
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !selection
+  ) {
+
+    return {
+
+      period:
+        period.index,
+
+      valid:
+        false,
+
+      error:
+        'NO_SELECTION'
+
+    };
+
+  }
+
+
+  let stability =
+    'UNKNOWN';
+
+
+  try {
+
+    stability =
+      classifySelectionV24(
+        selection
+      );
+
+  } catch (
+    error
+  ) {
+
+    stability =
+      'UNKNOWN';
+
+  }
+
+
+  return {
+
+    period:
+      period.index,
+
+    valid:
+      true,
+
+    trainingCount:
+      period.trainingCount,
+
+    testingCount:
+      period.testingCount,
+
+    trainingUntil:
+      period.trainingUntil,
+
+    testFrom:
+      period.testFrom,
+
+    testTo:
+      period.testTo,
+
+    model:
+      selection.model,
+
+    window:
+      Number(
+        selection.window || 0
+      ),
+
+    quality:
+      Number(
+        selection.quality || 0
+      ),
+
+    margin:
+      Number(
+        selection.margin || 0
+      ),
+
+    stability
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. MULTI-PERIOD VALIDATION
+   ========================================================================= */
+
+function validateModelStabilityV25(
+  provinceSlug,
+  giaiKey
+) {
+
+  const current =
+    findBestModelWindowV24(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !current
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_CURRENT_SELECTION'
+
+    };
+
+  }
+
+
+  const periods =
+    buildValidationPeriodsV25(
+      provinceSlug
+    );
+
+
+  if (
+    !periods.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      current,
+
+      reason:
+        'NOT_ENOUGH_HISTORY'
+
+    };
+
+  }
+
+
+  const results =
+    periods.map(
+      period =>
+        validatePeriodV25(
+          provinceSlug,
+          giaiKey,
+          period
+        )
+    );
+
+
+  const validResults =
+    results.filter(
+      item =>
+        item.valid
+    );
+
+
+  if (
+    !validResults.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      current,
+
+      periods:
+        results,
+
+      reason:
+        'NO_VALID_PERIOD'
+
+    };
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     MODEL CONSISTENCY
+     ----------------------------------------------------------------------- */
+
+  const modelMode =
+    v25Mode(
+      validResults.map(
+        item =>
+          item.model
+      )
+    );
+
+
+  /* -----------------------------------------------------------------------
+     WINDOW CONSISTENCY
+     ----------------------------------------------------------------------- */
+
+  const windowMode =
+    v25Mode(
+      validResults.map(
+        item =>
+          item.window
+      )
+    );
+
+
+  /* -----------------------------------------------------------------------
+     EXACT CONFIG CONSISTENCY
+     ----------------------------------------------------------------------- */
+
+  const configMode =
+    v25Mode(
+      validResults.map(
+        item =>
+          `${item.model}|${item.window}`
+      )
+    );
+
+
+  /* -----------------------------------------------------------------------
+     CURRENT CONFIG CONSISTENCY
+
+     Bao nhiêu period chọn đúng model/window
+     hiện tại của V2.4?
+     ----------------------------------------------------------------------- */
+
+  const currentMatches =
+    validResults.filter(
+      item =>
+        item.model ===
+          current.model &&
+        Number(
+          item.window
+        ) ===
+          Number(
+            current.window
+          )
+    ).length;
+
+
+  const currentConfigRatio =
+    currentMatches /
+    validResults.length;
+
+
+  /* -----------------------------------------------------------------------
+     QUALITY CONSISTENCY
+     ----------------------------------------------------------------------- */
+
+  const qualities =
+    validResults.map(
+      item =>
+        Number(
+          item.quality || 0
+        )
+    );
+
+
+  const margins =
+    validResults.map(
+      item =>
+        Number(
+          item.margin || 0
+        )
+    );
+
+
+  const avgQuality =
+    v25Mean(
+      qualities
+    );
+
+
+  const qualitySD =
+    v25StdDev(
+      qualities
+    );
+
+
+  const avgMargin =
+    v25Mean(
+      margins
+    );
+
+
+  /*
+   * Quality consistency:
+   *
+   * SD càng thấp càng tốt.
+   *
+   * Dùng scale 10 vì Quality V2.4
+   * đang ở thang tương đối nhỏ.
+   */
+
+  const qualityConsistency =
+    v25Clamp(
+      1 -
+      qualitySD /
+      10
+    );
+
+
+  /* -----------------------------------------------------------------------
+     STABILITY SCORE
+
+     30% model consistency
+     20% window consistency
+     25% exact config consistency
+     15% current config repeatability
+     10% quality consistency
+     ----------------------------------------------------------------------- */
+
+  const stabilityScore =
+    100 *
+    (
+
+      modelMode.ratio *
+      0.30 +
+
+      windowMode.ratio *
+      0.20 +
+
+      configMode.ratio *
+      0.25 +
+
+      currentConfigRatio *
+      0.15 +
+
+      qualityConsistency *
+      0.10
+
+    );
+
+
+  let classification =
+    'UNSTABLE';
+
+
+  if (
+    stabilityScore >=
+      V25_CONFIG.strongThreshold &&
+    modelMode.ratio >= 0.75
+  ) {
+
+    classification =
+      'STRONG';
+
+  } else if (
+    stabilityScore >=
+      V25_CONFIG.goodThreshold &&
+    modelMode.ratio >=
+      V25_CONFIG.minModelConsistency
+  ) {
+
+    classification =
+      'GOOD';
+
+  } else if (
+    stabilityScore >=
+      V25_CONFIG.weakThreshold
+  ) {
+
+    classification =
+      'WEAK';
+
+  }
+
+
+  return {
+
+    ready:
+      true,
+
+    version:
+      'V2.5',
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    current: {
+
+      model:
+        current.model,
+
+      window:
+        Number(
+          current.window
+        ),
+
+      quality:
+        Number(
+          current.quality || 0
+        ),
+
+      margin:
+        Number(
+          current.margin || 0
+        ),
+
+      stability:
+        classifySelectionV24(
+          current
+        )
+
+    },
+
+
+    validation: {
+
+      periodCount:
+        validResults.length,
+
+      modelWinner:
+        modelMode.value,
+
+      modelConsistency:
+        v25Percent(
+          modelMode.ratio
+        ),
+
+      windowWinner:
+        Number(
+          windowMode.value
+        ),
+
+      windowConsistency:
+        v25Percent(
+          windowMode.ratio
+        ),
+
+      configWinner:
+        configMode.value,
+
+      configConsistency:
+        v25Percent(
+          configMode.ratio
+        ),
+
+      currentConfigConsistency:
+        v25Percent(
+          currentConfigRatio
+        ),
+
+      averageQuality:
+        Number(
+          avgQuality.toFixed(
+            4
+          )
+        ),
+
+      qualityStdDev:
+        Number(
+          qualitySD.toFixed(
+            4
+          )
+        ),
+
+      averageMargin:
+        Number(
+          avgMargin.toFixed(
+            4
+          )
+        ),
+
+      qualityConsistency:
+        v25Percent(
+          qualityConsistency
+        ),
+
+      stabilityScore:
+        Number(
+          stabilityScore.toFixed(
+            2
+          )
+        ),
+
+      classification
+
+    },
+
+    periods:
+      results
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. PRODUCTION VALIDATION DECISION
+
+   V2.5 KHÔNG tự thay production.
+
+   Chỉ trả recommendation.
+   ========================================================================= */
+
+function productionDecisionV25(
+  provinceSlug,
+  giaiKey
+) {
+
+  const v24 =
+    productionDecisionV24(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  const v25 =
+    validateModelStabilityV25(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !v25.ready
+  ) {
+
+    return {
+
+      useAdaptiveModel:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        v25.reason ||
+        'V25_NOT_READY',
+
+      v24,
+
+      v25
+
+    };
+
+  }
+
+
+  const classification =
+    v25.validation
+      .classification;
+
+
+  const validationAccepted =
+    classification ===
+      'STRONG' ||
+    classification ===
+      'GOOD';
+
+
+  const v24Accepted =
+    V25_CONFIG
+      .requireV24Approval
+      ? Boolean(
+          v24 &&
+          v24.useAdaptiveModel
+        )
+      : true;
+
+
+  const sameModel =
+    String(
+      v25.validation
+        .modelWinner
+    ) ===
+    String(
+      v25.current
+        .model
+    );
+
+
+  const modelConsistency =
+    Number(
+      v25.validation
+        .modelConsistency
+    );
+
+
+  const useAdaptiveModel =
+
+    validationAccepted &&
+
+    v24Accepted &&
+
+    sameModel &&
+
+    modelConsistency >=
+      V25_CONFIG
+        .minModelConsistency *
+      100;
+
+
+  return {
+
+    useAdaptiveModel,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    model:
+      v25.current.model,
+
+    window:
+      v25.current.window,
+
+    quality:
+      v25.current.quality,
+
+    v24Stability:
+      v25.current.stability,
+
+    validationStability:
+      classification,
+
+    validationScore:
+      v25.validation
+        .stabilityScore,
+
+    modelConsistency:
+      v25.validation
+        .modelConsistency,
+
+    windowConsistency:
+      v25.validation
+        .windowConsistency,
+
+    configConsistency:
+      v25.validation
+        .configConsistency,
+
+    reason:
+      useAdaptiveModel
+        ? 'MULTI_PERIOD_VALIDATION_ACCEPTED'
+        : 'KEEP_CURRENT_PRODUCTION',
+
+    v24,
+
+    v25
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. PRINT ONE VALIDATION
+   ========================================================================= */
+
+function printValidationV25(
+  provinceSlug =
+    SELECTED_PROVINCE,
+  giaiKey = 'db'
+) {
+
+  const result =
+    validateModelStabilityV25(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  const p =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.5 — MULTI-PERIOD VALIDATION'
+  );
+
+  console.log(
+    p
+      ? p.name
+      : provinceSlug
+  );
+
+  console.log(
+    `Prize: ${String(
+      giaiKey
+    ).toUpperCase()}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.log(
+      'NOT READY:',
+      result.reason
+    );
+
+    return result;
+
+  }
+
+
+  console.log(
+    'Current V2.4:',
+    result.current
+  );
+
+
+  console.log(
+    'Validation:',
+    result.validation
+  );
+
+
+  console.table(
+    result.periods.map(
+      item => ({
+
+        Period:
+          item.period,
+
+        Training:
+          item.trainingCount ||
+          '-',
+
+        Test:
+          item.testingCount ||
+          '-',
+
+        Model:
+          item.model ||
+          '-',
+
+        Window:
+          item.window ||
+          '-',
+
+        Quality:
+          item.quality != null
+            ? Number(
+                item.quality
+              ).toFixed(2)
+            : '-',
+
+        Margin:
+          item.margin != null
+            ? Number(
+                item.margin
+              ).toFixed(2)
+            : '-',
+
+        Stability:
+          item.stability ||
+          '-'
+
+      }))
+    )
+  );
+
+
+  console.log(
+    `V2.5 SCORE: ${result.validation.stabilityScore}/100`
+  );
+
+
+  console.log(
+    `CLASSIFICATION: ${result.validation.classification}`
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   9. VALIDATE ALL PRIZES OF ONE PROVINCE
+   ========================================================================= */
+
+function validateProvinceV25(
+  provinceSlug
+) {
+
+  const rows = [];
+
+
+  PRIZE_META.forEach(
+    prize => {
+
+      const result =
+        validateModelStabilityV25(
+          provinceSlug,
+          prize.key
+        );
+
+
+      if (
+        !result.ready
+      ) {
+
+        rows.push({
+
+          Prize:
+            prize.key.toUpperCase(),
+
+          Model:
+            '-',
+
+          Window:
+            '-',
+
+          Score:
+            '-',
+
+          Stability:
+            result.reason
+
+        });
+
+
+        return;
+
+      }
+
+
+      rows.push({
+
+        Prize:
+          prize.key.toUpperCase(),
+
+        Model:
+          result.current.model,
+
+        Window:
+          result.current.window,
+
+        ModelConsistency:
+          result.validation
+            .modelConsistency +
+          '%',
+
+        WindowConsistency:
+          result.validation
+            .windowConsistency +
+          '%',
+
+        ConfigConsistency:
+          result.validation
+            .configConsistency +
+          '%',
+
+        Score:
+          result.validation
+            .stabilityScore,
+
+        Stability:
+          result.validation
+            .classification
+
+      });
+
+    }
+  );
+
+
+  const p =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.5 — PROVINCE VALIDATION'
+  );
+
+  console.log(
+    p
+      ? p.name
+      : provinceSlug
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   10. VALIDATE ALL 21 PROVINCES — ONE PRIZE
+   ========================================================================= */
+
+function validateAllProvincesV25(
+  giaiKey = 'db'
+) {
+
+  const rows = [];
+
+
+  PROVINCES.forEach(
+    province => {
+
+      const result =
+        validateModelStabilityV25(
+          province.slug,
+          giaiKey
+        );
+
+
+      if (
+        !result.ready
+      ) {
+
+        rows.push({
+
+          Province:
+            province.name,
+
+          Model:
+            '-',
+
+          Window:
+            '-',
+
+          Score:
+            '-',
+
+          Stability:
+            result.reason
+
+        });
+
+
+        return;
+
+      }
+
+
+      rows.push({
+
+        Province:
+          province.name,
+
+        Model:
+          result.current.model,
+
+        Window:
+          result.current.window,
+
+        ModelConsistency:
+          result.validation
+            .modelConsistency +
+          '%',
+
+        ConfigConsistency:
+          result.validation
+            .configConsistency +
+          '%',
+
+        Score:
+          result.validation
+            .stabilityScore,
+
+        Stability:
+          result.validation
+            .classification
+
+      });
+
+    }
+  );
+
+
+  rows.sort(
+    (a, b) => {
+
+      const scoreA =
+        Number(
+          a.Score
+        ) || 0;
+
+      const scoreB =
+        Number(
+          b.Score
+        ) || 0;
+
+
+      return (
+        scoreB -
+        scoreA
+      );
+
+    }
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.5 — ALL PROVINCES VALIDATION'
+  );
+
+  console.log(
+    `Prize: ${String(
+      giaiKey
+    ).toUpperCase()}`
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.table(
+    rows
+  );
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   11. QUICK TEST
+
+   Sau khi GitHub Pages cập nhật:
+
+   Kiên Giang — Giải Đặc Biệt:
+
+   printValidationV25(
+     'kien-giang',
+     'db'
+   );
+
+
+   Production recommendation:
+
+   productionDecisionV25(
+     'kien-giang',
+     'db'
+   );
+
+
+   Tất cả giải Kiên Giang:
+
+   validateProvinceV25(
+     'kien-giang'
+   );
+
+
+   DB của toàn bộ 21 tỉnh:
+
+   validateAllProvincesV25(
+     'db'
+   );
+
+
+   LƯU Ý:
+
+   V2.5 CHƯA thay nút "Dự Báo Ngay".
+
+   V2.5 chỉ làm lớp validation
+   giữa V2.4 và Production.
+
+   ========================================================================= */
+
+
+console.log(
+  'XSMN V2.5 Stability Validation loaded — Multi-Period / Production unchanged'
+);
+
