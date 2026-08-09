@@ -27788,3 +27788,236 @@ console.log(
   'XSMN V2.6 Block 7A FIX 2 loaded — Model Window Recovery ready'
 );
 
+/* =========================================================================
+   V2.6 — DEBUG CROSS-PROVINCE STRUCTURE
+   Chỉ đọc dữ liệu. Không thay đổi Engine.
+   ========================================================================= */
+
+function debugCrossProvinceStructureV26() {
+
+  const cross =
+    getLastCrossProvinceResultV26();
+
+  if (
+    !cross ||
+    !Array.isArray(cross.results) ||
+    !cross.results.length
+  ) {
+
+    alert(
+      'DEBUG V2.6\n\n' +
+      'Không tìm thấy Cross-Province result.\n\n' +
+      'Hãy chạy Cross-Province OOS 21 tỉnh trước.'
+    );
+
+    return;
+
+  }
+
+
+  const item =
+    cross.results[0];
+
+
+  const text = {
+
+    CROSS_KEYS:
+      Object.keys(
+        cross
+      ),
+
+    FIRST_ITEM_KEYS:
+      item
+        ? Object.keys(item)
+        : [],
+
+    PROVINCE:
+      item
+        ? (
+            item.province ||
+            item.provinceName ||
+            item.name
+          )
+        : null,
+
+    MODEL:
+      item
+        ? item.model
+        : null,
+
+    WINDOW:
+      item
+        ? item.window
+        : null,
+
+    HAS_SELECTION:
+      !!(
+        item &&
+        item.selection
+      ),
+
+    HAS_PERIODS:
+      !!(
+        item &&
+        Array.isArray(
+          item.periods
+        )
+      ),
+
+    PERIOD_COUNT:
+      item &&
+      Array.isArray(
+        item.periods
+      )
+        ? item.periods.length
+        : 0,
+
+    FIRST_PERIOD:
+      item &&
+      Array.isArray(
+        item.periods
+      ) &&
+      item.periods.length
+        ? item.periods[0]
+        : null,
+
+    HAS_OOS:
+      !!(
+        item &&
+        item.oos
+      ),
+
+    OOS_KEYS:
+      item &&
+      item.oos
+        ? Object.keys(
+            item.oos
+          )
+        : [],
+
+    HAS_RESULT:
+      !!(
+        item &&
+        item.result
+      ),
+
+    RESULT_KEYS:
+      item &&
+      item.result
+        ? Object.keys(
+            item.result
+          )
+        : []
+
+  };
+
+
+  alert(
+    JSON.stringify(
+      text,
+      null,
+      2
+    )
+  );
+
+
+  return {
+    cross,
+    item,
+    debug: text
+  };
+
+}
+
+
+/* =========================================================================
+   MOBILE DEBUG BUTTON
+   ========================================================================= */
+
+function addCrossStructureDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnCrossStructureDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnCrossStructureDebugV26';
+
+
+  button.textContent =
+    '🔍 Debug Cross-Province Structure';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    debugCrossProvinceStructureV26
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addCrossStructureDebugButtonV26
+  );
+
+} else {
+
+  addCrossStructureDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Cross-Province Structure Debug ready'
+);
+
