@@ -18432,3 +18432,976 @@ console.log(
   'XSMN V2.6 Mobile Research Panel ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 5A
+   SELECTION RELIABILITY ENGINE
+
+   Mục tiêu:
+   - Kiểm tra chất lượng lựa chọn Model + Window.
+   - So sánh In-Sample Selection với OOS Performance.
+   - Phát hiện:
+       + High Quality nhưng OOS thất bại.
+       + Margin cao nhưng OOS thất bại.
+       + Selection không ổn định.
+       + Overfitting risk.
+   - Research ONLY.
+   - KHÔNG thay đổi Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   27. SAFE NUMBER
+   ========================================================================= */
+
+function safeNumberV26(
+  value,
+  fallback = 0
+) {
+
+  const number =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : fallback;
+
+}
+
+
+/* =========================================================================
+   28. PEARSON CORRELATION
+
+   Dùng để kiểm tra:
+   Selection Quality / Margin
+   có tương quan với OOS Delta hay không.
+
+   +1  : tương quan thuận mạnh
+    0  : gần như không có quan hệ tuyến tính
+   -1  : tương quan nghịch mạnh
+   ========================================================================= */
+
+function correlationV26(
+  xs,
+  ys
+) {
+
+  if (
+    !Array.isArray(xs) ||
+    !Array.isArray(ys) ||
+    xs.length !== ys.length ||
+    xs.length < 2
+  ) {
+
+    return 0;
+
+  }
+
+
+  const n =
+    xs.length;
+
+
+  const meanX =
+    xs.reduce(
+      (sum, value) =>
+        sum +
+        safeNumberV26(
+          value
+        ),
+      0
+    ) / n;
+
+
+  const meanY =
+    ys.reduce(
+      (sum, value) =>
+        sum +
+        safeNumberV26(
+          value
+        ),
+      0
+    ) / n;
+
+
+  let numerator = 0;
+
+  let denominatorX = 0;
+
+  let denominatorY = 0;
+
+
+  for (
+    let i = 0;
+    i < n;
+    i++
+  ) {
+
+    const dx =
+      safeNumberV26(
+        xs[i]
+      ) -
+      meanX;
+
+
+    const dy =
+      safeNumberV26(
+        ys[i]
+      ) -
+      meanY;
+
+
+    numerator +=
+      dx * dy;
+
+
+    denominatorX +=
+      dx * dx;
+
+
+    denominatorY +=
+      dy * dy;
+
+  }
+
+
+  const denominator =
+    Math.sqrt(
+      denominatorX *
+      denominatorY
+    );
+
+
+  if (
+    !denominator
+  ) {
+
+    return 0;
+
+  }
+
+
+  return (
+    numerator /
+    denominator
+  );
+
+}
+
+
+/* =========================================================================
+   29. CLASSIFY CORRELATION
+   ========================================================================= */
+
+function classifyCorrelationV26(
+  value
+) {
+
+  const v =
+    safeNumberV26(
+      value
+    );
+
+
+  const abs =
+    Math.abs(
+      v
+    );
+
+
+  if (
+    abs >= 0.70
+  ) {
+
+    return v > 0
+      ? 'STRONG_POSITIVE'
+      : 'STRONG_NEGATIVE';
+
+  }
+
+
+  if (
+    abs >= 0.40
+  ) {
+
+    return v > 0
+      ? 'MODERATE_POSITIVE'
+      : 'MODERATE_NEGATIVE';
+
+  }
+
+
+  if (
+    abs >= 0.20
+  ) {
+
+    return v > 0
+      ? 'WEAK_POSITIVE'
+      : 'WEAK_NEGATIVE';
+
+  }
+
+
+  return 'VERY_WEAK';
+
+}
+
+
+/* =========================================================================
+   30. ANALYZE ONE SELECTION
+
+   So sánh:
+   - Selection Quality
+   - Selection Margin
+   - OOS Improvement
+   ========================================================================= */
+
+function analyzeSelectionPeriodV26(
+  item
+) {
+
+  if (
+    !item ||
+    !item.valid
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'INVALID_PERIOD'
+
+    };
+
+  }
+
+
+  const quality =
+    safeNumberV26(
+      item.selectionQuality
+    );
+
+
+  const margin =
+    safeNumberV26(
+      item.selectionMargin
+    );
+
+
+  const delta =
+    safeNumberV26(
+      item.improvement
+    );
+
+
+  let outcome =
+    'TIE';
+
+
+  if (
+    delta >
+    0.0000001
+  ) {
+
+    outcome =
+      'WIN';
+
+  }
+
+
+  if (
+    delta <
+    -0.0000001
+  ) {
+
+    outcome =
+      'LOSS';
+
+  }
+
+
+  /*
+   * Confidence chỉ mô tả độ rõ
+   * của lựa chọn trong training.
+   *
+   * KHÔNG phải xác suất trúng.
+   */
+
+  let selectionConfidence =
+    'LOW';
+
+
+  if (
+    margin >= 0.03
+  ) {
+
+    selectionConfidence =
+      'HIGH';
+
+  } else if (
+    margin >= 0.01
+  ) {
+
+    selectionConfidence =
+      'MEDIUM';
+
+  }
+
+
+  /*
+   * Nếu training tỏ ra tự tin
+   * nhưng OOS lại thua,
+   * đây là tín hiệu overfitting.
+   */
+
+  const overfitSignal =
+    (
+      selectionConfidence ===
+        'HIGH' ||
+      quality >= 7
+    ) &&
+    delta < 0;
+
+
+  /*
+   * Margin gần bằng 0 nghĩa là
+   * model thắng training rất sít sao.
+   */
+
+  const fragileSelection =
+    margin <
+    0.005;
+
+
+  return {
+
+    valid:
+      true,
+
+    period:
+      item.period,
+
+    model:
+      item.model,
+
+    window:
+      safeNumberV26(
+        item.window
+      ),
+
+    selectionQuality:
+      quality,
+
+    selectionMargin:
+      margin,
+
+    selectionConfidence,
+
+    oosDelta:
+      delta,
+
+    outcome,
+
+    overfitSignal,
+
+    fragileSelection
+
+  };
+
+}
+
+
+/* =========================================================================
+   31. MODEL / WINDOW STABILITY
+   ========================================================================= */
+
+function calculateSelectionStabilityV26(
+  rows
+) {
+
+  if (
+    !Array.isArray(rows) ||
+    !rows.length
+  ) {
+
+    return {
+
+      modelStability: 0,
+
+      windowStability: 0,
+
+      dominantModel: null,
+
+      dominantWindow: null
+
+    };
+
+  }
+
+
+  const modelCounts = {};
+
+  const windowCounts = {};
+
+
+  rows.forEach(
+    row => {
+
+      const model =
+        String(
+          row.model || ''
+        );
+
+
+      const window =
+        String(
+          row.window || ''
+        );
+
+
+      modelCounts[model] =
+        (
+          modelCounts[model] ||
+          0
+        ) + 1;
+
+
+      windowCounts[window] =
+        (
+          windowCounts[window] ||
+          0
+        ) + 1;
+
+    }
+  );
+
+
+  const modelEntries =
+    Object.entries(
+      modelCounts
+    )
+    .sort(
+      (a, b) =>
+        b[1] - a[1]
+    );
+
+
+  const windowEntries =
+    Object.entries(
+      windowCounts
+    )
+    .sort(
+      (a, b) =>
+        b[1] - a[1]
+    );
+
+
+  const dominantModel =
+    modelEntries.length
+      ? modelEntries[0][0]
+      : null;
+
+
+  const dominantWindow =
+    windowEntries.length
+      ? Number(
+          windowEntries[0][0]
+        )
+      : null;
+
+
+  const modelStability =
+    modelEntries.length
+      ? modelEntries[0][1] /
+        rows.length
+      : 0;
+
+
+  const windowStability =
+    windowEntries.length
+      ? windowEntries[0][1] /
+        rows.length
+      : 0;
+
+
+  return {
+
+    modelStability,
+
+    windowStability,
+
+    dominantModel,
+
+    dominantWindow,
+
+    modelCounts,
+
+    windowCounts
+
+  };
+
+}
+
+
+/* =========================================================================
+   32. CLASSIFY SELECTION RELIABILITY
+
+   STRONG:
+   - OOS tổng thể tốt
+   - >= 2/3 periods thắng
+   - Quality correlation không âm
+   - Không có overfit signal
+   - Selection đủ ổn định
+
+   MODERATE:
+   - Có bằng chứng tích cực
+   - nhưng chưa đủ mạnh
+
+   WEAK:
+   - OOS chưa thuyết phục
+   - hoặc selection thiếu ổn định
+
+   FAIL:
+   - OOS âm
+   - và selection metrics không dự báo được OOS
+   ========================================================================= */
+
+function classifySelectionReliabilityV26(
+  data
+) {
+
+  if (
+    !data
+  ) {
+
+    return 'NO_DATA';
+
+  }
+
+
+  const positiveOOS =
+    data.averageDelta > 0;
+
+
+  const majorityWins =
+    data.winRate >=
+    0.50;
+
+
+  const qualityUseful =
+    data.qualityCorrelation >=
+    0;
+
+
+  const noOverfit =
+    data.overfitPeriods ===
+    0;
+
+
+  const stabilityOkay =
+    data.stability.modelStability >=
+      0.50 &&
+    data.stability.windowStability >=
+      0.50;
+
+
+  if (
+    positiveOOS &&
+    majorityWins &&
+    qualityUseful &&
+    noOverfit &&
+    stabilityOkay
+  ) {
+
+    return 'STRONG';
+
+  }
+
+
+  if (
+    majorityWins &&
+    (
+      positiveOOS ||
+      qualityUseful
+    )
+  ) {
+
+    return 'MODERATE';
+
+  }
+
+
+  if (
+    positiveOOS ||
+    majorityWins ||
+    qualityUseful
+  ) {
+
+    return 'WEAK';
+
+  }
+
+
+  return 'FAIL';
+
+}
+
+
+/* =========================================================================
+   33. RUN SELECTION RELIABILITY
+   ========================================================================= */
+
+function evaluateSelectionReliabilityV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey =
+    'db'
+) {
+
+  const oos =
+    evaluateProvinceOOSV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !oos ||
+    !oos.ready
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        oos
+          ? oos.reason
+          : 'OOS_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  const rows =
+    oos.periods
+      .filter(
+        item =>
+          item.valid
+      )
+      .map(
+        analyzeSelectionPeriodV26
+      )
+      .filter(
+        item =>
+          item.valid
+      );
+
+
+  if (
+    !rows.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_VALID_SELECTION_PERIODS'
+
+    };
+
+  }
+
+
+  const qualities =
+    rows.map(
+      row =>
+        row.selectionQuality
+    );
+
+
+  const margins =
+    rows.map(
+      row =>
+        row.selectionMargin
+    );
+
+
+  const deltas =
+    rows.map(
+      row =>
+        row.oosDelta
+    );
+
+
+  const qualityCorrelation =
+    correlationV26(
+      qualities,
+      deltas
+    );
+
+
+  const marginCorrelation =
+    correlationV26(
+      margins,
+      deltas
+    );
+
+
+  const wins =
+    rows.filter(
+      row =>
+        row.outcome ===
+        'WIN'
+    ).length;
+
+
+  const losses =
+    rows.filter(
+      row =>
+        row.outcome ===
+        'LOSS'
+    ).length;
+
+
+  const ties =
+    rows.length -
+    wins -
+    losses;
+
+
+  const averageDelta =
+    deltas.reduce(
+      (sum, value) =>
+        sum + value,
+      0
+    ) /
+    deltas.length;
+
+
+  const overfitPeriods =
+    rows.filter(
+      row =>
+        row.overfitSignal
+    ).length;
+
+
+  const fragilePeriods =
+    rows.filter(
+      row =>
+        row.fragileSelection
+    ).length;
+
+
+  const stability =
+    calculateSelectionStabilityV26(
+      rows
+    );
+
+
+  const data = {
+
+    periods:
+      rows.length,
+
+    wins,
+
+    losses,
+
+    ties,
+
+    winRate:
+      wins /
+      rows.length,
+
+    averageDelta,
+
+    qualityCorrelation,
+
+    qualityCorrelationClass:
+      classifyCorrelationV26(
+        qualityCorrelation
+      ),
+
+    marginCorrelation,
+
+    marginCorrelationClass:
+      classifyCorrelationV26(
+        marginCorrelation
+      ),
+
+    overfitPeriods,
+
+    fragilePeriods,
+
+    stability
+
+  };
+
+
+  const classification =
+    classifySelectionReliabilityV26(
+      data
+    );
+
+
+  return {
+
+    ready:
+      true,
+
+    version:
+      'V2.6',
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    oosClassification:
+      oos.classification,
+
+    classification,
+
+    summary:
+      data,
+
+    periods:
+      rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   34. CONSOLE INSPECTION
+   ========================================================================= */
+
+function printSelectionReliabilityV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey =
+    'db'
+) {
+
+  const result =
+    evaluateSelectionReliabilityV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — SELECTION RELIABILITY'
+  );
+
+  console.log(
+    provinceSlug,
+    String(
+      giaiKey
+    ).toUpperCase()
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.table(
+    result.periods.map(
+      row => ({
+
+        Period:
+          row.period,
+
+        Model:
+          row.model,
+
+        Window:
+          row.window,
+
+        Quality:
+          row.selectionQuality
+            .toFixed(2),
+
+        Margin:
+          row.selectionMargin
+            .toFixed(4),
+
+        Confidence:
+          row.selectionConfidence,
+
+        OOSDelta:
+          row.oosDelta
+            .toFixed(4),
+
+        Outcome:
+          row.outcome,
+
+        Fragile:
+          row.fragileSelection
+            ? 'YES'
+            : 'NO',
+
+        Overfit:
+          row.overfitSignal
+            ? 'YES'
+            : 'NO'
+
+      }))
+  );
+
+
+  console.log(
+    'SUMMARY:',
+    result.summary
+  );
+
+
+  console.log(
+    'SELECTION RELIABILITY:',
+    result.classification
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 5A loaded — Selection Reliability Engine ready'
+);
+
