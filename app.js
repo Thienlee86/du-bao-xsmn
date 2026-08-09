@@ -13115,3 +13115,568 @@ console.log(
   );
 
 })();
+
+/* =========================================================================
+   XSMN V2.6
+   OUT-OF-SAMPLE PERFORMANCE VALIDATION ENGINE
+
+   Mục tiêu:
+   - Không thay Production Engine.
+   - Không thay V2.4 Auto Model Selection.
+   - Không thay V2.5 Stability Validation.
+   - Kiểm tra Model + Window trên dữ liệu TEST
+     hoàn toàn nằm ngoài training set.
+   - Walk-Forward / No Future Leakage.
+
+   Quy trình mỗi period:
+
+       TRAINING DATA
+             ↓
+       V2.4 chọn Model + Window
+             ↓
+       khóa cấu hình
+             ↓
+       TEST trên dữ liệu tương lai
+             ↓
+       đo Top1 / Top3 / MRR / AvgRank
+
+   V2.6 chỉ tạo Production Recommendation.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const V26_CONFIG = {
+
+  /*
+   * Mỗi block OOS gồm 20 kỳ.
+   */
+
+  testPeriodSize: 20,
+
+
+  /*
+   * Tối đa 3 block OOS.
+   *
+   * Với 100 kỳ dữ liệu:
+   * 40 kỳ đầu training
+   * + tối đa 3 block × 20 kỳ.
+   */
+
+  maxTestPeriods: 3,
+
+
+  /*
+   * Training tối thiểu trước
+   * period OOS đầu tiên.
+   */
+
+  minTrainingDraws: 40,
+
+
+  /*
+   * Trọng số Performance Score.
+   *
+   * Top1 được ưu tiên cao nhất.
+   * Top3 đo khả năng lọt nhóm đầu.
+   * MRR thưởng cho thứ hạng cao.
+   * Rank Quality đánh giá toàn bảng.
+   */
+
+  weights: {
+
+    top1: 0.35,
+
+    top3: 0.30,
+
+    mrr: 0.25,
+
+    rankQuality: 0.10
+
+  },
+
+
+  /*
+   * Classification thresholds.
+   *
+   * Đây mới chỉ là ngưỡng nghiên cứu.
+   * Chưa dùng để thay Production.
+   */
+
+  strongThreshold: 12,
+
+  goodThreshold: 8,
+
+  weakThreshold: 5,
+
+
+  /*
+   * Yêu cầu tối thiểu bao nhiêu
+   * OOS period hợp lệ.
+   */
+
+  minValidPeriods: 2,
+
+
+  /*
+   * Production recommendation V2.6
+   * sẽ yêu cầu V2.5 đồng thuận.
+   */
+
+  requireV25Approval: true
+
+};
+
+
+/* =========================================================================
+   2. BASIC HELPERS
+   ========================================================================= */
+
+function v26Clamp(
+  value,
+  min = 0,
+  max = 1
+) {
+
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      Number(value || 0)
+    )
+  );
+
+}
+
+
+function v26Mean(
+  values
+) {
+
+  if (
+    !Array.isArray(values) ||
+    !values.length
+  ) {
+
+    return 0;
+
+  }
+
+
+  return values.reduce(
+    (sum, value) =>
+      sum +
+      Number(
+        value || 0
+      ),
+    0
+  ) / values.length;
+
+}
+
+
+function v26StdDev(
+  values
+) {
+
+  if (
+    !Array.isArray(values) ||
+    values.length < 2
+  ) {
+
+    return 0;
+
+  }
+
+
+  const mean =
+    v26Mean(
+      values
+    );
+
+
+  const variance =
+    v26Mean(
+      values.map(
+        value =>
+          Math.pow(
+            Number(value || 0) -
+            mean,
+            2
+          )
+      )
+    );
+
+
+  return Math.sqrt(
+    variance
+  );
+
+}
+
+
+/* =========================================================================
+   3. FIND MODEL CONFIG
+   ========================================================================= */
+
+function getModelConfigV26(
+  modelId
+) {
+
+  if (
+    !Array.isArray(
+      MODEL_LAB_V23_CONFIGS
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  return (
+    MODEL_LAB_V23_CONFIGS.find(
+      config =>
+        config.id ===
+        modelId
+    ) ||
+    null
+  );
+
+}
+
+
+/* =========================================================================
+   4. EMPTY OOS METRIC
+   ========================================================================= */
+
+function createOOSMetricV26() {
+
+  return {
+
+    tests: 0,
+
+    top1: 0,
+
+    top2: 0,
+
+    top3: 0,
+
+    reciprocalRank: 0,
+
+    rankSum: 0,
+
+    rankedHits: 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. UPDATE OOS METRIC
+   ========================================================================= */
+
+function updateOOSMetricV26(
+  metric,
+  actualNumbers,
+  rankedNumbersList
+) {
+
+  metric.tests++;
+
+
+  if (
+    !Array.isArray(actualNumbers) ||
+    !actualNumbers.length ||
+    !Array.isArray(
+      rankedNumbersList
+    ) ||
+    !rankedNumbersList.length
+  ) {
+
+    return;
+
+  }
+
+
+  let bestRank =
+    Infinity;
+
+
+  actualNumbers.forEach(
+    actual => {
+
+      const index =
+        rankedNumbersList.indexOf(
+          actual
+        );
+
+
+      if (
+        index >= 0
+      ) {
+
+        bestRank =
+          Math.min(
+            bestRank,
+            index + 1
+          );
+
+      }
+
+    }
+  );
+
+
+  if (
+    bestRank === Infinity
+  ) {
+
+    return;
+
+  }
+
+
+  metric.rankedHits++;
+
+
+  metric.rankSum +=
+    bestRank;
+
+
+  metric.reciprocalRank +=
+    1 / bestRank;
+
+
+  if (
+    bestRank <= 1
+  ) {
+
+    metric.top1++;
+
+  }
+
+
+  if (
+    bestRank <= 2
+  ) {
+
+    metric.top2++;
+
+  }
+
+
+  if (
+    bestRank <= 3
+  ) {
+
+    metric.top3++;
+
+  }
+
+}
+
+
+/* =========================================================================
+   6. FINALIZE OOS METRIC
+   ========================================================================= */
+
+function finalizeOOSMetricV26(
+  metric
+) {
+
+  const tests =
+    Number(
+      metric.tests || 0
+    );
+
+
+  if (
+    !tests
+  ) {
+
+    return {
+
+      tests: 0,
+
+      top1: 0,
+
+      top2: 0,
+
+      top3: 0,
+
+      top1Rate: 0,
+
+      top2Rate: 0,
+
+      top3Rate: 0,
+
+      mrr: 0,
+
+      averageRank: 100
+
+    };
+
+  }
+
+
+  return {
+
+    tests,
+
+    top1:
+      metric.top1,
+
+    top2:
+      metric.top2,
+
+    top3:
+      metric.top3,
+
+    top1Rate:
+      metric.top1 /
+      tests,
+
+    top2Rate:
+      metric.top2 /
+      tests,
+
+    top3Rate:
+      metric.top3 /
+      tests,
+
+    mrr:
+      metric.reciprocalRank /
+      tests,
+
+    averageRank:
+      metric.rankedHits
+        ? metric.rankSum /
+          metric.rankedHits
+        : 100
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. OOS PERFORMANCE SCORE
+   ========================================================================= */
+
+function performanceScoreV26(
+  metric
+) {
+
+  if (
+    !metric ||
+    !metric.tests
+  ) {
+
+    return 0;
+
+  }
+
+
+  const rankQuality =
+    v26Clamp(
+
+      1 -
+      (
+        Number(
+          metric.averageRank || 100
+        ) -
+        1
+      ) /
+      99
+
+    );
+
+
+  const score =
+
+    Number(
+      metric.top1Rate || 0
+    ) *
+    V26_CONFIG.weights.top1 +
+
+    Number(
+      metric.top3Rate || 0
+    ) *
+    V26_CONFIG.weights.top3 +
+
+    Number(
+      metric.mrr || 0
+    ) *
+    V26_CONFIG.weights.mrr +
+
+    rankQuality *
+    V26_CONFIG.weights.rankQuality;
+
+
+  return Number(
+    (
+      score *
+      100
+    ).toFixed(4)
+  );
+
+}
+
+
+/* =========================================================================
+   8. PERFORMANCE CLASSIFICATION
+   ========================================================================= */
+
+function classifyPerformanceV26(
+  score
+) {
+
+  const value =
+    Number(
+      score || 0
+    );
+
+
+  if (
+    value >=
+    V26_CONFIG.strongThreshold
+  ) {
+
+    return 'STRONG';
+
+  }
+
+
+  if (
+    value >=
+    V26_CONFIG.goodThreshold
+  ) {
+
+    return 'GOOD';
+
+  }
+
+
+  if (
+    value >=
+    V26_CONFIG.weakThreshold
+  ) {
+
+    return 'WEAK';
+
+  }
+
+
+  return 'POOR';
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 1 loaded — OOS Core Helpers ready'
+);
+
