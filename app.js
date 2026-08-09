@@ -23355,3 +23355,1967 @@ console.log(
   'XSMN V2.6 3-Province Mobile Test ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 7A
+   PROVINCE ADAPTIVE GATE ENGINE
+
+   Mục tiêu:
+   - Đọc kết quả Cross-Province OOS V2.6.
+   - Đánh giá Adaptive theo TỪNG TỈNH.
+   - Không dùng Global Model để quyết định cho tất cả tỉnh.
+   - Phân biệt:
+       + ADAPTIVE
+       + WATCH
+       + BASELINE
+       + REJECT
+   - Xét đồng thời:
+       + OOS Quality Delta
+       + Period Win Rate
+       + MRR Improvement
+       + Average Rank Improvement
+       + Số OOS tests
+       + Model được chọn
+   - BASELINE được chọn không bị xem là Adaptive Failure.
+   - Research Only.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const PROVINCE_GATE_V26_CONFIG = {
+
+  /*
+   * Số OOS tests tối thiểu.
+   *
+   * Hiện tại mỗi tỉnh:
+   * 3 periods × 20 tests = 60.
+   */
+
+  minTests: 40,
+
+
+  /*
+   * Ngưỡng Quality Delta.
+   *
+   * strongDelta:
+   * lợi thế OOS đáng chú ý.
+   *
+   * minimumPositiveDelta:
+   * lợi thế tối thiểu để cân nhắc Adaptive.
+   *
+   * rejectDelta:
+   * Adaptive thua Baseline đủ rõ.
+   */
+
+  strongDelta: 0.005,
+
+  minimumPositiveDelta: 0.001,
+
+  rejectDelta: -0.001,
+
+
+  /*
+   * Period Win Rate.
+   */
+
+  strongWinRate: 2 / 3,
+
+  minimumWinRate: 0.50,
+
+
+  /*
+   * Gate Score thresholds.
+   */
+
+  adaptiveScore: 70,
+
+  watchScore: 45,
+
+
+  /*
+   * Nếu model hiện tại chính là BASELINE,
+   * không coi Delta ≈ 0 là failure.
+   */
+
+  baselineNeutralTolerance: 0.0005
+
+};
+
+
+/* =========================================================================
+   2. NUMBER HELPERS
+   ========================================================================= */
+
+function gateNumberV26(
+  value,
+  fallback = 0
+) {
+
+  const n =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(n)
+    ? n
+    : fallback;
+
+}
+
+
+function gateClampV26(
+  value,
+  min = 0,
+  max = 1
+) {
+
+  return Math.max(
+    min,
+    Math.min(
+      max,
+      value
+    )
+  );
+
+}
+
+
+function gatePercentV26(
+  value
+) {
+
+  return (
+    gateNumberV26(
+      value
+    ) *
+    100
+  ).toFixed(2) + '%';
+
+}
+
+
+/* =========================================================================
+   3. GET PROVINCE NAME
+   ========================================================================= */
+
+function gateProvinceNameV26(
+  item
+) {
+
+  if (!item) {
+
+    return '-';
+
+  }
+
+
+  if (
+    item.provinceName
+  ) {
+
+    return item.provinceName;
+
+  }
+
+
+  if (
+    item.name
+  ) {
+
+    return item.name;
+
+  }
+
+
+  if (
+    item.province
+  ) {
+
+    try {
+
+      const p =
+        provinceBySlug(
+          item.province
+        );
+
+
+      if (p) {
+
+        return p.name;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore lookup error.
+       */
+
+    }
+
+
+    return item.province;
+
+  }
+
+
+  return '-';
+
+}
+
+
+/* =========================================================================
+   4. EXTRACT OOS SUMMARY
+
+   Cross-Province result có thể lưu:
+   - item.summary
+   hoặc
+   - item.oos.summary
+   hoặc
+   - item.result.summary
+
+   Helper này giúp Block 7A không phụ thuộc
+   quá chặt vào UI Block 6.
+   ========================================================================= */
+
+function gateSummaryV26(
+  item
+) {
+
+  if (!item) {
+
+    return null;
+
+  }
+
+
+  if (
+    item.summary &&
+    item.summary.adaptive &&
+    item.summary.baseline
+  ) {
+
+    return item.summary;
+
+  }
+
+
+  if (
+    item.oos &&
+    item.oos.summary
+  ) {
+
+    return item.oos.summary;
+
+  }
+
+
+  if (
+    item.result &&
+    item.result.summary
+  ) {
+
+    return item.result.summary;
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   5. EXTRACT SELECTED MODEL / WINDOW
+
+   Cross-Province summary hiện có thể lưu
+   selection ở các vị trí khác nhau.
+
+   Ưu tiên:
+   1. item.model / item.window
+   2. item.selection
+   3. dominant model/window trong periods
+   ========================================================================= */
+
+function gateSelectionV26(
+  item
+) {
+
+  let model =
+    item &&
+    item.model
+      ? item.model
+      : null;
+
+
+  let windowSize =
+    item &&
+    item.window != null
+      ? Number(
+          item.window
+        )
+      : null;
+
+
+  if (
+    !model &&
+    item &&
+    item.selection
+  ) {
+
+    model =
+      item.selection.model ||
+      null;
+
+
+    if (
+      windowSize == null &&
+      item.selection.window != null
+    ) {
+
+      windowSize =
+        Number(
+          item.selection.window
+        );
+
+    }
+
+  }
+
+
+  /*
+   * Nếu chưa có, tìm dominant selection
+   * trong các OOS periods.
+   */
+
+  const periodList =
+
+    item &&
+    Array.isArray(
+      item.periods
+    )
+
+      ? item.periods
+
+      : item &&
+        item.oos &&
+        Array.isArray(
+          item.oos.periods
+        )
+
+        ? item.oos.periods
+
+        : item &&
+          item.result &&
+          Array.isArray(
+            item.result.periods
+          )
+
+          ? item.result.periods
+
+          : [];
+
+
+  if (
+    (!model ||
+     windowSize == null) &&
+    periodList.length
+  ) {
+
+    const valid =
+      periodList.filter(
+        period =>
+          period &&
+          period.valid
+      );
+
+
+    if (valid.length) {
+
+      const modelCounts = {};
+
+      const windowCounts = {};
+
+
+      valid.forEach(
+        period => {
+
+          if (
+            period.model
+          ) {
+
+            modelCounts[
+              period.model
+            ] =
+              (
+                modelCounts[
+                  period.model
+                ] || 0
+              ) + 1;
+
+          }
+
+
+          if (
+            period.window != null
+          ) {
+
+            const key =
+              String(
+                period.window
+              );
+
+
+            windowCounts[key] =
+              (
+                windowCounts[key] ||
+                0
+              ) + 1;
+
+          }
+
+        }
+      );
+
+
+      if (!model) {
+
+        const models =
+          Object.entries(
+            modelCounts
+          )
+          .sort(
+            (a, b) =>
+              b[1] -
+              a[1]
+          );
+
+
+        if (
+          models.length
+        ) {
+
+          model =
+            models[0][0];
+
+        }
+
+      }
+
+
+      if (
+        windowSize == null
+      ) {
+
+        const windows =
+          Object.entries(
+            windowCounts
+          )
+          .sort(
+            (a, b) =>
+              b[1] -
+              a[1]
+          );
+
+
+        if (
+          windows.length
+        ) {
+
+          windowSize =
+            Number(
+              windows[0][0]
+            );
+
+        }
+
+      }
+
+    }
+
+  }
+
+
+  return {
+
+    model:
+      model ||
+      'UNKNOWN',
+
+    window:
+      windowSize
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. QUALITY DELTA SCORE
+
+   Chuyển Delta thành score 0 → 100.
+
+   Delta >= +0.010:
+       gần 100.
+
+   Delta = 0:
+       khoảng 50.
+
+   Delta <= -0.010:
+       gần 0.
+
+   Đây chỉ là Research Score,
+   không phải probability.
+   ========================================================================= */
+
+function gateDeltaScoreV26(
+  delta
+) {
+
+  const normalized =
+    (
+      gateNumberV26(
+        delta
+      ) +
+      0.010
+    ) /
+    0.020;
+
+
+  return (
+    gateClampV26(
+      normalized
+    ) *
+    100
+  );
+
+}
+
+
+/* =========================================================================
+   7. WIN RATE SCORE
+   ========================================================================= */
+
+function gateWinRateScoreV26(
+  winRate
+) {
+
+  return (
+    gateClampV26(
+      gateNumberV26(
+        winRate
+      )
+    ) *
+    100
+  );
+
+}
+
+
+/* =========================================================================
+   8. MRR SCORE
+
+   So sánh Adaptive MRR với Baseline MRR.
+
+   Improvement +0.01 trở lên:
+       score cao.
+
+   Không cải thiện:
+       khoảng 50.
+   ========================================================================= */
+
+function gateMRRScoreV26(
+  adaptiveMRR,
+  baselineMRR
+) {
+
+  const delta =
+    gateNumberV26(
+      adaptiveMRR
+    ) -
+    gateNumberV26(
+      baselineMRR
+    );
+
+
+  const normalized =
+    (
+      delta +
+      0.01
+    ) /
+    0.02;
+
+
+  return (
+    gateClampV26(
+      normalized
+    ) *
+    100
+  );
+
+}
+
+
+/* =========================================================================
+   9. RANK SCORE
+
+   Average Rank thấp hơn là tốt hơn.
+
+   Baseline Rank - Adaptive Rank > 0
+   nghĩa là Adaptive tốt hơn.
+
+   Improvement 5 rank:
+       rất tốt.
+
+   Worse 5 rank:
+       rất xấu.
+   ========================================================================= */
+
+function gateRankScoreV26(
+  adaptiveRank,
+  baselineRank
+) {
+
+  const improvement =
+    gateNumberV26(
+      baselineRank
+    ) -
+    gateNumberV26(
+      adaptiveRank
+    );
+
+
+  const normalized =
+    (
+      improvement +
+      5
+    ) /
+    10;
+
+
+  return (
+    gateClampV26(
+      normalized
+    ) *
+    100
+  );
+
+}
+
+
+/* =========================================================================
+   10. TEST COVERAGE SCORE
+   ========================================================================= */
+
+function gateCoverageScoreV26(
+  tests
+) {
+
+  const minTests =
+    PROVINCE_GATE_V26_CONFIG
+      .minTests;
+
+
+  if (
+    tests >= minTests
+  ) {
+
+    return 100;
+
+  }
+
+
+  return (
+    gateClampV26(
+      tests /
+      minTests
+    ) *
+    100
+  );
+
+}
+
+
+/* =========================================================================
+   11. CALCULATE PROVINCE GATE SCORE
+
+   Weight:
+
+   Quality Delta      35%
+   Period Win Rate    25%
+   MRR Improvement    20%
+   Rank Improvement   15%
+   Test Coverage       5%
+   ========================================================================= */
+
+function calculateProvinceGateScoreV26(
+  metrics
+) {
+
+  const deltaScore =
+    gateDeltaScoreV26(
+      metrics.delta
+    );
+
+
+  const winRateScore =
+    gateWinRateScoreV26(
+      metrics.winRate
+    );
+
+
+  const mrrScore =
+    gateMRRScoreV26(
+      metrics.adaptiveMRR,
+      metrics.baselineMRR
+    );
+
+
+  const rankScore =
+    gateRankScoreV26(
+      metrics.adaptiveRank,
+      metrics.baselineRank
+    );
+
+
+  const coverageScore =
+    gateCoverageScoreV26(
+      metrics.tests
+    );
+
+
+  const score =
+
+    deltaScore *
+      0.35 +
+
+    winRateScore *
+      0.25 +
+
+    mrrScore *
+      0.20 +
+
+    rankScore *
+      0.15 +
+
+    coverageScore *
+      0.05;
+
+
+  return {
+
+    score:
+      Number(
+        score.toFixed(
+          2
+        )
+      ),
+
+    components: {
+
+      deltaScore:
+        Number(
+          deltaScore.toFixed(
+            2
+          )
+        ),
+
+      winRateScore:
+        Number(
+          winRateScore.toFixed(
+            2
+          )
+        ),
+
+      mrrScore:
+        Number(
+          mrrScore.toFixed(
+            2
+          )
+        ),
+
+      rankScore:
+        Number(
+          rankScore.toFixed(
+            2
+          )
+        ),
+
+      coverageScore:
+        Number(
+          coverageScore.toFixed(
+            2
+          )
+        )
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   12. CLASSIFY PROVINCE GATE
+   ========================================================================= */
+
+function classifyProvinceGateV26(
+  metrics,
+  gateResult
+) {
+
+  const config =
+    PROVINCE_GATE_V26_CONFIG;
+
+
+  const model =
+    String(
+      metrics.model ||
+      ''
+    ).toUpperCase();
+
+
+  const delta =
+    gateNumberV26(
+      metrics.delta
+    );
+
+
+  const winRate =
+    gateNumberV26(
+      metrics.winRate
+    );
+
+
+  const tests =
+    gateNumberV26(
+      metrics.tests
+    );
+
+
+  const mrrBetter =
+    metrics.adaptiveMRR >=
+    metrics.baselineMRR;
+
+
+  const rankBetter =
+    metrics.adaptiveRank <=
+    metrics.baselineRank;
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 1:
+   * V2.4/V2.6 tự chọn BASELINE.
+   *
+   * Nếu Delta gần 0 thì đây không phải failure.
+   * Production nên tiếp tục BASELINE.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    model === 'BASELINE' &&
+    Math.abs(
+      delta
+    ) <=
+      config
+        .baselineNeutralTolerance
+  ) {
+
+    return {
+
+      gate:
+        'BASELINE',
+
+      emoji:
+        '⚪',
+
+      reason:
+        'BASELINE_SELECTED_NEUTRAL'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 2:
+   * Không đủ OOS tests.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    tests <
+    config.minTests
+  ) {
+
+    return {
+
+      gate:
+        'WATCH',
+
+      emoji:
+        '🟡',
+
+      reason:
+        'INSUFFICIENT_OOS_TESTS'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 3:
+   * Adaptive thua Baseline rõ.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    delta <=
+      config.rejectDelta &&
+    winRate < 0.50
+  ) {
+
+    return {
+
+      gate:
+        'REJECT',
+
+      emoji:
+        '🔴',
+
+      reason:
+        'NEGATIVE_OOS_EDGE'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 4:
+   * Strong Adaptive Candidate.
+
+   * Yêu cầu:
+   * - Delta dương đủ rõ
+   * - >= 2/3 period thắng
+   * - MRR không kém
+   * - Rank không kém
+   * - Gate Score >= threshold
+   * -------------------------------------------------------------
+   */
+
+  if (
+    delta >=
+      config
+        .minimumPositiveDelta &&
+
+    winRate >=
+      config
+        .strongWinRate &&
+
+    mrrBetter &&
+
+    rankBetter &&
+
+    gateResult.score >=
+      config
+        .adaptiveScore
+  ) {
+
+    return {
+
+      gate:
+        'ADAPTIVE',
+
+      emoji:
+        '🟢',
+
+      reason:
+        delta >=
+          config.strongDelta
+          ? 'STRONG_OOS_EDGE'
+          : 'CONSISTENT_OOS_EDGE'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 5:
+   * Có tín hiệu tích cực nhưng chưa đủ mạnh.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    gateResult.score >=
+      config.watchScore ||
+    delta > 0 ||
+    mrrBetter ||
+    rankBetter
+  ) {
+
+    return {
+
+      gate:
+        'WATCH',
+
+      emoji:
+        '🟡',
+
+      reason:
+        'OOS_SIGNAL_NOT_YET_ROBUST'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE 6:
+   * Không có lợi thế Adaptive.
+   * -------------------------------------------------------------
+   */
+
+  return {
+
+    gate:
+      'BASELINE',
+
+    emoji:
+      '⚪',
+
+    reason:
+      'NO_CONFIRMED_ADAPTIVE_EDGE'
+
+  };
+
+}
+
+
+/* =========================================================================
+   13. ANALYZE ONE PROVINCE
+   ========================================================================= */
+
+function analyzeProvinceGateV26(
+  item
+) {
+
+  const summary =
+    gateSummaryV26(
+      item
+    );
+
+
+  if (!summary) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        gateProvinceNameV26(
+          item
+        ),
+
+      reason:
+        'NO_OOS_SUMMARY'
+
+    };
+
+  }
+
+
+  const selection =
+    gateSelectionV26(
+      item
+    );
+
+
+  const adaptive =
+    summary.adaptive ||
+    {};
+
+
+  const baseline =
+    summary.baseline ||
+    {};
+
+
+  const delta =
+    gateNumberV26(
+      summary.improvement
+    );
+
+
+  const winRate =
+    gateNumberV26(
+      summary.winRate
+    );
+
+
+  const metrics = {
+
+    province:
+      gateProvinceNameV26(
+        item
+      ),
+
+    provinceSlug:
+      item.province ||
+      item.slug ||
+      null,
+
+    model:
+      selection.model,
+
+    window:
+      selection.window,
+
+    tests:
+      gateNumberV26(
+        summary.tests
+      ),
+
+    periods:
+      gateNumberV26(
+        summary.periods
+      ),
+
+    winningPeriods:
+      gateNumberV26(
+        summary.winningPeriods
+      ),
+
+    tiedPeriods:
+      gateNumberV26(
+        summary.tiedPeriods
+      ),
+
+    losingPeriods:
+      gateNumberV26(
+        summary.losingPeriods
+      ),
+
+    winRate,
+
+    adaptiveQuality:
+      gateNumberV26(
+        adaptive.quality
+      ),
+
+    baselineQuality:
+      gateNumberV26(
+        baseline.quality
+      ),
+
+    delta,
+
+    adaptiveMRR:
+      gateNumberV26(
+        adaptive.mrr
+      ),
+
+    baselineMRR:
+      gateNumberV26(
+        baseline.mrr
+      ),
+
+    mrrDelta:
+      gateNumberV26(
+        adaptive.mrr
+      ) -
+      gateNumberV26(
+        baseline.mrr
+      ),
+
+    adaptiveRank:
+      gateNumberV26(
+        adaptive.averageRank,
+        100
+      ),
+
+    baselineRank:
+      gateNumberV26(
+        baseline.averageRank,
+        100
+      ),
+
+    rankImprovement:
+      gateNumberV26(
+        baseline.averageRank,
+        100
+      ) -
+      gateNumberV26(
+        adaptive.averageRank,
+        100
+      )
+
+  };
+
+
+  const gateResult =
+    calculateProvinceGateScoreV26(
+      metrics
+    );
+
+
+  const classification =
+    classifyProvinceGateV26(
+      metrics,
+      gateResult
+    );
+
+
+  return {
+
+    ready:
+      true,
+
+    ...metrics,
+
+    gateScore:
+      gateResult.score,
+
+    scoreComponents:
+      gateResult.components,
+
+    gate:
+      classification.gate,
+
+    emoji:
+      classification.emoji,
+
+    reason:
+      classification.reason,
+
+    original:
+      item
+
+  };
+
+}
+
+
+/* =========================================================================
+   14. FIND CROSS-PROVINCE RESULT
+
+   Block 6B / test patch có thể lưu kết quả
+   trong nhiều biến global.
+
+   Ưu tiên kết quả 21 tỉnh.
+   ========================================================================= */
+
+function getLastCrossProvinceResultV26() {
+
+  /*
+   * Các tên phổ biến của Block 6.
+   */
+
+  const candidates = [
+
+    window.LAST_CROSS_OOS_V26,
+
+    window.LAST_CROSS_PROVINCE_OOS_V26,
+
+    window.LAST_CROSS_OOS_RESULT_V26,
+
+    typeof CROSS_OOS_BATCH_V26 !==
+      'undefined' &&
+    CROSS_OOS_BATCH_V26
+      ? {
+          ready:
+            Array.isArray(
+              CROSS_OOS_BATCH_V26
+                .results
+            ) &&
+            CROSS_OOS_BATCH_V26
+              .results.length > 0,
+
+          results:
+            CROSS_OOS_BATCH_V26
+              .results
+        }
+      : null,
+
+    window.LAST_CROSS_OOS_TEST_V26
+
+  ];
+
+
+  /*
+   * Ưu tiên candidate có nhiều tỉnh nhất.
+   */
+
+  const valid =
+    candidates
+      .filter(
+        candidate =>
+          candidate &&
+          Array.isArray(
+            candidate.results
+          ) &&
+          candidate.results.length
+      )
+      .sort(
+        (a, b) =>
+          b.results.length -
+          a.results.length
+      );
+
+
+  return valid.length
+    ? valid[0]
+    : null;
+
+}
+
+
+/* =========================================================================
+   15. RUN PROVINCE ADAPTIVE GATE
+   ========================================================================= */
+
+function runProvinceAdaptiveGateV26(
+  crossResult = null
+) {
+
+  const source =
+    crossResult ||
+    getLastCrossProvinceResultV26();
+
+
+  if (
+    !source ||
+    !Array.isArray(
+      source.results
+    ) ||
+    !source.results.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_CROSS_PROVINCE_OOS_RESULT'
+
+    };
+
+  }
+
+
+  const results =
+    source.results.map(
+      item =>
+        analyzeProvinceGateV26(
+          item
+        )
+    );
+
+
+  const valid =
+    results.filter(
+      item =>
+        item.ready
+    );
+
+
+  if (!valid.length) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_VALID_PROVINCE_GATE_RESULT',
+
+      results
+
+    };
+
+  }
+
+
+  /*
+   * Sắp xếp:
+   *
+   * ADAPTIVE
+   * WATCH
+   * BASELINE
+   * REJECT
+   *
+   * Trong cùng nhóm:
+   * Gate Score cao hơn đứng trước.
+   */
+
+  const gateOrder = {
+
+    ADAPTIVE: 0,
+
+    WATCH: 1,
+
+    BASELINE: 2,
+
+    REJECT: 3
+
+  };
+
+
+  valid.sort(
+    (a, b) => {
+
+      const orderA =
+        gateOrder[
+          a.gate
+        ] ?? 99;
+
+
+      const orderB =
+        gateOrder[
+          b.gate
+        ] ?? 99;
+
+
+      if (
+        orderA !==
+        orderB
+      ) {
+
+        return (
+          orderA -
+          orderB
+        );
+
+      }
+
+
+      return (
+        b.gateScore -
+        a.gateScore
+      );
+
+    }
+  );
+
+
+  const adaptive =
+    valid.filter(
+      item =>
+        item.gate ===
+        'ADAPTIVE'
+    );
+
+
+  const watch =
+    valid.filter(
+      item =>
+        item.gate ===
+        'WATCH'
+    );
+
+
+  const baseline =
+    valid.filter(
+      item =>
+        item.gate ===
+        'BASELINE'
+    );
+
+
+  const reject =
+    valid.filter(
+      item =>
+        item.gate ===
+        'REJECT'
+    );
+
+
+  const averageScore =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.gateScore,
+      0
+    ) /
+    valid.length;
+
+
+  const result = {
+
+    ready:
+      true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'PROVINCE_ADAPTIVE_GATE',
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    provinceCount:
+      valid.length,
+
+    summary: {
+
+      adaptive:
+        adaptive.length,
+
+      watch:
+        watch.length,
+
+      baseline:
+        baseline.length,
+
+      reject:
+        reject.length,
+
+      adaptiveRate:
+        adaptive.length /
+        valid.length,
+
+      averageGateScore:
+        Number(
+          averageScore.toFixed(
+            2
+          )
+        )
+
+    },
+
+    adaptive,
+
+    watch,
+
+    baseline,
+
+    reject,
+
+    results:
+      valid
+
+  };
+
+
+  window.LAST_PROVINCE_GATE_V26 =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   16. PRINT GATE RESULTS
+   ========================================================================= */
+
+function printProvinceAdaptiveGateV26(
+  crossResult = null
+) {
+
+  const result =
+    runProvinceAdaptiveGateV26(
+      crossResult
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — PROVINCE ADAPTIVE GATE'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.log(
+    'SUMMARY:',
+    result.summary
+  );
+
+
+  console.table(
+
+    result.results.map(
+      item => ({
+
+        Province:
+          item.province,
+
+        Model:
+          item.model,
+
+        Window:
+          item.window != null
+            ? item.window
+            : '-',
+
+        Tests:
+          item.tests,
+
+        Delta:
+          (
+            item.delta >= 0
+              ? '+'
+              : ''
+          ) +
+          item.delta
+            .toFixed(4),
+
+        WinRate:
+          gatePercentV26(
+            item.winRate
+          ),
+
+        MRRDelta:
+          (
+            item.mrrDelta >= 0
+              ? '+'
+              : ''
+          ) +
+          item.mrrDelta
+            .toFixed(4),
+
+        RankGain:
+          (
+            item.rankImprovement >= 0
+              ? '+'
+              : ''
+          ) +
+          item.rankImprovement
+            .toFixed(2),
+
+        GateScore:
+          item.gateScore
+            .toFixed(2),
+
+        Gate:
+          item.gate,
+
+        Reason:
+          item.reason
+
+      }))
+
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   17. GET GATE FOR ONE PROVINCE
+
+   Hàm này chuẩn bị cho Block sau.
+
+   Hiện tại chỉ READ.
+   KHÔNG được dùng để đổi Production.
+   ========================================================================= */
+
+function getProvinceGateDecisionV26(
+  provinceSlug
+) {
+
+  const result =
+    window
+      .LAST_PROVINCE_GATE_V26;
+
+
+  if (
+    !result ||
+    !result.ready ||
+    !Array.isArray(
+      result.results
+    )
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      gate:
+        'BASELINE',
+
+      reason:
+        'GATE_NOT_RUN'
+
+    };
+
+  }
+
+
+  const item =
+    result.results.find(
+      row =>
+        row.provinceSlug ===
+          provinceSlug ||
+        row.province ===
+          provinceSlug
+    );
+
+
+  if (!item) {
+
+    /*
+     * Thử lookup bằng tên tỉnh.
+     */
+
+    let provinceName =
+      provinceSlug;
+
+
+    try {
+
+      const p =
+        provinceBySlug(
+          provinceSlug
+        );
+
+
+      if (p) {
+
+        provinceName =
+          p.name;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+
+    const byName =
+      result.results.find(
+        row =>
+          row.province ===
+          provinceName
+      );
+
+
+    if (byName) {
+
+      return {
+
+        ready:
+          true,
+
+        province:
+          provinceSlug,
+
+        gate:
+          byName.gate,
+
+        model:
+          byName.model,
+
+        window:
+          byName.window,
+
+        gateScore:
+          byName.gateScore,
+
+        delta:
+          byName.delta,
+
+        winRate:
+          byName.winRate,
+
+        reason:
+          byName.reason,
+
+        researchOnly:
+          true
+
+      };
+
+    }
+
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      gate:
+        'BASELINE',
+
+      reason:
+        'PROVINCE_NOT_FOUND'
+
+    };
+
+  }
+
+
+  return {
+
+    ready:
+      true,
+
+    province:
+      provinceSlug,
+
+    gate:
+      item.gate,
+
+    model:
+      item.model,
+
+    window:
+      item.window,
+
+    gateScore:
+      item.gateScore,
+
+    delta:
+      item.delta,
+
+    winRate:
+      item.winRate,
+
+    reason:
+      item.reason,
+
+    researchOnly:
+      true
+
+  };
+
+}
+
+
+/* =========================================================================
+   18. SAFETY CHECK
+
+   Block 7A tuyệt đối không thay:
+   - Production weights
+   - predict functions
+   - nút Dự Báo Ngay
+
+   Hàm này chỉ mô tả trạng thái Research Gate.
+   ========================================================================= */
+
+function provinceGateSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '7A',
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    adaptiveAutoEnabled:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_RESEARCH_GATE_ONLY'
+
+  };
+
+}
+
+
+/* =========================================================================
+   19. QUICK TEST
+
+   Sau khi Cross-Province 21 tỉnh đã chạy:
+
+   printProvinceAdaptiveGateV26();
+
+
+   Kiểm tra riêng TP.HCM:
+
+   getProvinceGateDecisionV26(
+     'tp-hcm'
+   );
+
+
+   Kiểm tra Kiên Giang:
+
+   getProvinceGateDecisionV26(
+     'kien-giang'
+   );
+
+
+   Safety:
+
+   provinceGateSafetyCheckV26();
+
+
+   LƯU Ý:
+
+   Block 7A KHÔNG thay Production Engine.
+
+   Chưa sử dụng Gate để tạo dự báo thật.
+
+   Block tiếp theo:
+   7B — Mobile Province Gate Panel.
+   ========================================================================= */
+
+
+console.log(
+  'XSMN V2.6 Block 7A loaded — Province Adaptive Gate Research Engine ready'
+);
+
