@@ -14707,3 +14707,1640 @@ console.log(
   'XSMN V2.6 Short Leakage Test ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 3
+   OUT-OF-SAMPLE PERFORMANCE EVALUATION
+
+   Mục tiêu:
+   - Dùng Training ONLY để chọn Model + Window.
+   - Dùng Testing ONLY để đánh giá model đã chọn.
+   - Không Future Leakage.
+   - So sánh Adaptive Model với BASELINE.
+   - Đo:
+       + Top1 / Top2 / Top3
+       + MRR
+       + Average Rank
+       + Quality
+       + OOS Improvement
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   12. GET MODEL CONFIG
+   ========================================================================= */
+
+function getModelConfigV26(
+  modelId
+) {
+
+  if (
+    !Array.isArray(
+      MODEL_LAB_V23_CONFIGS
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  return (
+    MODEL_LAB_V23_CONFIGS.find(
+      config =>
+        config.id === modelId
+    ) ||
+    null
+  );
+
+}
+
+
+/* =========================================================================
+   13. CREATE OOS METRIC
+   ========================================================================= */
+
+function createOOSMetricV26() {
+
+  return {
+
+    tests: 0,
+
+    top1: 0,
+
+    top2: 0,
+
+    top3: 0,
+
+    reciprocalRank: 0,
+
+    rankSum: 0,
+
+    rankedHits: 0
+
+  };
+
+}
+
+
+/* =========================================================================
+   14. UPDATE OOS METRIC
+   ========================================================================= */
+
+function updateOOSMetricV26(
+  metric,
+  actualNumbers,
+  ranked
+) {
+
+  metric.tests++;
+
+
+  let bestRank =
+    Infinity;
+
+
+  actualNumbers.forEach(
+    actual => {
+
+      const index =
+        ranked.indexOf(
+          actual
+        );
+
+
+      if (
+        index >= 0
+      ) {
+
+        bestRank =
+          Math.min(
+            bestRank,
+            index + 1
+          );
+
+      }
+
+    }
+  );
+
+
+  if (
+    bestRank === Infinity
+  ) {
+
+    return;
+
+  }
+
+
+  metric.rankedHits++;
+
+
+  metric.rankSum +=
+    bestRank;
+
+
+  metric.reciprocalRank +=
+    1 / bestRank;
+
+
+  if (
+    bestRank <= 1
+  ) {
+
+    metric.top1++;
+
+  }
+
+
+  if (
+    bestRank <= 2
+  ) {
+
+    metric.top2++;
+
+  }
+
+
+  if (
+    bestRank <= 3
+  ) {
+
+    metric.top3++;
+
+  }
+
+}
+
+
+/* =========================================================================
+   15. FINALIZE OOS METRIC
+   ========================================================================= */
+
+function finalizeOOSMetricV26(
+  metric
+) {
+
+  const tests =
+    metric.tests;
+
+
+  if (
+    !tests
+  ) {
+
+    return {
+
+      tests: 0,
+
+      top1: 0,
+
+      top2: 0,
+
+      top3: 0,
+
+      top1Rate: 0,
+
+      top2Rate: 0,
+
+      top3Rate: 0,
+
+      mrr: 0,
+
+      averageRank: 100,
+
+      quality: 0
+
+    };
+
+  }
+
+
+  const result = {
+
+    tests:
+      tests,
+
+    top1:
+      metric.top1,
+
+    top2:
+      metric.top2,
+
+    top3:
+      metric.top3,
+
+    top1Rate:
+      metric.top1 /
+      tests,
+
+    top2Rate:
+      metric.top2 /
+      tests,
+
+    top3Rate:
+      metric.top3 /
+      tests,
+
+    mrr:
+      metric.reciprocalRank /
+      tests,
+
+    averageRank:
+      metric.rankedHits
+        ? metric.rankSum /
+          metric.rankedHits
+        : 100
+
+  };
+
+
+  /*
+   * Dùng cùng logic Quality V2.3
+   * để Adaptive và Baseline
+   * có thể so sánh trực tiếp.
+   */
+
+  result.quality =
+    modelQualityScoreV23(
+      result
+    );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   16. SCORE ONE TARGET DRAW
+
+   trainingDraws:
+   chỉ chứa dữ liệu xảy ra TRƯỚC target.
+
+   config:
+   model đã được lựa chọn từ training period.
+   ========================================================================= */
+
+function scoreTargetOOSV26(
+  trainingDraws,
+  giaiKey,
+  windowSize,
+  config
+) {
+
+  const scores =
+    modelLabScoresV23(
+      trainingDraws,
+      giaiKey,
+      windowSize,
+      config.weights
+    );
+
+
+  return rankedNumbers(
+    scores
+  )
+  .map(
+    item =>
+      item[0]
+  );
+
+}
+
+
+/* =========================================================================
+   17. EVALUATE MODEL ON TEST PERIOD
+
+   Đây là Walk-Forward thật sự:
+
+   Test draw #1:
+       chỉ nhìn Training.
+
+   Test draw #2:
+       nhìn Training + Test draw #1.
+
+   Test draw #3:
+       nhìn Training + Test draw #1 + #2.
+
+   ...
+
+   Tuyệt đối không nhìn target hiện tại
+   hoặc các target tương lai.
+   ========================================================================= */
+
+function evaluateModelOOSV26(
+  period,
+  giaiKey,
+  modelId,
+  windowSize
+) {
+
+  const config =
+    getModelConfigV26(
+      modelId
+    );
+
+
+  if (
+    !config
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        'MODEL_NOT_FOUND',
+
+      model:
+        modelId,
+
+      window:
+        windowSize
+
+    };
+
+  }
+
+
+  const verification =
+    verifyOOSPeriodV26(
+      period
+    );
+
+
+  if (
+    !verification.valid
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      reason:
+        verification.reason,
+
+      model:
+        modelId,
+
+      window:
+        windowSize
+
+    };
+
+  }
+
+
+  /*
+   * Chuẩn hóa chronological:
+   * oldest -> newest.
+   */
+
+  const historical =
+    period.training
+      .slice()
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(
+            b.date
+          )
+      );
+
+
+  const testing =
+    period.testing
+      .slice()
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(
+            b.date
+          )
+      );
+
+
+  const metric =
+    createOOSMetricV26();
+
+
+  testing.forEach(
+    targetDraw => {
+
+      /*
+       * modelLabScoresV23 /
+       * computeScoresForGiai
+       * sử dụng newest -> oldest.
+       */
+
+      const trainingForEngine =
+        historical
+          .slice()
+          .sort(
+            (a, b) =>
+              b.date.localeCompare(
+                a.date
+              )
+          );
+
+
+      const ranked =
+        scoreTargetOOSV26(
+          trainingForEngine,
+          giaiKey,
+          windowSize,
+          config
+        );
+
+
+      const actual =
+        loOfPrize(
+          targetDraw,
+          giaiKey
+        );
+
+
+      updateOOSMetricV26(
+        metric,
+        actual,
+        ranked
+      );
+
+
+      /*
+       * Sau khi target đã được đánh giá
+       * mới được đưa target vào history.
+       *
+       * Đây là điểm quan trọng chống
+       * Future Leakage.
+       */
+
+      historical.push(
+        targetDraw
+      );
+
+    }
+  );
+
+
+  return {
+
+    valid:
+      true,
+
+    model:
+      modelId,
+
+    window:
+      Number(
+        windowSize
+      ),
+
+    ...finalizeOOSMetricV26(
+      metric
+    )
+
+  };
+
+}
+
+
+/* =========================================================================
+   18. SELECT MODEL USING TRAINING ONLY
+   ========================================================================= */
+
+function selectModelForPeriodV26(
+  provinceSlug,
+  giaiKey,
+  period
+) {
+
+  const verification =
+    verifyOOSPeriodV26(
+      period
+    );
+
+
+  if (
+    !verification.valid
+  ) {
+
+    return null;
+
+  }
+
+
+  let selection =
+    null;
+
+
+  try {
+
+    selection =
+      withHistoricalDrawsV25(
+
+        provinceSlug,
+
+        period.training,
+
+        () =>
+          findBestModelWindowV24(
+            provinceSlug,
+            giaiKey
+          )
+
+      );
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Selection Error:',
+      error
+    );
+
+
+    return null;
+
+  }
+
+
+  return selection;
+
+}
+
+
+/* =========================================================================
+   19. EVALUATE ONE OOS PERIOD
+
+   Adaptive:
+   Model + Window được V2.4 chọn
+   bằng TRAINING ONLY.
+
+   Baseline:
+   BASELINE model với cùng Window.
+
+   Dùng cùng Window để so sánh công bằng
+   ảnh hưởng của model weights.
+   ========================================================================= */
+
+function evaluateOOSPeriodV26(
+  provinceSlug,
+  giaiKey,
+  period
+) {
+
+  const verification =
+    verifyOOSPeriodV26(
+      period
+    );
+
+
+  if (
+    !verification.valid
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      period:
+        period.period,
+
+      reason:
+        verification.reason
+
+    };
+
+  }
+
+
+  const selection =
+    selectModelForPeriodV26(
+      provinceSlug,
+      giaiKey,
+      period
+    );
+
+
+  if (
+    !selection
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      period:
+        period.period,
+
+      reason:
+        'NO_MODEL_SELECTION'
+
+    };
+
+  }
+
+
+  const adaptive =
+    evaluateModelOOSV26(
+
+      period,
+
+      giaiKey,
+
+      selection.model,
+
+      selection.window
+
+    );
+
+
+  const baseline =
+    evaluateModelOOSV26(
+
+      period,
+
+      giaiKey,
+
+      'BASELINE',
+
+      selection.window
+
+    );
+
+
+  if (
+    !adaptive.valid ||
+    !baseline.valid
+  ) {
+
+    return {
+
+      valid:
+        false,
+
+      period:
+        period.period,
+
+      reason:
+        !adaptive.valid
+          ? adaptive.reason
+          : baseline.reason
+
+    };
+
+  }
+
+
+  const adaptiveQuality =
+    Number(
+      adaptive.quality || 0
+    );
+
+
+  const baselineQuality =
+    Number(
+      baseline.quality || 0
+    );
+
+
+  const improvement =
+    adaptiveQuality -
+    baselineQuality;
+
+
+  return {
+
+    valid:
+      true,
+
+    period:
+      period.period,
+
+    trainingCount:
+      period.trainingCount,
+
+    testingCount:
+      period.testingCount,
+
+    trainUntil:
+      period.trainingUntil,
+
+    testFrom:
+      period.testFrom,
+
+    testTo:
+      period.testTo,
+
+    model:
+      selection.model,
+
+    window:
+      Number(
+        selection.window
+      ),
+
+    selectionQuality:
+      Number(
+        selection.quality || 0
+      ),
+
+    selectionMargin:
+      Number(
+        selection.margin || 0
+      ),
+
+    adaptive,
+
+    baseline,
+
+    improvement
+
+  };
+
+}
+
+
+/* =========================================================================
+   20. AGGREGATE OOS RESULTS
+   ========================================================================= */
+
+function aggregateOOSV26(
+  periodResults
+) {
+
+  const valid =
+    periodResults.filter(
+      item =>
+        item.valid
+    );
+
+
+  if (
+    !valid.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const totalTests =
+    valid.reduce(
+      (sum, item) =>
+        sum +
+        item.adaptive.tests,
+      0
+    );
+
+
+  if (
+    !totalTests
+  ) {
+
+    return null;
+
+  }
+
+
+  /*
+   * Weighted average theo số test
+   * của từng period.
+   */
+
+  function weightedAverage(
+    getter
+  ) {
+
+    return valid.reduce(
+      (sum, item) => {
+
+        const tests =
+          item.adaptive.tests;
+
+
+        return (
+          sum +
+          getter(
+            item
+          ) *
+          tests
+        );
+
+      },
+      0
+    ) / totalTests;
+
+  }
+
+
+  const adaptiveTop1 =
+    weightedAverage(
+      item =>
+        item.adaptive.top1Rate
+    );
+
+
+  const adaptiveTop2 =
+    weightedAverage(
+      item =>
+        item.adaptive.top2Rate
+    );
+
+
+  const adaptiveTop3 =
+    weightedAverage(
+      item =>
+        item.adaptive.top3Rate
+    );
+
+
+  const adaptiveMRR =
+    weightedAverage(
+      item =>
+        item.adaptive.mrr
+    );
+
+
+  const adaptiveRank =
+    weightedAverage(
+      item =>
+        item.adaptive.averageRank
+    );
+
+
+  const adaptiveQuality =
+    weightedAverage(
+      item =>
+        item.adaptive.quality
+    );
+
+
+  const baselineTop1 =
+    weightedAverage(
+      item =>
+        item.baseline.top1Rate
+    );
+
+
+  const baselineTop2 =
+    weightedAverage(
+      item =>
+        item.baseline.top2Rate
+    );
+
+
+  const baselineTop3 =
+    weightedAverage(
+      item =>
+        item.baseline.top3Rate
+    );
+
+
+  const baselineMRR =
+    weightedAverage(
+      item =>
+        item.baseline.mrr
+    );
+
+
+  const baselineRank =
+    weightedAverage(
+      item =>
+        item.baseline.averageRank
+    );
+
+
+  const baselineQuality =
+    weightedAverage(
+      item =>
+        item.baseline.quality
+    );
+
+
+  const improvement =
+    adaptiveQuality -
+    baselineQuality;
+
+
+  const winningPeriods =
+    valid.filter(
+      item =>
+        item.improvement > 0
+    ).length;
+
+
+  const tiedPeriods =
+    valid.filter(
+      item =>
+        Math.abs(
+          item.improvement
+        ) < 0.0000001
+    ).length;
+
+
+  const losingPeriods =
+    valid.length -
+    winningPeriods -
+    tiedPeriods;
+
+
+  return {
+
+    periods:
+      valid.length,
+
+    tests:
+      totalTests,
+
+    adaptive: {
+
+      top1Rate:
+        adaptiveTop1,
+
+      top2Rate:
+        adaptiveTop2,
+
+      top3Rate:
+        adaptiveTop3,
+
+      mrr:
+        adaptiveMRR,
+
+      averageRank:
+        adaptiveRank,
+
+      quality:
+        adaptiveQuality
+
+    },
+
+    baseline: {
+
+      top1Rate:
+        baselineTop1,
+
+      top2Rate:
+        baselineTop2,
+
+      top3Rate:
+        baselineTop3,
+
+      mrr:
+        baselineMRR,
+
+      averageRank:
+        baselineRank,
+
+      quality:
+        baselineQuality
+
+    },
+
+    improvement,
+
+    winningPeriods,
+
+    tiedPeriods,
+
+    losingPeriods,
+
+    winRate:
+      winningPeriods /
+      valid.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   21. CLASSIFY OOS PERFORMANCE
+
+   Đây mới chỉ là Research Gate.
+   Không phải xác suất trúng.
+
+   PASS:
+   - Adaptive Quality > Baseline
+   - >= 50% period thắng
+   - Adaptive MRR >= Baseline MRR
+
+   WEAK:
+   - Có một phần cải thiện
+   - nhưng chưa đủ đồng thuận
+
+   FAIL:
+   - Không vượt Baseline
+   ========================================================================= */
+
+function classifyOOSPerformanceV26(
+  summary
+) {
+
+  if (
+    !summary
+  ) {
+
+    return 'NO_DATA';
+
+  }
+
+
+  const qualityBetter =
+    summary.improvement > 0;
+
+
+  const mrrBetter =
+    summary.adaptive.mrr >=
+    summary.baseline.mrr;
+
+
+  const rankBetter =
+    summary.adaptive.averageRank <=
+    summary.baseline.averageRank;
+
+
+  const majorityWins =
+    summary.winRate >= 0.50;
+
+
+  if (
+    qualityBetter &&
+    mrrBetter &&
+    rankBetter &&
+    majorityWins
+  ) {
+
+    return 'PASS';
+
+  }
+
+
+  if (
+    qualityBetter ||
+    mrrBetter ||
+    rankBetter
+  ) {
+
+    return 'WEAK';
+
+  }
+
+
+  return 'FAIL';
+
+}
+
+
+/* =========================================================================
+   22. RUN COMPLETE OOS EVALUATION
+   ========================================================================= */
+
+function evaluateProvinceOOSV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey = 'db'
+) {
+
+  const periods =
+    buildOOSPeriodsV26(
+      provinceSlug
+    );
+
+
+  if (
+    !periods.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_OOS_PERIODS'
+
+    };
+
+  }
+
+
+  const periodResults =
+    periods.map(
+      period =>
+        evaluateOOSPeriodV26(
+          provinceSlug,
+          giaiKey,
+          period
+        )
+    );
+
+
+  const summary =
+    aggregateOOSV26(
+      periodResults
+    );
+
+
+  if (
+    !summary
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_VALID_OOS_RESULTS',
+
+      periods:
+        periodResults
+
+    };
+
+  }
+
+
+  const classification =
+    classifyOOSPerformanceV26(
+      summary
+    );
+
+
+  return {
+
+    ready:
+      true,
+
+    version:
+      'V2.6',
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    classification,
+
+    summary,
+
+    periods:
+      periodResults
+
+  };
+
+}
+
+
+/* =========================================================================
+   23. PRINT OOS RESULT
+   ========================================================================= */
+
+function printOOSPerformanceV26(
+  provinceSlug =
+    SELECTED_PROVINCE,
+
+  giaiKey = 'db'
+) {
+
+  const result =
+    evaluateProvinceOOSV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  const province =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  const provinceName =
+    province
+      ? province.name
+      : provinceSlug;
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — OOS PERFORMANCE'
+  );
+
+  console.log(
+    provinceName,
+    String(
+      giaiKey
+    ).toUpperCase()
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.table(
+
+    result.periods
+      .filter(
+        item =>
+          item.valid
+      )
+      .map(
+        item => ({
+
+          Period:
+            item.period,
+
+          Model:
+            item.model,
+
+          Window:
+            item.window,
+
+          Tests:
+            item.adaptive.tests,
+
+          AdaptiveTop1:
+            (
+              item.adaptive
+                .top1Rate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          AdaptiveTop3:
+            (
+              item.adaptive
+                .top3Rate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          AdaptiveMRR:
+            item.adaptive
+              .mrr
+              .toFixed(4),
+
+          AdaptiveRank:
+            item.adaptive
+              .averageRank
+              .toFixed(2),
+
+          BaselineTop1:
+            (
+              item.baseline
+                .top1Rate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          BaselineTop3:
+            (
+              item.baseline
+                .top3Rate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          BaselineMRR:
+            item.baseline
+              .mrr
+              .toFixed(4),
+
+          Improvement:
+            item.improvement
+              .toFixed(4)
+
+        }))
+
+  );
+
+
+  console.log(
+    'SUMMARY:',
+    result.summary
+  );
+
+
+  console.log(
+    'OOS CLASSIFICATION:',
+    result.classification
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   24. MOBILE SUMMARY
+
+   Dùng alert ngắn để tránh lỗi
+   popup dài trên Samsung/Chrome.
+   ========================================================================= */
+
+function showOOSPerformanceV26Mobile(
+  provinceSlug =
+    'kien-giang',
+
+  giaiKey =
+    'db'
+) {
+
+  try {
+
+    const result =
+      evaluateProvinceOOSV26(
+        provinceSlug,
+        giaiKey
+      );
+
+
+    if (
+      !result.ready
+    ) {
+
+      alert(
+        'V2.6 OOS PERFORMANCE\n\n' +
+        'Không thể đánh giá.\n' +
+        'Reason: ' +
+        result.reason
+      );
+
+
+      return result;
+
+    }
+
+
+    const s =
+      result.summary;
+
+
+    const text =
+
+      'V2.6 OOS PERFORMANCE\n\n' +
+
+      'Province: ' +
+      provinceSlug +
+      '\n' +
+
+      'Prize: ' +
+      giaiKey.toUpperCase() +
+      '\n' +
+
+      'Periods: ' +
+      s.periods +
+      '\n' +
+
+      'Tests: ' +
+      s.tests +
+      '\n\n' +
+
+      'ADAPTIVE\n' +
+
+      'Top1: ' +
+      (
+        s.adaptive.top1Rate *
+        100
+      ).toFixed(2) +
+      '%\n' +
+
+      'Top3: ' +
+      (
+        s.adaptive.top3Rate *
+        100
+      ).toFixed(2) +
+      '%\n' +
+
+      'MRR: ' +
+      s.adaptive.mrr
+        .toFixed(4) +
+      '\n' +
+
+      'Avg Rank: ' +
+      s.adaptive.averageRank
+        .toFixed(2) +
+      '\n\n' +
+
+      'BASELINE\n' +
+
+      'Top1: ' +
+      (
+        s.baseline.top1Rate *
+        100
+      ).toFixed(2) +
+      '%\n' +
+
+      'Top3: ' +
+      (
+        s.baseline.top3Rate *
+        100
+      ).toFixed(2) +
+      '%\n' +
+
+      'MRR: ' +
+      s.baseline.mrr
+        .toFixed(4) +
+      '\n' +
+
+      'Avg Rank: ' +
+      s.baseline.averageRank
+        .toFixed(2) +
+      '\n\n' +
+
+      'Winning periods: ' +
+      s.winningPeriods +
+      '/' +
+      s.periods +
+      '\n' +
+
+      'Improvement: ' +
+      s.improvement
+        .toFixed(4) +
+      '\n\n' +
+
+      'RESULT: ' +
+      result.classification;
+
+
+    alert(
+      text
+    );
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 OOS Performance:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 BLOCK 3 ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   25. TEMP MOBILE BUTTON
+
+   Thêm nút dưới nút Test V2.6 hiện tại.
+   ========================================================================= */
+
+function addOOSPerformanceButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnOOSPerformanceV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (
+    !settings
+  ) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnOOSPerformanceV26';
+
+
+  button.textContent =
+    '📊 Test V2.6 OOS Performance';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showOOSPerformanceV26Mobile(
+        'kien-giang',
+        'db'
+      );
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   26. INIT BLOCK 3
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addOOSPerformanceButtonV26
+  );
+
+} else {
+
+  addOOSPerformanceButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 3 loaded — True OOS Performance Evaluation ready'
+);
+
