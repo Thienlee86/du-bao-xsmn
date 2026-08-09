@@ -28381,3 +28381,236 @@ console.log(
   'XSMN V2.6 Short Province Structure Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX DOMINANT MODEL / WINDOW
+
+   Cross-Province Block 6 lưu metadata dưới dạng:
+
+     dominantModel
+     dominantWindow
+
+   Trong khi Province Gate Block 7A đang tìm:
+
+     model
+     window
+
+   Patch này chỉ sửa mapping metadata.
+   KHÔNG thay:
+   - OOS Engine
+   - Gate Score
+   - Gate Classification
+   - Production Engine
+   ========================================================================= */
+
+
+/* =========================================================================
+   OVERRIDE gateSelectionV26
+   ========================================================================= */
+
+gateSelectionV26 =
+function(
+  item
+) {
+
+  if (!item) {
+
+    return {
+
+      model:
+        'UNKNOWN',
+
+      window:
+        null
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * MODEL
+   *
+   * Thứ tự ưu tiên:
+   *
+   * 1. dominantModel  <-- cấu trúc thật của Block 6
+   * 2. model
+   * 3. selection.model
+   * -------------------------------------------------------------
+   */
+
+  let model =
+
+    item.dominantModel ||
+
+    item.model ||
+
+    (
+      item.selection &&
+      item.selection.model
+    ) ||
+
+    null;
+
+
+  /*
+   * -------------------------------------------------------------
+   * WINDOW
+   *
+   * Thứ tự ưu tiên:
+   *
+   * 1. dominantWindow <-- cấu trúc thật của Block 6
+   * 2. window
+   * 3. selection.window
+   * -------------------------------------------------------------
+   */
+
+  let windowSize = null;
+
+
+  if (
+    item.dominantWindow != null
+  ) {
+
+    windowSize =
+      Number(
+        item.dominantWindow
+      );
+
+  } else if (
+    item.window != null
+  ) {
+
+    windowSize =
+      Number(
+        item.window
+      );
+
+  } else if (
+    item.selection &&
+    item.selection.window != null
+  ) {
+
+    windowSize =
+      Number(
+        item.selection.window
+      );
+
+  }
+
+
+  /*
+   * Bảo vệ trường hợp Window không phải số.
+   */
+
+  if (
+    !Number.isFinite(
+      windowSize
+    )
+  ) {
+
+    windowSize =
+      null;
+
+  }
+
+
+  return {
+
+    model:
+      model ||
+      'UNKNOWN',
+
+    window:
+      windowSize
+
+  };
+
+};
+
+
+/* =========================================================================
+   REFRESH EXISTING PROVINCE GATE
+   ========================================================================= */
+
+function refreshProvinceGateDominantFixV26() {
+
+  const cross =
+    getLastCrossProvinceResultV26();
+
+
+  if (
+    !cross ||
+    !Array.isArray(
+      cross.results
+    ) ||
+    !cross.results.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_CROSS_PROVINCE_DATA'
+
+    };
+
+  }
+
+
+  return runProvinceAdaptiveGateV26(
+    cross
+  );
+
+}
+
+
+/* =========================================================================
+   SAFETY CHECK
+   ========================================================================= */
+
+function dominantModelWindowFixSafetyV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    patch:
+      'DOMINANT_MODEL_WINDOW_FIX',
+
+    metadataMappingOnly:
+      true,
+
+    gateScoreModified:
+      false,
+
+    gateClassificationModified:
+      false,
+
+    oosEngineModified:
+      false,
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_METADATA_MAPPING_FIX'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 dominantModel / dominantWindow mapping FIX loaded'
+);
+
