@@ -26833,3 +26833,958 @@ console.log(
   'XSMN V2.6 Block 7B loaded — Mobile Province Adaptive Gate Panel ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 7A FIX 2
+   MODEL / WINDOW RECOVERY
+
+   Mục tiêu:
+   - Khôi phục Model + Window từ dữ liệu Cross-Province.
+   - Hỗ trợ nhiều cấu trúc object của Block 6.
+   - Nếu item cấp tỉnh không giữ metadata selection,
+     lấy dominant Model / Window từ OOS periods.
+   - KHÔNG thay Gate Score.
+   - KHÔNG thay Gate Classification.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. FIND PERIOD LIST
+   ========================================================================= */
+
+function gatePeriodListFixV26(
+  item
+) {
+
+  if (!item) {
+
+    return [];
+
+  }
+
+
+  /*
+   * Cấu trúc trực tiếp.
+   */
+
+  if (
+    Array.isArray(
+      item.periods
+    )
+  ) {
+
+    return item.periods;
+
+  }
+
+
+  /*
+   * Cấu trúc:
+   * item.oos.periods
+   */
+
+  if (
+    item.oos &&
+    Array.isArray(
+      item.oos.periods
+    )
+  ) {
+
+    return item.oos.periods;
+
+  }
+
+
+  /*
+   * Cấu trúc:
+   * item.result.periods
+   */
+
+  if (
+    item.result &&
+    Array.isArray(
+      item.result.periods
+    )
+  ) {
+
+    return item.result.periods;
+
+  }
+
+
+  /*
+   * Cấu trúc:
+   * item.oos.result.periods
+   */
+
+  if (
+    item.oos &&
+    item.oos.result &&
+    Array.isArray(
+      item.oos.result.periods
+    )
+  ) {
+
+    return item.oos.result.periods;
+
+  }
+
+
+  /*
+   * Cấu trúc:
+   * item.evaluation.periods
+   */
+
+  if (
+    item.evaluation &&
+    Array.isArray(
+      item.evaluation.periods
+    )
+  ) {
+
+    return item.evaluation.periods;
+
+  }
+
+
+  return [];
+
+}
+
+
+/* =========================================================================
+   2. READ MODEL FROM ONE PERIOD
+   ========================================================================= */
+
+function gatePeriodModelFixV26(
+  period
+) {
+
+  if (!period) {
+
+    return null;
+
+  }
+
+
+  return (
+
+    period.model ||
+
+    (
+      period.selection &&
+      period.selection.model
+    ) ||
+
+    (
+      period.adaptive &&
+      period.adaptive.model
+    ) ||
+
+    (
+      period.result &&
+      period.result.model
+    ) ||
+
+    null
+
+  );
+
+}
+
+
+/* =========================================================================
+   3. READ WINDOW FROM ONE PERIOD
+   ========================================================================= */
+
+function gatePeriodWindowFixV26(
+  period
+) {
+
+  if (!period) {
+
+    return null;
+
+  }
+
+
+  let value = null;
+
+
+  if (
+    period.window != null
+  ) {
+
+    value =
+      period.window;
+
+  } else if (
+    period.windowSize != null
+  ) {
+
+    value =
+      period.windowSize;
+
+  } else if (
+    period.selection &&
+    period.selection.window != null
+  ) {
+
+    value =
+      period.selection.window;
+
+  } else if (
+    period.adaptive &&
+    period.adaptive.window != null
+  ) {
+
+    value =
+      period.adaptive.window;
+
+  } else if (
+    period.result &&
+    period.result.window != null
+  ) {
+
+    value =
+      period.result.window;
+
+  }
+
+
+  if (
+    value == null
+  ) {
+
+    return null;
+
+  }
+
+
+  const number =
+    Number(
+      value
+    );
+
+
+  return Number.isFinite(
+    number
+  )
+    ? number
+    : null;
+
+}
+
+
+/* =========================================================================
+   4. DOMINANT VALUE
+   ========================================================================= */
+
+function gateDominantValueFixV26(
+  values
+) {
+
+  const filtered =
+    values.filter(
+      value =>
+        value != null &&
+        value !== '' &&
+        value !== 'UNKNOWN'
+    );
+
+
+  if (
+    !filtered.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const counts =
+    new Map();
+
+
+  filtered.forEach(
+    value => {
+
+      const key =
+        String(
+          value
+        );
+
+
+      const current =
+        counts.get(
+          key
+        ) || {
+
+          value,
+
+          count: 0
+
+        };
+
+
+      current.count++;
+
+
+      counts.set(
+        key,
+        current
+      );
+
+    }
+  );
+
+
+  const ranked =
+    Array.from(
+      counts.values()
+    )
+    .sort(
+      (a, b) =>
+        b.count -
+        a.count
+    );
+
+
+  return ranked.length
+    ? ranked[0].value
+    : null;
+
+}
+
+
+/* =========================================================================
+   5. RECOVER SELECTION FROM PERIODS
+   ========================================================================= */
+
+function recoverSelectionFromPeriodsFixV26(
+  item
+) {
+
+  const periods =
+    gatePeriodListFixV26(
+      item
+    );
+
+
+  if (
+    !periods.length
+  ) {
+
+    return {
+
+      model: null,
+
+      window: null,
+
+      periodCount: 0
+
+    };
+
+  }
+
+
+  /*
+   * Chỉ ưu tiên valid periods.
+   * Nếu không có field valid thì vẫn cho dùng.
+   */
+
+  let usable =
+    periods.filter(
+      period =>
+        period &&
+        period.valid === true
+    );
+
+
+  if (
+    !usable.length
+  ) {
+
+    usable =
+      periods.filter(
+        Boolean
+      );
+
+  }
+
+
+  const models =
+    usable.map(
+      gatePeriodModelFixV26
+    );
+
+
+  const windows =
+    usable.map(
+      gatePeriodWindowFixV26
+    );
+
+
+  return {
+
+    model:
+      gateDominantValueFixV26(
+        models
+      ),
+
+    window:
+      gateDominantValueFixV26(
+        windows
+      ),
+
+    periodCount:
+      usable.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. DEEP SEARCH FALLBACK
+
+   Chỉ tìm các key có ý nghĩa Model / Window.
+   Không thay đổi object gốc.
+   ========================================================================= */
+
+function gateDeepFindFixV26(
+  object,
+  keys,
+  depth = 0
+) {
+
+  if (
+    !object ||
+    typeof object !==
+      'object' ||
+    depth > 5
+  ) {
+
+    return null;
+
+  }
+
+
+  for (
+    const key of keys
+  ) {
+
+    if (
+      Object.prototype
+        .hasOwnProperty
+        .call(
+          object,
+          key
+        ) &&
+      object[key] != null &&
+      object[key] !== ''
+    ) {
+
+      return object[key];
+
+    }
+
+  }
+
+
+  const values =
+    Object.values(
+      object
+    );
+
+
+  for (
+    const value of values
+  ) {
+
+    if (
+      value &&
+      typeof value ===
+        'object'
+    ) {
+
+      const found =
+        gateDeepFindFixV26(
+          value,
+          keys,
+          depth + 1
+        );
+
+
+      if (
+        found != null
+      ) {
+
+        return found;
+
+      }
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   7. NEW GATE SELECTION READER
+
+   Override gateSelectionV26() của Block 7A.
+
+   Thứ tự ưu tiên:
+
+   1. item.model / item.window
+   2. item.selection
+   3. OOS periods
+   4. deep fallback
+
+   ========================================================================= */
+
+gateSelectionV26 =
+function(
+  item
+) {
+
+  if (!item) {
+
+    return {
+
+      model:
+        'UNKNOWN',
+
+      window:
+        null
+
+    };
+
+  }
+
+
+  let model = null;
+
+  let windowSize = null;
+
+
+  /*
+   * -------------------------------------------------------------
+   * LEVEL 1 — DIRECT
+   * -------------------------------------------------------------
+   */
+
+  if (
+    item.model &&
+    item.model !==
+      'UNKNOWN'
+  ) {
+
+    model =
+      item.model;
+
+  }
+
+
+  if (
+    item.window != null
+  ) {
+
+    const n =
+      Number(
+        item.window
+      );
+
+
+    if (
+      Number.isFinite(
+        n
+      )
+    ) {
+
+      windowSize =
+        n;
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * LEVEL 2 — SELECTION OBJECT
+   * -------------------------------------------------------------
+   */
+
+  if (
+    item.selection
+  ) {
+
+    if (
+      !model &&
+      item.selection.model
+    ) {
+
+      model =
+        item.selection.model;
+
+    }
+
+
+    if (
+      windowSize == null &&
+      item.selection.window != null
+    ) {
+
+      const n =
+        Number(
+          item.selection.window
+        );
+
+
+      if (
+        Number.isFinite(
+          n
+        )
+      ) {
+
+        windowSize =
+          n;
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * LEVEL 3 — RECOVER FROM OOS PERIODS
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !model ||
+    windowSize == null
+  ) {
+
+    const recovered =
+      recoverSelectionFromPeriodsFixV26(
+        item
+      );
+
+
+    if (
+      !model &&
+      recovered.model
+    ) {
+
+      model =
+        recovered.model;
+
+    }
+
+
+    if (
+      windowSize == null &&
+      recovered.window != null
+    ) {
+
+      windowSize =
+        Number(
+          recovered.window
+        );
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * LEVEL 4 — DEEP FALLBACK
+   *
+   * Chỉ chạy nếu vẫn chưa tìm được.
+   * -------------------------------------------------------------
+   */
+
+  if (!model) {
+
+    const deepModel =
+      gateDeepFindFixV26(
+        item,
+        [
+          'selectedModel',
+          'bestModel',
+          'modelId'
+        ]
+      );
+
+
+    if (
+      deepModel
+    ) {
+
+      model =
+        deepModel;
+
+    }
+
+  }
+
+
+  if (
+    windowSize == null
+  ) {
+
+    const deepWindow =
+      gateDeepFindFixV26(
+        item,
+        [
+          'selectedWindow',
+          'bestWindow',
+          'windowSize'
+        ]
+      );
+
+
+    if (
+      deepWindow != null
+    ) {
+
+      const n =
+        Number(
+          deepWindow
+        );
+
+
+      if (
+        Number.isFinite(
+          n
+        )
+      ) {
+
+        windowSize =
+          n;
+
+      }
+
+    }
+
+  }
+
+
+  return {
+
+    model:
+      model ||
+      'UNKNOWN',
+
+    window:
+      windowSize
+
+  };
+
+};
+
+
+/* =========================================================================
+   8. REBUILD GATE FROM EXISTING CROSS-PROVINCE RESULT
+
+   Không cần chạy lại toàn bộ OOS nếu dữ liệu Cross-Province
+   vẫn còn trong memory.
+   ========================================================================= */
+
+function refreshProvinceGateModelWindowFixV26() {
+
+  const cross =
+    getLastCrossProvinceResultV26();
+
+
+  if (
+    !cross ||
+    !Array.isArray(
+      cross.results
+    ) ||
+    !cross.results.length
+  ) {
+
+    return {
+
+      ready:
+        false,
+
+      reason:
+        'NO_CROSS_RESULT_IN_MEMORY'
+
+    };
+
+  }
+
+
+  const result =
+    runProvinceAdaptiveGateV26(
+      cross
+    );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   9. QUICK MOBILE TEST
+   ========================================================================= */
+
+function showProvinceGateModelWindowFixV26() {
+
+  const result =
+    refreshProvinceGateModelWindowFixV26();
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    alert(
+      'V2.6 MODEL/WINDOW FIX\n\n' +
+      'Chưa có Cross-Province data trong memory.\n\n' +
+      'Hãy chạy Cross-Province OOS 21 tỉnh trước.'
+    );
+
+
+    return result;
+
+  }
+
+
+  const rows =
+    result.results
+      .slice(
+        0,
+        21
+      );
+
+
+  const lines = [
+
+    'V2.6 MODEL / WINDOW CHECK',
+
+    '',
+
+    'Provinces: ' +
+      result.provinceCount,
+
+    ''
+
+  ];
+
+
+  rows.forEach(
+    item => {
+
+      lines.push(
+        item.emoji +
+        ' ' +
+        item.province
+      );
+
+
+      lines.push(
+        'Gate: ' +
+        item.gate
+      );
+
+
+      lines.push(
+        'Model: ' +
+        item.model
+      );
+
+
+      lines.push(
+        'Window: ' +
+        (
+          item.window != null
+            ? item.window +
+              ' kỳ'
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        '--------------------'
+      );
+
+    }
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   10. SAFETY
+   ========================================================================= */
+
+function provinceGateModelWindowFixSafetyV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    patch:
+      '7A_FIX_2',
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    gateThresholdModified:
+      false,
+
+    gateScoreModified:
+      false,
+
+    gateClassificationModified:
+      false,
+
+    modelWindowRecoveryOnly:
+      true,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_METADATA_RECOVERY_ONLY'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 7A FIX 2 loaded — Model Window Recovery ready'
+);
+
