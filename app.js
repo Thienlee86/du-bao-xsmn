@@ -51567,3 +51567,623 @@ console.log(
   'XSMN V2.6 Persistent Store Test Button ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B
+   SNAPSHOT STRUCTURE INSPECTOR
+
+   Mục tiêu:
+   - Đọc Snapshot Store hiện tại.
+   - Kiểm tra cấu trúc dữ liệu thật.
+   - Không sửa dữ liệu.
+   - Không chạy model.
+   - Không chạy Cross OOS.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. GET CURRENT SNAPSHOT STORE
+   ========================================================================= */
+
+function getSnapshotStoreForStructureV26() {
+
+  const candidates = [
+
+    {
+      name:
+        'SHADOW_SNAPSHOTS_V26',
+
+      value:
+        window.SHADOW_SNAPSHOTS_V26
+    },
+
+    {
+      name:
+        'SHADOW_SNAPSHOT_STORE_V26',
+
+      value:
+        window.SHADOW_SNAPSHOT_STORE_V26
+    },
+
+    {
+      name:
+        'LAST_SHADOW_SNAPSHOTS_V26',
+
+      value:
+        window.LAST_SHADOW_SNAPSHOTS_V26
+    }
+
+  ];
+
+
+  for (
+    const candidate of
+    candidates
+  ) {
+
+    if (
+      Array.isArray(
+        candidate.value
+      ) &&
+      candidate.value.length
+    ) {
+
+      return {
+
+        ready: true,
+
+        source:
+          candidate.name,
+
+        store:
+          candidate.value
+
+      };
+
+    }
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'SNAPSHOT_STORE_EMPTY',
+
+    source:
+      'NONE',
+
+    store:
+      []
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. SAFE VALUE HELPER
+   ========================================================================= */
+
+function snapshotStructureValueV26(
+  value
+) {
+
+  if (
+    value === undefined
+  ) {
+
+    return 'undefined';
+
+  }
+
+
+  if (
+    value === null
+  ) {
+
+    return 'null';
+
+  }
+
+
+  if (
+    Array.isArray(
+      value
+    )
+  ) {
+
+    if (
+      !value.length
+    ) {
+
+      return '[]';
+
+    }
+
+
+    return value
+      .slice(
+        0,
+        5
+      )
+      .map(
+        item =>
+          String(
+            item
+          )
+      )
+      .join(
+        ', '
+      );
+
+  }
+
+
+  if (
+    typeof value ===
+    'object'
+  ) {
+
+    return (
+      '{' +
+      Object.keys(
+        value
+      )
+        .slice(
+          0,
+          8
+        )
+        .join(
+          ', '
+        ) +
+      '}'
+    );
+
+  }
+
+
+  return String(
+    value
+  );
+
+}
+
+
+/* =========================================================================
+   3. INSPECT ONE SNAPSHOT
+   ========================================================================= */
+
+function inspectOneSnapshotStructureV26(
+  snapshot,
+  index
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      index,
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const keys =
+    Object.keys(
+      snapshot
+    );
+
+
+  /*
+   * Chỉ đọc field.
+   * Không chuẩn hóa và không ghi ngược.
+   */
+
+  const province =
+    snapshot.provinceSlug ??
+    snapshot.slug ??
+    snapshot.province ??
+    snapshot.provinceName;
+
+
+  const draw =
+    snapshot.latestDraw ??
+    snapshot.drawDate ??
+    snapshot.date ??
+    snapshot.targetDate ??
+    snapshot.draw;
+
+
+  const status =
+    snapshot.status ??
+    snapshot.verificationStatus ??
+    snapshot.state;
+
+
+  const model =
+    snapshot.model ??
+    snapshot.modelName ??
+    snapshot.selectedModel;
+
+
+  const windowValue =
+    snapshot.window ??
+    snapshot.period ??
+    snapshot.selectedWindow;
+
+
+  const top1 =
+    snapshot.top1 ??
+    snapshot.predictionTop1;
+
+
+  const top3 =
+    snapshot.top3 ??
+    snapshot.predictionTop3 ??
+    snapshot.ranking;
+
+
+  const actual =
+    snapshot.actualResult ??
+    snapshot.actual ??
+    snapshot.actualNumber ??
+    snapshot.result;
+
+
+  return {
+
+    index,
+
+    ready: true,
+
+    keyCount:
+      keys.length,
+
+    keys,
+
+    province,
+
+    draw,
+
+    status,
+
+    model,
+
+    window:
+      windowValue,
+
+    top1,
+
+    top3,
+
+    actual
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. INSPECT STORE
+   ========================================================================= */
+
+function inspectSnapshotStructureV26() {
+
+  const source =
+    getSnapshotStoreForStructureV26();
+
+
+  if (
+    !source.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        source.reason,
+
+      source:
+        source.source
+
+    };
+
+  }
+
+
+  const rows =
+    source.store.map(
+      (
+        snapshot,
+        index
+      ) =>
+        inspectOneSnapshotStructureV26(
+          snapshot,
+          index
+        )
+    );
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SNAPSHOT_STRUCTURE_INSPECTOR',
+
+    researchOnly:
+      true,
+
+    source:
+      source.source,
+
+    total:
+      rows.length,
+
+    rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. MOBILE SUMMARY
+   ========================================================================= */
+
+function snapshotStructureTextV26(
+  result
+) {
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return (
+      '🔬 V2.6 SNAPSHOT STRUCTURE\n\n' +
+
+      '❌ NOT READY\n\n' +
+
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  let text =
+    '🔬 V2.6 SNAPSHOT STRUCTURE\n\n' +
+
+    'Source: ' +
+    result.source +
+    '\n' +
+
+    'Total: ' +
+    result.total +
+    '\n\n';
+
+
+  /*
+   * Chỉ hiện tối đa 4 snapshot
+   * để alert điện thoại không quá dài.
+   */
+
+  result.rows
+    .slice(
+      0,
+      4
+    )
+    .forEach(
+      row => {
+
+        text +=
+          '#' +
+          (
+            row.index +
+            1
+          ) +
+          '\n' +
+
+          'Province: ' +
+          snapshotStructureValueV26(
+            row.province
+          ) +
+          '\n' +
+
+          'Draw: ' +
+          snapshotStructureValueV26(
+            row.draw
+          ) +
+          '\n' +
+
+          'Status: ' +
+          snapshotStructureValueV26(
+            row.status
+          ) +
+          '\n' +
+
+          'Model: ' +
+          snapshotStructureValueV26(
+            row.model
+          ) +
+          '\n' +
+
+          'Window: ' +
+          snapshotStructureValueV26(
+            row.window
+          ) +
+          '\n' +
+
+          'Top1: ' +
+          snapshotStructureValueV26(
+            row.top1
+          ) +
+          '\n' +
+
+          'Top3: ' +
+          snapshotStructureValueV26(
+            row.top3
+          ) +
+          '\n' +
+
+          'Actual: ' +
+          snapshotStructureValueV26(
+            row.actual
+          ) +
+          '\n' +
+
+          'Keys[' +
+          row.keyCount +
+          ']: ' +
+          row.keys
+            .slice(
+              0,
+              12
+            )
+            .join(
+              ', '
+            ) +
+          '\n' +
+
+          '--------------------\n';
+
+      }
+    );
+
+
+  if (
+    result.total > 4
+  ) {
+
+    text +=
+      '\nShowing: 4/' +
+      result.total +
+      '\n';
+
+  }
+
+
+  text +=
+    '\nRead only\n' +
+    'Production unchanged';
+
+
+  return text;
+
+}
+
+
+/* =========================================================================
+   6. TEST
+   ========================================================================= */
+
+function testSnapshotStructureV26() {
+
+  const result =
+    inspectSnapshotStructureV26();
+
+
+  console.log(
+    'V2.6 Snapshot Structure:',
+    result
+  );
+
+
+  if (
+    result &&
+    Array.isArray(
+      result.rows
+    )
+  ) {
+
+    console.table(
+      result.rows.map(
+        row => ({
+
+          Index:
+            row.index + 1,
+
+          Province:
+            snapshotStructureValueV26(
+              row.province
+            ),
+
+          Draw:
+            snapshotStructureValueV26(
+              row.draw
+            ),
+
+          Status:
+            snapshotStructureValueV26(
+              row.status
+            ),
+
+          Model:
+            snapshotStructureValueV26(
+              row.model
+            ),
+
+          Window:
+            snapshotStructureValueV26(
+              row.window
+            ),
+
+          Top1:
+            snapshotStructureValueV26(
+              row.top1
+            ),
+
+          Actual:
+            snapshotStructureValueV26(
+              row.actual
+            ),
+
+          Keys:
+            row.keyCount
+
+        })
+      )
+    );
+
+  }
+
+
+  alert(
+    snapshotStructureTextV26(
+      result
+    )
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8C-B loaded — Snapshot Structure Inspector ready'
+);
+
