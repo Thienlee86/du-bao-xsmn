@@ -45862,3 +45862,823 @@ console.log(
   'XSMN V2.6 Block 8B-D loaded — Lite Snapshot ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — LITE SNAPSHOT DEEP DEBUG
+
+   READ ONLY DEBUG
+   - Không Cross OOS
+   - Không Province Gate
+   - Không Decision Layer
+   - Không Save Snapshot
+   - Không thay Production
+   ========================================================================= */
+
+function runLiteSnapshotDeepDebugV26() {
+
+  const lines = [];
+
+  lines.push(
+    '🔬 V2.6 LITE SNAPSHOT DEEP DEBUG'
+  );
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 1 — LIGHT PIPELINE
+     =============================================================== */
+
+  const pipeline =
+    window.LAST_LIGHT_PIPELINE_V26;
+
+
+  if (
+    !pipeline ||
+    !pipeline.ready
+  ) {
+
+    alert(
+      '❌ V2.6 LITE SNAPSHOT DEBUG\n\n' +
+      'LIGHT_PIPELINE_NOT_READY\n\n' +
+      'Chạy Light Pipeline trước.'
+    );
+
+    return {
+      ready: false,
+      reason:
+        'LIGHT_PIPELINE_NOT_READY'
+    };
+
+  }
+
+
+  lines.push(
+    'Light Pipeline: READY'
+  );
+
+
+  /*
+   * Lấy approved trực tiếp.
+   */
+
+  let approved =
+    Array.isArray(
+      pipeline.approved
+    )
+      ? pipeline.approved
+      : [];
+
+
+  if (
+    !approved.length &&
+    pipeline.decision &&
+    Array.isArray(
+      pipeline.decision.results
+    )
+  ) {
+
+    approved =
+      pipeline.decision.results.filter(
+        item =>
+          (
+            item.action ||
+            item.decision ||
+            item.recommendation
+          ) ===
+          'RECOMMEND_ADAPTIVE'
+      );
+
+  }
+
+
+  lines.push(
+    'Approved: ' +
+    approved.length
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 2 — FUNCTION CHECK
+     =============================================================== */
+
+  const shadowBuilderFound =
+    typeof buildShadowRankingV26 ===
+      'function';
+
+
+  const saveFunctionFound =
+    typeof saveShadowSnapshotV26 ===
+      'function';
+
+
+  lines.push(
+    'FUNCTION CHECK'
+  );
+
+
+  lines.push(
+    'buildShadowRankingV26: ' +
+    (
+      shadowBuilderFound
+        ? 'FOUND'
+        : 'NOT FOUND'
+    )
+  );
+
+
+  lines.push(
+    'saveShadowSnapshotV26: ' +
+    (
+      saveFunctionFound
+        ? 'FOUND'
+        : 'NOT FOUND'
+    )
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  if (
+    !shadowBuilderFound
+  ) {
+
+    lines.push(
+      '❌ Cannot continue'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+      ready: false,
+      reason:
+        'SHADOW_BUILDER_NOT_FOUND'
+    };
+
+  }
+
+
+  /* ===============================================================
+     STEP 3 — INSPECT STORE GLOBALS
+
+     Chỉ đọc.
+     Không tạo / không sửa store.
+     =============================================================== */
+
+  const storeCandidates = [
+
+    'SHADOW_SNAPSHOT_STORE_V26',
+
+    'SHADOW_SNAPSHOTS_V26',
+
+    'LAST_SHADOW_SNAPSHOTS_V26',
+
+    'LAST_SHADOW_SNAPSHOT_V26'
+
+  ];
+
+
+  lines.push(
+    'STORE CHECK'
+  );
+
+
+  storeCandidates.forEach(
+    name => {
+
+      let value;
+
+      try {
+
+        value =
+          window[name];
+
+      } catch (
+        error
+      ) {
+
+        value =
+          undefined;
+
+      }
+
+
+      let type =
+        typeof value;
+
+
+      if (
+        Array.isArray(
+          value
+        )
+      ) {
+
+        type =
+          'array[' +
+          value.length +
+          ']';
+
+      } else if (
+        value &&
+        typeof value ===
+          'object'
+      ) {
+
+        type =
+          'object{' +
+          Object.keys(
+            value
+          )
+            .slice(
+              0,
+              8
+            )
+            .join(',') +
+          '}';
+
+      }
+
+
+      lines.push(
+        name +
+        ': ' +
+        type
+      );
+
+    }
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 4 — TEST EACH APPROVED PROVINCE
+
+     Chỉ BUILD Shadow.
+     Không SAVE.
+     =============================================================== */
+
+  const rows = [];
+
+
+  approved.forEach(
+    (
+      item,
+      index
+    ) => {
+
+      const slug =
+        typeof resolveLiteSnapshotSlugV26 ===
+          'function'
+          ? resolveLiteSnapshotSlugV26(
+              item
+            )
+          : (
+              item.provinceSlug ||
+              item.slug ||
+              item.province ||
+              null
+            );
+
+
+      const row = {
+
+        index:
+          index + 1,
+
+        province:
+          item.province ||
+          slug ||
+          '-',
+
+        slug,
+
+        model:
+          item.model ||
+          '-',
+
+        window:
+          item.window != null
+            ? item.window
+            : '-',
+
+        shadowReady:
+          false,
+
+        shadowReason:
+          null,
+
+        shadowKeys:
+          [],
+
+        historyCount:
+          null,
+
+        top1:
+          null,
+
+        top3:
+          null
+
+      };
+
+
+      if (!slug) {
+
+        row.shadowReason =
+          'PROVINCE_SLUG_NOT_FOUND';
+
+
+        rows.push(
+          row
+        );
+
+
+        return;
+
+      }
+
+
+      try {
+
+        const start =
+          performance.now();
+
+
+        const shadow =
+          buildShadowRankingV26(
+            slug,
+            'db'
+          );
+
+
+        row.timeMs =
+          performance.now() -
+          start;
+
+
+        if (
+          shadow &&
+          typeof shadow ===
+            'object'
+        ) {
+
+          row.shadowKeys =
+            Object.keys(
+              shadow
+            );
+
+
+          row.shadowReady =
+            Boolean(
+              shadow.ready
+            );
+
+
+          row.shadowReason =
+            shadow.reason ||
+            null;
+
+
+          row.historyCount =
+            shadow.historyCount != null
+              ? shadow.historyCount
+              : null;
+
+
+          row.top1 =
+            Array.isArray(
+              shadow.top1
+            )
+              ? shadow.top1
+              : null;
+
+
+          row.top3 =
+            Array.isArray(
+              shadow.top3
+            )
+              ? shadow.top3
+              : null;
+
+        } else {
+
+          row.shadowReason =
+            'SHADOW_RETURNED_EMPTY';
+
+        }
+
+
+      } catch (
+        error
+      ) {
+
+        row.shadowReason =
+          'SHADOW_EXCEPTION: ' +
+          String(
+            error.message ||
+            error
+          );
+
+      }
+
+
+      rows.push(
+        row
+      );
+
+    }
+  );
+
+
+  /* ===============================================================
+     STEP 5 — MOBILE OUTPUT
+     =============================================================== */
+
+  lines.push(
+    'SHADOW CHECK'
+  );
+
+
+  rows.forEach(
+    row => {
+
+      lines.push(
+        '--------------------'
+      );
+
+
+      lines.push(
+        '#' +
+        row.index +
+        ' ' +
+        row.province
+      );
+
+
+      lines.push(
+        'Slug: ' +
+        (
+          row.slug ||
+          'NOT_FOUND'
+        )
+      );
+
+
+      lines.push(
+        'Model: ' +
+        row.model +
+        ' / ' +
+        row.window
+      );
+
+
+      lines.push(
+        'Shadow: ' +
+        (
+          row.shadowReady
+            ? 'READY'
+            : 'NOT READY'
+        )
+      );
+
+
+      if (
+        row.shadowReason
+      ) {
+
+        lines.push(
+          'Reason: ' +
+          row.shadowReason
+        );
+
+      }
+
+
+      if (
+        row.historyCount != null
+      ) {
+
+        lines.push(
+          'History: ' +
+          row.historyCount
+        );
+
+      }
+
+
+      if (
+        row.top1
+      ) {
+
+        lines.push(
+          'Top1: ' +
+          row.top1.join(
+            ', '
+          )
+        );
+
+      }
+
+
+      if (
+        row.top3
+      ) {
+
+        lines.push(
+          'Top3: ' +
+          row.top3.join(
+            ', '
+          )
+        );
+
+      }
+
+
+      if (
+        row.timeMs != null
+      ) {
+
+        lines.push(
+          'Build: ' +
+          (
+            row.timeMs /
+            1000
+          ).toFixed(3) +
+          's'
+        );
+
+      }
+
+
+      lines.push(
+        'Keys: ' +
+        (
+          row.shadowKeys.length
+            ? row.shadowKeys
+                .slice(
+                  0,
+                  12
+                )
+                .join(', ')
+            : '-'
+        )
+      );
+
+    }
+  );
+
+
+  /* ===============================================================
+     SUMMARY
+     =============================================================== */
+
+  const readyCount =
+    rows.filter(
+      row =>
+        row.shadowReady
+    ).length;
+
+
+  lines.push(
+    '--------------------'
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'SUMMARY'
+  );
+
+
+  lines.push(
+    'Approved: ' +
+    approved.length
+  );
+
+
+  lines.push(
+    'Shadow Ready: ' +
+    readyCount
+  );
+
+
+  lines.push(
+    'Shadow Failed: ' +
+    (
+      rows.length -
+      readyCount
+    )
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  if (
+    readyCount ===
+      approved.length &&
+    approved.length === 4
+  ) {
+
+    lines.push(
+      '✅ ALL 4 SHADOW BUILD READY'
+    );
+
+
+    lines.push(
+      'Next suspect: SNAPSHOT SAVE CONTRACT'
+    );
+
+  } else {
+
+    lines.push(
+      '❌ SHADOW BUILD HAS ERROR'
+    );
+
+
+    lines.push(
+      'Fix Shadow before Snapshot Save'
+    );
+
+  }
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'Snapshot written: NO'
+  );
+
+
+  lines.push(
+    'Cross OOS rerun: NO'
+  );
+
+
+  lines.push(
+    'Production unchanged'
+  );
+
+
+  const result = {
+
+    ready:
+      readyCount ===
+      approved.length &&
+      approved.length > 0,
+
+    approvedCount:
+      approved.length,
+
+    shadowReadyCount:
+      readyCount,
+
+    shadowFailedCount:
+      rows.length -
+      readyCount,
+
+    shadowBuilderFound,
+
+    saveFunctionFound,
+
+    rows
+
+  };
+
+
+  window
+    .LAST_LITE_SNAPSHOT_DEEP_DEBUG_V26 =
+    result;
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+function addLiteSnapshotDeepDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnLiteSnapshotDeepDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnLiteSnapshotDeepDebugV26';
+
+
+  button.textContent =
+    '🔬 Debug V2.6 Lite Snapshot';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.onclick =
+    function() {
+
+      runLiteSnapshotDeepDebugV26();
+
+    };
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addLiteSnapshotDeepDebugButtonV26
+  );
+
+} else {
+
+  addLiteSnapshotDeepDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Lite Snapshot Deep Debug ready'
+);
+
