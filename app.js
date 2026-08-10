@@ -37395,3 +37395,1324 @@ console.log(
   'XSMN V2.6 Block 8B-A loaded — Shadow Snapshot Store ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-B
+   SNAPSHOT IDENTITY + DUPLICATE PROTECTION
+
+   Mục tiêu:
+   - Tạo identity ổn định cho Shadow Snapshot.
+   - Identity dựa trên:
+       province
+       prize
+       latest historical draw
+       model
+       window
+   - Không lưu trùng cùng một prediction state.
+   - Snapshot cũ của 8B-A vẫn được giữ nguyên.
+   - Research Only.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. NORMALIZE IDENTITY VALUE
+   ========================================================================= */
+
+function normalizeShadowIdentityV26(
+  value
+) {
+
+  return String(
+    value == null
+      ? ''
+      : value
+  )
+    .trim()
+    .toLowerCase();
+
+}
+
+
+/* =========================================================================
+   2. GET LATEST DRAW IDENTITY
+
+   Không giả định draw bắt buộc có drawId.
+
+   Ưu tiên:
+   - id
+   - drawId
+   - code
+   - ky
+   - period
+   - date
+
+   date được giữ riêng để debug.
+   ========================================================================= */
+
+function getLatestShadowDrawIdentityV26(
+  provinceSlug
+) {
+
+  let draws = [];
+
+
+  try {
+
+    if (
+      typeof getShadowDrawsV26 ===
+      'function'
+    ) {
+
+      draws =
+        getShadowDrawsV26(
+          provinceSlug
+        );
+
+    } else if (
+      typeof getAllDrawsForProvince ===
+      'function'
+    ) {
+
+      draws =
+        getAllDrawsForProvince(
+          provinceSlug
+        );
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Identity Draw Error:',
+      error
+    );
+
+
+    draws = [];
+
+  }
+
+
+  if (
+    !Array.isArray(
+      draws
+    ) ||
+    !draws.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_IDENTITY_DRAWS'
+
+    };
+
+  }
+
+
+  /*
+   * Không mutate array gốc.
+   */
+
+  const sorted =
+    draws
+      .slice()
+      .sort(
+        (a, b) => {
+
+          const dateA =
+            a &&
+            a.date
+              ? String(a.date)
+              : '';
+
+
+          const dateB =
+            b &&
+            b.date
+              ? String(b.date)
+              : '';
+
+
+          return dateB.localeCompare(
+            dateA
+          );
+
+        }
+      );
+
+
+  const latest =
+    sorted[0];
+
+
+  if (!latest) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LATEST_DRAW_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const drawKey =
+
+    latest.id != null
+      ? latest.id
+
+      : latest.drawId != null
+        ? latest.drawId
+
+        : latest.code != null
+          ? latest.code
+
+          : latest.ky != null
+            ? latest.ky
+
+            : latest.period != null
+              ? latest.period
+
+              : latest.date != null
+                ? latest.date
+
+                : null;
+
+
+  if (
+    drawKey == null
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DRAW_IDENTITY_NOT_FOUND',
+
+      latestKeys:
+        Object.keys(
+          latest
+        )
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    drawKey:
+      String(
+        drawKey
+      ),
+
+    drawDate:
+      latest.date != null
+        ? String(
+            latest.date
+          )
+        : null,
+
+    latest
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. BUILD STABLE SNAPSHOT KEY
+
+   Cùng:
+   - province
+   - prize
+   - latest draw
+   - model
+   - window
+
+   => cùng snapshotKey.
+
+   Date.now() KHÔNG được dùng ở đây.
+   ========================================================================= */
+
+function buildStableShadowSnapshotKeyV26(
+  shadow
+) {
+
+  if (!shadow) {
+
+    return null;
+
+  }
+
+
+  const identity =
+    getLatestShadowDrawIdentityV26(
+      shadow.province
+    );
+
+
+  if (
+    !identity.ready
+  ) {
+
+    return null;
+
+  }
+
+
+  const parts = [
+
+    'v26',
+
+    normalizeShadowIdentityV26(
+      shadow.province
+    ),
+
+    normalizeShadowIdentityV26(
+      shadow.prize ||
+      'db'
+    ),
+
+    normalizeShadowIdentityV26(
+      identity.drawKey
+    ),
+
+    normalizeShadowIdentityV26(
+      shadow.model
+    ),
+
+    normalizeShadowIdentityV26(
+      shadow.window
+    )
+
+  ];
+
+
+  return parts.join(
+    '|'
+  );
+
+}
+
+
+/* =========================================================================
+   4. GET SNAPSHOT KEY FROM OLD / NEW SNAPSHOT
+
+   Snapshot mới:
+       snapshotKey
+
+   Snapshot 8B-A cũ:
+       chưa có snapshotKey
+
+   Với snapshot cũ, cố gắng dựng lại identity
+   từ dữ liệu đã lưu.
+
+   Nếu không dựng được thì trả null.
+   ========================================================================= */
+
+function getStoredSnapshotKeyV26(
+  snapshot
+) {
+
+  if (!snapshot) {
+
+    return null;
+
+  }
+
+
+  if (
+    snapshot.snapshotKey
+  ) {
+
+    return snapshot.snapshotKey;
+
+  }
+
+
+  /*
+   * Snapshot cũ không có latestDrawKey,
+   * nên không nên tự đoán nó thuộc kỳ nào.
+   *
+   * Giữ snapshot cũ nhưng không coi
+   * là duplicate chắc chắn.
+   */
+
+  if (
+    snapshot.latestDrawKey == null
+  ) {
+
+    return null;
+
+  }
+
+
+  return [
+
+    'v26',
+
+    normalizeShadowIdentityV26(
+      snapshot.province
+    ),
+
+    normalizeShadowIdentityV26(
+      snapshot.prize ||
+      'db'
+    ),
+
+    normalizeShadowIdentityV26(
+      snapshot.latestDrawKey
+    ),
+
+    normalizeShadowIdentityV26(
+      snapshot.model
+    ),
+
+    normalizeShadowIdentityV26(
+      snapshot.window
+    )
+
+  ].join(
+    '|'
+  );
+
+}
+
+
+/* =========================================================================
+   5. FIND DUPLICATE
+   ========================================================================= */
+
+function findDuplicateShadowSnapshotV26(
+  snapshotKey,
+  snapshots = null
+) {
+
+  if (!snapshotKey) {
+
+    return null;
+
+  }
+
+
+  const store =
+    Array.isArray(
+      snapshots
+    )
+      ? snapshots
+      : readShadowSnapshotsV26();
+
+
+  return (
+    store.find(
+      snapshot =>
+        getStoredSnapshotKeyV26(
+          snapshot
+        ) ===
+        snapshotKey
+    ) ||
+    null
+  );
+
+}
+
+
+/* =========================================================================
+   6. CREATE TRACKED SNAPSHOT
+
+   Đây là version 8B-B của snapshot creator.
+   ========================================================================= */
+
+function createTrackedShadowSnapshotV26(
+  shadow
+) {
+
+  if (
+    !shadow ||
+    !shadow.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SHADOW_NOT_READY'
+
+    };
+
+  }
+
+
+  const drawIdentity =
+    getLatestShadowDrawIdentityV26(
+      shadow.province
+    );
+
+
+  if (
+    !drawIdentity.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        drawIdentity.reason ||
+        'DRAW_IDENTITY_NOT_READY',
+
+      province:
+        shadow.province
+
+    };
+
+  }
+
+
+  const snapshotKey =
+    buildStableShadowSnapshotKeyV26(
+      shadow
+    );
+
+
+  if (!snapshotKey) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_KEY_NOT_CREATED',
+
+      province:
+        shadow.province
+
+    };
+
+  }
+
+
+  const createdAt =
+    new Date()
+      .toISOString();
+
+
+  const snapshot = {
+
+    /*
+     * id vẫn unique cho record.
+     *
+     * snapshotKey mới là identity dùng
+     * để chống duplicate.
+     */
+
+    id:
+      [
+        'V26',
+        shadow.province,
+        shadow.prize || 'db',
+        Date.now()
+      ].join(
+        '_'
+      ),
+
+    snapshotKey,
+
+    version:
+      'V2.6',
+
+    trackingVersion:
+      '8B-B',
+
+    engine:
+      'SHADOW_TRACKING',
+
+    researchOnly:
+      true,
+
+    province:
+      shadow.province,
+
+    prize:
+      shadow.prize ||
+      'db',
+
+    model:
+      shadow.model,
+
+    window:
+      shadow.window,
+
+    gateScore:
+      shadow.gateScore,
+
+    oosDelta:
+      shadow.oosDelta,
+
+    winRate:
+      shadow.winRate,
+
+    historyCount:
+      shadow.historyCount,
+
+
+    /*
+     * Quan trọng:
+     * snapshot biết trạng thái historical
+     * data tại lúc prediction được tạo.
+     */
+
+    latestDrawKey:
+      drawIdentity.drawKey,
+
+    latestDrawDate:
+      drawIdentity.drawDate,
+
+
+    generatedAt:
+      shadow.generatedAt ||
+      createdAt,
+
+    savedAt:
+      createdAt,
+
+
+    top1:
+      Array.isArray(
+        shadow.top1
+      )
+        ? shadow.top1.slice()
+        : [],
+
+    top3:
+      Array.isArray(
+        shadow.top3
+      )
+        ? shadow.top3.slice()
+        : [],
+
+    top5:
+      Array.isArray(
+        shadow.top5
+      )
+        ? shadow.top5.slice()
+        : [],
+
+    top10:
+      Array.isArray(
+        shadow.top10
+      )
+        ? shadow.top10.slice()
+        : [],
+
+
+    /*
+     * Chưa có kết quả thật.
+     */
+
+    actual:
+      null,
+
+    actualDate:
+      null,
+
+
+    verification: {
+
+      status:
+        'PENDING',
+
+      top1Hit:
+        null,
+
+      top3Hit:
+        null,
+
+      top5Hit:
+        null,
+
+      top10Hit:
+        null,
+
+      rank:
+        null,
+
+      verifiedAt:
+        null
+
+    }
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    snapshot
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. SAVE ONE WITH DUPLICATE PROTECTION
+   ========================================================================= */
+
+function saveTrackedShadowSnapshotV26(
+  shadow
+) {
+
+  const created =
+    createTrackedShadowSnapshotV26(
+      shadow
+    );
+
+
+  if (
+    !created.ready
+  ) {
+
+    return created;
+
+  }
+
+
+  const snapshot =
+    created.snapshot;
+
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  const duplicate =
+    findDuplicateShadowSnapshotV26(
+      snapshot.snapshotKey,
+      snapshots
+    );
+
+
+  if (duplicate) {
+
+    return {
+
+      ready: true,
+
+      saved: false,
+
+      skipped: true,
+
+      reason:
+        'SKIPPED_DUPLICATE',
+
+      province:
+        snapshot.province,
+
+      snapshotKey:
+        snapshot.snapshotKey,
+
+      existingSnapshotId:
+        duplicate.id,
+
+      snapshot:
+        duplicate
+
+    };
+
+  }
+
+
+  snapshots.push(
+    snapshot
+  );
+
+
+  const written =
+    writeShadowSnapshotsV26(
+      snapshots
+    );
+
+
+  if (!written) {
+
+    return {
+
+      ready: false,
+
+      saved: false,
+
+      skipped: false,
+
+      reason:
+        'SNAPSHOT_WRITE_FAILED',
+
+      province:
+        snapshot.province
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    saved: true,
+
+    skipped: false,
+
+    reason:
+      'SNAPSHOT_SAVED',
+
+    province:
+      snapshot.province,
+
+    snapshotKey:
+      snapshot.snapshotKey,
+
+    snapshot,
+
+    totalSnapshots:
+      snapshots.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. SAVE APPROVED BATCH WITH DUPLICATE PROTECTION
+   ========================================================================= */
+
+function saveTrackedShadowBatchV26(
+  giaiKey = 'db'
+) {
+
+  /*
+   * Bảo đảm Decision Layer tồn tại.
+   */
+
+  if (
+    typeof ensureProvinceDecisionLayerV26 ===
+    'function'
+  ) {
+
+    const bootstrap =
+      ensureProvinceDecisionLayerV26();
+
+
+    if (
+      !bootstrap ||
+      !bootstrap.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          bootstrap &&
+          bootstrap.reason
+            ? bootstrap.reason
+            : 'DECISION_LAYER_NOT_READY'
+
+      };
+
+    }
+
+  }
+
+
+  const batch =
+    runApprovedShadowPredictionsV26(
+      giaiKey,
+      false
+    );
+
+
+  if (
+    !batch ||
+    !batch.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        batch &&
+        batch.reason
+          ? batch.reason
+          : 'SHADOW_BATCH_NOT_READY'
+
+    };
+
+  }
+
+
+  const successful =
+    batch.results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  if (
+    !successful.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_SUCCESSFUL_SHADOWS'
+
+    };
+
+  }
+
+
+  const results =
+    successful.map(
+      shadow =>
+        saveTrackedShadowSnapshotV26(
+          shadow
+        )
+    );
+
+
+  const saved =
+    results.filter(
+      item =>
+        item.ready &&
+        item.saved
+    );
+
+
+  const skipped =
+    results.filter(
+      item =>
+        item.ready &&
+        item.skipped
+    );
+
+
+  const failed =
+    results.filter(
+      item =>
+        !item.ready
+    );
+
+
+  return {
+
+    ready:
+      failed.length === 0,
+
+    version:
+      'V2.6',
+
+    block:
+      '8B-B',
+
+    engine:
+      'SHADOW_TRACKING_DUPLICATE_SAFE',
+
+    researchOnly:
+      true,
+
+    requested:
+      successful.length,
+
+    saved:
+      saved.length,
+
+    skipped:
+      skipped.length,
+
+    failed:
+      failed.length,
+
+    results,
+
+    totalSnapshots:
+      readShadowSnapshotsV26()
+        .length
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. MOBILE DUPLICATE TEST
+   ========================================================================= */
+
+function testShadowDuplicateProtectionV26Mobile() {
+
+  try {
+
+    const result =
+      saveTrackedShadowBatchV26(
+        'db'
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+        '❌ V2.6 DUPLICATE PROTECTION\n\n' +
+        'Test failed.\n\n' +
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN'
+        )
+      );
+
+
+      return result;
+
+    }
+
+
+    const summary =
+      getShadowSnapshotSummaryV26();
+
+
+    const lines = [];
+
+
+    lines.push(
+      '🛡️ V2.6 SNAPSHOT DUPLICATE PROTECTION'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Requested: ' +
+      result.requested
+    );
+
+
+    lines.push(
+      'Saved New: ' +
+      result.saved
+    );
+
+
+    lines.push(
+      'Skipped Duplicate: ' +
+      result.skipped
+    );
+
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Total Store: ' +
+      summary.total
+    );
+
+
+    lines.push(
+      'Pending: ' +
+      summary.pending
+    );
+
+
+    lines.push(
+      'Verified: ' +
+      summary.verified
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    result.results.forEach(
+      item => {
+
+        lines.push(
+          (
+            item.saved
+              ? '💾 '
+              : item.skipped
+                ? '⏭️ '
+                : '❌ '
+          ) +
+          (
+            item.province ||
+            'UNKNOWN'
+          )
+        );
+
+
+        lines.push(
+          'Status: ' +
+          (
+            item.saved
+              ? 'SAVED_NEW'
+              : item.skipped
+                ? 'SKIPPED_DUPLICATE'
+                : (
+                    item.reason ||
+                    'FAILED'
+                  )
+          )
+        );
+
+
+        if (
+          item.snapshot &&
+          item.snapshot.latestDrawDate
+        ) {
+
+          lines.push(
+            'Latest Draw: ' +
+            item.snapshot.latestDrawDate
+          );
+
+        }
+
+
+        lines.push(
+          '--------------------'
+        );
+
+      }
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window
+      .LAST_SHADOW_DUPLICATE_TEST_V26 =
+      result;
+
+
+    return result;
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Duplicate Protection Test:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 DUPLICATE ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   10. NEW TEST BUTTON
+
+   Tạm thời giữ nút 8B-A cũ.
+   Tạo nút riêng để kiểm định 8B-B.
+   ========================================================================= */
+
+function addShadowDuplicateTestButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowDuplicateV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowDuplicateV26';
+
+
+  button.textContent =
+    '🛡️ Test V2.6 Duplicate Protection';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      testShadowDuplicateProtectionV26Mobile();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   11. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowDuplicateTestButtonV26
+  );
+
+} else {
+
+  addShadowDuplicateTestButtonV26();
+
+}
+
+
+/* =========================================================================
+   12. SAFETY
+   ========================================================================= */
+
+function shadowDuplicateSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '8B-B',
+
+    stableIdentity:
+      true,
+
+    duplicateProtection:
+      true,
+
+    storage:
+      'LOCAL_STORAGE',
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    productionDataMutated:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_DUPLICATE_PROTECTION'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8B-B loaded — Snapshot Identity + Duplicate Protection ready'
+);
+
