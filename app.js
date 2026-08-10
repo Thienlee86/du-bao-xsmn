@@ -36610,7 +36610,7 @@ function buildShadowSnapshotIdV26(
    5. CREATE ONE SNAPSHOT
    ========================================================================= */
 
-function createShadowSnapshotV26(
+function createShadowTrackingSnapshotV26(
   shadow
 ) {
 
@@ -36781,7 +36781,7 @@ function saveOneShadowSnapshotV26(
 ) {
 
   const created =
-    createShadowSnapshotV26(
+    createShadowTrackingSnapshotV26(
       shadow
     );
 
