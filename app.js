@@ -32019,19 +32019,31 @@ function ensureProvinceDecisionLayerV26() {
    * -------------------------------------------------------------
    */
 
-  const runnerCandidates = [
+const runnerCandidates = [
 
-    'runProvinceDecisionLayerV26',
+  /*
+   * Đây là runner THẬT của Block 6A.
+   */
 
-    'buildProvinceDecisionLayerV26',
+  'evaluateAllProvincesOOSV26',
 
-    'evaluateProvinceDecisionLayerV26',
 
-    'createProvinceDecisionLayerV26',
+  /*
+   * Giữ các tên fallback
+   * để tương thích phiên bản cũ.
+   */
 
-    'runAdaptiveDecisionLayerV26'
+  'runCrossProvinceOOSV26',
 
-  ];
+  'runCrossProvinceOOSTestV26',
+
+  'runCrossProvinceOOSAllV26',
+
+  'runAllProvinceOOSV26',
+
+  'runCrossProvinceValidationV26'
+
+];
 
 
   let runnerName =
