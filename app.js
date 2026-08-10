@@ -52380,3 +52380,535 @@ console.log(
   'XSMN V2.6 Snapshot Structure Inspector Button ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-C
+   SNAPSHOT SCHEMA TAIL INSPECTOR
+
+   Mục tiêu:
+   - Đọc toàn bộ keys của Snapshot #1.
+   - Xem cả các field phía sau key thứ 12.
+   - READ ONLY.
+   - Không chạy model.
+   - Không tạo / sửa snapshot.
+   - Production unchanged.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. INSPECT FULL SNAPSHOT SCHEMA
+   ========================================================================= */
+
+function inspectSnapshotSchemaTailV26() {
+
+  const store =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  if (
+    !store.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_EMPTY'
+
+    };
+
+  }
+
+
+  const snapshot =
+    store[0];
+
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_1_INVALID'
+
+    };
+
+  }
+
+
+  const keys =
+    Object.keys(
+      snapshot
+    );
+
+
+  const fields =
+    keys.map(
+      (
+        key,
+        index
+      ) => {
+
+        const value =
+          snapshot[key];
+
+
+        let type =
+          typeof value;
+
+
+        if (
+          Array.isArray(
+            value
+          )
+        ) {
+
+          type =
+            'array';
+
+        }
+
+
+        if (
+          value === null
+        ) {
+
+          type =
+            'null';
+
+        }
+
+
+        let preview;
+
+
+        if (
+          value === undefined
+        ) {
+
+          preview =
+            'undefined';
+
+        } else if (
+          value === null
+        ) {
+
+          preview =
+            'null';
+
+        } else if (
+          Array.isArray(
+            value
+          )
+        ) {
+
+          preview =
+            value
+              .slice(
+                0,
+                5
+              )
+              .join(
+                ', '
+              );
+
+        } else if (
+          typeof value ===
+            'object'
+        ) {
+
+          preview =
+            '{' +
+            Object.keys(
+              value
+            )
+              .slice(
+                0,
+                6
+              )
+              .join(
+                ', '
+              ) +
+            '}';
+
+        } else {
+
+          preview =
+            String(
+              value
+            );
+
+        }
+
+
+        /*
+         * Giữ alert ngắn nếu có
+         * chuỗi quá dài.
+         */
+
+        if (
+          preview.length > 80
+        ) {
+
+          preview =
+            preview.slice(
+              0,
+              77
+            ) +
+            '...';
+
+        }
+
+
+        return {
+
+          number:
+            index + 1,
+
+          key,
+
+          type,
+
+          preview
+
+        };
+
+      }
+    );
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'SHADOW_SNAPSHOTS_V26',
+
+    snapshotNumber:
+      1,
+
+    province:
+      snapshot.province ||
+      snapshot.provinceSlug ||
+      snapshot.slug ||
+      '-',
+
+    totalKeys:
+      keys.length,
+
+    fields
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. MOBILE TEXT
+   ========================================================================= */
+
+function snapshotSchemaTailTextV26(
+  result
+) {
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return (
+      '🧬 V2.6 SNAPSHOT SCHEMA\n\n' +
+
+      '❌ NOT READY\n\n' +
+
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  let text =
+    '🧬 V2.6 SNAPSHOT SCHEMA\n\n' +
+
+    'Snapshot: #' +
+    result.snapshotNumber +
+    '\n' +
+
+    'Province: ' +
+    result.province +
+    '\n' +
+
+    'Total Keys: ' +
+    result.totalKeys +
+    '\n\n';
+
+
+  result.fields.forEach(
+    field => {
+
+      text +=
+        field.number +
+        '. ' +
+        field.key +
+        '\n' +
+
+        '   Type: ' +
+        field.type +
+        '\n' +
+
+        '   Value: ' +
+        field.preview +
+        '\n\n';
+
+    }
+  );
+
+
+  text +=
+    'Read only\n' +
+    'Production unchanged';
+
+
+  return text;
+
+}
+
+
+/* =========================================================================
+   3. TEST
+   ========================================================================= */
+
+function testSnapshotSchemaTailV26() {
+
+  const result =
+    inspectSnapshotSchemaTailV26();
+
+
+  console.log(
+    'V2.6 Snapshot Full Schema:',
+    result
+  );
+
+
+  if (
+    result &&
+    Array.isArray(
+      result.fields
+    )
+  ) {
+
+    console.table(
+      result.fields.map(
+        field => ({
+
+          No:
+            field.number,
+
+          Key:
+            field.key,
+
+          Type:
+            field.type,
+
+          Value:
+            field.preview
+
+        })
+      )
+    );
+
+  }
+
+
+  alert(
+    snapshotSchemaTailTextV26(
+      result
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. MOBILE BUTTON
+   ========================================================================= */
+
+function addSnapshotSchemaTailButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnSnapshotSchemaTailV26'
+    )
+  ) {
+
+    return true;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    ) ||
+    document.getElementById(
+      'settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    );
+
+
+  if (!settings) {
+
+    return false;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSnapshotSchemaTailV26';
+
+
+  button.textContent =
+    '🧬 Inspect V2.6 Snapshot Schema';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      if (
+        typeof testSnapshotSchemaTailV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ V2.6 SNAPSHOT SCHEMA\n\n' +
+          'testSnapshotSchemaTailV26() not found.'
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        testSnapshotSchemaTailV26();
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          'V2.6 Snapshot Schema Inspector:',
+          error
+        );
+
+
+        alert(
+          '❌ V2.6 SNAPSHOT SCHEMA\n\n' +
+          'Inspector error:\n' +
+          String(
+            error.message ||
+            error
+          )
+        );
+
+      }
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   5. INIT BUTTON
+   ========================================================================= */
+
+function initSnapshotSchemaTailButtonV26() {
+
+  const installed =
+    addSnapshotSchemaTailButtonV26();
+
+
+  if (!installed) {
+
+    setTimeout(
+      addSnapshotSchemaTailButtonV26,
+      500
+    );
+
+  }
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initSnapshotSchemaTailButtonV26
+  );
+
+} else {
+
+  initSnapshotSchemaTailButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8C-C loaded — Full Snapshot Schema Inspector ready'
+);
+
