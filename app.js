@@ -43204,3 +43204,300 @@ console.log(
   'XSMN V2.6 Block 6A loaded — Cross-Province OOS Engine ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — CROSS OOS RUNNER DEBUG
+
+   Mục tiêu:
+   Kiểm tra runner thật của Block 6A
+   có tồn tại sau khi reload hay không.
+   ========================================================================= */
+
+function showCrossOOSRunnerDebugV26() {
+
+  const lines = [];
+
+  lines.push(
+    '🔎 V2.6 CROSS OOS RUNNER DEBUG'
+  );
+
+  lines.push(
+    ''
+  );
+
+
+  /*
+   * TEST 1
+   * Kiểm tra trực tiếp function.
+   */
+
+  lines.push(
+    'Direct typeof: ' +
+    typeof evaluateAllProvincesOOSV26
+  );
+
+
+  /*
+   * TEST 2
+   * Kiểm tra function qua window.
+   */
+
+  lines.push(
+    'Window typeof: ' +
+    typeof window.evaluateAllProvincesOOSV26
+  );
+
+
+  /*
+   * TEST 3
+   * Kiểm tra một số runner liên quan.
+   */
+
+  const names = [
+
+    'evaluateAllProvincesOOSV26',
+
+    'printAllProvincesOOSV26',
+
+    'runProvinceAdaptiveGateV26',
+
+    'runProvinceDecisionLayerV26'
+
+  ];
+
+
+  lines.push(
+    ''
+  );
+
+  lines.push(
+    'FUNCTION CHECK'
+  );
+
+
+  names.forEach(
+    name => {
+
+      lines.push(
+        name +
+        ': ' +
+        typeof window[name]
+      );
+
+    }
+  );
+
+
+  /*
+   * TEST 4
+   * Nếu runner trực tiếp tồn tại,
+   * thử chạy thật.
+   */
+
+  lines.push(
+    ''
+  );
+
+
+  if (
+    typeof evaluateAllProvincesOOSV26 ===
+    'function'
+  ) {
+
+    lines.push(
+      'Direct runner: FOUND'
+    );
+
+
+    try {
+
+      const result =
+        evaluateAllProvincesOOSV26(
+          'db'
+        );
+
+
+      lines.push(
+        'Run ready: ' +
+        Boolean(
+          result &&
+          result.ready
+        )
+      );
+
+
+      if (
+        result &&
+        typeof result ===
+        'object'
+      ) {
+
+        lines.push(
+          'Result keys: ' +
+          Object.keys(
+            result
+          ).join(
+            ', '
+          )
+        );
+
+
+        if (
+          Array.isArray(
+            result.results
+          )
+        ) {
+
+          lines.push(
+            'Results: ' +
+            result.results.length
+          );
+
+        }
+
+
+        if (
+          result.reason
+        ) {
+
+          lines.push(
+            'Reason: ' +
+            result.reason
+          );
+
+        }
+
+      }
+
+
+      window
+        .LAST_CROSS_OOS_RUNNER_DEBUG_RESULT_V26 =
+        result;
+
+
+    } catch (
+      error
+    ) {
+
+      lines.push(
+        'RUN ERROR: ' +
+        String(
+          error.message ||
+          error
+        )
+      );
+
+    }
+
+  } else {
+
+    lines.push(
+      'Direct runner: NOT FOUND'
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   DEBUG BUTTON
+   ========================================================================= */
+
+function addCrossOOSRunnerDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnCrossOOSRunnerDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnCrossOOSRunnerDebugV26';
+
+
+  button.textContent =
+    '🔎 Debug Cross OOS Runner';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    showCrossOOSRunnerDebugV26
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addCrossOOSRunnerDebugButtonV26
+  );
+
+} else {
+
+  addCrossOOSRunnerDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Cross OOS Runner Debug ready'
+);
+
