@@ -53244,3 +53244,299 @@ console.log(
   'XSMN V2.6 Schema Tail Only Inspector ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — PERSISTENT SAVE DIAGNOSTIC
+
+   Mục tiêu:
+   - Kiểm tra localStorage có lưu thật hay không.
+   - Không thay Production Engine.
+   - Không chạy Cross OOS / Gate / Decision / Shadow.
+   - Research Only.
+   ========================================================================= */
+
+const V26_PERSIST_TEST_KEY =
+  'XSMN_V26_PERSIST_TEST';
+
+
+function writePersistentTestV26() {
+
+  const testData = {
+
+    version: 'V2.6',
+
+    type: 'PERSIST_TEST',
+
+    createdAt:
+      new Date().toISOString(),
+
+    marker:
+      'XSMN_V26_STORAGE_OK',
+
+    random:
+      Math.random()
+        .toString(36)
+        .slice(2)
+
+  };
+
+
+  try {
+
+    localStorage.setItem(
+      V26_PERSIST_TEST_KEY,
+      JSON.stringify(
+        testData
+      )
+    );
+
+
+    const raw =
+      localStorage.getItem(
+        V26_PERSIST_TEST_KEY
+      );
+
+
+    if (!raw) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'WRITE_OK_BUT_READ_EMPTY'
+
+      };
+
+    }
+
+
+    const restored =
+      JSON.parse(
+        raw
+      );
+
+
+    return {
+
+      ready: true,
+
+      status:
+        'PERSIST_TEST_WRITTEN',
+
+      key:
+        V26_PERSIST_TEST_KEY,
+
+      data:
+        restored
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LOCAL_STORAGE_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+function readPersistentTestV26() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        V26_PERSIST_TEST_KEY
+      );
+
+
+    if (!raw) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PERSIST_TEST_NOT_FOUND',
+
+        key:
+          V26_PERSIST_TEST_KEY
+
+      };
+
+    }
+
+
+    const data =
+      JSON.parse(
+        raw
+      );
+
+
+    return {
+
+      ready: true,
+
+      status:
+        'PERSIST_TEST_RESTORED',
+
+      key:
+        V26_PERSIST_TEST_KEY,
+
+      data
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LOCAL_STORAGE_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+function testPersistentSaveV26() {
+
+  const write =
+    writePersistentTestV26();
+
+
+  let text =
+    '💾 V2.6 PERSISTENT SAVE TEST\n\n';
+
+
+  if (!write.ready) {
+
+    text +=
+      '❌ WRITE FAILED\n\n' +
+
+      'Reason: ' +
+      (
+        write.reason ||
+        'UNKNOWN'
+      );
+
+
+    alert(text);
+
+    return write;
+
+  }
+
+
+  text +=
+    '✅ WRITE SUCCESS\n\n' +
+
+    'Key:\n' +
+    write.key +
+    '\n\n' +
+
+    'Marker:\n' +
+    write.data.marker +
+    '\n\n' +
+
+    'Created:\n' +
+    write.data.createdAt +
+    '\n\n' +
+
+    'NEXT STEP:\n' +
+    'Reload trang rồi chạy READ TEST.';
+
+
+  alert(text);
+
+
+  return write;
+
+}
+
+
+function testPersistentRestoreV26() {
+
+  const read =
+    readPersistentTestV26();
+
+
+  let text =
+    '🔄 V2.6 PERSISTENT RESTORE TEST\n\n';
+
+
+  if (!read.ready) {
+
+    text +=
+      '❌ RESTORE FAILED\n\n' +
+
+      'Reason: ' +
+      (
+        read.reason ||
+        'UNKNOWN'
+      );
+
+
+    alert(text);
+
+    return read;
+
+  }
+
+
+  text +=
+    '✅ RESTORE SUCCESS\n\n' +
+
+    'Key:\n' +
+    read.key +
+    '\n\n' +
+
+    'Marker:\n' +
+    read.data.marker +
+    '\n\n' +
+
+    'Original Created:\n' +
+    read.data.createdAt +
+    '\n\n' +
+
+    'LOCAL STORAGE:\n' +
+    'PERSISTENT CONFIRMED';
+
+
+  alert(text);
+
+
+  return read;
+
+}
+
+
+console.log(
+  'XSMN V2.6 Persistent Save Diagnostic loaded'
+);
+
