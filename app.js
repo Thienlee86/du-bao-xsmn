@@ -56686,3 +56686,899 @@ function printShadowWrapperPersistenceTestV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A4D
+   SAVE DEEP DIAGNOSTIC
+
+   Mục tiêu:
+   - Không ghi snapshot.
+   - Không sửa localStorage.
+   - Kiểm tra từng tầng:
+       Decision Layer
+       → Approved
+       → Province Slug
+       → Shadow Ranking
+       → Snapshot Creation
+   - Tìm chính xác nguyên nhân Save Ready = NO.
+   - Research Only.
+   ========================================================================= */
+
+function diagnoseShadowPersistentSaveV26() {
+
+  const report = {
+
+    ready: false,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-A4_SAVE_DIAGNOSTIC',
+
+    researchOnly:
+      true,
+
+    stages: [],
+
+    provinces: []
+
+  };
+
+
+  /* =====================================================================
+     STAGE 1 — DECISION LAYER
+     ===================================================================== */
+
+  let layer =
+    window.LAST_PROVINCE_DECISION_V26;
+
+
+  /*
+   * Nếu reload làm mất Decision Layer,
+   * bootstrap lại.
+   */
+
+  if (
+    !layer ||
+    !layer.ready ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    if (
+      typeof
+        ensureDecisionLayerForSnapshotV26 ===
+      'function'
+    ) {
+
+      try {
+
+        const bootstrap =
+          ensureDecisionLayerForSnapshotV26();
+
+
+        if (
+          bootstrap &&
+          bootstrap.ready
+        ) {
+
+          layer =
+            bootstrap.result;
+
+        } else {
+
+          report.stages.push({
+
+            stage:
+              'DECISION_BOOTSTRAP',
+
+            ready:
+              false,
+
+            reason:
+              bootstrap &&
+              bootstrap.reason
+                ? bootstrap.reason
+                : 'BOOTSTRAP_NOT_READY'
+
+          });
+
+
+          return report;
+
+        }
+
+      } catch (error) {
+
+        report.stages.push({
+
+          stage:
+            'DECISION_BOOTSTRAP',
+
+          ready:
+            false,
+
+          reason:
+            'BOOTSTRAP_ERROR',
+
+          error:
+            String(
+              error.message ||
+              error
+            )
+
+        });
+
+
+        return report;
+
+      }
+
+    } else {
+
+      report.stages.push({
+
+        stage:
+          'DECISION_LAYER',
+
+        ready:
+          false,
+
+        reason:
+          'DECISION_BOOTSTRAP_FUNCTION_NOT_FOUND'
+
+      });
+
+
+      return report;
+
+    }
+
+  }
+
+
+  /*
+   * Một số block dùng decisions thay vì results.
+   */
+
+  if (
+    layer &&
+    !Array.isArray(
+      layer.results
+    ) &&
+    Array.isArray(
+      layer.decisions
+    )
+  ) {
+
+    layer.results =
+      layer.decisions;
+
+  }
+
+
+  if (
+    !layer ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    report.stages.push({
+
+      stage:
+        'DECISION_LAYER',
+
+      ready:
+        false,
+
+      reason:
+        'DECISION_RESULTS_NOT_ARRAY',
+
+      keys:
+        layer &&
+        typeof layer ===
+          'object'
+          ? Object.keys(
+              layer
+            )
+          : []
+
+    });
+
+
+    return report;
+
+  }
+
+
+  report.stages.push({
+
+    stage:
+      'DECISION_LAYER',
+
+    ready:
+      true,
+
+    count:
+      layer.results.length
+
+  });
+
+
+  /* =====================================================================
+     STAGE 2 — APPROVED
+     ===================================================================== */
+
+  const approved =
+    layer.results.filter(
+      item => {
+
+        try {
+
+          return (
+            normalizeShadowDecisionV26(
+              item.decision ||
+              item.action ||
+              item.recommendation
+            ) ===
+            SHADOW_ENGINE_V26_CONFIG
+              .requiredDecision
+          );
+
+        } catch (error) {
+
+          return false;
+
+        }
+
+      }
+    );
+
+
+  report.stages.push({
+
+    stage:
+      'APPROVED_FILTER',
+
+    ready:
+      approved.length > 0,
+
+    count:
+      approved.length,
+
+    requiredDecision:
+      typeof
+        SHADOW_ENGINE_V26_CONFIG !==
+        'undefined'
+        ? SHADOW_ENGINE_V26_CONFIG
+            .requiredDecision
+        : 'CONFIG_NOT_FOUND'
+
+  });
+
+
+  if (
+    !approved.length
+  ) {
+
+    return report;
+
+  }
+
+
+  /* =====================================================================
+     STAGE 3 — CHECK FUNCTIONS
+     ===================================================================== */
+
+  const functionCheck = {
+
+    buildShadowRankingV26:
+      typeof
+        buildShadowRankingV26 ===
+        'function',
+
+    createShadowSnapshotV26:
+      typeof
+        createShadowSnapshotV26 ===
+        'function',
+
+    saveShadowSnapshotV26:
+      typeof
+        saveShadowSnapshotV26 ===
+        'function'
+
+  };
+
+
+  report.stages.push({
+
+    stage:
+      'FUNCTION_CHECK',
+
+    ready:
+      functionCheck
+        .buildShadowRankingV26 &&
+      functionCheck
+        .createShadowSnapshotV26 &&
+      functionCheck
+        .saveShadowSnapshotV26,
+
+    functions:
+      functionCheck
+
+  });
+
+
+  /* =====================================================================
+     STAGE 4 — EACH APPROVED PROVINCE
+     ===================================================================== */
+
+  approved.forEach(
+    (
+      item,
+      index
+    ) => {
+
+      const row = {
+
+        index:
+          index + 1,
+
+        province:
+          item.province ||
+          item.provinceName ||
+          item.provinceSlug ||
+          item.slug ||
+          '-',
+
+        slug:
+          null,
+
+        decision:
+          item.decision ||
+          item.action ||
+          item.recommendation ||
+          '-',
+
+        rankingReady:
+          false,
+
+        snapshotReady:
+          false,
+
+        rankingReason:
+          null,
+
+        snapshotReason:
+          null
+
+      };
+
+
+      /*
+       * Resolve slug.
+       */
+
+      let slug =
+        item.provinceSlug ||
+        item.slug ||
+        null;
+
+
+      if (
+        !slug &&
+        item.province
+      ) {
+
+        try {
+
+          const provinces =
+            (
+              typeof PROVINCES !==
+                'undefined' &&
+              Array.isArray(
+                PROVINCES
+              )
+            )
+              ? PROVINCES
+              : [];
+
+
+          const found =
+            provinces.find(
+              province =>
+                province.name ===
+                  item.province ||
+                province.slug ===
+                  item.province
+            );
+
+
+          if (
+            found
+          ) {
+
+            slug =
+              found.slug;
+
+          }
+
+        } catch (error) {
+
+          row.slugError =
+            String(
+              error.message ||
+              error
+            );
+
+        }
+
+      }
+
+
+      row.slug =
+        slug;
+
+
+      if (
+        !slug
+      ) {
+
+        row.rankingReason =
+          'PROVINCE_SLUG_NOT_FOUND';
+
+        row.snapshotReason =
+          'NOT_TESTED';
+
+        report.provinces.push(
+          row
+        );
+
+        return;
+
+      }
+
+
+      /*
+       * -------------------------------------------------------------
+       * Test Shadow Ranking.
+       *
+       * Đây chỉ BUILD.
+       * Không save.
+       * -------------------------------------------------------------
+       */
+
+      if (
+        typeof
+          buildShadowRankingV26 ===
+        'function'
+      ) {
+
+        try {
+
+          const ranking =
+            buildShadowRankingV26(
+              slug,
+              'db'
+            );
+
+
+          row.rankingReady =
+            Boolean(
+              ranking &&
+              ranking.ready
+            );
+
+
+          row.rankingReason =
+            ranking &&
+            !ranking.ready
+              ? (
+                  ranking.reason ||
+                  'RANKING_NOT_READY'
+                )
+              : 'READY';
+
+
+          row.rankingKeys =
+            ranking &&
+            typeof ranking ===
+              'object'
+              ? Object.keys(
+                  ranking
+                )
+              : [];
+
+
+          row.model =
+            ranking &&
+            ranking.model
+              ? ranking.model
+              : null;
+
+
+          row.window =
+            ranking &&
+            ranking.window != null
+              ? ranking.window
+              : null;
+
+        } catch (error) {
+
+          row.rankingReady =
+            false;
+
+          row.rankingReason =
+            'RANKING_EXCEPTION';
+
+          row.rankingError =
+            String(
+              error.message ||
+              error
+            );
+
+        }
+
+      } else {
+
+        row.rankingReason =
+          'BUILD_SHADOW_FUNCTION_NOT_FOUND';
+
+      }
+
+
+      /*
+       * -------------------------------------------------------------
+       * Test createShadowSnapshotV26.
+       *
+       * create only.
+       * KHÔNG push vào SHADOW_SNAPSHOTS_V26.
+       * KHÔNG ghi localStorage.
+       * -------------------------------------------------------------
+       */
+
+      if (
+        typeof
+          createShadowSnapshotV26 ===
+        'function'
+      ) {
+
+        try {
+
+          const snapshot =
+            createShadowSnapshotV26(
+              slug,
+              'db'
+            );
+
+
+          row.snapshotReady =
+            Boolean(
+              snapshot &&
+              snapshot.ready
+            );
+
+
+          row.snapshotReason =
+            snapshot &&
+            !snapshot.ready
+              ? (
+                  snapshot.reason ||
+                  'SNAPSHOT_NOT_READY'
+                )
+              : 'READY';
+
+
+          row.snapshotKeys =
+            snapshot &&
+            typeof snapshot ===
+              'object'
+              ? Object.keys(
+                  snapshot
+                )
+              : [];
+
+
+          /*
+           * Nếu create trả eligibility,
+           * lấy reason sâu hơn.
+           */
+
+          if (
+            snapshot &&
+            !snapshot.ready &&
+            snapshot.eligibility
+          ) {
+
+            row.eligibilityReady =
+              Boolean(
+                snapshot
+                  .eligibility
+                  .ready
+              );
+
+
+            row.eligibilityReason =
+              snapshot
+                .eligibility
+                .reason ||
+              null;
+
+          }
+
+        } catch (error) {
+
+          row.snapshotReady =
+            false;
+
+          row.snapshotReason =
+            'SNAPSHOT_EXCEPTION';
+
+          row.snapshotError =
+            String(
+              error.message ||
+              error
+            );
+
+        }
+
+      } else {
+
+        row.snapshotReason =
+          'CREATE_SNAPSHOT_FUNCTION_NOT_FOUND';
+
+      }
+
+
+      report.provinces.push(
+        row
+      );
+
+    }
+  );
+
+
+  /* =====================================================================
+     FINAL
+     ===================================================================== */
+
+  const rankingReadyCount =
+    report.provinces.filter(
+      item =>
+        item.rankingReady
+    ).length;
+
+
+  const snapshotReadyCount =
+    report.provinces.filter(
+      item =>
+        item.snapshotReady
+    ).length;
+
+
+  report.rankingReadyCount =
+    rankingReadyCount;
+
+
+  report.snapshotReadyCount =
+    snapshotReadyCount;
+
+
+  report.approvedCount =
+    approved.length;
+
+
+  report.ready =
+    (
+      approved.length > 0 &&
+      snapshotReadyCount ===
+        approved.length
+    );
+
+
+  return report;
+
+}
+
+
+/* =========================================================================
+   PRINT DEEP DIAGNOSTIC
+   ========================================================================= */
+
+function printShadowPersistentSaveDiagnosticV26() {
+
+  const result =
+    diagnoseShadowPersistentSaveV26();
+
+
+  let text =
+    '🔬 V2.6 8C-A4 SAVE DEEP DEBUG\n\n';
+
+
+  /*
+   * Stage summary.
+   */
+
+  result.stages.forEach(
+    stage => {
+
+      text +=
+        (
+          stage.ready
+            ? '✅ '
+            : '❌ '
+        ) +
+        stage.stage;
+
+
+      if (
+        stage.count != null
+      ) {
+
+        text +=
+          ': ' +
+          stage.count;
+
+      }
+
+
+      if (
+        !stage.ready &&
+        stage.reason
+      ) {
+
+        text +=
+          '\nReason: ' +
+          stage.reason;
+
+      }
+
+
+      text +=
+        '\n';
+
+    }
+  );
+
+
+  text +=
+    '\nApproved: ' +
+    (
+      result.approvedCount != null
+        ? result.approvedCount
+        : 0
+    );
+
+
+  text +=
+    '\nRanking READY: ' +
+    (
+      result.rankingReadyCount != null
+        ? result.rankingReadyCount
+        : 0
+    );
+
+
+  text +=
+    '\nSnapshot READY: ' +
+    (
+      result.snapshotReadyCount != null
+        ? result.snapshotReadyCount
+        : 0
+    );
+
+
+  /*
+   * Chỉ hiện tối đa 4 approved.
+   * Không dùng "..." để tránh nhầm
+   * với lỗi popup trước đây.
+   */
+
+  result.provinces
+    .slice(
+      0,
+      4
+    )
+    .forEach(
+      row => {
+
+        text +=
+          '\n\n--------------------\n';
+
+
+        text +=
+          '#' +
+          row.index +
+          ' ' +
+          row.province +
+          '\n';
+
+
+        text +=
+          'Slug: ' +
+          (
+            row.slug ||
+            'NOT_FOUND'
+          ) +
+          '\n';
+
+
+        text +=
+          'Ranking: ' +
+          (
+            row.rankingReady
+              ? 'READY'
+              : 'NOT READY'
+          ) +
+          '\n';
+
+
+        text +=
+          'Ranking Reason: ' +
+          (
+            row.rankingReason ||
+            '-'
+          ) +
+          '\n';
+
+
+        text +=
+          'Snapshot: ' +
+          (
+            row.snapshotReady
+              ? 'READY'
+              : 'NOT READY'
+          ) +
+          '\n';
+
+
+        text +=
+          'Snapshot Reason: ' +
+          (
+            row.snapshotReason ||
+            '-'
+          );
+
+
+        if (
+          row.eligibilityReason
+        ) {
+
+          text +=
+            '\nEligibility: ' +
+            row.eligibilityReason;
+
+        }
+
+
+        if (
+          row.snapshotError
+        ) {
+
+          text +=
+            '\nError: ' +
+            row.snapshotError;
+
+        }
+
+      }
+    );
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 8C-A4 Save Deep Diagnostic:',
+    result
+  );
+
+
+  return result;
+
+}
+
