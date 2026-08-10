@@ -46682,3 +46682,597 @@ console.log(
   'XSMN V2.6 Lite Snapshot Deep Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX
+   PROVINCE DECISION LOOKUP FOR SHADOW
+
+   Mục tiêu:
+   - Shadow tìm đúng Decision theo province slug.
+   - Hỗ trợ Decision Layer dùng:
+       provinceSlug
+       slug
+       province
+   - Không thay Production Engine.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. NORMALIZE PROVINCE KEY
+   ========================================================================= */
+
+function normalizeProvinceKeyV26(
+  value
+) {
+
+  return String(
+    value || ''
+  )
+    .trim()
+    .toLowerCase()
+    .normalize(
+      'NFD'
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ''
+    )
+    .replace(
+      /đ/g,
+      'd'
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      '-'
+    )
+    .replace(
+      /^-+|-+$/g,
+      ''
+    );
+
+}
+
+
+/* =========================================================================
+   2. GET DECISION ROWS
+   ========================================================================= */
+
+function getProvinceDecisionRowsV26() {
+
+  const layer =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !layer ||
+    !layer.ready
+  ) {
+
+    return [];
+
+  }
+
+
+  if (
+    Array.isArray(
+      layer.decisions
+    ) &&
+    layer.decisions.length
+  ) {
+
+    return layer.decisions;
+
+  }
+
+
+  if (
+    Array.isArray(
+      layer.results
+    ) &&
+    layer.results.length
+  ) {
+
+    return layer.results;
+
+  }
+
+
+  return [];
+
+}
+
+
+/* =========================================================================
+   3. FIND DECISION BY PROVINCE
+   ========================================================================= */
+
+function findProvinceDecisionV26(
+  provinceSlug
+) {
+
+  const target =
+    normalizeProvinceKeyV26(
+      provinceSlug
+    );
+
+
+  if (!target) {
+
+    return null;
+
+  }
+
+
+  const rows =
+    getProvinceDecisionRowsV26();
+
+
+  if (!rows.length) {
+
+    return null;
+
+  }
+
+
+  const found =
+    rows.find(
+      item => {
+
+        const candidates = [
+
+          item.provinceSlug,
+
+          item.slug,
+
+          item.province,
+
+          item.provinceName
+
+        ];
+
+
+        return candidates.some(
+          value =>
+            normalizeProvinceKeyV26(
+              value
+            ) === target
+        );
+
+      }
+    );
+
+
+  return found || null;
+
+}
+
+
+/* =========================================================================
+   4. PATCH SHADOW ELIGIBILITY
+
+   Ghi đè Research helper của Block 8A.
+   Production Engine không bị thay đổi.
+   ========================================================================= */
+
+function isShadowEligibleV26(
+  provinceSlug
+) {
+
+  const decision =
+    findProvinceDecisionV26(
+      provinceSlug
+    );
+
+
+  if (!decision) {
+
+    return {
+
+      eligible: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'PROVINCE_DECISION_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const rawDecision =
+
+    decision.decision ||
+    decision.action ||
+    decision.recommendation ||
+    '';
+
+
+  let normalizedDecision =
+    rawDecision;
+
+
+  try {
+
+    if (
+      typeof normalizeShadowDecisionV26 ===
+        'function'
+    ) {
+
+      normalizedDecision =
+        normalizeShadowDecisionV26(
+          rawDecision
+        );
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    normalizedDecision =
+      rawDecision;
+
+  }
+
+
+  const requiredDecision =
+
+    (
+      typeof SHADOW_ENGINE_V26_CONFIG !==
+        'undefined' &&
+      SHADOW_ENGINE_V26_CONFIG
+    )
+
+      ? SHADOW_ENGINE_V26_CONFIG
+          .requiredDecision
+
+      : 'RECOMMEND_ADAPTIVE';
+
+
+  if (
+    normalizedDecision !==
+    requiredDecision
+  ) {
+
+    return {
+
+      eligible: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'PROVINCE_NOT_APPROVED_FOR_SHADOW',
+
+      decision
+
+    };
+
+  }
+
+
+  if (
+    !decision.model
+  ) {
+
+    return {
+
+      eligible: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'SHADOW_MODEL_NOT_FOUND',
+
+      decision
+
+    };
+
+  }
+
+
+  if (
+    !decision.window
+  ) {
+
+    return {
+
+      eligible: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        'SHADOW_WINDOW_NOT_FOUND',
+
+      decision
+
+    };
+
+  }
+
+
+  return {
+
+    eligible: true,
+
+    province:
+      provinceSlug,
+
+    reason:
+      'SHADOW_APPROVED',
+
+    decision
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. LIGHT MOBILE TEST
+   ========================================================================= */
+
+function testProvinceDecisionLookupV26() {
+
+  const tests = [
+
+    'tay-ninh',
+
+    'tp-hcm',
+
+    'tien-giang',
+
+    'binh-duong'
+
+  ];
+
+
+  const lines = [
+
+    '🔗 V2.6 PROVINCE DECISION LOOKUP',
+
+    ''
+
+  ];
+
+
+  const rows =
+    getProvinceDecisionRowsV26();
+
+
+  lines.push(
+    'Decision Rows: ' +
+    rows.length
+  );
+
+
+  lines.push(
+    ''
+  );
+
+
+  tests.forEach(
+    slug => {
+
+      const decision =
+        findProvinceDecisionV26(
+          slug
+        );
+
+
+      const eligibility =
+        isShadowEligibleV26(
+          slug
+        );
+
+
+      lines.push(
+        eligibility.eligible
+          ? '✅ ' + slug
+          : '❌ ' + slug
+      );
+
+
+      lines.push(
+        'Decision: ' +
+        (
+          decision
+            ? (
+                decision.action ||
+                decision.decision ||
+                decision.recommendation ||
+                '-'
+              )
+            : 'NOT_FOUND'
+        )
+      );
+
+
+      lines.push(
+        'Model: ' +
+        (
+          decision &&
+          decision.model
+            ? decision.model
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Window: ' +
+        (
+          decision &&
+          decision.window
+            ? decision.window
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Eligibility: ' +
+        (
+          eligibility.eligible
+            ? 'READY'
+            : eligibility.reason
+        )
+      );
+
+
+      lines.push(
+        '--------------------'
+      );
+
+    }
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return {
+
+    ready:
+      tests.every(
+        slug =>
+          isShadowEligibleV26(
+            slug
+          ).eligible
+      ),
+
+    decisionRows:
+      rows.length,
+
+    results:
+      tests.map(
+        slug => ({
+
+          slug,
+
+          decision:
+            findProvinceDecisionV26(
+              slug
+            ),
+
+          eligibility:
+            isShadowEligibleV26(
+              slug
+            )
+
+        })
+      )
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. MOBILE BUTTON
+   ========================================================================= */
+
+function addProvinceDecisionLookupButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnProvinceDecisionLookupV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnProvinceDecisionLookupV26';
+
+
+  button.textContent =
+    '🔗 Test V2.6 Decision Lookup';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      testProvinceDecisionLookupV26();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   7. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addProvinceDecisionLookupButtonV26
+  );
+
+} else {
+
+  addProvinceDecisionLookupButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Province Decision Lookup Fix ready'
+);
+
