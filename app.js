@@ -48051,3 +48051,990 @@ console.log(
   'XSMN V2.6 Decision Lookup Bootstrap Fix ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-E
+   SHADOW DECISION BRIDGE + LITE SNAPSHOT
+
+   Mục tiêu:
+   - Dùng Decision Layer đã bootstrap.
+   - Bridge decision cho isShadowEligibleV26().
+   - Build Shadow Ranking cho 4 tỉnh Adaptive.
+   - Save Snapshot.
+   - Không chạy lại Cross-OOS nếu Decision đã có.
+   - Research Only.
+   - Production unchanged.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. GET READY DECISION LAYER
+   ========================================================================= */
+
+function getReadyDecisionLayerForShadowV26() {
+
+  const candidates = [
+
+    window.LAST_PROVINCE_DECISION_V26,
+
+    window.LAST_SNAPSHOT_DECISION_V26,
+
+    window.LAST_DECISION_LAYER_V26,
+
+    window.LAST_PROVINCE_DECISIONS_V26
+
+  ];
+
+
+  for (const item of candidates) {
+
+    if (!item) {
+      continue;
+    }
+
+
+    const rows =
+      Array.isArray(item.results)
+        ? item.results
+        : (
+            Array.isArray(item.decisions)
+              ? item.decisions
+              : null
+          );
+
+
+    if (
+      Array.isArray(rows) &&
+      rows.length
+    ) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'EXISTING_DECISION',
+
+        layer:
+          item,
+
+        rows
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Fallback:
+   * dùng bootstrap vừa sửa thành công.
+   */
+
+  if (
+    typeof ensureDecisionLayerForSnapshotV26 ===
+    'function'
+  ) {
+
+    try {
+
+      const boot =
+        ensureDecisionLayerForSnapshotV26();
+
+
+      if (
+        boot &&
+        boot.ready &&
+        boot.result
+      ) {
+
+        const rows =
+          Array.isArray(
+            boot.result.results
+          )
+            ? boot.result.results
+            : boot.result.decisions;
+
+
+        if (
+          Array.isArray(rows) &&
+          rows.length
+        ) {
+
+          return {
+
+            ready: true,
+
+            source:
+              'DECISION_BOOTSTRAP',
+
+            layer:
+              boot.result,
+
+            rows
+
+          };
+
+        }
+
+      }
+
+    } catch (error) {
+
+      console.error(
+        'V2.6 Decision Bridge Bootstrap:',
+        error
+      );
+
+    }
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'DECISION_LAYER_NOT_READY'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. NORMALIZE PROVINCE SLUG
+   ========================================================================= */
+
+function decisionProvinceSlugV26(
+  item
+) {
+
+  if (!item) {
+    return null;
+  }
+
+
+  return (
+    item.provinceSlug ||
+    item.slug ||
+    (
+      typeof item.province ===
+      'string'
+        ? item.province
+        : null
+    ) ||
+    (
+      item.province &&
+      (
+        item.province.slug ||
+        item.province.id
+      )
+    ) ||
+    null
+  );
+
+}
+
+
+/* =========================================================================
+   3. GET DECISION FOR ONE PROVINCE
+   ========================================================================= */
+
+function getShadowDecisionBridgeV26(
+  provinceSlug
+) {
+
+  const source =
+    getReadyDecisionLayerForShadowV26();
+
+
+  if (!source.ready) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        source.reason
+
+    };
+
+  }
+
+
+  const row =
+    source.rows.find(
+      item =>
+        decisionProvinceSlugV26(
+          item
+        ) ===
+        provinceSlug
+    );
+
+
+  if (!row) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_DECISION_NOT_FOUND',
+
+      province:
+        provinceSlug
+
+    };
+
+  }
+
+
+  const decision =
+    row.decision ||
+    row.action ||
+    row.recommendation ||
+    null;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      source.source,
+
+    province:
+      provinceSlug,
+
+    decision,
+
+    model:
+      row.model ||
+      row.selectedModel ||
+      row.dominantModel ||
+      null,
+
+    window:
+      row.window ||
+      row.selectedWindow ||
+      row.dominantWindow ||
+      null,
+
+    gateScore:
+      row.gateScore != null
+        ? row.gateScore
+        : null,
+
+    delta:
+      row.delta != null
+        ? row.delta
+        : (
+            row.improvement != null
+              ? row.improvement
+              : null
+          ),
+
+    winRate:
+      row.winRate != null
+        ? row.winRate
+        : null,
+
+    raw:
+      row
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. BUILD SHADOW DIRECTLY FROM READY DECISION
+
+   Quan trọng:
+   Không gọi lại isShadowEligibleV26().
+   Decision đã được kiểm tra ở pipeline.
+   ========================================================================= */
+
+function buildShadowFromDecisionBridgeV26(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  const bridge =
+    getShadowDecisionBridgeV26(
+      provinceSlug
+    );
+
+
+  if (!bridge.ready) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        bridge.reason
+
+    };
+
+  }
+
+
+  let normalizedDecision =
+    bridge.decision;
+
+
+  try {
+
+    if (
+      typeof normalizeShadowDecisionV26 ===
+      'function'
+    ) {
+
+      normalizedDecision =
+        normalizeShadowDecisionV26(
+          bridge.decision
+        );
+
+    }
+
+  } catch (error) {
+
+    /*
+     * Keep original decision.
+     */
+
+  }
+
+
+  if (
+    normalizedDecision !==
+    'RECOMMEND_ADAPTIVE'
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NOT_ADAPTIVE_DECISION',
+
+      decision:
+        normalizedDecision
+
+    };
+
+  }
+
+
+  const config =
+    typeof getShadowModelConfigV26 ===
+      'function'
+      ? getShadowModelConfigV26(
+          bridge.model
+        )
+      : null;
+
+
+  if (!config) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_MODEL_CONFIG_NOT_FOUND',
+
+      model:
+        bridge.model
+
+    };
+
+  }
+
+
+  /*
+   * Lấy historical draws bằng helper
+   * Production hiện có.
+   */
+
+  let draws =
+    null;
+
+
+  try {
+
+    if (
+      typeof getAllDrawsForProvince ===
+      'function'
+    ) {
+
+      draws =
+        getAllDrawsForProvince(
+          provinceSlug
+        );
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'V2.6 Shadow Bridge Draw Error:',
+      error
+    );
+
+  }
+
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    try {
+
+      if (
+        typeof drawListOfProvince ===
+        'function'
+      ) {
+
+        draws =
+          drawListOfProvince(
+            provinceSlug
+          );
+
+      }
+
+    } catch (error) {
+
+      /*
+       * Ignore fallback.
+       */
+
+    }
+
+  }
+
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_SHADOW_DRAWS'
+
+    };
+
+  }
+
+
+  const historical =
+    draws
+      .slice()
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(
+            a.date
+          )
+      );
+
+
+  let scores;
+
+
+  try {
+
+    scores =
+      modelLabScoresV23(
+        historical,
+        giaiKey,
+        bridge.window,
+        config.weights
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_SCORE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  const ranked =
+    rankedNumbers(
+      scores
+    );
+
+
+  if (
+    !Array.isArray(ranked) ||
+    !ranked.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'EMPTY_SHADOW_RANKING'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW',
+
+    researchOnly:
+      true,
+
+    productionOverride:
+      false,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    decision:
+      normalizedDecision,
+
+    model:
+      bridge.model,
+
+    window:
+      bridge.window,
+
+    gateScore:
+      bridge.gateScore,
+
+    oosDelta:
+      bridge.delta,
+
+    winRate:
+      bridge.winRate,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    historyCount:
+      historical.length,
+
+    ranked,
+
+    ranking:
+      ranked.map(
+        item =>
+          item[0]
+      ),
+
+    top1:
+      ranked
+        .slice(0, 1)
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top3:
+      ranked
+        .slice(0, 3)
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top5:
+      ranked
+        .slice(0, 5)
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top10:
+      ranked
+        .slice(0, 10)
+        .map(
+          item =>
+            item[0]
+        )
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. LIGHT TEST — BUILD ALL APPROVED SHADOWS
+   ========================================================================= */
+
+function testShadowDecisionBridgeV26() {
+
+  const source =
+    getReadyDecisionLayerForShadowV26();
+
+
+  if (!source.ready) {
+
+    alert(
+      '❌ V2.6 SHADOW BRIDGE\n\n' +
+      'Reason: ' +
+      source.reason
+    );
+
+    return source;
+
+  }
+
+
+  const approved =
+    source.rows.filter(
+      item => {
+
+        let decision =
+          item.decision ||
+          item.action ||
+          item.recommendation;
+
+
+        try {
+
+          if (
+            typeof normalizeShadowDecisionV26 ===
+            'function'
+          ) {
+
+            decision =
+              normalizeShadowDecisionV26(
+                decision
+              );
+
+          }
+
+        } catch (error) {
+
+          /*
+           * Keep original.
+           */
+
+        }
+
+
+        return (
+          decision ===
+          'RECOMMEND_ADAPTIVE'
+        );
+
+      }
+    );
+
+
+  const results =
+    approved.map(
+      item => {
+
+        const slug =
+          decisionProvinceSlugV26(
+            item
+          );
+
+
+        if (!slug) {
+
+          return {
+
+            ready: false,
+
+            reason:
+              'PROVINCE_SLUG_NOT_FOUND'
+
+          };
+
+        }
+
+
+        return (
+          buildShadowFromDecisionBridgeV26(
+            slug,
+            'db'
+          )
+        );
+
+      }
+    );
+
+
+  const successful =
+    results.filter(
+      item =>
+        item.ready
+    );
+
+
+  let text =
+    '🌉 V2.6 SHADOW DECISION BRIDGE\n\n' +
+
+    'Decision Source: ' +
+    source.source +
+    '\n' +
+
+    'Decision Rows: ' +
+    source.rows.length +
+    '\n' +
+
+    'Adaptive: ' +
+    approved.length +
+    '\n' +
+
+    'Shadow READY: ' +
+    successful.length +
+    '/' +
+    approved.length +
+    '\n\n';
+
+
+  results.forEach(
+    (item, index) => {
+
+      if (index >= 4) {
+        return;
+      }
+
+
+      text +=
+        (
+          item.ready
+            ? '✅ '
+            : '❌ '
+        ) +
+        (
+          item.province ||
+          '-'
+        ) +
+        '\n';
+
+
+      if (item.ready) {
+
+        text +=
+          'Model: ' +
+          item.model +
+          ' / ' +
+          item.window +
+          '\n' +
+
+          'Top1: ' +
+          item.top1.join(', ') +
+          '\n' +
+
+          'Top3: ' +
+          item.top3.join(', ') +
+          '\n';
+
+      } else {
+
+        text +=
+          'Reason: ' +
+          (
+            item.reason ||
+            'UNKNOWN'
+          ) +
+          '\n';
+
+      }
+
+
+      text +=
+        '------------------\n';
+
+    }
+  );
+
+
+  window.LAST_SHADOW_BRIDGE_V26 = {
+
+    ready:
+      successful.length ===
+      approved.length &&
+      approved.length > 0,
+
+    approvedCount:
+      approved.length,
+
+    successfulCount:
+      successful.length,
+
+    results
+
+  };
+
+
+  alert(text);
+
+
+  return (
+    window.LAST_SHADOW_BRIDGE_V26
+  );
+
+}
+
+
+/* =========================================================================
+   6. ADD MOBILE TEST BUTTON
+   ========================================================================= */
+
+(function addShadowBridgeButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-shadow-bridge-v26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-shadow-bridge-v26';
+
+
+    button.textContent =
+      '🌉 Test V2.6 Shadow Bridge';
+
+
+    button.style.cssText =
+      [
+        'display:block',
+        'width:calc(100% - 48px)',
+        'margin:18px 24px',
+        'padding:22px 12px',
+        'border:0',
+        'border-radius:24px',
+        'font-size:20px',
+        'font-weight:700',
+        'cursor:pointer'
+      ].join(';');
+
+
+    button.onclick =
+      function() {
+
+        testShadowDecisionBridgeV26();
+
+      };
+
+
+    const target =
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.body;
+
+
+    target.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'XSMN V2.6 Block 8B-E loaded — Shadow Decision Bridge ready'
+);
+
