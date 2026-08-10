@@ -49977,3 +49977,364 @@ console.log(
   'XSMN V2.6 Block 8B-F loaded — Snapshot Store Bridge ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C INSPECTOR
+   SNAPSHOT STORE STRUCTURE
+
+   Mục tiêu:
+   - Chỉ READ Snapshot Store hiện tại.
+   - Không chạy Cross OOS.
+   - Không chạy Decision Layer.
+   - Không tạo snapshot.
+   - Không mutate dữ liệu.
+   - Research Only.
+   ========================================================================= */
+
+function inspectSnapshotStoreV26() {
+
+  let store =
+    null;
+
+  let source =
+    'NOT_FOUND';
+
+
+  /*
+   * -------------------------------------------------------------
+   * 1. TÌM STORE ĐANG ĐƯỢC BLOCK 8B-F SỬ DỤNG
+   * -------------------------------------------------------------
+   */
+
+  if (
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+  ) {
+
+    store =
+      window.SHADOW_SNAPSHOTS_V26;
+
+    source =
+      'SHADOW_SNAPSHOTS_V26';
+
+  } else if (
+    Array.isArray(
+      window.SHADOW_SNAPSHOT_STORE_V26
+    )
+  ) {
+
+    store =
+      window.SHADOW_SNAPSHOT_STORE_V26;
+
+    source =
+      'SHADOW_SNAPSHOT_STORE_V26';
+
+  } else if (
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+  ) {
+
+    store =
+      window.LAST_SHADOW_SNAPSHOTS_V26;
+
+    source =
+      'LAST_SHADOW_SNAPSHOTS_V26';
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. STORE KHÔNG TỒN TẠI
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !Array.isArray(
+      store
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_FOUND',
+
+      source
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. STORE RỖNG
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !store.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_EMPTY',
+
+      source,
+
+      total:
+        0
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. CHỈ ĐỌC SNAPSHOT ĐẦU TIÊN
+   * -------------------------------------------------------------
+   */
+
+  const sample =
+    store[0];
+
+
+  return {
+
+    ready: true,
+
+    source,
+
+    total:
+      store.length,
+
+    pending:
+      store.filter(
+        item =>
+          String(
+            item.status || ''
+          ).toUpperCase() ===
+          'PENDING'
+      ).length,
+
+    verified:
+      store.filter(
+        item =>
+          String(
+            item.status || ''
+          ).toUpperCase() ===
+          'VERIFIED'
+      ).length,
+
+    sampleKeys:
+      sample &&
+      typeof sample ===
+        'object'
+        ? Object.keys(
+            sample
+          )
+        : [],
+
+    sample
+
+  };
+
+}
+
+
+/* =========================================================================
+   MOBILE TEST
+   ========================================================================= */
+
+function testSnapshotStoreInspectorV26() {
+
+  const result =
+    inspectSnapshotStoreV26();
+
+
+  if (
+    !result.ready
+  ) {
+
+    alert(
+      '❌ V2.6 SNAPSHOT STORE INSPECTOR\n\n' +
+
+      'Reason: ' +
+      (
+        result.reason ||
+        'UNKNOWN'
+      ) +
+      '\n' +
+
+      'Source: ' +
+      (
+        result.source ||
+        '-'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  const s =
+    result.sample || {};
+
+
+  const keys =
+    result.sampleKeys || [];
+
+
+  const text =
+
+    '🔬 V2.6 SNAPSHOT STORE INSPECTOR\n\n' +
+
+    'Source: ' +
+    result.source +
+    '\n' +
+
+    'Total: ' +
+    result.total +
+    '\n' +
+
+    'Pending: ' +
+    result.pending +
+    '\n' +
+
+    'Verified: ' +
+    result.verified +
+    '\n\n' +
+
+    'SAMPLE KEYS\n' +
+    keys.join(
+      ', '
+    ) +
+    '\n\n' +
+
+    'SAMPLE VALUES\n' +
+
+    'Province: ' +
+    (
+      s.province ||
+      s.provinceSlug ||
+      s.slug ||
+      '-'
+    ) +
+    '\n' +
+
+    'Prize: ' +
+    (
+      s.prize ||
+      '-'
+    ) +
+    '\n' +
+
+    'Status: ' +
+    (
+      s.status ||
+      '-'
+    ) +
+    '\n' +
+
+    'Latest Draw: ' +
+    (
+      s.latestDraw ||
+      s.latestDrawDate ||
+      s.drawDate ||
+      '-'
+    ) +
+    '\n' +
+
+    'Model: ' +
+    (
+      s.model ||
+      '-'
+    ) +
+    '\n' +
+
+    'Window: ' +
+    (
+      s.window != null
+        ? s.window
+        : '-'
+    ) +
+    '\n\n' +
+
+    'Top1: ' +
+    (
+      Array.isArray(
+        s.top1
+      )
+        ? s.top1.join(', ')
+        : String(
+            s.top1 || '-'
+          )
+    ) +
+    '\n' +
+
+    'Top3: ' +
+    (
+      Array.isArray(
+        s.top3
+      )
+        ? s.top3.join(', ')
+        : String(
+            s.top3 || '-'
+          )
+    ) +
+    '\n' +
+
+    'Top5: ' +
+    (
+      Array.isArray(
+        s.top5
+      )
+        ? s.top5.join(', ')
+        : String(
+            s.top5 || '-'
+          )
+    ) +
+    '\n' +
+
+    'Top10: ' +
+    (
+      Array.isArray(
+        s.top10
+      )
+        ? s.top10.join(', ')
+        : String(
+            s.top10 || '-'
+          )
+    );
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 Snapshot Store Inspector:',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8C Inspector loaded'
+);
+
