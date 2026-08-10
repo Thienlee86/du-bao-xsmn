@@ -56546,3 +56546,143 @@ function printShadowWrapperPersistenceTestV26() {
 
    }
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A4
+   TEST BUTTON — WRAPPER PERSISTENCE
+   ========================================================================= */
+
+(function installWrapperPersistenceTestButtonV26() {
+
+  function install() {
+
+    /*
+     * Chống tạo nút trùng.
+     */
+
+    if (
+      document.getElementById(
+        'btn-v26-wrapper-persistence'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Tìm khu vực Settings.
+     */
+
+    const settings =
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      ) ||
+      document.body;
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-wrapper-persistence';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '💾 Test V2.6 Wrapper Persistence';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '20px 16px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        if (
+          typeof
+            printShadowWrapperPersistenceTestV26 !==
+          'function'
+        ) {
+
+          alert(
+            '❌ V2.6 8C-A4\n\n' +
+            'printShadowWrapperPersistenceTestV26 NOT FOUND'
+          );
+
+          return;
+
+        }
+
+
+        printShadowWrapperPersistenceTestV26();
+
+      }
+    );
+
+
+    settings.appendChild(
+      button
+    );
+
+
+    console.log(
+      'V2.6 8C-A4 Wrapper Persistence button installed.'
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
