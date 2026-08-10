@@ -54848,3 +54848,426 @@ console.log(
   'XSMN V2.6 8C-A2 Persistence Status Test loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A3
+   PERSISTENT STORE SCHEMA DIAGNOSTIC
+
+   Mục tiêu:
+   - Kiểm tra dữ liệu thật đang lưu trong localStorage.
+   - Không sửa dữ liệu.
+   - Không xóa dữ liệu.
+   - Không thay Production Engine.
+   - Research Only.
+   ========================================================================= */
+
+function inspectPersistentStoreSchemaV26() {
+
+  const key =
+    'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+  let raw =
+    null;
+
+
+  try {
+
+    raw =
+      localStorage.getItem(
+        key
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LOCAL_STORAGE_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * KEY KHÔNG TỒN TẠI
+   * -------------------------------------------------------------
+   */
+
+  if (
+    raw === null
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_KEY_NOT_FOUND',
+
+      key
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * THỬ PARSE JSON
+   * -------------------------------------------------------------
+   */
+
+  let parsed;
+
+
+  try {
+
+    parsed =
+      JSON.parse(
+        raw
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_JSON_INVALID',
+
+      key,
+
+      rawType:
+        typeof raw,
+
+      rawLength:
+        raw.length,
+
+      preview:
+        raw.slice(
+          0,
+          300
+        )
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * XÁC ĐỊNH TYPE
+   * -------------------------------------------------------------
+   */
+
+  const parsedType =
+    Array.isArray(
+      parsed
+    )
+      ? 'array'
+      : (
+          parsed === null
+            ? 'null'
+            : typeof parsed
+        );
+
+
+  const keys =
+    parsed &&
+    typeof parsed ===
+      'object' &&
+    !Array.isArray(
+      parsed
+    )
+      ? Object.keys(
+          parsed
+        )
+      : [];
+
+
+  /*
+   * -------------------------------------------------------------
+   * TÌM ARRAY NẰM BÊN TRONG OBJECT
+   *
+   * Chỉ inspect.
+   * Chưa migrate.
+   * -------------------------------------------------------------
+   */
+
+  const arrayFields =
+    [];
+
+
+  if (
+    parsed &&
+    typeof parsed ===
+      'object' &&
+    !Array.isArray(
+      parsed
+    )
+  ) {
+
+    keys.forEach(
+      name => {
+
+        if (
+          Array.isArray(
+            parsed[name]
+          )
+        ) {
+
+          arrayFields.push({
+
+            key:
+              name,
+
+            length:
+              parsed[name]
+                .length
+
+          });
+
+        }
+
+      }
+    );
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    key,
+
+    rawLength:
+      raw.length,
+
+    parsedType,
+
+    isArray:
+      Array.isArray(
+        parsed
+      ),
+
+    arrayLength:
+      Array.isArray(
+        parsed
+      )
+        ? parsed.length
+        : null,
+
+    objectKeys:
+      keys,
+
+    arrayFields,
+
+    value:
+      parsed
+
+  };
+
+}
+
+
+/* =========================================================================
+   PRINT 8C-A3
+   ========================================================================= */
+
+function printPersistentStoreSchemaV26() {
+
+  const result =
+    inspectPersistentStoreSchemaV26();
+
+
+  let text =
+    '🔬 V2.6 PERSISTENT STORE SCHEMA\n\n';
+
+
+  if (
+    !result.ready
+  ) {
+
+    text +=
+      '❌ NOT READY\n\n';
+
+    text +=
+      'Reason: ' +
+      (
+        result.reason ||
+        'UNKNOWN'
+      ) +
+      '\n';
+
+    text +=
+      'Key: ' +
+      (
+        result.key ||
+        '-'
+      );
+
+
+    if (
+      result.preview
+    ) {
+
+      text +=
+        '\n\nPreview:\n' +
+        result.preview;
+
+    }
+
+
+    alert(
+      text
+    );
+
+
+    return result;
+
+  }
+
+
+  text +=
+    '✅ READ SUCCESS\n\n';
+
+
+  text +=
+    'Key:\n' +
+    result.key +
+    '\n\n';
+
+
+  text +=
+    'Parsed Type: ' +
+    result.parsedType +
+    '\n';
+
+
+  text +=
+    'Is Array: ' +
+    (
+      result.isArray
+        ? 'YES'
+        : 'NO'
+    ) +
+    '\n';
+
+
+  if (
+    result.isArray
+  ) {
+
+    text +=
+      'Array Length: ' +
+      result.arrayLength +
+      '\n';
+
+  }
+
+
+  text +=
+    '\nRaw Length: ' +
+    result.rawLength +
+    '\n';
+
+
+  /*
+   * Object keys
+   */
+
+  if (
+    result.objectKeys &&
+    result.objectKeys.length
+  ) {
+
+    text +=
+      '\nOBJECT KEYS\n';
+
+
+    result.objectKeys.forEach(
+      (
+        key,
+        index
+      ) => {
+
+        text +=
+          (
+            index + 1
+          ) +
+          '. ' +
+          key +
+          '\n';
+
+      }
+    );
+
+  }
+
+
+  /*
+   * Array fields
+   */
+
+  if (
+    result.arrayFields &&
+    result.arrayFields.length
+  ) {
+
+    text +=
+      '\nARRAY FIELDS\n';
+
+
+    result.arrayFields.forEach(
+      item => {
+
+        text +=
+          item.key +
+          ': array[' +
+          item.length +
+          ']\n';
+
+      }
+    );
+
+  }
+
+
+  if (
+    !result.isArray &&
+    !result.arrayFields.length
+  ) {
+
+    text +=
+      '\n⚠️ NO ARRAY FIELD FOUND';
+
+  }
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 Persistent Store Schema:',
+    result
+  );
+
+
+  return result;
+
+}
+
