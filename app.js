@@ -55271,3 +55271,155 @@ function printPersistentStoreSchemaV26() {
 
 }
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A3
+   DEBUG BUTTON — INSPECT STORE SCHEMA
+   ========================================================================= */
+
+(function installPersistentStoreSchemaButtonV26() {
+
+  function install() {
+
+    /*
+     * Chống tạo nút trùng.
+     */
+
+    if (
+      document.getElementById(
+        'btn-v26-store-schema'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Tìm vùng Settings / Debug.
+     */
+
+    const settings =
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      ) ||
+      document.body;
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-store-schema';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔬 Inspect Store Schema';
+
+
+    /*
+     * Style giống debug button hiện tại.
+     */
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '20px 16px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    /*
+     * RUN INSPECTOR
+     */
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        if (
+          typeof
+            printPersistentStoreSchemaV26 !==
+          'function'
+        ) {
+
+          alert(
+            '❌ V2.6 STORE SCHEMA\n\n' +
+            'printPersistentStoreSchemaV26 NOT FOUND'
+          );
+
+          return;
+
+        }
+
+
+        printPersistentStoreSchemaV26();
+
+      }
+    );
+
+
+    settings.appendChild(
+      button
+    );
+
+
+    console.log(
+      'V2.6 Store Schema button installed.'
+    );
+
+  }
+
+
+  /*
+   * App có thể render UI sau khi JS load.
+   */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
