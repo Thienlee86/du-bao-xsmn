@@ -42883,3 +42883,312 @@ console.log(
   'XSMN V2.6 Snapshot Full Bootstrap ready'
 );
 
+/* =========================================================================
+   48. PRINT CROSS-PROVINCE RESULT
+   ========================================================================= */
+
+function printAllProvincesOOSV26(
+  giaiKey = 'db'
+) {
+
+  const result =
+    evaluateAllProvincesOOSV26(
+      giaiKey
+    );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'XSMN V2.6 — CROSS-PROVINCE OOS'
+  );
+
+  console.log(
+    'Prize:',
+    String(
+      giaiKey
+    ).toUpperCase()
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.warn(
+      'V2.6 Cross Province:',
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  console.table(
+
+    result.results
+      .filter(
+        item =>
+          item.ready
+      )
+      .map(
+        item => ({
+
+          Province:
+            item.provinceName,
+
+          OOS:
+            item.classification,
+
+          Periods:
+            item.periods,
+
+          Tests:
+            item.tests,
+
+          Wins:
+            item.wins,
+
+          Losses:
+            item.losses,
+
+          WinRate:
+            (
+              item.winRate *
+              100
+            ).toFixed(2) +
+            '%',
+
+          AdaptiveQ:
+            item.adaptiveQuality
+              .toFixed(4),
+
+          BaselineQ:
+            item.baselineQuality
+              .toFixed(4),
+
+          Delta:
+            (
+              item.improvement > 0
+                ? '+'
+                : ''
+            ) +
+            item.improvement
+              .toFixed(4),
+
+          Model:
+            item.dominantModel ||
+            '-',
+
+          ModelStable:
+            (
+              item.modelStability *
+              100
+            ).toFixed(2) +
+            '%',
+
+          Window:
+            item.dominantWindow ||
+            '-',
+
+          WindowStable:
+            (
+              item.windowStability *
+              100
+            ).toFixed(2) +
+            '%'
+
+        }))
+
+  );
+
+
+  console.log(
+    '------------------------------------------'
+  );
+
+
+  console.log(
+    'GLOBAL SUMMARY:',
+    result.summary
+  );
+
+
+  console.log(
+    'GLOBAL CLASSIFICATION:',
+    result.classification
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   49. SHORT MOBILE SUMMARY TEXT
+
+   Block 6A chỉ tạo engine.
+   Hàm này chuẩn bị sẵn dữ liệu ngắn
+   để test trên điện thoại nếu cần.
+   ========================================================================= */
+
+function crossProvinceSummaryTextV26(
+  result
+) {
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return (
+      'V2.6 CROSS-PROVINCE OOS\n\n' +
+      'NOT READY\n' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  const s =
+    result.summary;
+
+
+  return (
+
+    'V2.6 CROSS-PROVINCE OOS\n\n' +
+
+    'Prize: ' +
+    String(
+      result.prize
+    ).toUpperCase() +
+    '\n' +
+
+    'Provinces: ' +
+    s.provinceCount +
+    '\n' +
+
+    'OOS Tests: ' +
+    s.totalTests +
+    '\n' +
+
+    'Periods: ' +
+    s.totalPeriods +
+    '\n\n' +
+
+    'PASS / WEAK / FAIL: ' +
+    s.classifications.pass +
+    ' / ' +
+    s.classifications.weak +
+    ' / ' +
+    s.classifications.fail +
+    '\n\n' +
+
+    'Positive Provinces: ' +
+    s.provinces.positive +
+    '/' +
+    s.provinceCount +
+    '\n' +
+
+    'Province Positive Rate: ' +
+    (
+      s.provinces
+        .positiveRate *
+      100
+    ).toFixed(2) +
+    '%\n' +
+
+    'Period Win Rate: ' +
+    (
+      s.periods
+        .winRate *
+      100
+    ).toFixed(2) +
+    '%\n\n' +
+
+    'Adaptive Q: ' +
+    s.adaptive
+      .quality
+      .toFixed(4) +
+    '\n' +
+
+    'Baseline Q: ' +
+    s.baseline
+      .quality
+      .toFixed(4) +
+    '\n' +
+
+    'Delta: ' +
+    (
+      s.improvement > 0
+        ? '+'
+        : ''
+    ) +
+    s.improvement
+      .toFixed(4) +
+    '\n\n' +
+
+    'Adaptive MRR: ' +
+    s.adaptive
+      .mrr
+      .toFixed(4) +
+    '\n' +
+
+    'Baseline MRR: ' +
+    s.baseline
+      .mrr
+      .toFixed(4) +
+    '\n\n' +
+
+    'Adaptive Rank: ' +
+    s.adaptive
+      .averageRank
+      .toFixed(2) +
+    '\n' +
+
+    'Baseline Rank: ' +
+    s.baseline
+      .averageRank
+      .toFixed(2) +
+    '\n\n' +
+
+    'Dominant Model: ' +
+    (
+      s.dominantModel ||
+      '-'
+    ) +
+    '\n' +
+
+    'Dominant Window: ' +
+    (
+      s.dominantWindow ||
+      '-'
+    ) +
+    '\n\n' +
+
+    'GLOBAL RESULT: ' +
+    result.classification
+
+  );
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 6A loaded — Cross-Province OOS Engine ready'
+);
+
