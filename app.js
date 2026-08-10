@@ -44216,3 +44216,686 @@ console.log(
   'XSMN V2.6 Snapshot Deep Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — LIGHT PIPELINE DEBUG
+
+   Mục tiêu:
+   Cross OOS chạy đúng 1 lần
+      ↓
+   Province Gate chạy đúng 1 lần
+      ↓
+   Decision Layer chạy đúng 1 lần
+      ↓
+   STOP
+
+   KHÔNG:
+   - Shadow
+   - Snapshot
+   - Duplicate Protection
+   - Actual Resolver
+   ========================================================================= */
+
+function runLightPipelineDebugV26() {
+
+  const lines = [];
+
+  lines.push(
+    '🧪 V2.6 LIGHT PIPELINE DEBUG'
+  );
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 1 — CROSS OOS
+     =============================================================== */
+
+  let cross = null;
+
+  try {
+
+    if (
+      typeof evaluateAllProvincesOOSV26 !==
+      'function'
+    ) {
+
+      throw new Error(
+        'evaluateAllProvincesOOSV26 NOT FOUND'
+      );
+
+    }
+
+
+    const start =
+      performance.now();
+
+
+    cross =
+      evaluateAllProvincesOOSV26(
+        'db'
+      );
+
+
+    const elapsed =
+      performance.now() -
+      start;
+
+
+    lines.push(
+      'STEP 1 — CROSS OOS'
+    );
+
+
+    lines.push(
+      cross &&
+      cross.ready
+        ? '✅ READY'
+        : '❌ NOT READY'
+    );
+
+
+    lines.push(
+      'Results: ' +
+      (
+        cross &&
+        Array.isArray(
+          cross.results
+        )
+          ? cross.results.length
+          : 0
+      )
+    );
+
+
+    lines.push(
+      'Time: ' +
+      (
+        elapsed / 1000
+      ).toFixed(2) +
+      's'
+    );
+
+
+    if (
+      !cross ||
+      !cross.ready ||
+      !Array.isArray(
+        cross.results
+      ) ||
+      !cross.results.length
+    ) {
+
+      lines.push(
+        'Reason: ' +
+        (
+          cross &&
+          cross.reason
+            ? cross.reason
+            : 'CROSS_NOT_READY'
+        )
+      );
+
+
+      alert(
+        lines.join('\n')
+      );
+
+
+      return {
+        ready: false,
+        stage: 'CROSS_OOS',
+        cross
+      };
+
+    }
+
+
+  } catch (error) {
+
+    lines.push(
+      'STEP 1 — CROSS OOS'
+    );
+
+    lines.push(
+      '❌ ERROR'
+    );
+
+    lines.push(
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+      ready: false,
+      stage: 'CROSS_OOS',
+      error: String(
+        error.message ||
+        error
+      )
+    };
+
+  }
+
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 2 — PROVINCE GATE
+
+     Quan trọng:
+     truyền CROSS vừa tạo trực tiếp.
+     Không bootstrap lại Cross OOS.
+     =============================================================== */
+
+  let gate = null;
+
+  try {
+
+    if (
+      typeof runProvinceAdaptiveGateV26 !==
+      'function'
+    ) {
+
+      throw new Error(
+        'runProvinceAdaptiveGateV26 NOT FOUND'
+      );
+
+    }
+
+
+    const start =
+      performance.now();
+
+
+    gate =
+      runProvinceAdaptiveGateV26(
+        cross
+      );
+
+
+    const elapsed =
+      performance.now() -
+      start;
+
+
+    lines.push(
+      'STEP 2 — PROVINCE GATE'
+    );
+
+
+    lines.push(
+      gate &&
+      gate.ready
+        ? '✅ READY'
+        : '❌ NOT READY'
+    );
+
+
+    lines.push(
+      'Results: ' +
+      (
+        gate &&
+        Array.isArray(
+          gate.results
+        )
+          ? gate.results.length
+          : 0
+      )
+    );
+
+
+    lines.push(
+      'Time: ' +
+      (
+        elapsed / 1000
+      ).toFixed(2) +
+      's'
+    );
+
+
+    if (
+      !gate ||
+      !gate.ready ||
+      !Array.isArray(
+        gate.results
+      ) ||
+      !gate.results.length
+    ) {
+
+      lines.push(
+        'Reason: ' +
+        (
+          gate &&
+          gate.reason
+            ? gate.reason
+            : 'GATE_NOT_READY'
+        )
+      );
+
+
+      alert(
+        lines.join('\n')
+      );
+
+
+      return {
+        ready: false,
+        stage: 'PROVINCE_GATE',
+        cross,
+        gate
+      };
+
+    }
+
+
+    /*
+     * Chỉ lưu result vừa chạy.
+     * Không chạy thêm engine nào.
+     */
+
+    window.LAST_PROVINCE_GATE_V26 =
+      gate;
+
+
+  } catch (error) {
+
+    lines.push(
+      'STEP 2 — PROVINCE GATE'
+    );
+
+    lines.push(
+      '❌ ERROR'
+    );
+
+    lines.push(
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+      ready: false,
+      stage: 'PROVINCE_GATE',
+      cross,
+      error: String(
+        error.message ||
+        error
+      )
+    };
+
+  }
+
+
+  lines.push(
+    ''
+  );
+
+
+  /* ===============================================================
+     STEP 3 — DECISION LAYER
+
+     Truyền GATE vừa tạo trực tiếp.
+     Không bootstrap lại Gate/Cross.
+     =============================================================== */
+
+  let decision = null;
+
+  try {
+
+    if (
+      typeof runProvinceDecisionLayerV26 !==
+      'function'
+    ) {
+
+      throw new Error(
+        'runProvinceDecisionLayerV26 NOT FOUND'
+      );
+
+    }
+
+
+    const start =
+      performance.now();
+
+
+    decision =
+      runProvinceDecisionLayerV26(
+        gate
+      );
+
+
+    const elapsed =
+      performance.now() -
+      start;
+
+
+    /*
+     * Normalize decisions/results
+     * nhưng không chạy thêm engine.
+     */
+
+    if (
+      decision &&
+      Array.isArray(
+        decision.decisions
+      ) &&
+      decision.decisions.length
+    ) {
+
+      decision.results =
+        decision.decisions;
+
+    }
+
+
+    lines.push(
+      'STEP 3 — DECISION LAYER'
+    );
+
+
+    lines.push(
+      decision &&
+      decision.ready
+        ? '✅ READY'
+        : '❌ NOT READY'
+    );
+
+
+    lines.push(
+      'Results: ' +
+      (
+        decision &&
+        Array.isArray(
+          decision.results
+        )
+          ? decision.results.length
+          : 0
+      )
+    );
+
+
+    lines.push(
+      'Time: ' +
+      (
+        elapsed / 1000
+      ).toFixed(2) +
+      's'
+    );
+
+
+    if (
+      !decision ||
+      !decision.ready
+    ) {
+
+      lines.push(
+        'Reason: ' +
+        (
+          decision &&
+          decision.reason
+            ? decision.reason
+            : 'DECISION_NOT_READY'
+        )
+      );
+
+
+      alert(
+        lines.join('\n')
+      );
+
+
+      return {
+        ready: false,
+        stage: 'DECISION_LAYER',
+        cross,
+        gate,
+        decision
+      };
+
+    }
+
+
+    window.LAST_PROVINCE_DECISION_V26 =
+      decision;
+
+
+  } catch (error) {
+
+    lines.push(
+      'STEP 3 — DECISION LAYER'
+    );
+
+    lines.push(
+      '❌ ERROR'
+    );
+
+    lines.push(
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+      ready: false,
+      stage: 'DECISION_LAYER',
+      cross,
+      gate,
+      error: String(
+        error.message ||
+        error
+      )
+    };
+
+  }
+
+
+  /* ===============================================================
+     FINISH — STOP HERE
+     =============================================================== */
+
+  const approved =
+    Array.isArray(
+      decision.results
+    )
+      ? decision.results.filter(
+          item =>
+            item.action ===
+              'RECOMMEND_ADAPTIVE'
+        )
+      : [];
+
+
+  lines.push(
+    ''
+  );
+
+  lines.push(
+    '--------------------'
+  );
+
+  lines.push(
+    'PIPELINE RESULT'
+  );
+
+  lines.push(
+    'Cross: ' +
+    cross.results.length
+  );
+
+  lines.push(
+    'Gate: ' +
+    gate.results.length
+  );
+
+  lines.push(
+    'Decision: ' +
+    decision.results.length
+  );
+
+  lines.push(
+    'Adaptive: ' +
+    approved.length
+  );
+
+  lines.push(
+    ''
+  );
+
+  lines.push(
+    '✅ LIGHT PIPELINE READY'
+  );
+
+  lines.push(
+    ''
+  );
+
+  lines.push(
+    'STOPPED BEFORE SHADOW'
+  );
+
+  lines.push(
+    'Production unchanged'
+  );
+
+
+  window.LAST_LIGHT_PIPELINE_V26 = {
+    ready: true,
+    cross,
+    gate,
+    decision,
+    approved
+  };
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return (
+    window.LAST_LIGHT_PIPELINE_V26
+  );
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+function addLightPipelineDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnLightPipelineDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnLightPipelineDebugV26';
+
+
+  button.textContent =
+    '🧪 Test V2.6 Light Pipeline';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.onclick =
+    function() {
+
+      runLightPipelineDebugV26();
+
+    };
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addLightPipelineDebugButtonV26
+  );
+
+} else {
+
+  addLightPipelineDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Light Pipeline Debug ready'
+);
+
