@@ -33222,3 +33222,1297 @@ console.log(
   'XSMN V2.6 Shadow Error Diagnostic ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX
+   SHADOW PROVINCE SLUG RESOLVER
+
+   Mục tiêu:
+   - Sửa lỗi PROVINCE_SLUG_NOT_FOUND.
+   - Chuẩn hóa province / provinceSlug / slug.
+   - Hỗ trợ cấu trúc Decision Layer hiện tại:
+       province có thể đã là slug:
+         tay-ninh
+         tp-hcm
+         tien-giang
+         binh-duong
+   - Nếu chỉ có tên tỉnh thì thử tra lại provinceBySlug / PROVINCES.
+   - Patch Shadow Batch.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. NORMALIZE TEXT
+   ========================================================================= */
+
+function normalizeProvinceTextV26(
+  value
+) {
+
+  return String(
+    value || ''
+  )
+    .trim()
+    .toLowerCase()
+    .normalize(
+      'NFD'
+    )
+    .replace(
+      /[\u0300-\u036f]/g,
+      ''
+    )
+    .replace(
+      /đ/g,
+      'd'
+    )
+    .replace(
+      /[^a-z0-9]+/g,
+      '-'
+    )
+    .replace(
+      /^-+|-+$/g,
+      ''
+    );
+
+}
+
+
+/* =========================================================================
+   2. KNOWN PROVINCE ALIASES
+
+   Chỉ dùng làm fallback.
+   Không thay PROVINCES gốc.
+   ========================================================================= */
+
+const SHADOW_PROVINCE_ALIAS_V26 = {
+
+  'tp-hcm':
+    'tp-hcm',
+
+  'tphcm':
+    'tp-hcm',
+
+  'tp-ho-chi-minh':
+    'tp-hcm',
+
+  'ho-chi-minh':
+    'tp-hcm',
+
+  'thanh-pho-ho-chi-minh':
+    'tp-hcm',
+
+  'tay-ninh':
+    'tay-ninh',
+
+  'tien-giang':
+    'tien-giang',
+
+  'binh-duong':
+    'binh-duong',
+
+  'bac-lieu':
+    'bac-lieu',
+
+  'dong-nai':
+    'dong-nai',
+
+  'long-an':
+    'long-an',
+
+  'can-tho':
+    'can-tho',
+
+  'ben-tre':
+    'ben-tre',
+
+  'kien-giang':
+    'kien-giang',
+
+  'an-giang':
+    'an-giang',
+
+  'ca-mau':
+    'ca-mau',
+
+  'soc-trang':
+    'soc-trang',
+
+  'da-lat':
+    'da-lat',
+
+  'vinh-long':
+    'vinh-long',
+
+  'binh-thuan':
+    'binh-thuan',
+
+  'vung-tau':
+    'vung-tau',
+
+  'tra-vinh':
+    'tra-vinh',
+
+  'hau-giang':
+    'hau-giang',
+
+  'binh-phuoc':
+    'binh-phuoc',
+
+  'dong-thap':
+    'dong-thap'
+
+};
+
+
+/* =========================================================================
+   3. CHECK WHETHER SLUG EXISTS
+
+   provinceBySlug() là nguồn kiểm tra ưu tiên
+   vì Production hiện đã sử dụng hàm này.
+   ========================================================================= */
+
+function shadowProvinceSlugExistsV26(
+  slug
+) {
+
+  if (!slug) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Ưu tiên provinceBySlug().
+   */
+
+  try {
+
+    if (
+      typeof provinceBySlug ===
+        'function'
+    ) {
+
+      const found =
+        provinceBySlug(
+          slug
+        );
+
+
+      if (found) {
+
+        return true;
+
+      }
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    /*
+     * Ignore lookup error.
+     */
+
+  }
+
+
+  /*
+   * Fallback PROVINCES.
+   */
+
+  try {
+
+    if (
+      typeof PROVINCES !==
+        'undefined' &&
+      Array.isArray(
+        PROVINCES
+      )
+    ) {
+
+      const found =
+        PROVINCES.some(
+          province => {
+
+            if (!province) {
+
+              return false;
+
+            }
+
+
+            return (
+
+              province.slug ===
+                slug ||
+
+              province.id ===
+                slug ||
+
+              province.province ===
+                slug ||
+
+              province.provinceSlug ===
+                slug
+
+            );
+
+          }
+        );
+
+
+      if (found) {
+
+        return true;
+
+      }
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    /*
+     * Ignore.
+     */
+
+  }
+
+
+  return false;
+
+}
+
+
+/* =========================================================================
+   4. RESOLVE PROVINCE SLUG
+
+   Thứ tự ưu tiên:
+
+   1. provinceSlug
+   2. slug
+   3. province
+   4. original province data
+   5. alias
+   6. lookup PROVINCES bằng tên
+   ========================================================================= */
+
+function resolveShadowProvinceSlugV26(
+  item
+) {
+
+  if (!item) {
+
+    return null;
+
+  }
+
+
+  const candidates = [
+
+    item.provinceSlug,
+
+    item.slug,
+
+    item.province,
+
+    item.original &&
+      item.original.provinceSlug,
+
+    item.original &&
+      item.original.slug,
+
+    item.original &&
+      item.original.province,
+
+    item.original &&
+      item.original.raw &&
+      item.original.raw.provinceSlug,
+
+    item.original &&
+      item.original.raw &&
+      item.original.raw.slug,
+
+    item.original &&
+      item.original.raw &&
+      item.original.raw.province
+
+  ]
+    .filter(
+      value =>
+        value != null &&
+        String(
+          value
+        ).trim()
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * PASS 1
+   * Candidate có thể đã chính là slug.
+   * -------------------------------------------------------------
+   */
+
+  for (
+    const candidate of
+    candidates
+  ) {
+
+    const raw =
+      String(
+        candidate
+      ).trim();
+
+
+    if (
+      shadowProvinceSlugExistsV26(
+        raw
+      )
+    ) {
+
+      return raw;
+
+    }
+
+
+    const normalized =
+      normalizeProvinceTextV26(
+        raw
+      );
+
+
+    if (
+      shadowProvinceSlugExistsV26(
+        normalized
+      )
+    ) {
+
+      return normalized;
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PASS 2
+   * Alias map.
+   * -------------------------------------------------------------
+   */
+
+  for (
+    const candidate of
+    candidates
+  ) {
+
+    const key =
+      normalizeProvinceTextV26(
+        candidate
+      );
+
+
+    const alias =
+      SHADOW_PROVINCE_ALIAS_V26[
+        key
+      ];
+
+
+    if (alias) {
+
+      return alias;
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PASS 3
+   * Lookup PROVINCES bằng tên.
+   * -------------------------------------------------------------
+   */
+
+  try {
+
+    if (
+      typeof PROVINCES !==
+        'undefined' &&
+      Array.isArray(
+        PROVINCES
+      )
+    ) {
+
+      for (
+        const candidate of
+        candidates
+      ) {
+
+        const target =
+          normalizeProvinceTextV26(
+            candidate
+          );
+
+
+        const found =
+          PROVINCES.find(
+            province => {
+
+              if (!province) {
+
+                return false;
+
+              }
+
+
+              const values = [
+
+                province.name,
+
+                province.slug,
+
+                province.id,
+
+                province.province,
+
+                province.provinceSlug
+
+              ]
+                .filter(
+                  Boolean
+                )
+                .map(
+                  normalizeProvinceTextV26
+                );
+
+
+              return values.includes(
+                target
+              );
+
+            }
+          );
+
+
+        if (found) {
+
+          return (
+
+            found.slug ||
+
+            found.id ||
+
+            found.provinceSlug ||
+
+            found.province ||
+
+            null
+
+          );
+
+        }
+
+      }
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      'V2.6 Province lookup fallback:',
+      error
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PASS 4
+   * Nếu Decision Layer đang lưu slug
+   * trực tiếp nhưng Production registry
+   * không expose được, dùng alias đã biết.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    item.province
+  ) {
+
+    const normalized =
+      normalizeProvinceTextV26(
+        item.province
+      );
+
+
+    if (
+      SHADOW_PROVINCE_ALIAS_V26[
+        normalized
+      ]
+    ) {
+
+      return (
+        SHADOW_PROVINCE_ALIAS_V26[
+          normalized
+        ]
+      );
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   5. PATCH DECISION ROWS
+
+   Gắn provinceSlug vào Decision Layer
+   nhưng không sửa action/model/window.
+   ========================================================================= */
+
+function patchShadowDecisionSlugsV26() {
+
+  const layer =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !layer ||
+    !layer.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_LAYER_NOT_READY'
+
+    };
+
+  }
+
+
+  const rows =
+
+    Array.isArray(
+      layer.decisions
+    )
+
+      ? layer.decisions
+
+      : Array.isArray(
+          layer.results
+        )
+
+        ? layer.results
+
+        : [];
+
+
+  if (!rows.length) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_ROWS_NOT_FOUND'
+
+    };
+
+  }
+
+
+  let resolved =
+    0;
+
+
+  let unresolved =
+    0;
+
+
+  rows.forEach(
+    item => {
+
+      const slug =
+        resolveShadowProvinceSlugV26(
+          item
+        );
+
+
+      if (slug) {
+
+        item.provinceSlug =
+          slug;
+
+
+        resolved++;
+
+      } else {
+
+        unresolved++;
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Giữ alias decisions/results đồng bộ.
+   */
+
+  layer.decisions =
+    rows;
+
+
+  layer.results =
+    rows;
+
+
+  window.LAST_PROVINCE_DECISION_V26 =
+    layer;
+
+
+  return {
+
+    ready:
+      resolved > 0,
+
+    total:
+      rows.length,
+
+    resolved,
+
+    unresolved,
+
+    rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. REPLACE SHADOW BATCH
+
+   Giữ nguyên logic Block 8A.
+   Chỉ thay phần tìm Province Slug.
+   ========================================================================= */
+
+function runApprovedShadowPredictionsV26(
+  giaiKey = 'db',
+  saveSnapshots = false
+) {
+
+  /*
+   * Bảo đảm Decision Layer tồn tại.
+   */
+
+  if (
+    typeof ensureProvinceDecisionLayerV26 ===
+      'function'
+  ) {
+
+    const bootstrap =
+      ensureProvinceDecisionLayerV26();
+
+
+    if (
+      !bootstrap ||
+      !bootstrap.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          bootstrap &&
+          bootstrap.reason
+            ? bootstrap.reason
+            : 'DECISION_LAYER_NOT_READY'
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Patch slug trước khi chạy Shadow.
+   */
+
+  const slugPatch =
+    patchShadowDecisionSlugsV26();
+
+
+  if (
+    !slugPatch.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        slugPatch.reason ||
+        'PROVINCE_SLUG_PATCH_FAILED'
+
+    };
+
+  }
+
+
+  const layer =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  const rows =
+
+    Array.isArray(
+      layer.decisions
+    )
+
+      ? layer.decisions
+
+      : layer.results;
+
+
+  const approved =
+    rows.filter(
+      item =>
+        normalizeShadowDecisionV26(
+          item.decision ||
+          item.action ||
+          item.recommendation
+        ) ===
+        SHADOW_ENGINE_V26_CONFIG
+          .requiredDecision
+    );
+
+
+  if (!approved.length) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_APPROVED_SHADOW_PROVINCES'
+
+    };
+
+  }
+
+
+  const results =
+    approved.map(
+      item => {
+
+        const slug =
+          resolveShadowProvinceSlugV26(
+            item
+          );
+
+
+        if (!slug) {
+
+          return {
+
+            ready: false,
+
+            province:
+              item.province ||
+              'UNKNOWN',
+
+            reason:
+              'PROVINCE_SLUG_NOT_FOUND'
+
+          };
+
+        }
+
+
+        /*
+         * Lưu lại slug đã resolve.
+         */
+
+        item.provinceSlug =
+          slug;
+
+
+        try {
+
+          if (
+            saveSnapshots
+          ) {
+
+            return (
+              saveShadowSnapshotV26(
+                slug,
+                giaiKey
+              )
+            );
+
+          }
+
+
+          return (
+            buildShadowRankingV26(
+              slug,
+              giaiKey
+            )
+          );
+
+        } catch (
+          error
+        ) {
+
+          console.error(
+            'V2.6 Shadow Province Error:',
+            slug,
+            error
+          );
+
+
+          return {
+
+            ready: false,
+
+            province:
+              item.province ||
+              slug,
+
+            provinceSlug:
+              slug,
+
+            reason:
+              'SHADOW_BUILD_ERROR',
+
+            error:
+              String(
+                error.message ||
+                error
+              )
+
+          };
+
+        }
+
+      }
+    );
+
+
+  const successful =
+    results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      successful.length > 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_BATCH',
+
+    researchOnly:
+      true,
+
+    prize:
+      giaiKey,
+
+    approvedCount:
+      approved.length,
+
+    successfulCount:
+      successful.length,
+
+    failedCount:
+      results.length -
+      successful.length,
+
+    slugResolved:
+      slugPatch.resolved,
+
+    slugUnresolved:
+      slugPatch.unresolved,
+
+    saved:
+      Boolean(
+        saveSnapshots
+      ),
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. MOBILE SLUG DIAGNOSTIC
+
+   Test riêng resolver trước khi Shadow chạy.
+   ========================================================================= */
+
+function showShadowProvinceSlugTestV26() {
+
+  try {
+
+    /*
+     * Bootstrap Decision Layer.
+     */
+
+    if (
+      typeof ensureProvinceDecisionLayerV26 ===
+        'function'
+    ) {
+
+      const bootstrap =
+        ensureProvinceDecisionLayerV26();
+
+
+      if (
+        !bootstrap ||
+        !bootstrap.ready
+      ) {
+
+        alert(
+          '❌ SLUG TEST\n\n' +
+          'Decision Layer chưa sẵn sàng.\n\n' +
+          'Reason: ' +
+          (
+            bootstrap &&
+            bootstrap.reason
+              ? bootstrap.reason
+              : 'UNKNOWN'
+          )
+        );
+
+
+        return bootstrap;
+
+      }
+
+    }
+
+
+    const patch =
+      patchShadowDecisionSlugsV26();
+
+
+    if (
+      !patch.ready
+    ) {
+
+      alert(
+        '❌ SLUG TEST\n\n' +
+        'Reason: ' +
+        patch.reason
+      );
+
+
+      return patch;
+
+    }
+
+
+    const layer =
+      window
+        .LAST_PROVINCE_DECISION_V26;
+
+
+    const rows =
+      layer.decisions;
+
+
+    const approved =
+      rows.filter(
+        item =>
+          normalizeShadowDecisionV26(
+            item.decision ||
+            item.action ||
+            item.recommendation
+          ) ===
+          SHADOW_ENGINE_V26_CONFIG
+            .requiredDecision
+      );
+
+
+    const lines = [];
+
+
+    lines.push(
+      '🔎 V2.6 PROVINCE SLUG TEST'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Rows: ' +
+      patch.total
+    );
+
+    lines.push(
+      'Resolved: ' +
+      patch.resolved
+    );
+
+    lines.push(
+      'Unresolved: ' +
+      patch.unresolved
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'APPROVED ADAPTIVE'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    approved.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Slug: ' +
+          (
+            item.provinceSlug ||
+            'NOT_FOUND'
+          )
+        );
+
+
+        lines.push(
+          'Model: ' +
+          (
+            item.model ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Window: ' +
+          (
+            item.window != null
+              ? item.window
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          '--------------------'
+        );
+
+      }
+    );
+
+
+    if (
+      approved.length === 4 &&
+      approved.every(
+        item =>
+          Boolean(
+            item.provinceSlug
+          )
+      )
+    ) {
+
+      lines.push(
+        '✅ ALL 4 SLUGS READY'
+      );
+
+    } else {
+
+      lines.push(
+        '⚠️ CHECK SLUGS'
+      );
+
+    }
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return patch;
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Slug Test:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 SLUG TEST ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   8. TEMP TEST BUTTON
+
+   Tạo nút riêng để kiểm tra Slug.
+   Chưa cần chạy Shadow ngay.
+   ========================================================================= */
+
+function addShadowProvinceSlugTestButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowSlugTestV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowSlugTestV26';
+
+
+  button.textContent =
+    '🔎 Test V2.6 Province Slug';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showShadowProvinceSlugTestV26();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   9. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowProvinceSlugTestButtonV26
+  );
+
+} else {
+
+  addShadowProvinceSlugTestButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Shadow Province Slug Fix ready'
+);
+
