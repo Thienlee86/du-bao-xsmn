@@ -34516,3 +34516,1252 @@ console.log(
   'XSMN V2.6 Shadow Province Slug Fix ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — SHADOW DEEP DEBUG
+   BLOCK 8A DIAGNOSTIC
+
+   Mục tiêu:
+   - Debug riêng từng Adaptive Province.
+   - Kiểm tra:
+       + Decision
+       + Province Slug
+       + Model
+       + Window
+       + Model Config
+       + Historical Draws
+       + Score Engine
+       + Ranking
+       + buildShadowRankingV26()
+   - Bắt chính xác error message.
+   - KHÔNG thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. DEBUG ONE SHADOW PROVINCE
+   ========================================================================= */
+
+function debugOneShadowProvinceV26(
+  item,
+  giaiKey = 'db'
+) {
+
+  const debug = {
+
+    province:
+      item &&
+      item.province
+        ? item.province
+        : 'UNKNOWN',
+
+    slug:
+      null,
+
+    decision:
+      null,
+
+    model:
+      item &&
+      item.model
+        ? item.model
+        : null,
+
+    window:
+      item &&
+      item.window != null
+        ? Number(
+            item.window
+          )
+        : null,
+
+    configFound:
+      false,
+
+    drawsFound:
+      false,
+
+    drawCount:
+      0,
+
+    scoreCreated:
+      false,
+
+    rankingCreated:
+      false,
+
+    rankingCount:
+      0,
+
+    shadowReady:
+      false,
+
+    stage:
+      'START',
+
+    error:
+      null
+
+  };
+
+
+  try {
+
+    /* -------------------------------------------------------------
+       STEP 1 — DECISION
+       ------------------------------------------------------------- */
+
+    debug.stage =
+      'DECISION';
+
+
+    debug.decision =
+      normalizeShadowDecisionV26(
+        item.decision ||
+        item.action ||
+        item.recommendation
+      );
+
+
+    /* -------------------------------------------------------------
+       STEP 2 — SLUG
+       ------------------------------------------------------------- */
+
+    debug.stage =
+      'SLUG';
+
+
+    debug.slug =
+      resolveShadowProvinceSlugV26(
+        item
+      );
+
+
+    if (!debug.slug) {
+
+      throw new Error(
+        'PROVINCE_SLUG_NOT_FOUND'
+      );
+
+    }
+
+
+    /* -------------------------------------------------------------
+       STEP 3 — MODEL CONFIG
+       ------------------------------------------------------------- */
+
+    debug.stage =
+      'MODEL_CONFIG';
+
+
+    let config =
+      null;
+
+
+    if (
+      typeof getModelConfigV26 ===
+        'function'
+    ) {
+
+      config =
+        getModelConfigV26(
+          debug.model
+        );
+
+    }
+
+
+    /*
+     * Fallback trực tiếp vào
+     * MODEL_LAB_V23_CONFIGS.
+     */
+
+    if (
+      !config &&
+      typeof MODEL_LAB_V23_CONFIGS !==
+        'undefined' &&
+      Array.isArray(
+        MODEL_LAB_V23_CONFIGS
+      )
+    ) {
+
+      config =
+        MODEL_LAB_V23_CONFIGS.find(
+          row =>
+            row &&
+            row.id ===
+              debug.model
+        ) ||
+        null;
+
+    }
+
+
+    debug.configFound =
+      Boolean(
+        config
+      );
+
+
+    if (!config) {
+
+      throw new Error(
+        'MODEL_CONFIG_NOT_FOUND: ' +
+        debug.model
+      );
+
+    }
+
+
+    /* -------------------------------------------------------------
+       STEP 4 — HISTORICAL DRAWS
+
+       Không giả định duy nhất một storage.
+       Thử các nguồn dữ liệu hiện có.
+       ------------------------------------------------------------- */
+
+    debug.stage =
+      'HISTORICAL_DRAWS';
+
+
+    let draws =
+      null;
+
+
+    /*
+     * Cách 1:
+     * Nếu app có hàm lấy draws theo tỉnh.
+     */
+
+    const drawGetterNames = [
+
+      'getProvinceDraws',
+
+      'getDrawsForProvince',
+
+      'getHistoricalDraws',
+
+      'getProvinceHistory',
+
+      'drawsForProvince'
+
+    ];
+
+
+    for (
+      const functionName of
+      drawGetterNames
+    ) {
+
+      if (
+        Array.isArray(
+          draws
+        ) &&
+        draws.length
+      ) {
+
+        break;
+
+      }
+
+
+      if (
+        typeof window[
+          functionName
+        ] ===
+          'function'
+      ) {
+
+        try {
+
+          const candidate =
+            window[
+              functionName
+            ](
+              debug.slug
+            );
+
+
+          if (
+            Array.isArray(
+              candidate
+            )
+          ) {
+
+            draws =
+              candidate;
+
+          }
+
+        } catch (
+          error
+        ) {
+
+          /*
+           * Getter khác signature.
+           * Tiếp tục thử nguồn khác.
+           */
+
+        }
+
+      }
+
+    }
+
+
+    /*
+     * Cách 2:
+     * Kiểm tra các global data store
+     * thường dùng.
+     */
+
+    if (
+      !Array.isArray(
+        draws
+      ) ||
+      !draws.length
+    ) {
+
+      const stores = [
+
+        typeof DRAW_DATA !==
+          'undefined'
+          ? DRAW_DATA
+          : null,
+
+        typeof XSMN_DATA !==
+          'undefined'
+          ? XSMN_DATA
+          : null,
+
+        typeof LOTTERY_DATA !==
+          'undefined'
+          ? LOTTERY_DATA
+          : null,
+
+        window.drawData,
+
+        window.xsmnData,
+
+        window.lotteryData
+
+      ];
+
+
+      for (
+        const store of
+        stores
+      ) {
+
+        if (
+          Array.isArray(
+            draws
+          ) &&
+          draws.length
+        ) {
+
+          break;
+
+        }
+
+
+        if (
+          !store ||
+          typeof store !==
+            'object'
+        ) {
+
+          continue;
+
+        }
+
+
+        const candidate =
+          store[
+            debug.slug
+          ];
+
+
+        if (
+          Array.isArray(
+            candidate
+          )
+        ) {
+
+          draws =
+            candidate;
+
+        }
+
+      }
+
+    }
+
+
+    /*
+     * Cách 3:
+     * Production app hiện có thể dùng
+     * global draws thông qua
+     * withHistoricalDrawsV25().
+     *
+     * Nếu chưa tìm được trực tiếp,
+     * chưa kết luận failure ở đây.
+     */
+
+    debug.drawsFound =
+      Array.isArray(
+        draws
+      ) &&
+      draws.length > 0;
+
+
+    debug.drawCount =
+      debug.drawsFound
+        ? draws.length
+        : 0;
+
+
+    /* -------------------------------------------------------------
+       STEP 5 — DIRECT SCORE TEST
+
+       Chỉ chạy khi lấy được draws trực tiếp.
+       Nếu không, bỏ qua để buildShadowRankingV26()
+       tự dùng data contract thật của app.
+       ------------------------------------------------------------- */
+
+    if (
+      debug.drawsFound
+    ) {
+
+      debug.stage =
+        'DIRECT_SCORE';
+
+
+      if (
+        typeof modelLabScoresV23 !==
+          'function'
+      ) {
+
+        throw new Error(
+          'modelLabScoresV23_NOT_FOUND'
+        );
+
+      }
+
+
+      const scores =
+        modelLabScoresV23(
+
+          draws,
+
+          giaiKey,
+
+          debug.window,
+
+          config.weights
+
+        );
+
+
+      debug.scoreCreated =
+        Boolean(
+          scores
+        );
+
+
+      if (!scores) {
+
+        throw new Error(
+          'MODEL_SCORE_EMPTY'
+        );
+
+      }
+
+
+      /* -----------------------------------------------------------
+         STEP 6 — DIRECT RANKING
+         ----------------------------------------------------------- */
+
+      debug.stage =
+        'DIRECT_RANKING';
+
+
+      if (
+        typeof rankedNumbers !==
+          'function'
+      ) {
+
+        throw new Error(
+          'rankedNumbers_NOT_FOUND'
+        );
+
+      }
+
+
+      const ranking =
+        rankedNumbers(
+          scores
+        );
+
+
+      debug.rankingCreated =
+        Array.isArray(
+          ranking
+        );
+
+
+      debug.rankingCount =
+        debug.rankingCreated
+          ? ranking.length
+          : 0;
+
+
+      if (
+        !debug.rankingCreated
+      ) {
+
+        throw new Error(
+          'RANKING_NOT_ARRAY'
+        );
+
+      }
+
+    }
+
+
+    /* -------------------------------------------------------------
+       STEP 7 — REAL SHADOW BUILDER
+
+       Đây là test quan trọng nhất.
+       ------------------------------------------------------------- */
+
+    debug.stage =
+      'BUILD_SHADOW';
+
+
+    if (
+      typeof buildShadowRankingV26 !==
+        'function'
+    ) {
+
+      throw new Error(
+        'buildShadowRankingV26_NOT_FOUND'
+      );
+
+    }
+
+
+    const shadow =
+      buildShadowRankingV26(
+        debug.slug,
+        giaiKey
+      );
+
+
+    debug.shadowReturnType =
+      shadow === null
+        ? 'null'
+        : Array.isArray(
+            shadow
+          )
+          ? 'array'
+          : typeof shadow;
+
+
+    debug.shadowKeys =
+      shadow &&
+      typeof shadow ===
+        'object'
+        ? Object.keys(
+            shadow
+          )
+        : [];
+
+
+    debug.shadowReady =
+      Boolean(
+        shadow &&
+        shadow.ready
+      );
+
+
+    debug.shadowReason =
+      shadow &&
+      shadow.reason
+        ? shadow.reason
+        : null;
+
+
+    if (
+      !shadow
+    ) {
+
+      throw new Error(
+        'BUILD_SHADOW_RETURNED_' +
+        String(
+          shadow
+        )
+      );
+
+    }
+
+
+    if (
+      !shadow.ready
+    ) {
+
+      throw new Error(
+        'SHADOW_NOT_READY: ' +
+        (
+          shadow.reason ||
+          'NO_REASON'
+        )
+      );
+
+    }
+
+
+    debug.stage =
+      'SUCCESS';
+
+
+    debug.top1 =
+      shadow.top1 ||
+      [];
+
+
+    debug.top3 =
+      shadow.top3 ||
+      [];
+
+
+    return debug;
+
+
+  } catch (
+    error
+  ) {
+
+    debug.error =
+      String(
+        error &&
+        (
+          error.stack ||
+          error.message
+        ) ||
+        error
+      );
+
+
+    return debug;
+
+  }
+
+}
+
+
+/* =========================================================================
+   2. RUN DEEP DEBUG FOR APPROVED PROVINCES
+   ========================================================================= */
+
+function runShadowDeepDebugV26(
+  giaiKey = 'db'
+) {
+
+  try {
+
+    /* -------------------------------------------------------------
+       Bootstrap Decision Layer.
+       ------------------------------------------------------------- */
+
+    if (
+      typeof ensureProvinceDecisionLayerV26 ===
+        'function'
+    ) {
+
+      const bootstrap =
+        ensureProvinceDecisionLayerV26();
+
+
+      if (
+        !bootstrap ||
+        !bootstrap.ready
+      ) {
+
+        return {
+
+          ready: false,
+
+          reason:
+            bootstrap &&
+            bootstrap.reason
+              ? bootstrap.reason
+              : 'DECISION_BOOTSTRAP_FAILED'
+
+        };
+
+      }
+
+    }
+
+
+    /* -------------------------------------------------------------
+       Patch province slugs.
+       ------------------------------------------------------------- */
+
+    if (
+      typeof patchShadowDecisionSlugsV26 ===
+        'function'
+    ) {
+
+      const slugPatch =
+        patchShadowDecisionSlugsV26();
+
+
+      if (
+        !slugPatch ||
+        !slugPatch.ready
+      ) {
+
+        return {
+
+          ready: false,
+
+          reason:
+            slugPatch &&
+            slugPatch.reason
+              ? slugPatch.reason
+              : 'SLUG_PATCH_FAILED'
+
+        };
+
+      }
+
+    }
+
+
+    const layer =
+      window
+        .LAST_PROVINCE_DECISION_V26;
+
+
+    if (
+      !layer ||
+      !layer.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'DECISION_LAYER_NOT_READY'
+
+      };
+
+    }
+
+
+    const rows =
+
+      Array.isArray(
+        layer.decisions
+      )
+
+        ? layer.decisions
+
+        : Array.isArray(
+            layer.results
+          )
+
+          ? layer.results
+
+          : [];
+
+
+    const approved =
+      rows.filter(
+        item =>
+          normalizeShadowDecisionV26(
+            item.decision ||
+            item.action ||
+            item.recommendation
+          ) ===
+          SHADOW_ENGINE_V26_CONFIG
+            .requiredDecision
+      );
+
+
+    if (!approved.length) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'NO_APPROVED_PROVINCES'
+
+      };
+
+    }
+
+
+    const results =
+      approved.map(
+        item =>
+          debugOneShadowProvinceV26(
+            item,
+            giaiKey
+          )
+      );
+
+
+    const success =
+      results.filter(
+        item =>
+          item.stage ===
+          'SUCCESS'
+      );
+
+
+    const output = {
+
+      ready: true,
+
+      approved:
+        approved.length,
+
+      success:
+        success.length,
+
+      failed:
+        results.length -
+        success.length,
+
+      results
+
+    };
+
+
+    window.LAST_SHADOW_DEEP_DEBUG_V26 =
+      output;
+
+
+    console.log(
+      '=========================================='
+    );
+
+    console.log(
+      'V2.6 SHADOW DEEP DEBUG'
+    );
+
+    console.log(
+      '=========================================='
+    );
+
+
+    console.table(
+
+      results.map(
+        item => ({
+
+          Province:
+            item.province,
+
+          Slug:
+            item.slug ||
+            '-',
+
+          Decision:
+            item.decision ||
+            '-',
+
+          Model:
+            item.model ||
+            '-',
+
+          Window:
+            item.window != null
+              ? item.window
+              : '-',
+
+          Config:
+            item.configFound
+              ? 'YES'
+              : 'NO',
+
+          Draws:
+            item.drawsFound
+              ? item.drawCount
+              : 'NOT_DIRECT',
+
+          Scores:
+            item.scoreCreated
+              ? 'YES'
+              : '-',
+
+          Ranking:
+            item.rankingCreated
+              ? item.rankingCount
+              : '-',
+
+          Shadow:
+            item.shadowReady
+              ? 'READY'
+              : 'FAIL',
+
+          Stage:
+            item.stage,
+
+          Error:
+            item.error ||
+            item.shadowReason ||
+            '-'
+
+        }))
+
+    );
+
+
+    return output;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Deep Debug Fatal:',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DEEP_DEBUG_FATAL',
+
+      error:
+        String(
+          error.stack ||
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. MOBILE DEEP DEBUG
+
+   Popup cố tình ngắn.
+   Chỉ hiển thị:
+   - Province
+   - Slug
+   - Model/Window
+   - Config
+   - Draws
+   - Stage
+   - Error
+
+   Không hiển thị toàn bộ stack để tránh
+   popup Samsung bị cắt quá sớm.
+   ========================================================================= */
+
+function showShadowDeepDebugV26Mobile() {
+
+  const result =
+    runShadowDeepDebugV26(
+      'db'
+    );
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    alert(
+      '❌ SHADOW DEEP DEBUG\n\n' +
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      ) +
+      (
+        result &&
+        result.error
+          ? '\n\n' +
+            result.error
+          : ''
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  const lines = [];
+
+
+  lines.push(
+    '🧪 V2.6 SHADOW DEEP DEBUG'
+  );
+
+  lines.push(
+    ''
+  );
+
+  lines.push(
+    'Approved: ' +
+    result.approved
+  );
+
+  lines.push(
+    'Success: ' +
+    result.success
+  );
+
+  lines.push(
+    'Failed: ' +
+    result.failed
+  );
+
+  lines.push(
+    ''
+  );
+
+
+  result.results.forEach(
+    (
+      item,
+      index
+    ) => {
+
+      lines.push(
+        '#' +
+        (
+          index + 1
+        ) +
+        ' ' +
+        item.province
+      );
+
+
+      lines.push(
+        'Slug: ' +
+        (
+          item.slug ||
+          'NOT_FOUND'
+        )
+      );
+
+
+      lines.push(
+        'Model: ' +
+        (
+          item.model ||
+          '-'
+        ) +
+        ' / ' +
+        (
+          item.window != null
+            ? item.window
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Config: ' +
+        (
+          item.configFound
+            ? 'YES'
+            : 'NO'
+        )
+      );
+
+
+      lines.push(
+        'Draws: ' +
+        (
+          item.drawsFound
+            ? item.drawCount
+            : 'NOT_DIRECT'
+        )
+      );
+
+
+      lines.push(
+        'Stage: ' +
+        item.stage
+      );
+
+
+      if (
+        item.stage ===
+        'SUCCESS'
+      ) {
+
+        lines.push(
+          '✅ SHADOW READY'
+        );
+
+      } else {
+
+        /*
+         * Chỉ lấy dòng đầu tiên của error
+         * để popup không quá dài.
+         */
+
+        const shortError =
+          String(
+            item.error ||
+            item.shadowReason ||
+            'UNKNOWN'
+          )
+          .split(
+            '\n'
+          )[0]
+          .slice(
+            0,
+            160
+          );
+
+
+        lines.push(
+          '❌ ' +
+          shortError
+        );
+
+      }
+
+
+      lines.push(
+        '--------------------'
+      );
+
+    }
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. ADD DEEP DEBUG BUTTON
+   ========================================================================= */
+
+function addShadowDeepDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowDeepDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowDeepDebugV26';
+
+
+  button.textContent =
+    '🧪 Debug V2.6 Shadow';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      showShadowDeepDebugV26Mobile();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   5. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowDeepDebugButtonV26
+  );
+
+} else {
+
+  addShadowDeepDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Shadow Deep Debug ready'
+);
+
