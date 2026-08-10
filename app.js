@@ -49038,3 +49038,942 @@ console.log(
   'XSMN V2.6 Block 8B-E loaded — Shadow Decision Bridge ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-F
+   SNAPSHOT STORE BRIDGE
+
+   Flow:
+   LAST_SHADOW_BRIDGE_V26
+   → Snapshot Store
+   → Duplicate Protection
+
+   Research Only.
+   Production unchanged.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. STORAGE CONFIG
+   ========================================================================= */
+
+const SHADOW_SNAPSHOT_STORAGE_KEY_V26 =
+  'XSMN_SHADOW_SNAPSHOTS_V26';
+
+
+/* =========================================================================
+   2. READ SNAPSHOT STORE
+
+   Ưu tiên localStorage để snapshot
+   còn tồn tại sau reload.
+   ========================================================================= */
+
+function readShadowSnapshotStoreBridgeV26() {
+
+  let rows = [];
+
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        SHADOW_SNAPSHOT_STORAGE_KEY_V26
+      );
+
+
+    if (raw) {
+
+      const parsed =
+        JSON.parse(
+          raw
+        );
+
+
+      if (
+        Array.isArray(
+          parsed
+        )
+      ) {
+
+        rows =
+          parsed;
+
+      }
+
+    }
+
+  } catch (error) {
+
+    console.warn(
+      'V2.6 Snapshot Store Read:',
+      error
+    );
+
+  }
+
+
+  /*
+   * Compatibility với store cũ.
+   */
+
+  if (
+    !rows.length &&
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+  ) {
+
+    rows =
+      window.SHADOW_SNAPSHOTS_V26
+        .slice();
+
+  }
+
+
+  return rows;
+
+}
+
+
+/* =========================================================================
+   3. WRITE SNAPSHOT STORE
+   ========================================================================= */
+
+function writeShadowSnapshotStoreBridgeV26(
+  rows
+) {
+
+  if (
+    !Array.isArray(
+      rows
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT_STORE'
+
+    };
+
+  }
+
+
+  try {
+
+    localStorage.setItem(
+      SHADOW_SNAPSHOT_STORAGE_KEY_V26,
+      JSON.stringify(
+        rows
+      )
+    );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORAGE_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  /*
+   * Giữ alias RAM để các block cũ
+   * vẫn có thể đọc được.
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    rows;
+
+
+  window.LAST_SHADOW_SNAPSHOTS_V26 =
+    rows;
+
+
+  return {
+
+    ready: true,
+
+    count:
+      rows.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. GET LATEST DRAW DATE
+
+   Snapshot phải biết nó được tạo
+   sau kỳ nào để Actual Resolver
+   không so sánh với dữ liệu cũ.
+   ========================================================================= */
+
+function latestDrawDateForSnapshotV26(
+  provinceSlug
+) {
+
+  let draws =
+    null;
+
+
+  try {
+
+    if (
+      typeof getAllDrawsForProvince ===
+      'function'
+    ) {
+
+      draws =
+        getAllDrawsForProvince(
+          provinceSlug
+        );
+
+    }
+
+  } catch (error) {
+
+    /*
+     * Fallback below.
+     */
+
+  }
+
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    try {
+
+      if (
+        typeof drawListOfProvince ===
+        'function'
+      ) {
+
+        draws =
+          drawListOfProvince(
+            provinceSlug
+          );
+
+      }
+
+    } catch (error) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+  }
+
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    return null;
+
+  }
+
+
+  const dates =
+    draws
+      .map(
+        item =>
+          item &&
+          item.date
+            ? item.date
+            : null
+      )
+      .filter(
+        Boolean
+      )
+      .sort()
+      .reverse();
+
+
+  return (
+    dates[0] ||
+    null
+  );
+
+}
+
+
+/* =========================================================================
+   5. SNAPSHOT UNIQUE KEY
+   ========================================================================= */
+
+function shadowSnapshotUniqueKeyV26(
+  item
+) {
+
+  return [
+
+    item.province,
+
+    item.prize,
+
+    item.latestDrawDate,
+
+    item.model,
+
+    item.window
+
+  ].join('|');
+
+}
+
+
+/* =========================================================================
+   6. CONVERT SHADOW RESULT → SNAPSHOT
+   ========================================================================= */
+
+function shadowResultToSnapshotV26(
+  shadow
+) {
+
+  if (
+    !shadow ||
+    !shadow.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SHADOW_RESULT'
+
+    };
+
+  }
+
+
+  const latestDrawDate =
+    latestDrawDateForSnapshotV26(
+      shadow.province
+    );
+
+
+  if (!latestDrawDate) {
+
+    return {
+
+      ready: false,
+
+      province:
+        shadow.province,
+
+      reason:
+        'LATEST_DRAW_DATE_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const snapshot = {
+
+    version:
+      'V2.6',
+
+    type:
+      'SHADOW_SNAPSHOT',
+
+    engine:
+      'SHADOW',
+
+    researchOnly:
+      true,
+
+    productionOverride:
+      false,
+
+    province:
+      shadow.province,
+
+    prize:
+      shadow.prize ||
+      'db',
+
+    model:
+      shadow.model,
+
+    window:
+      shadow.window,
+
+    decision:
+      shadow.decision ||
+      'RECOMMEND_ADAPTIVE',
+
+    gateScore:
+      shadow.gateScore != null
+        ? shadow.gateScore
+        : null,
+
+    oosDelta:
+      shadow.oosDelta != null
+        ? shadow.oosDelta
+        : null,
+
+    winRate:
+      shadow.winRate != null
+        ? shadow.winRate
+        : null,
+
+    latestDrawDate,
+
+    createdAt:
+      new Date()
+        .toISOString(),
+
+    status:
+      'PENDING',
+
+    actual:
+      null,
+
+    verifiedAt:
+      null,
+
+    top1:
+      Array.isArray(
+        shadow.top1
+      )
+        ? shadow.top1.slice()
+        : [],
+
+    top3:
+      Array.isArray(
+        shadow.top3
+      )
+        ? shadow.top3.slice()
+        : [],
+
+    top5:
+      Array.isArray(
+        shadow.top5
+      )
+        ? shadow.top5.slice()
+        : [],
+
+    top10:
+      Array.isArray(
+        shadow.top10
+      )
+        ? shadow.top10.slice()
+        : [],
+
+    ranking:
+      Array.isArray(
+        shadow.ranking
+      )
+        ? shadow.ranking.slice()
+        : []
+
+  };
+
+
+  snapshot.snapshotKey =
+    shadowSnapshotUniqueKeyV26(
+      snapshot
+    );
+
+
+  return {
+
+    ready: true,
+
+    snapshot
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. SAVE CURRENT SHADOW BRIDGE
+
+   Duplicate Protection:
+   cùng tỉnh + giải + latest draw
+   + model + window
+   chỉ lưu một lần.
+   ========================================================================= */
+
+function saveShadowBridgeSnapshotsV26() {
+
+  const bridge =
+    window.LAST_SHADOW_BRIDGE_V26;
+
+
+  if (
+    !bridge ||
+    !bridge.ready ||
+    !Array.isArray(
+      bridge.results
+    ) ||
+    !bridge.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SHADOW_BRIDGE_NOT_READY'
+
+    };
+
+  }
+
+
+  const store =
+    readShadowSnapshotStoreBridgeV26();
+
+
+  const existingKeys =
+    new Set(
+      store.map(
+        item =>
+          item.snapshotKey ||
+          shadowSnapshotUniqueKeyV26(
+            item
+          )
+      )
+    );
+
+
+  let savedNew =
+    0;
+
+  let skippedDuplicate =
+    0;
+
+  let failed =
+    0;
+
+
+  const results = [];
+
+
+  bridge.results.forEach(
+    shadow => {
+
+      if (
+        !shadow ||
+        !shadow.ready
+      ) {
+
+        failed++;
+
+
+        results.push({
+
+          ready: false,
+
+          province:
+            shadow &&
+            shadow.province
+              ? shadow.province
+              : '-',
+
+          status:
+            'FAILED',
+
+          reason:
+            shadow &&
+            shadow.reason
+              ? shadow.reason
+              : 'SHADOW_NOT_READY'
+
+        });
+
+
+        return;
+
+      }
+
+
+      const converted =
+        shadowResultToSnapshotV26(
+          shadow
+        );
+
+
+      if (
+        !converted.ready
+      ) {
+
+        failed++;
+
+
+        results.push({
+
+          ready: false,
+
+          province:
+            shadow.province,
+
+          status:
+            'FAILED',
+
+          reason:
+            converted.reason
+
+        });
+
+
+        return;
+
+      }
+
+
+      const snapshot =
+        converted.snapshot;
+
+
+      if (
+        existingKeys.has(
+          snapshot.snapshotKey
+        )
+      ) {
+
+        skippedDuplicate++;
+
+
+        results.push({
+
+          ready: true,
+
+          province:
+            snapshot.province,
+
+          status:
+            'SKIPPED_DUPLICATE',
+
+          latestDrawDate:
+            snapshot.latestDrawDate
+
+        });
+
+
+        return;
+
+      }
+
+
+      store.push(
+        snapshot
+      );
+
+
+      existingKeys.add(
+        snapshot.snapshotKey
+      );
+
+
+      savedNew++;
+
+
+      results.push({
+
+        ready: true,
+
+        province:
+          snapshot.province,
+
+        status:
+          'SAVED_NEW',
+
+        latestDrawDate:
+          snapshot.latestDrawDate,
+
+        top1:
+          snapshot.top1
+
+      });
+
+    }
+  );
+
+
+  const write =
+    writeShadowSnapshotStoreBridgeV26(
+      store
+    );
+
+
+  if (!write.ready) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        write.reason,
+
+      error:
+        write.error
+
+    };
+
+  }
+
+
+  const pending =
+    store.filter(
+      item =>
+        item.status ===
+        'PENDING'
+    ).length;
+
+
+  const verified =
+    store.filter(
+      item =>
+        item.status ===
+        'VERIFIED'
+    ).length;
+
+
+  return {
+
+    ready:
+      failed === 0,
+
+    requested:
+      bridge.results.length,
+
+    savedNew,
+
+    skippedDuplicate,
+
+    failed,
+
+    totalStore:
+      store.length,
+
+    pending,
+
+    verified,
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. MOBILE TEST
+   ========================================================================= */
+
+function testShadowSnapshotStoreBridgeV26() {
+
+  const result =
+    saveShadowBridgeSnapshotsV26();
+
+
+  if (!result.ready) {
+
+    alert(
+      '❌ V2.6 SNAPSHOT STORE BRIDGE\n\n' +
+      'Reason: ' +
+      (
+        result.reason ||
+        'UNKNOWN'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  let text =
+    '💾 V2.6 SNAPSHOT STORE BRIDGE\n\n' +
+
+    'Requested: ' +
+    result.requested +
+    '\n' +
+
+    'Saved New: ' +
+    result.savedNew +
+    '\n' +
+
+    'Skipped Duplicate: ' +
+    result.skippedDuplicate +
+    '\n' +
+
+    'Failed: ' +
+    result.failed +
+    '\n\n' +
+
+    'Total Store: ' +
+    result.totalStore +
+    '\n' +
+
+    'Pending: ' +
+    result.pending +
+    '\n' +
+
+    'Verified: ' +
+    result.verified +
+    '\n\n';
+
+
+  result.results.forEach(
+    (item, index) => {
+
+      if (index >= 4) {
+        return;
+      }
+
+
+      text +=
+        (
+          item.status ===
+          'SAVED_NEW'
+            ? '💾 '
+            : '🛡️ '
+        ) +
+        item.province +
+        '\n' +
+
+        'Status: ' +
+        item.status +
+        '\n' +
+
+        'Latest Draw: ' +
+        (
+          item.latestDrawDate ||
+          '-'
+        ) +
+        '\n' +
+
+        '------------------\n';
+
+    }
+  );
+
+
+  alert(text);
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   9. ADD MOBILE BUTTON
+   ========================================================================= */
+
+(function addSnapshotStoreBridgeButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-snapshot-store-bridge-v26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-snapshot-store-bridge-v26';
+
+
+    button.textContent =
+      '💾 Save V2.6 Shadow Snapshots';
+
+
+    button.style.cssText =
+      [
+        'display:block',
+        'width:calc(100% - 48px)',
+        'margin:18px 24px',
+        'padding:22px 12px',
+        'border:0',
+        'border-radius:24px',
+        'font-size:20px',
+        'font-weight:700',
+        'cursor:pointer'
+      ].join(';');
+
+
+    button.onclick =
+      function() {
+
+        testShadowSnapshotStoreBridgeV26();
+
+      };
+
+
+    const target =
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.body;
+
+
+    target.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'XSMN V2.6 Block 8B-F loaded — Snapshot Store Bridge ready'
+);
+
