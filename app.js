@@ -51398,3 +51398,172 @@ console.log(
   'XSMN V2.6 Block 8C-A loaded — Persistent Snapshot Store ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A
+   PERSISTENT SNAPSHOT STORE MOBILE BUTTON
+
+   Chỉ tạo nút test Persistent Store.
+   Không chạy Cross OOS.
+   Không chạy Shadow.
+   Không tạo Snapshot mới.
+   Không thay Production.
+   ========================================================================= */
+
+function addPersistentSnapshotStoreButtonV26() {
+
+  /*
+   * Không tạo trùng nút.
+   */
+
+  if (
+    document.getElementById(
+      'btnPersistentSnapshotStoreV26'
+    )
+  ) {
+
+    return true;
+
+  }
+
+
+  /*
+   * Tìm khu vực Settings.
+   */
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    ) ||
+    document.getElementById(
+      'settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    );
+
+
+  if (!settings) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Tạo button.
+   */
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnPersistentSnapshotStoreV26';
+
+
+  button.textContent =
+    '💾 Test V2.6 Persistent Store';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  /*
+   * Click chỉ gọi testPersistentSnapshotStoreV26().
+   */
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      if (
+        typeof testPersistentSnapshotStoreV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ V2.6 PERSISTENT STORE\n\n' +
+          'testPersistentSnapshotStoreV26() not found.'
+        );
+
+        return;
+
+      }
+
+
+      testPersistentSnapshotStoreV26();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   INIT BUTTON
+   ========================================================================= */
+
+function initPersistentSnapshotStoreButtonV26() {
+
+  const installed =
+    addPersistentSnapshotStoreButtonV26();
+
+
+  /*
+   * Nếu Settings chưa dựng xong,
+   * thử lại nhẹ sau 500 ms.
+   */
+
+  if (!installed) {
+
+    setTimeout(
+      addPersistentSnapshotStoreButtonV26,
+      500
+    );
+
+  }
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initPersistentSnapshotStoreButtonV26
+  );
+
+} else {
+
+  initPersistentSnapshotStoreButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Persistent Store Test Button ready'
+);
+
