@@ -41216,17 +41216,32 @@ function ensureCrossProvinceOOSForSnapshotV26() {
 
   const runnerCandidates = [
 
-    'runCrossProvinceOOSV26',
+  /*
+   * Runner thật của Block 6A.
+   * Debug đã xác nhận:
+   * - typeof === 'function'
+   * - ready === true
+   * - results === 21
+   */
 
-    'runCrossProvinceOOSTestV26',
+  'evaluateAllProvincesOOSV26',
 
-    'runCrossProvinceOOSAllV26',
 
-    'runAllProvinceOOSV26',
+  /*
+   * Legacy / fallback runners.
+   */
 
-    'runCrossProvinceValidationV26'
+  'runCrossProvinceOOSV26',
 
-  ];
+  'runCrossProvinceOOSTestV26',
+
+  'runCrossProvinceOOSAllV26',
+
+  'runAllProvinceOOSV26',
+
+  'runCrossProvinceValidationV26'
+
+];
 
 
   let runnerName =
