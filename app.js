@@ -52187,3 +52187,196 @@ console.log(
   'XSMN V2.6 Block 8C-B loaded — Snapshot Structure Inspector ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B
+   SNAPSHOT STRUCTURE INSPECTOR BUTTON
+
+   - Chỉ gọi testSnapshotStructureV26()
+   - Read only
+   - Không tạo snapshot
+   - Không sửa persistent store
+   - Không chạy Cross OOS
+   - Production unchanged
+   ========================================================================= */
+
+function addSnapshotStructureButtonV26() {
+
+  /*
+   * Không tạo trùng button.
+   */
+
+  if (
+    document.getElementById(
+      'btnSnapshotStructureV26'
+    )
+  ) {
+
+    return true;
+
+  }
+
+
+  /*
+   * Tìm khu vực Settings.
+   */
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    ) ||
+    document.getElementById(
+      'settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    );
+
+
+  if (!settings) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Tạo button.
+   */
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSnapshotStructureV26';
+
+
+  button.textContent =
+    '🔬 Inspect V2.6 Snapshot Structure';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  /*
+   * Click chỉ chạy Inspector.
+   */
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      if (
+        typeof testSnapshotStructureV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ V2.6 SNAPSHOT STRUCTURE\n\n' +
+          'testSnapshotStructureV26() not found.'
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        testSnapshotStructureV26();
+
+      } catch (
+        error
+      ) {
+
+        console.error(
+          'V2.6 Snapshot Structure Button:',
+          error
+        );
+
+
+        alert(
+          '❌ V2.6 SNAPSHOT STRUCTURE\n\n' +
+          'Inspector error:\n' +
+          String(
+            error.message ||
+            error
+          )
+        );
+
+      }
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   INIT BUTTON
+   ========================================================================= */
+
+function initSnapshotStructureButtonV26() {
+
+  const installed =
+    addSnapshotStructureButtonV26();
+
+
+  /*
+   * Settings có thể chưa render xong.
+   * Thử lại sau 500ms.
+   */
+
+  if (!installed) {
+
+    setTimeout(
+      addSnapshotStructureButtonV26,
+      500
+    );
+
+  }
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initSnapshotStructureButtonV26
+  );
+
+} else {
+
+  initSnapshotStructureButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Snapshot Structure Inspector Button ready'
+);
+
