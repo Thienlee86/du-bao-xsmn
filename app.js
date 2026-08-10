@@ -54531,3 +54531,320 @@ console.log(
   V26_PERSISTENCE_RESTORE_RESULT
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A2
+   PERSISTENCE STATUS TEST + MOBILE BUTTON
+
+   - Chỉ kiểm tra persistence.
+   - Không chạy Cross OOS.
+   - Không chạy Gate / Decision / Shadow.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. TEST PERSISTENCE STATUS
+   ========================================================================= */
+
+function testShadowPersistenceStatusV26() {
+
+  const patchOn =
+    Boolean(
+      window
+        .SAVE_SHADOW_SNAPSHOT_V26_PERSIST_PATCHED
+    );
+
+
+  const restore =
+    window
+      .LAST_V26_PERSISTENCE_RESTORE ||
+    null;
+
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  let persistent =
+    [];
+
+
+  let persistentError =
+    null;
+
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        'XSMN_V26_SHADOW_SNAPSHOTS'
+      );
+
+
+    if (raw) {
+
+      const parsed =
+        JSON.parse(
+          raw
+        );
+
+
+      if (
+        Array.isArray(
+          parsed
+        )
+      ) {
+
+        persistent =
+          parsed;
+
+      } else {
+
+        persistentError =
+          'STORE_NOT_ARRAY';
+
+      }
+
+    }
+
+  } catch (error) {
+
+    persistentError =
+      String(
+        error.message ||
+        error
+      );
+
+  }
+
+
+  return {
+
+    ready:
+      patchOn &&
+      !persistentError,
+
+    patchOn,
+
+    restoreReady:
+      Boolean(
+        restore &&
+        restore.ready
+      ),
+
+    restoreSource:
+      restore &&
+      restore.source
+        ? restore.source
+        : 'NOT_FOUND',
+
+    ramCount:
+      ram.length,
+
+    persistentCount:
+      persistent.length,
+
+    key:
+      'XSMN_V26_SHADOW_SNAPSHOTS',
+
+    persistentError
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. SHOW STATUS
+   ========================================================================= */
+
+function showShadowPersistenceStatusV26() {
+
+  const result =
+    testShadowPersistenceStatusV26();
+
+
+  let text =
+    '💾 V2.6 8C-A2 PERSISTENCE TEST\n\n';
+
+
+  text +=
+    'Patch: ' +
+    (
+      result.patchOn
+        ? 'ON ✅'
+        : 'OFF ❌'
+    ) +
+    '\n';
+
+
+  text +=
+    'Restore: ' +
+    (
+      result.restoreReady
+        ? 'READY ✅'
+        : 'NOT READY ❌'
+    ) +
+    '\n';
+
+
+  text +=
+    'Restore Source: ' +
+    result.restoreSource +
+    '\n\n';
+
+
+  text +=
+    'RAM Store: ' +
+    result.ramCount +
+    '\n';
+
+
+  text +=
+    'Persistent Store: ' +
+    result.persistentCount +
+    '\n\n';
+
+
+  text +=
+    'Persistent Key:\n' +
+    result.key;
+
+
+  if (
+    result.persistentError
+  ) {
+
+    text +=
+      '\n\n❌ Storage Error:\n' +
+      result.persistentError;
+
+  }
+
+
+  alert(
+    text
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. MOBILE BUTTON
+   ========================================================================= */
+
+function addShadowPersistenceStatusButtonV26() {
+
+  if (
+    document.getElementById(
+      'v26-persistence-status-button'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const wrapper =
+    document.createElement(
+      'div'
+    );
+
+
+  wrapper.id =
+    'v26-persistence-status-button';
+
+
+  wrapper.style.cssText = `
+    padding: 0 24px 24px 24px;
+  `;
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.type =
+    'button';
+
+
+  button.textContent =
+    '💾 Test 8C-A2 Persistence';
+
+
+  button.style.cssText = `
+    width: 100%;
+    min-height: 82px;
+    margin: 12px 0;
+    border: none;
+    border-radius: 24px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+  `;
+
+
+  button.onclick =
+    showShadowPersistenceStatusV26;
+
+
+  wrapper.appendChild(
+    button
+  );
+
+
+  const target =
+    document.querySelector(
+      '#settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    ) ||
+    document.querySelector(
+      '[data-page="settings"]'
+    ) ||
+    document.body;
+
+
+  target.appendChild(
+    wrapper
+  );
+
+}
+
+
+/* =========================================================================
+   4. LOAD BUTTON
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowPersistenceStatusButtonV26
+  );
+
+} else {
+
+  addShadowPersistenceStatusButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 8C-A2 Persistence Status Test loaded'
+);
+
