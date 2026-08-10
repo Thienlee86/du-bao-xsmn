@@ -43516,3 +43516,703 @@ console.log(
   'XSMN V2.6 Cross OOS Runner Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — SNAPSHOT DEEP DEBUG
+
+   Mục tiêu:
+   Kiểm tra tuần tự:
+   1. Cross Province OOS
+   2. Province Gate
+   3. Decision Layer
+   4. Snapshot Pipeline
+   5. Snapshot Save Runner
+
+   Research only.
+   Không thay Production Engine.
+   ========================================================================= */
+
+function showSnapshotDeepDebugV26() {
+
+  const lines = [];
+
+
+  function add(
+    text = ''
+  ) {
+
+    lines.push(
+      String(
+        text
+      )
+    );
+
+  }
+
+
+  function yesNo(
+    value
+  ) {
+
+    return value
+      ? 'YES'
+      : 'NO';
+
+  }
+
+
+  add(
+    '🔬 V2.6 SNAPSHOT DEEP DEBUG'
+  );
+
+  add();
+
+
+  /* ================================================================
+     1. CROSS OOS
+     ================================================================ */
+
+  add(
+    '1. CROSS OOS'
+  );
+
+
+  let cross =
+    null;
+
+
+  try {
+
+    cross =
+      ensureCrossProvinceOOSForSnapshotV26();
+
+
+    add(
+      'Ready: ' +
+      yesNo(
+        cross &&
+        cross.ready
+      )
+    );
+
+
+    add(
+      'Source: ' +
+      (
+        cross &&
+        cross.source
+          ? cross.source
+          : '-'
+      )
+    );
+
+
+    add(
+      'Runner: ' +
+      (
+        cross &&
+        cross.runner
+          ? cross.runner
+          : '-'
+      )
+    );
+
+
+    add(
+      'Reason: ' +
+      (
+        cross &&
+        cross.reason
+          ? cross.reason
+          : '-'
+      )
+    );
+
+
+    add(
+      'Results: ' +
+      (
+        cross &&
+        cross.result &&
+        Array.isArray(
+          cross.result.results
+        )
+          ? cross.result.results.length
+          : 0
+      )
+    );
+
+  } catch (
+    error
+  ) {
+
+    add(
+      '❌ EXCEPTION: ' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+  }
+
+
+  add(
+    '--------------------'
+  );
+
+
+  /* ================================================================
+     2. PROVINCE GATE
+     ================================================================ */
+
+  add(
+    '2. PROVINCE GATE'
+  );
+
+
+  let gate =
+    null;
+
+
+  try {
+
+    gate =
+      ensureProvinceGateForSnapshotV26();
+
+
+    add(
+      'Ready: ' +
+      yesNo(
+        gate &&
+        gate.ready
+      )
+    );
+
+
+    add(
+      'Stage: ' +
+      (
+        gate &&
+        gate.stage
+          ? gate.stage
+          : '-'
+      )
+    );
+
+
+    add(
+      'Source: ' +
+      (
+        gate &&
+        gate.source
+          ? gate.source
+          : '-'
+      )
+    );
+
+
+    add(
+      'Reason: ' +
+      (
+        gate &&
+        gate.reason
+          ? gate.reason
+          : '-'
+      )
+    );
+
+
+    add(
+      'Results: ' +
+      (
+        gate &&
+        gate.result &&
+        Array.isArray(
+          gate.result.results
+        )
+          ? gate.result.results.length
+          : 0
+      )
+    );
+
+  } catch (
+    error
+  ) {
+
+    add(
+      '❌ EXCEPTION: ' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+  }
+
+
+  add(
+    '--------------------'
+  );
+
+
+  /* ================================================================
+     3. DECISION LAYER
+     ================================================================ */
+
+  add(
+    '3. DECISION LAYER'
+  );
+
+
+  let decision =
+    null;
+
+
+  try {
+
+    decision =
+      ensureDecisionLayerForSnapshotV26();
+
+
+    add(
+      'Ready: ' +
+      yesNo(
+        decision &&
+        decision.ready
+      )
+    );
+
+
+    add(
+      'Stage: ' +
+      (
+        decision &&
+        decision.stage
+          ? decision.stage
+          : '-'
+      )
+    );
+
+
+    add(
+      'Source: ' +
+      (
+        decision &&
+        decision.source
+          ? decision.source
+          : '-'
+      )
+    );
+
+
+    add(
+      'Reason: ' +
+      (
+        decision &&
+        decision.reason
+          ? decision.reason
+          : '-'
+      )
+    );
+
+
+    const decisionRows =
+
+      decision &&
+      decision.result
+        ? (
+            Array.isArray(
+              decision.result.results
+            )
+              ? decision.result.results
+              : (
+                  Array.isArray(
+                    decision.result.decisions
+                  )
+                    ? decision.result.decisions
+                    : []
+                )
+          )
+        : [];
+
+
+    add(
+      'Results: ' +
+      decisionRows.length
+    );
+
+
+    const approved =
+      decisionRows.filter(
+        item => {
+
+          try {
+
+            return (
+              normalizeShadowDecisionV26(
+                item.decision ||
+                item.action ||
+                item.recommendation
+              ) ===
+              SHADOW_ENGINE_V26_CONFIG
+                .requiredDecision
+            );
+
+          } catch (
+            error
+          ) {
+
+            return false;
+
+          }
+
+        }
+      );
+
+
+    add(
+      'Adaptive Approved: ' +
+      approved.length
+    );
+
+  } catch (
+    error
+  ) {
+
+    add(
+      '❌ EXCEPTION: ' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+  }
+
+
+  add(
+    '--------------------'
+  );
+
+
+  /* ================================================================
+     4. SNAPSHOT PIPELINE
+     ================================================================ */
+
+  add(
+    '4. SNAPSHOT PIPELINE'
+  );
+
+
+  let pipeline =
+    null;
+
+
+  try {
+
+    pipeline =
+      bootstrapSnapshotPipelineV26();
+
+
+    add(
+      'Ready: ' +
+      yesNo(
+        pipeline &&
+        pipeline.ready
+      )
+    );
+
+
+    add(
+      'Stage: ' +
+      (
+        pipeline &&
+        pipeline.stage
+          ? pipeline.stage
+          : '-'
+      )
+    );
+
+
+    add(
+      'Reason: ' +
+      (
+        pipeline &&
+        pipeline.reason
+          ? pipeline.reason
+          : '-'
+      )
+    );
+
+
+    add(
+      'Approved: ' +
+      (
+        pipeline &&
+        pipeline.approvedCount != null
+          ? pipeline.approvedCount
+          : 0
+      )
+    );
+
+  } catch (
+    error
+  ) {
+
+    add(
+      '❌ EXCEPTION: ' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+  }
+
+
+  add(
+    '--------------------'
+  );
+
+
+  /* ================================================================
+     5. SNAPSHOT SAVE RUNNER
+
+     Chỉ tìm runner.
+     KHÔNG SAVE snapshot trong debug này.
+     ================================================================ */
+
+  add(
+    '5. SNAPSHOT SAVE RUNNER'
+  );
+
+
+  try {
+
+    const batch =
+      findSnapshotSaveRunnerV26();
+
+
+    add(
+      'Ready: ' +
+      yesNo(
+        batch &&
+        batch.ready
+      )
+    );
+
+
+    add(
+      'Runner: ' +
+      (
+        batch &&
+        batch.name
+          ? batch.name
+          : '-'
+      )
+    );
+
+
+    add(
+      'Reason: ' +
+      (
+        batch &&
+        batch.reason
+          ? batch.reason
+          : '-'
+      )
+    );
+
+
+    if (
+      batch &&
+      Array.isArray(
+        batch.checked
+      )
+    ) {
+
+      add(
+        'Checked:'
+      );
+
+
+      batch.checked.forEach(
+        name => {
+
+          add(
+            '- ' +
+            name +
+            ': ' +
+            typeof window[name]
+          );
+
+        }
+      );
+
+    }
+
+
+    add(
+      'Single Save: ' +
+      typeof saveShadowSnapshotV26
+    );
+
+  } catch (
+    error
+  ) {
+
+    add(
+      '❌ EXCEPTION: ' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+  }
+
+
+  add(
+    '--------------------'
+  );
+
+  add(
+    'DEBUG COMPLETE'
+  );
+
+  add(
+    'No snapshot saved'
+  );
+
+  add(
+    'Production unchanged'
+  );
+
+
+  window.LAST_SNAPSHOT_DEEP_DEBUG_V26 = {
+
+    cross,
+
+    gate,
+
+    decision,
+
+    pipeline,
+
+    generatedAt:
+      new Date()
+        .toISOString()
+
+  };
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return (
+    window
+      .LAST_SNAPSHOT_DEEP_DEBUG_V26
+  );
+
+}
+
+
+/* =========================================================================
+   DEBUG BUTTON
+   ========================================================================= */
+
+function addSnapshotDeepDebugButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnSnapshotDeepDebugV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSnapshotDeepDebugV26';
+
+
+  button.textContent =
+    '🔬 Debug V2.6 Snapshot Pipeline';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    showSnapshotDeepDebugV26
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addSnapshotDeepDebugButtonV26
+  );
+
+} else {
+
+  addSnapshotDeepDebugButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Snapshot Deep Debug ready'
+);
+
