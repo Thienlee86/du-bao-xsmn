@@ -55423,3 +55423,1126 @@ function printPersistentStoreSchemaV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A4
+   WRAPPER PERSISTENT STORE FIX
+
+   Schema chuẩn:
+
+   {
+     version: 'V2.6',
+     updatedAt: '...',
+     snapshots: []
+   }
+
+   Mục tiêu:
+   - Giữ nguyên Wrapper Schema.
+   - Đồng bộ RAM -> localStorage.
+   - Restore localStorage -> RAM.
+   - Không thay Production Engine.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const SHADOW_PERSISTENT_KEY_V26 =
+  'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+/* =========================================================================
+   2. READ WRAPPER STORE
+   ========================================================================= */
+
+function readShadowPersistentWrapperV26() {
+
+  let raw =
+    null;
+
+
+  try {
+
+    raw =
+      localStorage.getItem(
+        SHADOW_PERSISTENT_KEY_V26
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LOCAL_STORAGE_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  /*
+   * Chưa có store.
+   */
+
+  if (
+    raw === null
+  ) {
+
+    return {
+
+      ready: true,
+
+      source:
+        'STORE_NOT_FOUND',
+
+      store: {
+
+        version:
+          'V2.6',
+
+        updatedAt:
+          null,
+
+        snapshots:
+          []
+
+      }
+
+    };
+
+  }
+
+
+  let parsed =
+    null;
+
+
+  try {
+
+    parsed =
+      JSON.parse(
+        raw
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_JSON_INVALID',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Schema hiện tại:
+   *
+   * {
+   *   version,
+   *   updatedAt,
+   *   snapshots: []
+   * }
+   * -------------------------------------------------------------
+   */
+
+  if (
+    parsed &&
+    typeof parsed ===
+      'object' &&
+    !Array.isArray(
+      parsed
+    ) &&
+    Array.isArray(
+      parsed.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: true,
+
+      source:
+        'WRAPPER_STORE',
+
+      store:
+        parsed
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Compatibility:
+   *
+   * Nếu trước đây từng lưu trực tiếp Array,
+   * tự wrap lại.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    Array.isArray(
+      parsed
+    )
+  ) {
+
+    return {
+
+      ready: true,
+
+      source:
+        'LEGACY_ARRAY_STORE',
+
+      store: {
+
+        version:
+          'V2.6',
+
+        updatedAt:
+          null,
+
+        snapshots:
+          parsed
+
+      }
+
+    };
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'UNKNOWN_PERSISTENT_SCHEMA',
+
+    parsedType:
+      typeof parsed,
+
+    keys:
+      parsed &&
+      typeof parsed ===
+        'object'
+        ? Object.keys(
+            parsed
+          )
+        : []
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. WRITE WRAPPER STORE
+   ========================================================================= */
+
+function writeShadowPersistentWrapperV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOTS_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  const store = {
+
+    version:
+      'V2.6',
+
+    updatedAt:
+      new Date()
+        .toISOString(),
+
+    snapshots:
+      snapshots
+
+  };
+
+
+  try {
+
+    localStorage.setItem(
+      SHADOW_PERSISTENT_KEY_V26,
+      JSON.stringify(
+        store
+      )
+    );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LOCAL_STORAGE_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'WRAPPER_SAVED',
+
+    store,
+
+    count:
+      store.snapshots.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. RESTORE WRAPPER -> RAM
+   ========================================================================= */
+
+function restoreShadowSnapshotsFromWrapperV26() {
+
+  const read =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !read.ready
+  ) {
+
+    return read;
+
+  }
+
+
+  const snapshots =
+    Array.isArray(
+      read.store.snapshots
+    )
+      ? read.store.snapshots
+      : [];
+
+
+  /*
+   * Tạo ARRAY MỚI.
+   * Không giữ reference trực tiếp với parsed object.
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    snapshots.slice();
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'WRAPPER_RESTORED',
+
+    count:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length,
+
+    snapshots:
+      window
+        .SHADOW_SNAPSHOTS_V26
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. SAVE CURRENT RAM -> WRAPPER
+   ========================================================================= */
+
+function persistCurrentShadowSnapshotsV26() {
+
+  const ram =
+    window
+      .SHADOW_SNAPSHOTS_V26;
+
+
+  if (
+    !Array.isArray(
+      ram
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'RAM_STORE_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  return (
+    writeShadowPersistentWrapperV26(
+      ram
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   6. SAVE ONE SNAPSHOT + PERSIST
+   ========================================================================= */
+
+function saveShadowSnapshotPersistentV26(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  /*
+   * Dùng hàm Shadow gốc.
+   */
+
+  if (
+    typeof saveShadowSnapshotV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SAVE_SHADOW_FUNCTION_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const result =
+    saveShadowSnapshotV26(
+      provinceSlug,
+      giaiKey
+    );
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'SHADOW_SAVE_NOT_READY',
+
+      result
+
+    };
+
+  }
+
+
+  /*
+   * Snapshot đã vào RAM.
+   * Bây giờ persist toàn RAM.
+   */
+
+  const persistent =
+    persistCurrentShadowSnapshotsV26();
+
+
+  if (
+    !persistent.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        persistent.reason,
+
+      shadowSaved:
+        true,
+
+      persistent
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    saved:
+      true,
+
+    persistent:
+      true,
+
+    snapshot:
+      result.snapshot,
+
+    ramCount:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length,
+
+    persistentCount:
+      persistent.count
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. SAVE APPROVED SHADOWS + PERSIST
+
+   Dùng pipeline hiện có.
+   ========================================================================= */
+
+function saveApprovedShadowSnapshotsPersistentV26(
+  giaiKey = 'db'
+) {
+
+  /*
+   * Bảo đảm Decision Layer tồn tại.
+   */
+
+  let layer =
+    window
+      .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !layer ||
+    !layer.ready ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    if (
+      typeof
+        ensureDecisionLayerForSnapshotV26 ===
+      'function'
+    ) {
+
+      const bootstrap =
+        ensureDecisionLayerForSnapshotV26();
+
+
+      if (
+        bootstrap &&
+        bootstrap.ready
+      ) {
+
+        layer =
+          bootstrap.result;
+
+      }
+
+    }
+
+  }
+
+
+  if (
+    !layer ||
+    !layer.ready ||
+    !Array.isArray(
+      layer.results
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_LAYER_NOT_READY'
+
+    };
+
+  }
+
+
+  const approved =
+    layer.results.filter(
+      item => {
+
+        try {
+
+          return (
+            normalizeShadowDecisionV26(
+              item.decision ||
+              item.action ||
+              item.recommendation
+            ) ===
+            SHADOW_ENGINE_V26_CONFIG
+              .requiredDecision
+          );
+
+        } catch (error) {
+
+          return false;
+
+        }
+
+      }
+    );
+
+
+  if (
+    !approved.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_APPROVED_SHADOW_PROVINCES'
+
+    };
+
+  }
+
+
+  /*
+   * Bảo đảm RAM là Array.
+   */
+
+  if (
+    !Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+  ) {
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      [];
+
+  }
+
+
+  const results =
+    [];
+
+
+  approved.forEach(
+    item => {
+
+      let slug =
+        item.provinceSlug ||
+        item.slug ||
+        null;
+
+
+      /*
+       * Fallback từ tên tỉnh.
+       */
+
+      if (
+        !slug &&
+        item.province
+      ) {
+
+        try {
+
+          const provinces =
+            Array.isArray(
+              PROVINCES
+            )
+              ? PROVINCES
+              : [];
+
+
+          const found =
+            provinces.find(
+              province =>
+                province.name ===
+                item.province
+            );
+
+
+          if (
+            found
+          ) {
+
+            slug =
+              found.slug;
+
+          }
+
+        } catch (error) {
+
+          /*
+           * Ignore.
+           */
+
+        }
+
+      }
+
+
+      if (
+        !slug
+      ) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            item.province ||
+            '-',
+
+          reason:
+            'PROVINCE_SLUG_NOT_FOUND'
+
+        });
+
+
+        return;
+
+      }
+
+
+      try {
+
+        const saved =
+          saveShadowSnapshotV26(
+            slug,
+            giaiKey
+          );
+
+
+        results.push(
+          saved
+        );
+
+      } catch (error) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            slug,
+
+          reason:
+            'SHADOW_SAVE_ERROR',
+
+          error:
+            String(
+              error.message ||
+              error
+            )
+
+        });
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Sau khi save batch xong,
+   * persist RAM đúng 1 lần.
+   */
+
+  const persistent =
+    persistCurrentShadowSnapshotsV26();
+
+
+  const successful =
+    results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      successful.length > 0 &&
+      persistent.ready,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_PERSISTENT_WRAPPER',
+
+    researchOnly:
+      true,
+
+    approvedCount:
+      approved.length,
+
+    successfulCount:
+      successful.length,
+
+    failedCount:
+      results.length -
+      successful.length,
+
+    ramCount:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length,
+
+    persistentCount:
+      persistent.ready
+        ? persistent.count
+        : 0,
+
+    persistent,
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. TEST 8C-A4
+   ========================================================================= */
+
+function testShadowWrapperPersistenceV26() {
+
+  /*
+   * STEP 1
+   * Restore cái đang có trước.
+   */
+
+  const restore =
+    restoreShadowSnapshotsFromWrapperV26();
+
+
+  if (
+    !restore.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      stage:
+        'RESTORE',
+
+      reason:
+        restore.reason,
+
+      restore
+
+    };
+
+  }
+
+
+  /*
+   * STEP 2
+   * Nếu persistent đang rỗng,
+   * chạy approved snapshots.
+   */
+
+  let save =
+    null;
+
+
+  if (
+    window
+      .SHADOW_SNAPSHOTS_V26
+      .length === 0
+  ) {
+
+    save =
+      saveApprovedShadowSnapshotsPersistentV26(
+        'db'
+      );
+
+  } else {
+
+    save =
+      persistCurrentShadowSnapshotsV26();
+
+  }
+
+
+  /*
+   * STEP 3
+   * Read lại từ localStorage.
+   */
+
+  const verify =
+    readShadowPersistentWrapperV26();
+
+
+  const persistentCount =
+    (
+      verify.ready &&
+      verify.store &&
+      Array.isArray(
+        verify.store.snapshots
+      )
+    )
+      ? verify.store
+          .snapshots
+          .length
+      : 0;
+
+
+  return {
+
+    ready:
+      Boolean(
+        save &&
+        save.ready &&
+        verify.ready &&
+        persistentCount > 0
+      ),
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-A4_WRAPPER_TEST',
+
+    researchOnly:
+      true,
+
+    restoreSource:
+      restore.source,
+
+    restoredCount:
+      restore.count,
+
+    saveReady:
+      Boolean(
+        save &&
+        save.ready
+      ),
+
+    ramCount:
+      Array.isArray(
+        window.SHADOW_SNAPSHOTS_V26
+      )
+        ? window
+            .SHADOW_SNAPSHOTS_V26
+            .length
+        : 0,
+
+    persistentCount,
+
+    storeVersion:
+      verify.ready &&
+      verify.store
+        ? verify.store.version
+        : null,
+
+    updatedAt:
+      verify.ready &&
+      verify.store
+        ? verify.store.updatedAt
+        : null,
+
+    save,
+
+    verify
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. PRINT TEST
+   ========================================================================= */
+
+function printShadowWrapperPersistenceTestV26() {
+
+  const result =
+    testShadowWrapperPersistenceV26();
+
+
+  let text =
+    '💾 V2.6 8C-A4 WRAPPER STORE\n\n';
+
+
+  text +=
+    result.ready
+      ? '✅ PERSISTENCE READY\n\n'
+      : '❌ PERSISTENCE NOT READY\n\n';
+
+
+  text +=
+    'Restore Source: ' +
+    (
+      result.restoreSource ||
+      '-'
+    ) +
+    '\n';
+
+
+  text +=
+    'Restored: ' +
+    (
+      result.restoredCount != null
+        ? result.restoredCount
+        : '-'
+    ) +
+    '\n\n';
+
+
+  text +=
+    'Save Ready: ' +
+    (
+      result.saveReady
+        ? 'YES'
+        : 'NO'
+    ) +
+    '\n';
+
+
+  text +=
+    'RAM Store: ' +
+    (
+      result.ramCount != null
+        ? result.ramCount
+        : 0
+    ) +
+    '\n';
+
+
+  text +=
+    'Persistent Store: ' +
+    (
+      result.persistentCount != null
+        ? result.persistentCount
+        : 0
+    ) +
+    '\n\n';
+
+
+  text +=
+    'Store Version: ' +
+    (
+      result.storeVersion ||
+      '-'
+    ) +
+    '\n';
+
+
+  text +=
+    'Updated: ' +
+    (
+      result.updatedAt ||
+      '-'
+    );
+
+
+  /*
+   * Nếu fail, hiện stage/reason ngắn gọn.
+   */
+
+  if (
+    !result.ready
+  ) {
+
+    const reason =
+      (
+        result.save &&
+        result.save.reason
+      ) ||
+      (
+        result.verify &&
+        result.verify.reason
+      ) ||
+      result.reason ||
+      'UNKNOWN';
+
+
+    text +=
+      '\n\nReason: ' +
+      reason;
+
+  }
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 8C-A4 Wrapper Persistence:',
+    result
+  );
+
+
+  return result;
+
+   }
+
