@@ -53540,3 +53540,212 @@ console.log(
   'XSMN V2.6 Persistent Save Diagnostic loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — PERSISTENT TEST BUTTONS
+
+   Mobile diagnostic buttons:
+   1. Write Persistent Test
+   2. Read Persistent Test
+
+   Research Only.
+   ========================================================================= */
+
+function addPersistentTestButtonsV26() {
+
+  /*
+   * Tránh tạo nút trùng nếu hàm
+   * được gọi nhiều lần.
+   */
+
+  if (
+    document.getElementById(
+      'v26-persistent-test-buttons'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const wrapper =
+    document.createElement(
+      'div'
+    );
+
+
+  wrapper.id =
+    'v26-persistent-test-buttons';
+
+
+  wrapper.style.cssText = `
+    padding: 0 24px 24px 24px;
+  `;
+
+
+  /* ===============================================================
+     WRITE BUTTON
+     =============================================================== */
+
+  const writeButton =
+    document.createElement(
+      'button'
+    );
+
+
+  writeButton.type =
+    'button';
+
+
+  writeButton.textContent =
+    '💾 Write Persistent Test';
+
+
+  writeButton.style.cssText = `
+    width: 100%;
+    min-height: 82px;
+    margin: 12px 0;
+    border: none;
+    border-radius: 24px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+  `;
+
+
+  writeButton.onclick =
+    function () {
+
+      if (
+        typeof testPersistentSaveV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ testPersistentSaveV26 NOT FOUND'
+        );
+
+        return;
+
+      }
+
+
+      testPersistentSaveV26();
+
+    };
+
+
+  /* ===============================================================
+     READ BUTTON
+     =============================================================== */
+
+  const readButton =
+    document.createElement(
+      'button'
+    );
+
+
+  readButton.type =
+    'button';
+
+
+  readButton.textContent =
+    '🔄 Read Persistent Test';
+
+
+  readButton.style.cssText = `
+    width: 100%;
+    min-height: 82px;
+    margin: 12px 0;
+    border: none;
+    border-radius: 24px;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+  `;
+
+
+  readButton.onclick =
+    function () {
+
+      if (
+        typeof testPersistentRestoreV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ testPersistentRestoreV26 NOT FOUND'
+        );
+
+        return;
+
+      }
+
+
+      testPersistentRestoreV26();
+
+    };
+
+
+  wrapper.appendChild(
+    writeButton
+  );
+
+
+  wrapper.appendChild(
+    readButton
+  );
+
+
+  /*
+   * Đưa vào phần Settings.
+   *
+   * Nếu không tìm được container cụ thể,
+   * append vào body để chắc chắn nút xuất hiện.
+   */
+
+  const target =
+    document.querySelector(
+      '#settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    ) ||
+    document.querySelector(
+      '[data-page="settings"]'
+    ) ||
+    document.body;
+
+
+  target.appendChild(
+    wrapper
+  );
+
+}
+
+
+/*
+ * Chờ giao diện load xong.
+ */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addPersistentTestButtonsV26
+  );
+
+} else {
+
+  addPersistentTestButtonsV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Persistent Test Buttons loaded'
+);
+
