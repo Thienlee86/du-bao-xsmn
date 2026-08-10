@@ -50338,3 +50338,163 @@ console.log(
   'XSMN V2.6 Block 8C Inspector loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C
+   MOBILE SNAPSHOT INSPECTOR BUTTON
+
+   Chỉ tạo nút test.
+   Không chạy Cross OOS.
+   Không sửa Snapshot Store.
+   ========================================================================= */
+
+function addSnapshotInspectorButtonV26() {
+
+  /*
+   * Không tạo trùng nút.
+   */
+
+  if (
+    document.getElementById(
+      'btnSnapshotInspectorV26'
+    )
+  ) {
+
+    return true;
+
+  }
+
+
+  /*
+   * Ưu tiên khu vực Settings
+   * giống các nút V2.6 trước.
+   */
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    ) ||
+    document.getElementById(
+      'settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    );
+
+
+  if (!settings) {
+
+    return false;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSnapshotInspectorV26';
+
+
+  button.textContent =
+    '🔬 Inspect V2.6 Snapshot Store';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      if (
+        typeof testSnapshotStoreInspectorV26 !==
+        'function'
+      ) {
+
+        alert(
+          '❌ V2.6 SNAPSHOT INSPECTOR\n\n' +
+          'Inspector function not found.'
+        );
+
+        return;
+
+      }
+
+
+      testSnapshotStoreInspectorV26();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   INIT BUTTON
+   ========================================================================= */
+
+function initSnapshotInspectorButtonV26() {
+
+  const installed =
+    addSnapshotInspectorButtonV26();
+
+
+  /*
+   * Nếu Settings chưa dựng xong,
+   * thử lại nhẹ sau 500ms.
+   */
+
+  if (!installed) {
+
+    setTimeout(
+      addSnapshotInspectorButtonV26,
+      500
+    );
+
+  }
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initSnapshotInspectorButtonV26
+  );
+
+} else {
+
+  initSnapshotInspectorButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8C Inspector Button ready'
+);
+
