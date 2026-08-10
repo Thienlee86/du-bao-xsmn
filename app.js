@@ -52912,3 +52912,335 @@ console.log(
   'XSMN V2.6 Block 8C-C loaded — Full Snapshot Schema Inspector ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-C2
+   SNAPSHOT SCHEMA TAIL ONLY
+
+   Chỉ hiển thị key 13 → hết.
+   Read Only.
+   ========================================================================= */
+
+function testSnapshotSchemaTailOnlyV26() {
+
+  const store =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  if (!store.length) {
+
+    alert(
+      '❌ V2.6 SCHEMA TAIL\n\n' +
+      'SNAPSHOT_STORE_EMPTY'
+    );
+
+    return {
+      ready: false,
+      reason: 'SNAPSHOT_STORE_EMPTY'
+    };
+
+  }
+
+
+  const snapshot =
+    store[0];
+
+
+  const keys =
+    Object.keys(
+      snapshot
+    );
+
+
+  /*
+   * Bỏ 12 key đầu.
+   */
+
+  const tailKeys =
+    keys.slice(12);
+
+
+  let text =
+    '🧬 V2.6 SCHEMA TAIL ONLY\n\n' +
+
+    'Province: ' +
+    (
+      snapshot.province ||
+      snapshot.provinceSlug ||
+      '-'
+    ) +
+    '\n' +
+
+    'Total Keys: ' +
+    keys.length +
+    '\n' +
+
+    'Showing: 13 → ' +
+    keys.length +
+    '\n\n';
+
+
+  tailKeys.forEach(
+    (
+      key,
+      index
+    ) => {
+
+      const number =
+        index + 13;
+
+
+      const value =
+        snapshot[key];
+
+
+      let type =
+        typeof value;
+
+
+      if (
+        Array.isArray(value)
+      ) {
+
+        type =
+          'array';
+
+      } else if (
+        value === null
+      ) {
+
+        type =
+          'null';
+
+      }
+
+
+      let preview;
+
+
+      if (
+        value === undefined
+      ) {
+
+        preview =
+          'undefined';
+
+      } else if (
+        value === null
+      ) {
+
+        preview =
+          'null';
+
+      } else if (
+        Array.isArray(value)
+      ) {
+
+        preview =
+          value
+            .slice(0, 5)
+            .join(', ');
+
+      } else if (
+        typeof value ===
+        'object'
+      ) {
+
+        preview =
+          '{' +
+          Object.keys(value)
+            .slice(0, 5)
+            .join(', ') +
+          '}';
+
+      } else {
+
+        preview =
+          String(value);
+
+      }
+
+
+      /*
+       * Giới hạn từng value để
+       * alert luôn ngắn.
+       */
+
+      if (
+        preview.length > 50
+      ) {
+
+        preview =
+          preview.slice(
+            0,
+            47
+          ) +
+          '...';
+
+      }
+
+
+      text +=
+        number +
+        '. ' +
+        key +
+        '\n' +
+
+        'Type: ' +
+        type +
+        '\n' +
+
+        'Value: ' +
+        preview +
+        '\n\n';
+
+    }
+  );
+
+
+  text +=
+    'Read only';
+
+
+  console.log(
+    'V2.6 Schema Tail Only:',
+    tailKeys.map(
+      (
+        key,
+        index
+      ) => ({
+
+        No:
+          index + 13,
+
+        Key:
+          key,
+
+        Value:
+          snapshot[key]
+
+      })
+    )
+  );
+
+
+  alert(text);
+
+
+  return {
+
+    ready: true,
+
+    totalKeys:
+      keys.length,
+
+    tailKeys
+
+  };
+
+}
+
+
+/* =========================================================================
+   BUTTON
+   ========================================================================= */
+
+function addSnapshotSchemaTailOnlyButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnSnapshotSchemaTailOnlyV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    ) ||
+    document.getElementById(
+      'settings'
+    ) ||
+    document.querySelector(
+      '.settings'
+    );
+
+
+  if (!settings) {
+
+    setTimeout(
+      addSnapshotSchemaTailOnlyButtonV26,
+      500
+    );
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnSnapshotSchemaTailOnlyV26';
+
+
+  button.textContent =
+    '🧬 Inspect Schema Keys 13–21';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.onclick =
+    testSnapshotSchemaTailOnlyV26;
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addSnapshotSchemaTailOnlyButtonV26
+  );
+
+} else {
+
+  addSnapshotSchemaTailOnlyButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Schema Tail Only Inspector ready'
+);
+
