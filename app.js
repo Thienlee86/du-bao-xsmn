@@ -50498,3 +50498,903 @@ console.log(
   'XSMN V2.6 Block 8C Inspector Button ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A
+   PERSISTENT SHADOW SNAPSHOT STORE
+
+   Mục tiêu:
+   - Persist Shadow Snapshot bằng localStorage.
+   - Reload trang không mất snapshot.
+   - Đồng bộ RAM <-> localStorage.
+   - Không chạy Cross OOS.
+   - Không chạy Decision Layer.
+   - Không thay Production Engine.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const SHADOW_PERSISTENT_STORE_V26 = {
+
+  key:
+    'XSMN_V26_SHADOW_SNAPSHOTS',
+
+  version:
+    'V2.6'
+
+};
+
+
+/* =========================================================================
+   2. NORMALIZE STORE
+   ========================================================================= */
+
+function normalizePersistentSnapshotStoreV26(
+  value
+) {
+
+  if (
+    !Array.isArray(
+      value
+    )
+  ) {
+
+    return [];
+
+  }
+
+
+  return value.filter(
+    item =>
+      item &&
+      typeof item ===
+        'object'
+  );
+
+}
+
+
+/* =========================================================================
+   3. READ FROM LOCAL STORAGE
+
+   Chỉ READ.
+   Không mutate RAM.
+   ========================================================================= */
+
+function readPersistentSnapshotsV26() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        SHADOW_PERSISTENT_STORE_V26.key
+      );
+
+
+    if (!raw) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'LOCAL_STORAGE_EMPTY',
+
+        snapshots:
+          [],
+
+        total:
+          0
+
+      };
+
+    }
+
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+
+    /*
+     * Hỗ trợ cả:
+     *
+     * [snapshot, ...]
+     *
+     * hoặc:
+     *
+     * {
+     *   snapshots: [...]
+     * }
+     */
+
+    const snapshots =
+      Array.isArray(
+        parsed
+      )
+        ? parsed
+        : (
+            parsed &&
+            Array.isArray(
+              parsed.snapshots
+            )
+              ? parsed.snapshots
+              : []
+          );
+
+
+    const normalized =
+      normalizePersistentSnapshotStoreV26(
+        snapshots
+      );
+
+
+    return {
+
+      ready: true,
+
+      source:
+        'LOCAL_STORAGE',
+
+      snapshots:
+        normalized,
+
+      total:
+        normalized.length
+
+    };
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Persistent Store Read Error:',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_STORE_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      snapshots:
+        [],
+
+      total:
+        0
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   4. WRITE TO LOCAL STORAGE
+   ========================================================================= */
+
+function writePersistentSnapshotsV26(
+  snapshots
+) {
+
+  const normalized =
+    normalizePersistentSnapshotStoreV26(
+      snapshots
+    );
+
+
+  try {
+
+    const payload = {
+
+      version:
+        SHADOW_PERSISTENT_STORE_V26.version,
+
+      updatedAt:
+        new Date()
+          .toISOString(),
+
+      snapshots:
+        normalized
+
+    };
+
+
+    localStorage.setItem(
+      SHADOW_PERSISTENT_STORE_V26.key,
+      JSON.stringify(
+        payload
+      )
+    );
+
+
+    return {
+
+      ready: true,
+
+      saved: true,
+
+      total:
+        normalized.length
+
+    };
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Persistent Store Write Error:',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_STORE_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   5. SNAPSHOT IDENTITY
+
+   Dùng để tránh duplicate khi merge RAM
+   với localStorage.
+
+   Ưu tiên ID nếu snapshot đã có.
+   Nếu chưa có ID:
+   province + prize + latestDraw
+   ========================================================================= */
+
+function persistentSnapshotIdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return null;
+
+  }
+
+
+  if (
+    snapshot.id
+  ) {
+
+    return String(
+      snapshot.id
+    );
+
+  }
+
+
+  const province =
+    snapshot.provinceSlug ||
+    snapshot.province ||
+    snapshot.slug ||
+    'UNKNOWN_PROVINCE';
+
+
+  const prize =
+    snapshot.prize ||
+    'db';
+
+
+  const latestDraw =
+    snapshot.latestDraw ||
+    snapshot.latestDrawDate ||
+    snapshot.drawDate ||
+    snapshot.generatedAt ||
+    'UNKNOWN_DRAW';
+
+
+  return (
+    String(
+      province
+    ) +
+    '|' +
+    String(
+      prize
+    ) +
+    '|' +
+    String(
+      latestDraw
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   6. MERGE WITHOUT DUPLICATES
+   ========================================================================= */
+
+function mergePersistentSnapshotsV26(
+  first,
+  second
+) {
+
+  const merged =
+    [];
+
+
+  const seen =
+    new Set();
+
+
+  [
+    ...normalizePersistentSnapshotStoreV26(
+      first
+    ),
+
+    ...normalizePersistentSnapshotStoreV26(
+      second
+    )
+
+  ].forEach(
+    snapshot => {
+
+      const identity =
+        persistentSnapshotIdentityV26(
+          snapshot
+        );
+
+
+      if (
+        identity &&
+        seen.has(
+          identity
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      if (identity) {
+
+        seen.add(
+          identity
+        );
+
+      }
+
+
+      merged.push(
+        snapshot
+      );
+
+    }
+  );
+
+
+  return merged;
+
+}
+
+
+/* =========================================================================
+   7. PERSIST CURRENT RAM STORE
+   ========================================================================= */
+
+function persistCurrentShadowSnapshotsV26() {
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const disk =
+    readPersistentSnapshotsV26();
+
+
+  if (
+    !disk.ready
+  ) {
+
+    return disk;
+
+  }
+
+
+  const merged =
+    mergePersistentSnapshotsV26(
+      disk.snapshots,
+      ram
+    );
+
+
+  const saved =
+    writePersistentSnapshotsV26(
+      merged
+    );
+
+
+  if (
+    !saved.ready
+  ) {
+
+    return saved;
+
+  }
+
+
+  /*
+   * Đồng bộ RAM theo store vừa persist.
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    merged;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'RAM_PERSISTED',
+
+    ramBefore:
+      ram.length,
+
+    persistentBefore:
+      disk.snapshots.length,
+
+    total:
+      merged.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. RESTORE LOCAL STORAGE -> RAM
+   ========================================================================= */
+
+function restorePersistentSnapshotsV26() {
+
+  const disk =
+    readPersistentSnapshotsV26();
+
+
+  if (
+    !disk.ready
+  ) {
+
+    return disk;
+
+  }
+
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const merged =
+    mergePersistentSnapshotsV26(
+      disk.snapshots,
+      ram
+    );
+
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    merged;
+
+
+  /*
+   * Viết lại merged để RAM và disk
+   * luôn đồng bộ.
+   */
+
+  const saved =
+    writePersistentSnapshotsV26(
+      merged
+    );
+
+
+  if (
+    !saved.ready
+  ) {
+
+    return saved;
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    source:
+      disk.total
+        ? 'PERSISTENT_RESTORED'
+        : 'PERSISTENT_INITIALIZED',
+
+    persistentBefore:
+      disk.total,
+
+    ramBefore:
+      ram.length,
+
+    total:
+      merged.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. SAVE ONE SNAPSHOT PERSISTENTLY
+
+   Hàm này chưa thay saveShadowSnapshotV26().
+   Nó là API của persistent layer.
+   ========================================================================= */
+
+function savePersistentShadowSnapshotV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const current =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const identity =
+    persistentSnapshotIdentityV26(
+      snapshot
+    );
+
+
+  const duplicate =
+    current.some(
+      item =>
+        persistentSnapshotIdentityV26(
+          item
+        ) ===
+        identity
+    );
+
+
+  if (
+    duplicate
+  ) {
+
+    /*
+     * Dù duplicate trong RAM,
+     * vẫn persist current store để
+     * chắc chắn disk đã đồng bộ.
+     */
+
+    const persisted =
+      persistCurrentShadowSnapshotsV26();
+
+
+    return {
+
+      ready:
+        persisted.ready,
+
+      saved:
+        false,
+
+      duplicate:
+        true,
+
+      status:
+        'SKIPPED_DUPLICATE',
+
+      identity,
+
+      total:
+        window
+          .SHADOW_SNAPSHOTS_V26
+          .length
+
+    };
+
+  }
+
+
+  window
+    .SHADOW_SNAPSHOTS_V26
+    .push(
+      snapshot
+    );
+
+
+  const persisted =
+    persistCurrentShadowSnapshotsV26();
+
+
+  if (
+    !persisted.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        persisted.reason ||
+        'PERSIST_AFTER_SAVE_FAILED',
+
+      identity
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    saved: true,
+
+    duplicate:
+      false,
+
+    status:
+      'SAVED_NEW',
+
+    identity,
+
+    snapshot,
+
+    total:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length
+
+  };
+
+}
+
+
+/* =========================================================================
+   10. STORE SUMMARY
+   ========================================================================= */
+
+function persistentSnapshotSummaryV26() {
+
+  const store =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  return {
+
+    ready: true,
+
+    total:
+      store.length,
+
+    pending:
+      store.filter(
+        item =>
+          String(
+            item.status || ''
+          ).toUpperCase() ===
+          'PENDING'
+      ).length,
+
+    verified:
+      store.filter(
+        item =>
+          String(
+            item.status || ''
+          ).toUpperCase() ===
+          'VERIFIED'
+      ).length
+
+  };
+
+}
+
+
+/* =========================================================================
+   11. MOBILE TEST
+   ========================================================================= */
+
+function testPersistentSnapshotStoreV26() {
+
+  const restore =
+    restorePersistentSnapshotsV26();
+
+
+  if (
+    !restore.ready
+  ) {
+
+    alert(
+      '❌ V2.6 PERSISTENT STORE\n\n' +
+
+      'Reason: ' +
+      (
+        restore.reason ||
+        'UNKNOWN_ERROR'
+      )
+    );
+
+
+    return restore;
+
+  }
+
+
+  const summary =
+    persistentSnapshotSummaryV26();
+
+
+  const disk =
+    readPersistentSnapshotsV26();
+
+
+  alert(
+    '💾 V2.6 PERSISTENT SNAPSHOT STORE\n\n' +
+
+    'Restore: READY\n' +
+
+    'Source: ' +
+    restore.source +
+    '\n\n' +
+
+    'RAM Store: ' +
+    summary.total +
+    '\n' +
+
+    'Persistent Store: ' +
+    disk.total +
+    '\n\n' +
+
+    'Pending: ' +
+    summary.pending +
+    '\n' +
+
+    'Verified: ' +
+    summary.verified +
+    '\n\n' +
+
+    'Research only\n' +
+    'Production unchanged'
+  );
+
+
+  console.log(
+    'V2.6 Persistent Store Test:',
+    {
+      restore,
+      summary,
+      disk
+    }
+  );
+
+
+  return {
+
+    ready: true,
+
+    restore,
+
+    summary,
+
+    disk
+
+  };
+
+}
+
+
+/* =========================================================================
+   12. AUTO RESTORE ON PAGE LOAD
+
+   Quan trọng:
+   Chỉ restore dữ liệu đã tồn tại.
+   Không chạy prediction.
+   ========================================================================= */
+
+function initPersistentSnapshotStoreV26() {
+
+  const result =
+    restorePersistentSnapshotsV26();
+
+
+  console.log(
+    'V2.6 Persistent Snapshot Restore:',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    initPersistentSnapshotStoreV26
+  );
+
+} else {
+
+  initPersistentSnapshotStoreV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8C-A loaded — Persistent Snapshot Store ready'
+);
+
