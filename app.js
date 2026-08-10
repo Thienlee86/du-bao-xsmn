@@ -41118,3 +41118,1768 @@ console.log(
   'XSMN V2.6 Block 8B-C loaded — Actual Result Resolver ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B FIX
+   SNAPSHOT FULL BOOTSTRAP
+
+   Mục tiêu:
+   - Sửa lỗi PROVINCE_GATE_NOT_READY sau reload.
+   - Tự bootstrap:
+       Cross-Province OOS
+       → Province Gate
+       → Decision Layer
+       → Shadow
+       → Snapshot Save
+   - Dùng lại logic Block 7A / 7C / 8A / 8B.
+   - Không thay Production Engine.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. ENSURE CROSS-PROVINCE OOS
+   ========================================================================= */
+
+function ensureCrossProvinceOOSForSnapshotV26() {
+
+  /*
+   * Nếu Cross-Province đã tồn tại
+   * và có results thì dùng luôn.
+   */
+
+  try {
+
+    if (
+      typeof getLastCrossProvinceResultV26 ===
+        'function'
+    ) {
+
+      const existing =
+        getLastCrossProvinceResultV26();
+
+
+      if (
+        existing &&
+        Array.isArray(
+          existing.results
+        ) &&
+        existing.results.length
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'EXISTING_CROSS_OOS',
+
+          result:
+            existing
+
+        };
+
+      }
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      'V2.6 Existing Cross OOS check:',
+      error
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Sau reload không còn Cross OOS.
+   *
+   * Tìm runner của Block Cross-Province.
+   * -------------------------------------------------------------
+   */
+
+  const runnerCandidates = [
+
+    'runCrossProvinceOOSV26',
+
+    'runCrossProvinceOOSTestV26',
+
+    'runCrossProvinceOOSAllV26',
+
+    'runAllProvinceOOSV26',
+
+    'runCrossProvinceValidationV26'
+
+  ];
+
+
+  let runnerName =
+    null;
+
+
+  let runner =
+    null;
+
+
+  for (
+    const name of
+    runnerCandidates
+  ) {
+
+    if (
+      typeof window[name] ===
+      'function'
+    ) {
+
+      runnerName =
+        name;
+
+      runner =
+        window[name];
+
+      break;
+
+    }
+
+  }
+
+
+  /*
+   * Nếu không tìm thấy runner,
+   * thử các global hiện có lần cuối.
+   */
+
+  if (!runner) {
+
+    const candidates = [
+
+      window.LAST_CROSS_OOS_V26,
+
+      window.LAST_CROSS_PROVINCE_OOS_V26,
+
+      window.LAST_CROSS_OOS_RESULT_V26,
+
+      window.LAST_CROSS_OOS_TEST_V26
+
+    ];
+
+
+    const existing =
+      candidates.find(
+        item =>
+          item &&
+          Array.isArray(
+            item.results
+          ) &&
+          item.results.length
+      );
+
+
+    if (existing) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'EXISTING_CROSS_GLOBAL',
+
+        result:
+          existing
+
+      };
+
+    }
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CROSS_OOS_RUNNER_NOT_FOUND',
+
+      checked:
+        runnerCandidates
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Chạy Cross-Province.
+   *
+   * Prize DB.
+   * -------------------------------------------------------------
+   */
+
+  let result =
+    null;
+
+
+  try {
+
+    result =
+      runner(
+        'db'
+      );
+
+  } catch (
+    firstError
+  ) {
+
+    console.warn(
+      'V2.6 Cross OOS runner with DB failed:',
+      firstError
+    );
+
+
+    /*
+     * Một số runner không nhận argument.
+     */
+
+    try {
+
+      result =
+        runner();
+
+    } catch (
+      secondError
+    ) {
+
+      console.error(
+        'V2.6 Cross OOS Bootstrap Error:',
+        secondError
+      );
+
+
+      return {
+
+        ready: false,
+
+        reason:
+          'CROSS_OOS_RUNNER_ERROR',
+
+        runner:
+          runnerName,
+
+        error:
+          String(
+            secondError.message ||
+            secondError
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Runner có thể return trực tiếp
+   * hoặc ghi vào global.
+   */
+
+  let finalResult =
+    null;
+
+
+  if (
+    result &&
+    Array.isArray(
+      result.results
+    ) &&
+    result.results.length
+  ) {
+
+    finalResult =
+      result;
+
+  }
+
+
+  if (
+    !finalResult &&
+    typeof getLastCrossProvinceResultV26 ===
+      'function'
+  ) {
+
+    try {
+
+      finalResult =
+        getLastCrossProvinceResultV26();
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+  }
+
+
+  if (
+    !finalResult ||
+    !Array.isArray(
+      finalResult.results
+    ) ||
+    !finalResult.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CROSS_OOS_RESULT_NOT_CREATED',
+
+      runner:
+        runnerName,
+
+      returnedKeys:
+        result &&
+        typeof result ===
+          'object'
+          ? Object.keys(
+              result
+            )
+          : []
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'CROSS_OOS_BOOTSTRAPPED',
+
+    runner:
+      runnerName,
+
+    result:
+      finalResult
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. ENSURE PROVINCE GATE
+   ========================================================================= */
+
+function ensureProvinceGateForSnapshotV26() {
+
+  /*
+   * Gate đang tồn tại.
+   */
+
+  if (
+    window.LAST_PROVINCE_GATE_V26 &&
+    window.LAST_PROVINCE_GATE_V26.ready &&
+    Array.isArray(
+      window.LAST_PROVINCE_GATE_V26.results
+    ) &&
+    window.LAST_PROVINCE_GATE_V26.results.length
+  ) {
+
+    return {
+
+      ready: true,
+
+      source:
+        'EXISTING_PROVINCE_GATE',
+
+      result:
+        window.LAST_PROVINCE_GATE_V26
+
+    };
+
+  }
+
+
+  /*
+   * Trước tiên bảo đảm Cross OOS.
+   */
+
+  const cross =
+    ensureCrossProvinceOOSForSnapshotV26();
+
+
+  if (
+    !cross.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        cross.reason,
+
+      stage:
+        'CROSS_OOS',
+
+      detail:
+        cross
+
+    };
+
+  }
+
+
+  if (
+    typeof runProvinceAdaptiveGateV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_GATE_RUNNER_NOT_FOUND',
+
+      stage:
+        'PROVINCE_GATE'
+
+    };
+
+  }
+
+
+  let gate =
+    null;
+
+
+  try {
+
+    /*
+     * Truyền Cross result trực tiếp.
+     * Cách này an toàn hơn phụ thuộc global.
+     */
+
+    gate =
+      runProvinceAdaptiveGateV26(
+        cross.result
+      );
+
+  } catch (
+    firstError
+  ) {
+
+    console.warn(
+      'V2.6 Province Gate with Cross failed:',
+      firstError
+    );
+
+
+    try {
+
+      gate =
+        runProvinceAdaptiveGateV26();
+
+    } catch (
+      secondError
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PROVINCE_GATE_RUNNER_ERROR',
+
+        stage:
+          'PROVINCE_GATE',
+
+        error:
+          String(
+            secondError.message ||
+            secondError
+          )
+
+      };
+
+    }
+
+  }
+
+
+  if (
+    !gate ||
+    !gate.ready ||
+    !Array.isArray(
+      gate.results
+    ) ||
+    !gate.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        gate &&
+        gate.reason
+          ? gate.reason
+          : 'PROVINCE_GATE_RESULT_NOT_CREATED',
+
+      stage:
+        'PROVINCE_GATE',
+
+      returnedKeys:
+        gate &&
+        typeof gate ===
+          'object'
+          ? Object.keys(
+              gate
+            )
+          : []
+
+    };
+
+  }
+
+
+  window.LAST_PROVINCE_GATE_V26 =
+    gate;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'PROVINCE_GATE_BOOTSTRAPPED',
+
+    result:
+      gate
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. ENSURE DECISION LAYER FOR SNAPSHOT
+   ========================================================================= */
+
+function ensureDecisionLayerForSnapshotV26() {
+
+  /*
+   * Decision đã có.
+   */
+
+  const existing =
+    window.LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    existing &&
+    existing.ready &&
+    (
+      (
+        Array.isArray(
+          existing.decisions
+        ) &&
+        existing.decisions.length
+      ) ||
+      (
+        Array.isArray(
+          existing.results
+        ) &&
+        existing.results.length
+      )
+    )
+  ) {
+
+    /*
+     * Chuẩn hóa alias.
+     */
+
+    if (
+      !Array.isArray(
+        existing.results
+      ) &&
+      Array.isArray(
+        existing.decisions
+      )
+    ) {
+
+      existing.results =
+        existing.decisions;
+
+    }
+
+
+    if (
+      !Array.isArray(
+        existing.decisions
+      ) &&
+      Array.isArray(
+        existing.results
+      )
+    ) {
+
+      existing.decisions =
+        existing.results;
+
+    }
+
+
+    return {
+
+      ready: true,
+
+      source:
+        'EXISTING_DECISION_LAYER',
+
+      result:
+        existing
+
+    };
+
+  }
+
+
+  /*
+   * Bảo đảm Gate trước.
+   */
+
+  const gateBootstrap =
+    ensureProvinceGateForSnapshotV26();
+
+
+  if (
+    !gateBootstrap.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        gateBootstrap.reason,
+
+      stage:
+        gateBootstrap.stage ||
+        'PROVINCE_GATE',
+
+      detail:
+        gateBootstrap
+
+    };
+
+  }
+
+
+  const gate =
+    gateBootstrap.result;
+
+
+  if (
+    typeof runProvinceDecisionLayerV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_RUNNER_NOT_FOUND',
+
+      stage:
+        'DECISION_LAYER'
+
+    };
+
+  }
+
+
+  let decision =
+    null;
+
+
+  try {
+
+    decision =
+      runProvinceDecisionLayerV26(
+        gate
+      );
+
+  } catch (
+    firstError
+  ) {
+
+    console.warn(
+      'V2.6 Decision Layer bootstrap:',
+      firstError
+    );
+
+
+    try {
+
+      decision =
+        runProvinceDecisionLayerV26();
+
+    } catch (
+      secondError
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'DECISION_RUNNER_ERROR',
+
+        stage:
+          'DECISION_LAYER',
+
+        error:
+          String(
+            secondError.message ||
+            secondError
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Runner có thể ghi global.
+   */
+
+  let finalResult =
+    decision &&
+    decision.ready
+      ? decision
+      : window
+          .LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    !finalResult ||
+    !finalResult.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        decision &&
+        decision.reason
+          ? decision.reason
+          : 'DECISION_RESULT_NOT_CREATED',
+
+      stage:
+        'DECISION_LAYER'
+
+    };
+
+  }
+
+
+  /*
+   * Chuẩn hóa decisions/results.
+   */
+
+  if (
+    Array.isArray(
+      finalResult.decisions
+    ) &&
+    finalResult.decisions.length
+  ) {
+
+    finalResult.results =
+      finalResult.decisions;
+
+  }
+
+
+  if (
+    !Array.isArray(
+      finalResult.decisions
+    ) &&
+    Array.isArray(
+      finalResult.results
+    )
+  ) {
+
+    finalResult.decisions =
+      finalResult.results;
+
+  }
+
+
+  if (
+    !Array.isArray(
+      finalResult.results
+    ) ||
+    !finalResult.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DECISION_ROWS_NOT_FOUND',
+
+      stage:
+        'DECISION_LAYER',
+
+      resultKeys:
+        Object.keys(
+          finalResult
+        )
+
+    };
+
+  }
+
+
+  window.LAST_PROVINCE_DECISION_V26 =
+    finalResult;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'DECISION_LAYER_BOOTSTRAPPED',
+
+    result:
+      finalResult
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. FULL SNAPSHOT BOOTSTRAP
+   ========================================================================= */
+
+function bootstrapSnapshotPipelineV26() {
+
+  const decision =
+    ensureDecisionLayerForSnapshotV26();
+
+
+  if (
+    !decision.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        decision.reason,
+
+      stage:
+        decision.stage ||
+        'DECISION_LAYER',
+
+      detail:
+        decision
+
+    };
+
+  }
+
+
+  const layer =
+    decision.result;
+
+
+  const approved =
+    layer.results.filter(
+      item => {
+
+        try {
+
+          return (
+            normalizeShadowDecisionV26(
+              item.decision ||
+              item.action ||
+              item.recommendation
+            ) ===
+            SHADOW_ENGINE_V26_CONFIG
+              .requiredDecision
+          );
+
+        } catch (
+          error
+        ) {
+
+          return false;
+
+        }
+
+      }
+    );
+
+
+  if (
+    !approved.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_APPROVED_ADAPTIVE_PROVINCES',
+
+      stage:
+        'SHADOW_ELIGIBILITY',
+
+      decisionCount:
+        layer.results.length
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    stage:
+      'READY_FOR_SNAPSHOT',
+
+    decisionLayer:
+      layer,
+
+    approved,
+
+    approvedCount:
+      approved.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. FIND EXISTING SNAPSHOT SAVE RUNNER
+   ========================================================================= */
+
+function findSnapshotSaveRunnerV26() {
+
+  /*
+   * Không dùng saveShadowSnapshotV26 trực tiếp
+   * vì đó thường là save ONE province.
+   *
+   * Ta ưu tiên batch runner / duplicate
+   * protection runner của Block 8B-B.
+   */
+
+  const candidates = [
+
+    'saveApprovedShadowSnapshotsV26',
+
+    'saveApprovedShadowPredictionsV26',
+
+    'runShadowSnapshotBatchV26',
+
+    'runApprovedShadowSnapshotsV26',
+
+    'saveShadowSnapshotsBatchV26'
+
+  ];
+
+
+  for (
+    const name of
+    candidates
+  ) {
+
+    if (
+      typeof window[name] ===
+      'function'
+    ) {
+
+      return {
+
+        ready: true,
+
+        name,
+
+        runner:
+          window[name]
+
+      };
+
+    }
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'SNAPSHOT_BATCH_RUNNER_NOT_FOUND',
+
+    checked:
+      candidates
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. BOOTSTRAPPED DUPLICATE PROTECTION TEST
+   ========================================================================= */
+
+function runSnapshotDuplicateProtectionBootstrappedV26() {
+
+  /*
+   * STEP 1
+   * Dựng toàn bộ pipeline.
+   */
+
+  const bootstrap =
+    bootstrapSnapshotPipelineV26();
+
+
+  if (
+    !bootstrap.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        bootstrap.reason,
+
+      stage:
+        bootstrap.stage,
+
+      bootstrap
+
+    };
+
+  }
+
+
+  /*
+   * STEP 2
+   * Nếu Block 8B có batch save runner,
+   * dùng runner đó.
+   */
+
+  const batch =
+    findSnapshotSaveRunnerV26();
+
+
+  if (
+    batch.ready
+  ) {
+
+    try {
+
+      const result =
+        batch.runner(
+          'db'
+        );
+
+
+      return {
+
+        ready:
+          Boolean(
+            result &&
+            result.ready
+          ),
+
+        source:
+          'EXISTING_SNAPSHOT_BATCH',
+
+        runner:
+          batch.name,
+
+        approvedCount:
+          bootstrap.approvedCount,
+
+        result,
+
+        reason:
+          result &&
+          !result.ready
+            ? (
+                result.reason ||
+                'SNAPSHOT_BATCH_NOT_READY'
+              )
+            : null
+
+      };
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        'V2.6 Snapshot Batch Error:',
+        error
+      );
+
+
+      return {
+
+        ready: false,
+
+        reason:
+          'SNAPSHOT_BATCH_ERROR',
+
+        runner:
+          batch.name,
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 3 — FALLBACK
+   *
+   * Không có batch runner thì save từng
+   * approved province bằng hàm 8A/8B.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof saveShadowSnapshotV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_SAVE_FUNCTION_NOT_FOUND',
+
+      checkedBatch:
+        batch.checked
+
+    };
+
+  }
+
+
+  const rows = [];
+
+
+  bootstrap.approved.forEach(
+    item => {
+
+      const slug =
+        item.provinceSlug ||
+        item.slug ||
+        item.province ||
+        null;
+
+
+      if (!slug) {
+
+        rows.push({
+
+          ready: false,
+
+          province:
+            item.province ||
+            '-',
+
+          reason:
+            'PROVINCE_SLUG_NOT_FOUND'
+
+        });
+
+
+        return;
+
+      }
+
+
+      try {
+
+        const saved =
+          saveShadowSnapshotV26(
+            slug,
+            'db'
+          );
+
+
+        rows.push(
+          saved
+        );
+
+      } catch (
+        error
+      ) {
+
+        rows.push({
+
+          ready: false,
+
+          province:
+            slug,
+
+          reason:
+            'SNAPSHOT_SAVE_ERROR',
+
+          error:
+            String(
+              error.message ||
+              error
+            )
+
+        });
+
+      }
+
+    }
+  );
+
+
+  const successful =
+    rows.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      successful.length > 0,
+
+    source:
+      'SNAPSHOT_INDIVIDUAL_FALLBACK',
+
+    approvedCount:
+      bootstrap.approvedCount,
+
+    successfulCount:
+      successful.length,
+
+    failedCount:
+      rows.length -
+      successful.length,
+
+    results:
+      rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. MOBILE TEST
+   ========================================================================= */
+
+function showSnapshotBootstrapTestV26Mobile() {
+
+  try {
+
+    const result =
+      runSnapshotDuplicateProtectionBootstrappedV26();
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      let lines = [
+
+        '❌ V2.6 SNAPSHOT BOOTSTRAP',
+
+        '',
+
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN_ERROR'
+        )
+
+      ];
+
+
+      if (
+        result &&
+        result.stage
+      ) {
+
+        lines.push(
+          'Stage: ' +
+          result.stage
+        );
+
+      }
+
+
+      if (
+        result &&
+        result.runner
+      ) {
+
+        lines.push(
+          'Runner: ' +
+          result.runner
+        );
+
+      }
+
+
+      if (
+        result &&
+        result.error
+      ) {
+
+        lines.push(
+          '',
+          'Error:',
+          result.error
+        );
+
+      }
+
+
+      alert(
+        lines.join(
+          '\n'
+        )
+      );
+
+
+      window
+        .LAST_SNAPSHOT_BOOTSTRAP_DEBUG_V26 =
+        result;
+
+
+      return result;
+
+    }
+
+
+    /*
+     * Batch result có thể nằm trong
+     * result.result hoặc chính result.
+     */
+
+    const batch =
+      result.result ||
+      result;
+
+
+    const lines = [
+
+      '🛡️ V2.6 SNAPSHOT BOOTSTRAP',
+
+      '',
+
+      'Pipeline: READY',
+
+      'Adaptive Approved: ' +
+      (
+        result.approvedCount != null
+          ? result.approvedCount
+          : '-'
+      ),
+
+      'Runner: ' +
+      (
+        result.runner ||
+        result.source ||
+        '-'
+      ),
+
+      ''
+
+    ];
+
+
+    /*
+     * Các tên field khác nhau giữa
+     * những patch 8B vẫn được hỗ trợ.
+     */
+
+    if (
+      batch.requestedCount != null
+    ) {
+
+      lines.push(
+        'Requested: ' +
+        batch.requestedCount
+      );
+
+    } else if (
+      batch.requested != null
+    ) {
+
+      lines.push(
+        'Requested: ' +
+        batch.requested
+      );
+
+    }
+
+
+    if (
+      batch.savedCount != null
+    ) {
+
+      lines.push(
+        'Saved New: ' +
+        batch.savedCount
+      );
+
+    } else if (
+      batch.savedNew != null
+    ) {
+
+      lines.push(
+        'Saved New: ' +
+        batch.savedNew
+      );
+
+    }
+
+
+    if (
+      batch.skippedDuplicate != null
+    ) {
+
+      lines.push(
+        'Skipped Duplicate: ' +
+        batch.skippedDuplicate
+      );
+
+    } else if (
+      batch.duplicateCount != null
+    ) {
+
+      lines.push(
+        'Skipped Duplicate: ' +
+        batch.duplicateCount
+      );
+
+    }
+
+
+    if (
+      batch.failedCount != null
+    ) {
+
+      lines.push(
+        'Failed: ' +
+        batch.failedCount
+      );
+
+    }
+
+
+    if (
+      result.successfulCount != null
+    ) {
+
+      lines.push(
+        'Successful: ' +
+        result.successfulCount
+      );
+
+    }
+
+
+    lines.push(
+      '',
+      'Research only',
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window.LAST_SNAPSHOT_BOOTSTRAP_V26 =
+      result;
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Snapshot Bootstrap Mobile:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 SNAPSHOT BOOTSTRAP ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   8. PATCH DUPLICATE PROTECTION BUTTON
+   ========================================================================= */
+
+function patchSnapshotDuplicateButtonV26() {
+
+  /*
+   * Tìm button Duplicate Protection
+   * từ các ID có thể đã dùng ở Block 8B.
+   */
+
+  const ids = [
+
+    'btnSnapshotDuplicateV26',
+
+    'btnShadowDuplicateV26',
+
+    'btnDuplicateProtectionV26',
+
+    'btnSnapshotDuplicateProtectionV26'
+
+  ];
+
+
+  let button =
+    null;
+
+
+  for (
+    const id of
+    ids
+  ) {
+
+    const found =
+      document.getElementById(
+        id
+      );
+
+
+    if (found) {
+
+      button =
+        found;
+
+      break;
+
+    }
+
+  }
+
+
+  /*
+   * Nếu không biết ID,
+   * tìm theo text của button.
+   */
+
+  if (!button) {
+
+    const buttons =
+      Array.from(
+        document.querySelectorAll(
+          'button'
+        )
+      );
+
+
+    button =
+      buttons.find(
+        item => {
+
+          const text =
+            String(
+              item.textContent ||
+              ''
+            ).toUpperCase();
+
+
+          return (
+            text.includes(
+              'DUPLICATE'
+            ) &&
+            text.includes(
+              'V2.6'
+            )
+          );
+
+        }
+      ) || null;
+
+  }
+
+
+  if (!button) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Clone để loại listener cũ.
+   */
+
+  const replacement =
+    button.cloneNode(
+      true
+    );
+
+
+  replacement.onclick =
+    function() {
+
+      showSnapshotBootstrapTestV26Mobile();
+
+    };
+
+
+  button.parentNode.replaceChild(
+    replacement,
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   9. INIT
+   ========================================================================= */
+
+function initSnapshotBootstrapFixV26() {
+
+  const patched =
+    patchSnapshotDuplicateButtonV26();
+
+
+  if (
+    !patched &&
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      patchSnapshotDuplicateButtonV26
+    );
+
+  }
+
+}
+
+
+initSnapshotBootstrapFixV26();
+
+
+/* =========================================================================
+   10. SAFETY
+   ========================================================================= */
+
+function snapshotBootstrapSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '8B-SNAPSHOT-BOOTSTRAP',
+
+    researchOnly:
+      true,
+
+    productionModified:
+      false,
+
+    productionPredictionModified:
+      false,
+
+    productionWeightsModified:
+      false,
+
+    productionModelModified:
+      false,
+
+    productionWindowModified:
+      false,
+
+    status:
+      'SAFE_RESEARCH_ONLY'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Snapshot Full Bootstrap ready'
+);
+
