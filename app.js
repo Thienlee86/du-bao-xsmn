@@ -44899,3 +44899,966 @@ console.log(
   'XSMN V2.6 Light Pipeline Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-D
+   LITE SHADOW SNAPSHOT
+
+   Mục tiêu:
+   - REUSE LAST_LIGHT_PIPELINE_V26.
+   - KHÔNG chạy lại Cross OOS.
+   - KHÔNG chạy lại Province Gate.
+   - KHÔNG chạy lại Decision Layer.
+   - Chỉ build Shadow cho 4 tỉnh Adaptive.
+   - Sau đó lưu Snapshot bằng saveShadowSnapshotV26().
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. GET LIGHT PIPELINE
+   ========================================================================= */
+
+function getLiteSnapshotPipelineV26() {
+
+  const pipeline =
+    window.LAST_LIGHT_PIPELINE_V26;
+
+
+  if (
+    !pipeline ||
+    !pipeline.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LIGHT_PIPELINE_NOT_READY'
+
+    };
+
+  }
+
+
+  if (
+    !pipeline.decision ||
+    !Array.isArray(
+      pipeline.decision.results
+    ) ||
+    !pipeline.decision.results.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LIGHT_DECISION_NOT_READY'
+
+    };
+
+  }
+
+
+  /*
+   * Ưu tiên approved đã được Light Debug tạo.
+   */
+
+  let approved =
+    Array.isArray(
+      pipeline.approved
+    )
+      ? pipeline.approved
+      : [];
+
+
+  /*
+   * Fallback:
+   * tự lấy từ Decision Layer,
+   * nhưng KHÔNG chạy lại engine.
+   */
+
+  if (!approved.length) {
+
+    approved =
+      pipeline.decision.results.filter(
+        item =>
+          (
+            item.action ||
+            item.decision ||
+            item.recommendation
+          ) ===
+          'RECOMMEND_ADAPTIVE'
+      );
+
+  }
+
+
+  if (!approved.length) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_APPROVED_ADAPTIVE'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    pipeline,
+
+    approved,
+
+    approvedCount:
+      approved.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. RESOLVE PROVINCE SLUG
+
+   Decision Layer hiện tại có thể lưu:
+   provinceSlug
+   slug
+   province
+
+   Trong project của chúng ta province
+   đôi khi chính là slug:
+   tay-ninh
+   tp-hcm
+   tien-giang
+   binh-duong
+   ========================================================================= */
+
+function resolveLiteSnapshotSlugV26(
+  item
+) {
+
+  if (!item) {
+
+    return null;
+
+  }
+
+
+  if (
+    item.provinceSlug
+  ) {
+
+    return item.provinceSlug;
+
+  }
+
+
+  if (
+    item.slug
+  ) {
+
+    return item.slug;
+
+  }
+
+
+  /*
+   * province của Decision Layer hiện tại
+   * thường đã là slug.
+   */
+
+  if (
+    typeof item.province ===
+      'string' &&
+    item.province.trim()
+  ) {
+
+    const value =
+      item.province
+        .trim();
+
+
+    /*
+     * Nếu province đã giống slug.
+     */
+
+    if (
+      value.includes('-') &&
+      value ===
+        value.toLowerCase()
+    ) {
+
+      return value;
+
+    }
+
+
+    /*
+     * Nếu province là tên tỉnh,
+     * thử helper hiện có.
+     */
+
+    try {
+
+      if (
+        typeof PROVINCES !==
+          'undefined' &&
+        Array.isArray(
+          PROVINCES
+        )
+      ) {
+
+        const found =
+          PROVINCES.find(
+            province =>
+              province.name ===
+                value ||
+              province.slug ===
+                value
+          );
+
+
+        if (
+          found &&
+          found.slug
+        ) {
+
+          return found.slug;
+
+        }
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   3. BUILD 4 SHADOWS ONLY
+
+   Không gọi:
+   runApprovedShadowPredictionsV26()
+
+   vì ta muốn kiểm soát chính xác:
+   chỉ build 4 tỉnh từ Light Pipeline.
+   ========================================================================= */
+
+function buildLiteShadowBatchV26(
+  giaiKey = 'db'
+) {
+
+  const source =
+    getLiteSnapshotPipelineV26();
+
+
+  if (
+    !source.ready
+  ) {
+
+    return source;
+
+  }
+
+
+  if (
+    typeof buildShadowRankingV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SHADOW_BUILDER_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const results = [];
+
+
+  source.approved.forEach(
+    item => {
+
+      const slug =
+        resolveLiteSnapshotSlugV26(
+          item
+        );
+
+
+      if (!slug) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            item.province ||
+            '-',
+
+          reason:
+            'PROVINCE_SLUG_NOT_FOUND'
+
+        });
+
+
+        return;
+
+      }
+
+
+      try {
+
+        const shadow =
+          buildShadowRankingV26(
+            slug,
+            giaiKey
+          );
+
+
+        results.push(
+          shadow
+        );
+
+      } catch (
+        error
+      ) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            slug,
+
+          reason:
+            'SHADOW_BUILD_ERROR',
+
+          error:
+            String(
+              error.message ||
+              error
+            )
+
+        });
+
+      }
+
+    }
+  );
+
+
+  const successful =
+    results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      successful.length > 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'LITE_SHADOW_BATCH',
+
+    researchOnly:
+      true,
+
+    approvedCount:
+      source.approvedCount,
+
+    successfulCount:
+      successful.length,
+
+    failedCount:
+      results.length -
+      successful.length,
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. SAVE LITE SNAPSHOTS
+
+   Quan trọng:
+   dùng saveShadowSnapshotV26()
+   đã có sẵn.
+
+   Duplicate Protection vẫn do
+   Snapshot Engine hiện tại xử lý.
+   ========================================================================= */
+
+function saveLiteShadowSnapshotsV26(
+  giaiKey = 'db'
+) {
+
+  const source =
+    getLiteSnapshotPipelineV26();
+
+
+  if (
+    !source.ready
+  ) {
+
+    return source;
+
+  }
+
+
+  if (
+    typeof saveShadowSnapshotV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_SAVE_FUNCTION_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const results = [];
+
+
+  source.approved.forEach(
+    item => {
+
+      const slug =
+        resolveLiteSnapshotSlugV26(
+          item
+        );
+
+
+      if (!slug) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            item.province ||
+            '-',
+
+          reason:
+            'PROVINCE_SLUG_NOT_FOUND'
+
+        });
+
+
+        return;
+
+      }
+
+
+      try {
+
+        /*
+         * saveShadowSnapshotV26 tự build
+         * Shadow của đúng tỉnh này.
+         *
+         * KHÔNG chạy Cross OOS.
+         */
+
+        const saved =
+          saveShadowSnapshotV26(
+            slug,
+            giaiKey
+          );
+
+
+        results.push(
+          saved
+        );
+
+      } catch (
+        error
+      ) {
+
+        results.push({
+
+          ready: false,
+
+          province:
+            slug,
+
+          reason:
+            'SNAPSHOT_SAVE_ERROR',
+
+          error:
+            String(
+              error.message ||
+              error
+            )
+
+        });
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Một Snapshot duplicate vẫn là
+   * kết quả hợp lệ của protection.
+   */
+
+  const savedNew =
+    results.filter(
+      item =>
+        item &&
+        (
+          item.status ===
+            'SAVED_NEW' ||
+          item.saved ===
+            true
+        )
+    );
+
+
+  const duplicates =
+    results.filter(
+      item =>
+        item &&
+        (
+          item.status ===
+            'SKIPPED_DUPLICATE' ||
+          item.reason ===
+            'DUPLICATE_SNAPSHOT'
+        )
+    );
+
+
+  const successful =
+    results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      (
+        successful.length > 0 ||
+        duplicates.length > 0
+      ),
+
+    version:
+      'V2.6',
+
+    engine:
+      'LITE_SNAPSHOT_BATCH',
+
+    researchOnly:
+      true,
+
+    requested:
+      source.approvedCount,
+
+    successful:
+      successful.length,
+
+    savedNew:
+      savedNew.length,
+
+    skippedDuplicate:
+      duplicates.length,
+
+    failed:
+      results.length -
+      successful.length -
+      duplicates.length,
+
+    results
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. MOBILE TEST
+
+   Đây là nút chúng ta sẽ dùng.
+   ========================================================================= */
+
+function showLiteSnapshotTestV26() {
+
+  try {
+
+    /*
+     * Kiểm tra Light Pipeline trước.
+     * TUYỆT ĐỐI không bootstrap lại.
+     */
+
+    const source =
+      getLiteSnapshotPipelineV26();
+
+
+    if (
+      !source.ready
+    ) {
+
+      alert(
+        '❌ V2.6 LITE SNAPSHOT\n\n' +
+
+        'Reason: ' +
+        source.reason +
+        '\n\n' +
+
+        'Light Pipeline không còn trong RAM.\n' +
+
+        'Hãy chạy nút:\n' +
+
+        '🧪 Test V2.6 Light Pipeline\n\n' +
+
+        'sau đó bấm Lite Snapshot.'
+      );
+
+
+      return source;
+
+    }
+
+
+    const start =
+      performance.now();
+
+
+    const result =
+      saveLiteShadowSnapshotsV26(
+        'db'
+      );
+
+
+    const elapsed =
+      performance.now() -
+      start;
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+        '❌ V2.6 LITE SNAPSHOT\n\n' +
+
+        'Light Pipeline: READY\n' +
+
+        'Approved: ' +
+        source.approvedCount +
+        '\n\n' +
+
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'LITE_SNAPSHOT_NOT_READY'
+        ) +
+        '\n\n' +
+
+        'Time: ' +
+        (
+          elapsed / 1000
+        ).toFixed(2) +
+        's'
+      );
+
+
+      window.LAST_LITE_SNAPSHOT_V26 =
+        result;
+
+
+      return result;
+
+    }
+
+
+    const lines = [];
+
+
+    lines.push(
+      '💾 V2.6 LITE SNAPSHOT'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Light Pipeline: READY'
+    );
+
+    lines.push(
+      'Requested: ' +
+      result.requested
+    );
+
+    lines.push(
+      'Successful: ' +
+      result.successful
+    );
+
+    lines.push(
+      'Saved New: ' +
+      result.savedNew
+    );
+
+    lines.push(
+      'Duplicate: ' +
+      result.skippedDuplicate
+    );
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Time: ' +
+      (
+        elapsed / 1000
+      ).toFixed(2) +
+      's'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    result.results.forEach(
+      item => {
+
+        const province =
+          item.province ||
+          item.provinceSlug ||
+          '-';
+
+
+        lines.push(
+          (
+            item.ready
+              ? '✅ '
+              : '⚠️ '
+          ) +
+          province
+        );
+
+
+        lines.push(
+          'Status: ' +
+          (
+            item.status ||
+            item.reason ||
+            (
+              item.ready
+                ? 'READY'
+                : 'UNKNOWN'
+            )
+          )
+        );
+
+
+        lines.push(
+          '--------------------'
+        );
+
+      }
+    );
+
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Cross OOS rerun: NO'
+    );
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window.LAST_LITE_SNAPSHOT_V26 =
+      result;
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Lite Snapshot:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 LITE SNAPSHOT ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   6. MOBILE BUTTON
+   ========================================================================= */
+
+function addLiteSnapshotButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnLiteSnapshotV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnLiteSnapshotV26';
+
+
+  button.textContent =
+    '💾 Test V2.6 Lite Snapshot';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.onclick =
+    function() {
+
+      showLiteSnapshotTestV26();
+
+    };
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addLiteSnapshotButtonV26
+  );
+
+} else {
+
+  addLiteSnapshotButtonV26();
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8B-D loaded — Lite Snapshot ready'
+);
+
