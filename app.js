@@ -36398,3 +36398,1000 @@ console.log(
   'XSMN V2.6 Shadow Historical Draws Fix loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-A
+   SHADOW SNAPSHOT STORE
+
+   Mục tiêu:
+   - Lưu Shadow Prediction hiện tại.
+   - Chuẩn bị dữ liệu để đối chiếu với kết quả thật.
+   - Không thay Production Prediction.
+   - Không thay Model / Window Production.
+   - Research Only.
+
+   Storage:
+   localStorage
+
+   Snapshot chứa:
+   - Province
+   - Prize
+   - Model
+   - Window
+   - Gate Score
+   - OOS Delta
+   - Win Rate
+   - Top1 / Top3 / Top5 / Top10
+   - Thời điểm tạo
+   - Actual Result (chưa có)
+   - Verification Status
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const SHADOW_TRACKING_V26_CONFIG = {
+
+  storageKey:
+    'XSMN_V26_SHADOW_SNAPSHOTS',
+
+  version:
+    'V2.6',
+
+  maxSnapshots:
+    500,
+
+  researchOnly:
+    true
+
+};
+
+
+/* =========================================================================
+   2. READ SNAPSHOTS
+   ========================================================================= */
+
+function readShadowSnapshotsV26() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        SHADOW_TRACKING_V26_CONFIG
+          .storageKey
+      );
+
+
+    if (!raw) {
+
+      return [];
+
+    }
+
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+
+    return Array.isArray(
+      parsed
+    )
+      ? parsed
+      : [];
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Snapshot Read Error:',
+      error
+    );
+
+
+    return [];
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. WRITE SNAPSHOTS
+   ========================================================================= */
+
+function writeShadowSnapshotsV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return false;
+
+  }
+
+
+  try {
+
+    /*
+     * Chỉ giữ số snapshot tối đa
+     * theo config.
+     */
+
+    const limited =
+      snapshots.slice(
+        -SHADOW_TRACKING_V26_CONFIG
+          .maxSnapshots
+      );
+
+
+    localStorage.setItem(
+      SHADOW_TRACKING_V26_CONFIG
+        .storageKey,
+      JSON.stringify(
+        limited
+      )
+    );
+
+
+    return true;
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Snapshot Write Error:',
+      error
+    );
+
+
+    return false;
+
+  }
+
+}
+
+
+/* =========================================================================
+   4. BUILD SNAPSHOT ID
+   ========================================================================= */
+
+function buildShadowSnapshotIdV26(
+  shadow
+) {
+
+  const province =
+    shadow.province ||
+    'unknown';
+
+
+  const prize =
+    shadow.prize ||
+    'db';
+
+
+  /*
+   * Một lần chạy Shadow có timestamp riêng.
+   */
+
+  return [
+    'V26',
+    province,
+    prize,
+    Date.now()
+  ].join(
+    '_'
+  );
+
+}
+
+
+/* =========================================================================
+   5. CREATE ONE SNAPSHOT
+   ========================================================================= */
+
+function createShadowSnapshotV26(
+  shadow
+) {
+
+  if (
+    !shadow ||
+    !shadow.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SHADOW_NOT_READY'
+
+    };
+
+  }
+
+
+  const createdAt =
+    new Date()
+      .toISOString();
+
+
+  const snapshot = {
+
+    id:
+      buildShadowSnapshotIdV26(
+        shadow
+      ),
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_TRACKING',
+
+    researchOnly:
+      true,
+
+    province:
+      shadow.province,
+
+    prize:
+      shadow.prize ||
+      'db',
+
+    model:
+      shadow.model,
+
+    window:
+      shadow.window,
+
+    gateScore:
+      shadow.gateScore,
+
+    oosDelta:
+      shadow.oosDelta,
+
+    winRate:
+      shadow.winRate,
+
+    historyCount:
+      shadow.historyCount,
+
+    generatedAt:
+      shadow.generatedAt ||
+      createdAt,
+
+    savedAt:
+      createdAt,
+
+
+    /*
+     * Clone arrays để snapshot độc lập
+     * với Shadow Result hiện tại.
+     */
+
+    top1:
+      Array.isArray(
+        shadow.top1
+      )
+        ? shadow.top1.slice()
+        : [],
+
+    top3:
+      Array.isArray(
+        shadow.top3
+      )
+        ? shadow.top3.slice()
+        : [],
+
+    top5:
+      Array.isArray(
+        shadow.top5
+      )
+        ? shadow.top5.slice()
+        : [],
+
+    top10:
+      Array.isArray(
+        shadow.top10
+      )
+        ? shadow.top10.slice()
+        : [],
+
+
+    /*
+     * Actual Result sẽ được Block 8B-B
+     * cập nhật sau khi xổ.
+     */
+
+    actual: null,
+
+    actualDate: null,
+
+
+    /*
+     * Verification cũng để trống.
+     */
+
+    verification: {
+
+      status:
+        'PENDING',
+
+      top1Hit:
+        null,
+
+      top3Hit:
+        null,
+
+      top5Hit:
+        null,
+
+      top10Hit:
+        null,
+
+      rank:
+        null,
+
+      verifiedAt:
+        null
+
+    }
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    snapshot
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. SAVE ONE SNAPSHOT
+   ========================================================================= */
+
+function saveOneShadowSnapshotV26(
+  shadow
+) {
+
+  const created =
+    createShadowSnapshotV26(
+      shadow
+    );
+
+
+  if (
+    !created.ready
+  ) {
+
+    return created;
+
+  }
+
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  snapshots.push(
+    created.snapshot
+  );
+
+
+  const saved =
+    writeShadowSnapshotsV26(
+      snapshots
+    );
+
+
+  if (!saved) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_WRITE_FAILED'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    snapshot:
+      created.snapshot,
+
+    totalSnapshots:
+      snapshots.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. SAVE CURRENT APPROVED SHADOW BATCH
+   ========================================================================= */
+
+function saveApprovedShadowBatchV26(
+  giaiKey = 'db'
+) {
+
+  /*
+   * Bảo đảm Decision Layer tồn tại.
+   */
+
+  if (
+    typeof ensureProvinceDecisionLayerV26 ===
+    'function'
+  ) {
+
+    const bootstrap =
+      ensureProvinceDecisionLayerV26();
+
+
+    if (
+      !bootstrap ||
+      !bootstrap.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          bootstrap &&
+          bootstrap.reason
+            ? bootstrap.reason
+            : 'DECISION_LAYER_NOT_READY'
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * Tạo Shadow Prediction mới nhất.
+   */
+
+  const batch =
+    runApprovedShadowPredictionsV26(
+      giaiKey,
+      false
+    );
+
+
+  if (
+    !batch ||
+    !batch.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        batch &&
+        batch.reason
+          ? batch.reason
+          : 'SHADOW_BATCH_NOT_READY'
+
+    };
+
+  }
+
+
+  const successful =
+    batch.results.filter(
+      item =>
+        item &&
+        item.ready
+    );
+
+
+  if (
+    !successful.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'NO_SUCCESSFUL_SHADOWS'
+
+    };
+
+  }
+
+
+  const savedResults =
+    successful.map(
+      shadow =>
+        saveOneShadowSnapshotV26(
+          shadow
+        )
+    );
+
+
+  const saved =
+    savedResults.filter(
+      item =>
+        item.ready
+    );
+
+
+  return {
+
+    ready:
+      saved.length > 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_SNAPSHOT_BATCH',
+
+    researchOnly:
+      true,
+
+    requested:
+      successful.length,
+
+    saved:
+      saved.length,
+
+    failed:
+      successful.length -
+      saved.length,
+
+    results:
+      savedResults,
+
+    totalSnapshots:
+      readShadowSnapshotsV26()
+        .length
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. SNAPSHOT SUMMARY
+   ========================================================================= */
+
+function getShadowSnapshotSummaryV26() {
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  const pending =
+    snapshots.filter(
+      item =>
+        item &&
+        item.verification &&
+        item.verification.status ===
+          'PENDING'
+    );
+
+
+  const verified =
+    snapshots.filter(
+      item =>
+        item &&
+        item.verification &&
+        item.verification.status ===
+          'VERIFIED'
+    );
+
+
+  const provinces =
+    [
+      ...new Set(
+        snapshots
+          .map(
+            item =>
+              item.province
+          )
+          .filter(
+            Boolean
+          )
+      )
+    ];
+
+
+  return {
+
+    ready: true,
+
+    total:
+      snapshots.length,
+
+    pending:
+      pending.length,
+
+    verified:
+      verified.length,
+
+    provinceCount:
+      provinces.length,
+
+    provinces
+
+  };
+
+}
+
+
+/* =========================================================================
+   9. MOBILE TEST
+   ========================================================================= */
+
+function testShadowSnapshotStoreV26Mobile() {
+
+  try {
+
+    const result =
+      saveApprovedShadowBatchV26(
+        'db'
+      );
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+        '❌ V2.6 SHADOW SNAPSHOT\n\n' +
+        'Save failed.\n\n' +
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN'
+        )
+      );
+
+
+      return result;
+
+    }
+
+
+    const summary =
+      getShadowSnapshotSummaryV26();
+
+
+    const lines = [];
+
+
+    lines.push(
+      '💾 V2.6 SHADOW SNAPSHOT'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Requested: ' +
+      result.requested
+    );
+
+
+    lines.push(
+      'Saved: ' +
+      result.saved
+    );
+
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'TOTAL STORE: ' +
+      summary.total
+    );
+
+
+    lines.push(
+      'Pending: ' +
+      summary.pending
+    );
+
+
+    lines.push(
+      'Verified: ' +
+      summary.verified
+    );
+
+
+    lines.push(
+      'Provinces: ' +
+      summary.provinceCount
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    result.results.forEach(
+      item => {
+
+        if (
+          item.ready &&
+          item.snapshot
+        ) {
+
+          const snapshot =
+            item.snapshot;
+
+
+          lines.push(
+            '✅ ' +
+            snapshot.province
+          );
+
+
+          lines.push(
+            snapshot.model +
+            ' / ' +
+            snapshot.window +
+            ' kỳ'
+          );
+
+
+          lines.push(
+            'Top1: ' +
+            snapshot.top1.join(
+              ', '
+            )
+          );
+
+
+          lines.push(
+            'Top3: ' +
+            snapshot.top3.join(
+              ', '
+            )
+          );
+
+
+          lines.push(
+            'Status: PENDING'
+          );
+
+
+          lines.push(
+            '--------------------'
+          );
+
+        }
+
+      }
+    );
+
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    window.LAST_SHADOW_SNAPSHOT_BATCH_V26 =
+      result;
+
+
+    return result;
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Snapshot Mobile Test:',
+      error
+    );
+
+
+    alert(
+      '❌ V2.6 SNAPSHOT ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   10. MOBILE BUTTON
+   ========================================================================= */
+
+function addShadowSnapshotButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowSnapshotV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowSnapshotV26';
+
+
+  button.textContent =
+    '💾 Lưu V2.6 Shadow Snapshot';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    function() {
+
+      testShadowSnapshotStoreV26Mobile();
+
+    }
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   11. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowSnapshotButtonV26
+  );
+
+} else {
+
+  addShadowSnapshotButtonV26();
+
+}
+
+
+/* =========================================================================
+   12. SAFETY CHECK
+   ========================================================================= */
+
+function shadowTrackingSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '8B-A',
+
+    storage:
+      'LOCAL_STORAGE',
+
+    productionModified:
+      false,
+
+    productionPredictionModified:
+      false,
+
+    productionWeightsModified:
+      false,
+
+    productionModelModified:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE_SHADOW_TRACKING'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8B-A loaded — Shadow Snapshot Store ready'
+);
+
