@@ -57582,3 +57582,120 @@ function printShadowPersistentSaveDiagnosticV26() {
 
 }
 
+/* =========================================================================
+   XSMN V2.6 — 8C-A4 SAVE DIAGNOSTIC BUTTON
+   ========================================================================= */
+
+(function addSaveDiagnosticButtonV26() {
+
+  function createButton() {
+
+    if (
+      document.getElementById(
+        'btn-v26-save-diagnostic'
+      )
+    ) {
+      return;
+    }
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+    button.id =
+      'btn-v26-save-diagnostic';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 Test V2.6 Save Diagnostic';
+
+    button.style.cssText = `
+      width: calc(100% - 48px);
+      margin: 14px 24px;
+      padding: 22px 16px;
+      border: none;
+      border-radius: 22px;
+      font-size: 18px;
+      font-weight: 700;
+      cursor: pointer;
+    `;
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            printShadowPersistentSaveDiagnosticV26 !==
+          'function'
+        ) {
+
+          alert(
+            '❌ Save Diagnostic function not found'
+          );
+
+          return;
+        }
+
+        printShadowPersistentSaveDiagnosticV26();
+
+      };
+
+    /*
+     * Đặt nút trước khu vực V2.2 nếu tìm thấy.
+     */
+
+    const target =
+      Array.from(
+        document.querySelectorAll(
+          'section, div'
+        )
+      ).find(
+        element =>
+          element.textContent &&
+          element.textContent.includes(
+            'Kiểm định mô hình V2.2'
+          )
+      );
+
+    if (
+      target &&
+      target.parentNode
+    ) {
+
+      target.parentNode.insertBefore(
+        button,
+        target
+      );
+
+    } else {
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      createButton
+    );
+
+  } else {
+
+    createButton();
+
+  }
+
+})();
+
