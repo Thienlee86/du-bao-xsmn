@@ -38716,3 +38716,2405 @@ console.log(
   'XSMN V2.6 Block 8B-B loaded — Snapshot Identity + Duplicate Protection ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8B-C
+   SHADOW ACTUAL RESULT RESOLVER
+
+   Mục tiêu:
+   - Đọc Shadow Snapshots đã lưu ở Block 8B.
+   - Chỉ xử lý snapshot PENDING.
+   - Tìm kỳ xổ số THỰC TẾ sau latestDraw của snapshot.
+   - Lấy actual result của đúng prize.
+   - So sánh actual với Shadow ranking.
+   - Chuyển:
+         PENDING -> VERIFIED
+   - Không thay Production Engine.
+   - Không thay model/window.
+   - Không tự học từ kết quả.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONFIG
+   ========================================================================= */
+
+const SHADOW_RESOLVER_V26_CONFIG = {
+
+  enabled: true,
+
+  researchOnly: true,
+
+  allowProductionOverride: false,
+
+  pendingStatus:
+    'PENDING',
+
+  verifiedStatus:
+    'VERIFIED'
+
+};
+
+
+/* =========================================================================
+   2. GET SHADOW STORE
+
+   Block 8B có thể lưu store bằng global hoặc localStorage.
+
+   Helper này ưu tiên các nguồn đang tồn tại.
+   ========================================================================= */
+
+function getShadowStoreForResolverV26() {
+
+  /*
+   * CASE 1:
+   * Nếu Block 8B có helper chính thức.
+   */
+
+  const helperNames = [
+
+    'loadShadowSnapshotsV26',
+
+    'getShadowSnapshotsV26',
+
+    'loadShadowSnapshotStoreV26',
+
+    'getShadowSnapshotStoreV26'
+
+  ];
+
+
+  for (
+    const name of helperNames
+  ) {
+
+    try {
+
+      if (
+        typeof window[name] ===
+        'function'
+      ) {
+
+        const value =
+          window[name]();
+
+
+        if (
+          Array.isArray(value)
+        ) {
+
+          return {
+
+            ready: true,
+
+            source:
+              name,
+
+            snapshots:
+              value
+
+          };
+
+        }
+
+
+        if (
+          value &&
+          Array.isArray(
+            value.snapshots
+          )
+        ) {
+
+          return {
+
+            ready: true,
+
+            source:
+              name,
+
+            snapshots:
+              value.snapshots,
+
+            wrapper:
+              value
+
+          };
+
+        }
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      console.warn(
+        'V2.6 Resolver Store Helper:',
+        name,
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+   * CASE 2:
+   * Các global thường dùng.
+   */
+
+  const globals = [
+
+    'SHADOW_SNAPSHOTS_V26',
+
+    'SHADOW_SNAPSHOT_STORE_V26',
+
+    'LAST_SHADOW_SNAPSHOTS_V26'
+
+  ];
+
+
+  for (
+    const name of globals
+  ) {
+
+    const value =
+      window[name];
+
+
+    if (
+      Array.isArray(value)
+    ) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'window.' + name,
+
+        snapshots:
+          value
+
+      };
+
+    }
+
+
+    if (
+      value &&
+      Array.isArray(
+        value.snapshots
+      )
+    ) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'window.' + name,
+
+        snapshots:
+          value.snapshots,
+
+        wrapper:
+          value
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * CASE 3:
+   * Tìm localStorage.
+   *
+   * Không đoán cứng duy nhất một key.
+   */
+
+  const preferredKeys = [
+
+    'XSMN_SHADOW_SNAPSHOTS_V26',
+
+    'SHADOW_SNAPSHOTS_V26',
+
+    'shadowSnapshotsV26',
+
+    'xsmm_shadow_v26'
+
+  ];
+
+
+  for (
+    const key of preferredKeys
+  ) {
+
+    try {
+
+      const raw =
+        localStorage.getItem(
+          key
+        );
+
+
+      if (!raw) {
+
+        continue;
+
+      }
+
+
+      const parsed =
+        JSON.parse(
+          raw
+        );
+
+
+      if (
+        Array.isArray(parsed)
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'localStorage',
+
+          storageKey:
+            key,
+
+          snapshots:
+            parsed
+
+        };
+
+      }
+
+
+      if (
+        parsed &&
+        Array.isArray(
+          parsed.snapshots
+        )
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'localStorage',
+
+          storageKey:
+            key,
+
+          snapshots:
+            parsed.snapshots,
+
+          wrapper:
+            parsed
+
+        };
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore invalid key.
+       */
+
+    }
+
+  }
+
+
+  /*
+   * CASE 4:
+   * Scan localStorage để tìm store V2.6.
+   *
+   * Chỉ đọc.
+   */
+
+  try {
+
+    for (
+      let i = 0;
+      i < localStorage.length;
+      i++
+    ) {
+
+      const key =
+        localStorage.key(
+          i
+        );
+
+
+      if (!key) {
+
+        continue;
+
+      }
+
+
+      const normalized =
+        String(
+          key
+        ).toLowerCase();
+
+
+      if (
+        !normalized.includes(
+          'shadow'
+        )
+      ) {
+
+        continue;
+
+      }
+
+
+      const raw =
+        localStorage.getItem(
+          key
+        );
+
+
+      if (!raw) {
+
+        continue;
+
+      }
+
+
+      let parsed;
+
+
+      try {
+
+        parsed =
+          JSON.parse(
+            raw
+          );
+
+      } catch (
+        error
+      ) {
+
+        continue;
+
+      }
+
+
+      if (
+        Array.isArray(parsed)
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'localStorage-scan',
+
+          storageKey:
+            key,
+
+          snapshots:
+            parsed
+
+        };
+
+      }
+
+
+      if (
+        parsed &&
+        Array.isArray(
+          parsed.snapshots
+        )
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'localStorage-scan',
+
+          storageKey:
+            key,
+
+          snapshots:
+            parsed.snapshots,
+
+          wrapper:
+            parsed
+
+        };
+
+      }
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      'V2.6 Resolver localStorage scan:',
+      error
+    );
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'SHADOW_STORE_NOT_FOUND',
+
+    snapshots: []
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. SAVE UPDATED STORE
+
+   Chỉ ghi trở lại đúng nguồn store đã đọc.
+
+   Không đụng DATA / Production.
+   ========================================================================= */
+
+function saveShadowStoreForResolverV26(
+  storeInfo,
+  snapshots
+) {
+
+  if (
+    !storeInfo ||
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Nếu store nằm trong localStorage.
+   */
+
+  if (
+    storeInfo.storageKey
+  ) {
+
+    try {
+
+      if (
+        storeInfo.wrapper &&
+        !Array.isArray(
+          storeInfo.wrapper
+        )
+      ) {
+
+        const wrapper = {
+
+          ...storeInfo.wrapper,
+
+          snapshots
+
+        };
+
+
+        localStorage.setItem(
+          storeInfo.storageKey,
+          JSON.stringify(
+            wrapper
+          )
+        );
+
+      } else {
+
+        localStorage.setItem(
+          storeInfo.storageKey,
+          JSON.stringify(
+            snapshots
+          )
+        );
+
+      }
+
+
+      return true;
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        'V2.6 Resolver Save Error:',
+        error
+      );
+
+
+      return false;
+
+    }
+
+  }
+
+
+  /*
+   * Nếu Block 8B có save helper.
+   */
+
+  const saveHelpers = [
+
+    'saveShadowSnapshotsV26',
+
+    'saveShadowSnapshotStoreV26'
+
+  ];
+
+
+  for (
+    const name of saveHelpers
+  ) {
+
+    try {
+
+      if (
+        typeof window[name] ===
+        'function'
+      ) {
+
+        window[name](
+          snapshots
+        );
+
+
+        return true;
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      console.warn(
+        'V2.6 Resolver Save Helper:',
+        name,
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+   * Nếu là global array:
+   * mutate array tại chỗ để giữ reference.
+   */
+
+  if (
+    storeInfo.snapshots &&
+    Array.isArray(
+      storeInfo.snapshots
+    )
+  ) {
+
+    storeInfo.snapshots.splice(
+      0,
+      storeInfo.snapshots.length,
+      ...snapshots
+    );
+
+
+    return true;
+
+  }
+
+
+  return false;
+
+}
+
+
+/* =========================================================================
+   4. NORMALIZE DATE
+   ========================================================================= */
+
+function normalizeShadowDateV26(
+  value
+) {
+
+  if (!value) {
+
+    return '';
+
+  }
+
+
+  const text =
+    String(
+      value
+    ).trim();
+
+
+  /*
+   * ISO:
+   * YYYY-MM-DD...
+   */
+
+  const iso =
+    text.match(
+      /^(\d{4})-(\d{2})-(\d{2})/
+    );
+
+
+  if (iso) {
+
+    return (
+      iso[1] +
+      '-' +
+      iso[2] +
+      '-' +
+      iso[3]
+    );
+
+  }
+
+
+  /*
+   * VN:
+   * DD/MM/YYYY
+   */
+
+  const vn =
+    text.match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})/
+    );
+
+
+  if (vn) {
+
+    return (
+      vn[3] +
+      '-' +
+      String(
+        vn[2]
+      ).padStart(
+        2,
+        '0'
+      ) +
+      '-' +
+      String(
+        vn[1]
+      ).padStart(
+        2,
+        '0'
+      )
+    );
+
+  }
+
+
+  return text;
+
+}
+
+
+/* =========================================================================
+   5. GET ALL DRAWS OF PROVINCE
+
+   Đây là điểm quan trọng.
+
+   V2.5 đã xác nhận getAllDrawsForProvince()
+   là nguồn historical draws chính.
+
+   Resolver chỉ READ.
+   ========================================================================= */
+
+function getResolverDrawsV26(
+  provinceSlug
+) {
+
+  let draws =
+    null;
+
+
+  try {
+
+    if (
+      typeof getAllDrawsForProvince ===
+      'function'
+    ) {
+
+      draws =
+        getAllDrawsForProvince(
+          provinceSlug
+        );
+
+    }
+
+  } catch (
+    error
+  ) {
+
+    console.warn(
+      'V2.6 Resolver getAllDraws:',
+      error
+    );
+
+  }
+
+
+  /*
+   * Fallback helpers.
+   */
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    try {
+
+      if (
+        typeof drawListOfProvince ===
+        'function'
+      ) {
+
+        draws =
+          drawListOfProvince(
+            provinceSlug
+          );
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+  }
+
+
+  if (
+    !Array.isArray(draws) ||
+    !draws.length
+  ) {
+
+    try {
+
+      if (
+        typeof provinceDraws ===
+        'function'
+      ) {
+
+        draws =
+          provinceDraws(
+            provinceSlug
+          );
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      /*
+       * Ignore.
+       */
+
+    }
+
+  }
+
+
+  return Array.isArray(draws)
+    ? draws
+        .slice()
+        .sort(
+          (a, b) =>
+            normalizeShadowDateV26(
+              a.date
+            ).localeCompare(
+              normalizeShadowDateV26(
+                b.date
+              )
+            )
+        )
+    : [];
+
+}
+
+
+/* =========================================================================
+   6. FIND NEXT ACTUAL DRAW
+
+   Snapshot được tạo sau latestDraw.
+
+   Ta cần tìm:
+       draw.date > snapshot.latestDraw
+
+   và chọn kỳ sớm nhất sau mốc đó.
+
+   Không dùng kỳ trước snapshot.
+   ========================================================================= */
+
+function findNextActualDrawV26(
+  snapshot
+) {
+
+  const provinceSlug =
+
+    snapshot.provinceSlug ||
+    snapshot.slug ||
+    snapshot.province ||
+    null;
+
+
+  if (!provinceSlug) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_PROVINCE_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const cutoff =
+    normalizeShadowDateV26(
+
+      snapshot.latestDraw ||
+
+      snapshot.latestDrawDate ||
+
+      snapshot.lastDraw ||
+
+      snapshot.historyLatestDate ||
+
+      ''
+
+    );
+
+
+  if (!cutoff) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_LATEST_DRAW_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const draws =
+    getResolverDrawsV26(
+      provinceSlug
+    );
+
+
+  if (!draws.length) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_DRAWS_NOT_FOUND',
+
+      province:
+        provinceSlug
+
+    };
+
+  }
+
+
+  const next =
+    draws.find(
+      draw => {
+
+        const date =
+          normalizeShadowDateV26(
+            draw.date
+          );
+
+
+        return (
+          date &&
+          date > cutoff
+        );
+
+      }
+    );
+
+
+  if (!next) {
+
+    return {
+
+      ready: false,
+
+      pending: true,
+
+      reason:
+        'ACTUAL_DRAW_NOT_AVAILABLE_YET',
+
+      province:
+        provinceSlug,
+
+      latestDraw:
+        cutoff,
+
+      availableLatest:
+        normalizeShadowDateV26(
+          draws[
+            draws.length - 1
+          ].date
+        )
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    province:
+      provinceSlug,
+
+    cutoff,
+
+    draw:
+      next,
+
+    actualDate:
+      normalizeShadowDateV26(
+        next.date
+      )
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. EXTRACT ACTUAL PRIZE NUMBERS
+
+   Project có thể lưu giải theo một vài shape.
+
+   Hàm này cố gắng đọc an toàn.
+
+   DB cuối cùng cần trả array string.
+   ========================================================================= */
+
+function extractActualPrizeV26(
+  draw,
+  giaiKey = 'db'
+) {
+
+  if (!draw) {
+
+    return [];
+
+  }
+
+
+  const key =
+    String(
+      giaiKey ||
+      'db'
+    ).toLowerCase();
+
+
+  const candidates = [
+
+    draw[key],
+
+    draw[
+      key.toUpperCase()
+    ],
+
+    draw.prizes &&
+      draw.prizes[key],
+
+    draw.prizes &&
+      draw.prizes[
+        key.toUpperCase()
+      ],
+
+    draw.results &&
+      draw.results[key],
+
+    draw.results &&
+      draw.results[
+        key.toUpperCase()
+      ]
+
+  ];
+
+
+  /*
+   * DB aliases.
+   */
+
+  if (
+    key === 'db'
+  ) {
+
+    candidates.push(
+
+      draw.giaidb,
+
+      draw.giaiDB,
+
+      draw.special,
+
+      draw.specialPrize,
+
+      draw.jackpot
+
+    );
+
+  }
+
+
+  const flatten =
+    value => {
+
+      if (
+        value == null
+      ) {
+
+        return [];
+
+      }
+
+
+      if (
+        Array.isArray(value)
+      ) {
+
+        return value
+          .flat(
+            Infinity
+          )
+          .map(
+            item =>
+              String(
+                item
+              ).trim()
+          )
+          .filter(
+            Boolean
+          );
+
+      }
+
+
+      if (
+        typeof value ===
+        'object'
+      ) {
+
+        if (
+          Array.isArray(
+            value.numbers
+          )
+        ) {
+
+          return flatten(
+            value.numbers
+          );
+
+        }
+
+
+        if (
+          value.value != null
+        ) {
+
+          return flatten(
+            value.value
+          );
+
+        }
+
+
+        if (
+          value.number != null
+        ) {
+
+          return flatten(
+            value.number
+          );
+
+        }
+
+
+        return [];
+
+      }
+
+
+      return [
+        String(
+          value
+        ).trim()
+      ].filter(
+        Boolean
+      );
+
+    };
+
+
+  for (
+    const candidate of candidates
+  ) {
+
+    const values =
+      flatten(
+        candidate
+      );
+
+
+    if (
+      values.length
+    ) {
+
+      return values;
+
+    }
+
+  }
+
+
+  /*
+   * Fallback:
+   * một số draw có prize list.
+   */
+
+  if (
+    Array.isArray(
+      draw.prizeList
+    )
+  ) {
+
+    const row =
+      draw.prizeList.find(
+        item => {
+
+          const itemKey =
+            String(
+              item.key ||
+              item.prize ||
+              item.name ||
+              ''
+            ).toLowerCase();
+
+
+          return (
+            itemKey === key ||
+            (
+              key === 'db' &&
+              (
+                itemKey ===
+                  'giaidb' ||
+                itemKey ===
+                  'đặc biệt' ||
+                itemKey ===
+                  'dac biet'
+              )
+            )
+          );
+
+        }
+      );
+
+
+    if (row) {
+
+      return flatten(
+
+        row.numbers ||
+
+        row.values ||
+
+        row.value ||
+
+        row.number
+
+      );
+
+    }
+
+  }
+
+
+  return [];
+
+}
+
+
+/* =========================================================================
+   8. NORMALIZE LOTTERY NUMBER
+
+   Shadow ranking hiện là 2-digit ranking.
+
+   Với DB 5/6 chữ số:
+   dùng 2 số cuối để đánh giá ranking.
+
+   Ví dụ:
+       actual DB = 12345
+       target     = 45
+   ========================================================================= */
+
+function normalizeActualTargetV26(
+  value
+) {
+
+  if (
+    value == null
+  ) {
+
+    return null;
+
+  }
+
+
+  const digits =
+    String(
+      value
+    ).replace(
+      /\D/g,
+      ''
+    );
+
+
+  if (!digits) {
+
+    return null;
+
+  }
+
+
+  return digits
+    .slice(
+      -2
+    )
+    .padStart(
+      2,
+      '0'
+    );
+
+}
+
+
+/* =========================================================================
+   9. NORMALIZE SHADOW RANKING
+   ========================================================================= */
+
+function normalizeShadowRankingV26(
+  snapshot
+) {
+
+  const source =
+
+    Array.isArray(
+      snapshot.ranking
+    )
+      ? snapshot.ranking
+
+      : Array.isArray(
+          snapshot.ranked
+        )
+        ? snapshot.ranked.map(
+            item =>
+              Array.isArray(item)
+                ? item[0]
+                : item
+          )
+
+        : [];
+
+
+  return source
+    .map(
+      value =>
+        normalizeActualTargetV26(
+          value
+        )
+    )
+    .filter(
+      value =>
+        value != null
+    );
+
+}
+
+
+/* =========================================================================
+   10. EVALUATE ONE SNAPSHOT
+   ========================================================================= */
+
+function evaluateShadowSnapshotV26(
+  snapshot
+) {
+
+  if (!snapshot) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const status =
+    String(
+      snapshot.status ||
+      'PENDING'
+    ).toUpperCase();
+
+
+  /*
+   * Không verify lại snapshot đã VERIFIED.
+   */
+
+  if (
+    status ===
+    SHADOW_RESOLVER_V26_CONFIG
+      .verifiedStatus
+  ) {
+
+    return {
+
+      ready: false,
+
+      skipped: true,
+
+      reason:
+        'ALREADY_VERIFIED',
+
+      snapshot
+
+    };
+
+  }
+
+
+  if (
+    status !==
+    SHADOW_RESOLVER_V26_CONFIG
+      .pendingStatus
+  ) {
+
+    return {
+
+      ready: false,
+
+      skipped: true,
+
+      reason:
+        'SNAPSHOT_NOT_PENDING',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const actual =
+    findNextActualDrawV26(
+      snapshot
+    );
+
+
+  if (!actual.ready) {
+
+    return {
+
+      ready: false,
+
+      pending:
+        Boolean(
+          actual.pending
+        ),
+
+      reason:
+        actual.reason,
+
+      snapshot,
+
+      actual
+
+    };
+
+  }
+
+
+  const prize =
+    snapshot.prize ||
+    snapshot.giaiKey ||
+    'db';
+
+
+  const actualValues =
+    extractActualPrizeV26(
+      actual.draw,
+      prize
+    );
+
+
+  if (
+    !actualValues.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      pending: true,
+
+      reason:
+        'ACTUAL_PRIZE_NOT_FOUND',
+
+      snapshot,
+
+      actualDate:
+        actual.actualDate
+
+    };
+
+  }
+
+
+  const targets =
+    actualValues
+      .map(
+        normalizeActualTargetV26
+      )
+      .filter(
+        value =>
+          value != null
+      );
+
+
+  if (
+    !targets.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'ACTUAL_TARGET_INVALID',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const ranking =
+    normalizeShadowRankingV26(
+      snapshot
+    );
+
+
+  if (
+    !ranking.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_RANKING_NOT_FOUND',
+
+      snapshot
+
+    };
+
+  }
+
+
+  /*
+   * Với DB chỉ có 1 actual target.
+   * Nếu prize khác có nhiều số,
+   * lấy target có rank tốt nhất.
+   */
+
+  let bestTarget =
+    null;
+
+  let bestRank =
+    Infinity;
+
+
+  targets.forEach(
+    target => {
+
+      const index =
+        ranking.indexOf(
+          target
+        );
+
+
+      const rank =
+        index >= 0
+          ? index + 1
+          : Infinity;
+
+
+      if (
+        rank < bestRank
+      ) {
+
+        bestRank =
+          rank;
+
+        bestTarget =
+          target;
+
+      }
+
+    }
+  );
+
+
+  /*
+   * Nếu không xuất hiện trong ranking,
+   * vẫn VERIFIED:
+   * đây là kết quả thật,
+   * chỉ là Shadow miss.
+   */
+
+  if (
+    bestTarget == null
+  ) {
+
+    bestTarget =
+      targets[0];
+
+  }
+
+
+  const rank =
+    Number.isFinite(
+      bestRank
+    )
+      ? bestRank
+      : null;
+
+
+  const evaluation = {
+
+    actualDate:
+      actual.actualDate,
+
+    actualValues,
+
+    actualTargets:
+      targets,
+
+    actualTarget:
+      bestTarget,
+
+    rank,
+
+    hitTop1:
+      rank === 1,
+
+    hitTop2:
+      rank != null &&
+      rank <= 2,
+
+    hitTop3:
+      rank != null &&
+      rank <= 3,
+
+    hitTop5:
+      rank != null &&
+      rank <= 5,
+
+    hitTop10:
+      rank != null &&
+      rank <= 10,
+
+    reciprocalRank:
+      rank
+        ? 1 / rank
+        : 0
+
+  };
+
+
+  const verifiedSnapshot = {
+
+    ...snapshot,
+
+    status:
+      SHADOW_RESOLVER_V26_CONFIG
+        .verifiedStatus,
+
+    verifiedAt:
+      new Date()
+        .toISOString(),
+
+    actualDate:
+      evaluation.actualDate,
+
+    actualValues:
+      evaluation.actualValues,
+
+    actualTargets:
+      evaluation.actualTargets,
+
+    actualTarget:
+      evaluation.actualTarget,
+
+    actualRank:
+      evaluation.rank,
+
+    hitTop1:
+      evaluation.hitTop1,
+
+    hitTop2:
+      evaluation.hitTop2,
+
+    hitTop3:
+      evaluation.hitTop3,
+
+    hitTop5:
+      evaluation.hitTop5,
+
+    hitTop10:
+      evaluation.hitTop10,
+
+    reciprocalRank:
+      evaluation.reciprocalRank
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    verified: true,
+
+    snapshot:
+      verifiedSnapshot,
+
+    evaluation
+
+  };
+
+}
+
+
+/* =========================================================================
+   11. RESOLVE ALL PENDING SNAPSHOTS
+   ========================================================================= */
+
+function resolvePendingShadowSnapshotsV26() {
+
+  const store =
+    getShadowStoreForResolverV26();
+
+
+  if (!store.ready) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        store.reason ||
+        'SHADOW_STORE_NOT_READY'
+
+    };
+
+  }
+
+
+  const snapshots =
+    store.snapshots.slice();
+
+
+  let requested = 0;
+
+  let verified = 0;
+
+  let stillPending = 0;
+
+  let alreadyVerified = 0;
+
+  let failed = 0;
+
+
+  const details = [];
+
+
+  const updated =
+    snapshots.map(
+      snapshot => {
+
+        const status =
+          String(
+            snapshot.status ||
+            'PENDING'
+          ).toUpperCase();
+
+
+        if (
+          status ===
+          SHADOW_RESOLVER_V26_CONFIG
+            .verifiedStatus
+        ) {
+
+          alreadyVerified++;
+
+
+          return snapshot;
+
+        }
+
+
+        if (
+          status !==
+          SHADOW_RESOLVER_V26_CONFIG
+            .pendingStatus
+        ) {
+
+          return snapshot;
+
+        }
+
+
+        requested++;
+
+
+        const result =
+          evaluateShadowSnapshotV26(
+            snapshot
+          );
+
+
+        details.push(
+          {
+
+            province:
+              snapshot.provinceSlug ||
+              snapshot.province ||
+              snapshot.slug ||
+              '-',
+
+            latestDraw:
+              snapshot.latestDraw ||
+              snapshot.latestDrawDate ||
+              '-',
+
+            ready:
+              result.ready,
+
+            pending:
+              Boolean(
+                result.pending
+              ),
+
+            reason:
+              result.ready
+                ? 'VERIFIED'
+                : result.reason,
+
+            actualDate:
+              result.ready
+                ? result.evaluation
+                    .actualDate
+                : result.actual &&
+                  result.actual
+                    .actualDate
+                  ? result.actual
+                      .actualDate
+                  : '-',
+
+            actualTarget:
+              result.ready
+                ? result.evaluation
+                    .actualTarget
+                : '-',
+
+            rank:
+              result.ready &&
+              result.evaluation.rank
+                ? result.evaluation.rank
+                : '-'
+
+          }
+        );
+
+
+        if (
+          result.ready &&
+          result.verified
+        ) {
+
+          verified++;
+
+
+          return result.snapshot;
+
+        }
+
+
+        if (
+          result.pending
+        ) {
+
+          stillPending++;
+
+        } else {
+
+          failed++;
+
+        }
+
+
+        return snapshot;
+
+      }
+    );
+
+
+  /*
+   * Chỉ save khi thực sự có snapshot
+   * được VERIFIED.
+   */
+
+  let saved =
+    true;
+
+
+  if (
+    verified > 0
+  ) {
+
+    saved =
+      saveShadowStoreForResolverV26(
+        store,
+        updated
+      );
+
+  }
+
+
+  if (
+    verified > 0 &&
+    !saved
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'VERIFIED_BUT_STORE_SAVE_FAILED',
+
+      requested,
+
+      verified,
+
+      stillPending,
+
+      failed,
+
+      details
+
+    };
+
+  }
+
+
+  const totalVerified =
+    updated.filter(
+      item =>
+        String(
+          item.status ||
+          ''
+        ).toUpperCase() ===
+        SHADOW_RESOLVER_V26_CONFIG
+          .verifiedStatus
+    ).length;
+
+
+  const totalPending =
+    updated.filter(
+      item =>
+        String(
+          item.status ||
+          'PENDING'
+        ).toUpperCase() ===
+        SHADOW_RESOLVER_V26_CONFIG
+          .pendingStatus
+    ).length;
+
+
+  const result = {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW_ACTUAL_RESULT_RESOLVER',
+
+    researchOnly:
+      true,
+
+    source:
+      store.source,
+
+    storageKey:
+      store.storageKey ||
+      null,
+
+    totalStore:
+      updated.length,
+
+    requested,
+
+    verified,
+
+    stillPending,
+
+    alreadyVerified,
+
+    failed,
+
+    totalVerified,
+
+    totalPending,
+
+    details
+
+  };
+
+
+  window.LAST_SHADOW_RESOLVE_V26 =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   12. MOBILE TEST
+   ========================================================================= */
+
+function showShadowResolverTestV26Mobile() {
+
+  try {
+
+    const result =
+      resolvePendingShadowSnapshotsV26();
+
+
+    if (
+      !result ||
+      !result.ready
+    ) {
+
+      alert(
+
+        '❌ V2.6 ACTUAL RESULT RESOLVER\n\n' +
+
+        'Reason: ' +
+        (
+          result &&
+          result.reason
+            ? result.reason
+            : 'UNKNOWN_ERROR'
+        )
+
+      );
+
+
+      return result;
+
+    }
+
+
+    const lines = [];
+
+
+    lines.push(
+      '🔎 V2.6 ACTUAL RESULT RESOLVER'
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    lines.push(
+      'Requested: ' +
+      result.requested
+    );
+
+    lines.push(
+      'Verified Now: ' +
+      result.verified
+    );
+
+    lines.push(
+      'Still Pending: ' +
+      result.stillPending
+    );
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Total Store: ' +
+      result.totalStore
+    );
+
+    lines.push(
+      'Total Verified: ' +
+      result.totalVerified
+    );
+
+    lines.push(
+      'Total Pending: ' +
+      result.totalPending
+    );
+
+    lines.push(
+      ''
+    );
+
+
+    result.details.forEach(
+      item => {
+
+        lines.push(
+          '--------------------'
+        );
+
+
+        lines.push(
+          item.ready
+            ? '✅ ' +
+              item.province
+            : item.pending
+              ? '⏳ ' +
+                item.province
+              : '❌ ' +
+                item.province
+        );
+
+
+        lines.push(
+          'Snapshot Latest: ' +
+          item.latestDraw
+        );
+
+
+        if (
+          item.ready
+        ) {
+
+          lines.push(
+            'Actual Draw: ' +
+            item.actualDate
+          );
+
+
+          lines.push(
+            'Actual Target: ' +
+            item.actualTarget
+          );
+
+
+          lines.push(
+            'Rank: ' +
+            item.rank
+          );
+
+
+          lines.push(
+            'Status: VERIFIED'
+          );
+
+        } else {
+
+          lines.push(
+            'Status: ' +
+            (
+              item.pending
+                ? 'PENDING'
+                : 'FAILED'
+            )
+          );
+
+
+          lines.push(
+            'Reason: ' +
+            item.reason
+          );
+
+        }
+
+      }
+    );
+
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      'Research only'
+    );
+
+    lines.push(
+      'Production unchanged'
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Resolver Mobile Test:',
+      error
+    );
+
+
+    alert(
+
+      '❌ V2.6 RESOLVER ERROR\n\n' +
+
+      String(
+        error.message ||
+        error
+      )
+
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   13. MOBILE BUTTON
+   ========================================================================= */
+
+function addShadowResolverButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnShadowResolverV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const settings =
+    document.getElementById(
+      'tab-settings'
+    );
+
+
+  if (!settings) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnShadowResolverV26';
+
+
+  button.textContent =
+    '🔎 Test V2.6 Actual Resolver';
+
+
+  button.style.cssText =
+    `
+      width:100%;
+      margin-top:16px;
+      padding:16px 12px;
+      border:0;
+      border-radius:14px;
+      font-size:17px;
+      font-weight:800;
+      cursor:pointer;
+    `;
+
+
+  button.addEventListener(
+    'click',
+    showShadowResolverTestV26Mobile
+  );
+
+
+  settings.appendChild(
+    button
+  );
+
+}
+
+
+/* =========================================================================
+   14. INIT
+   ========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    addShadowResolverButtonV26
+  );
+
+} else {
+
+  addShadowResolverButtonV26();
+
+}
+
+
+/* =========================================================================
+   15. SAFETY CHECK
+   ========================================================================= */
+
+function shadowResolverSafetyCheckV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    block:
+      '8B-C',
+
+    researchOnly:
+      true,
+
+    productionModified:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    productionWeightsModified:
+      false,
+
+    productionModelModified:
+      false,
+
+    productionWindowModified:
+      false,
+
+    automaticLearning:
+      false,
+
+    status:
+      'SAFE_ACTUAL_RESULT_RESOLVER_ONLY'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Block 8B-C loaded — Actual Result Resolver ready'
+);
+
