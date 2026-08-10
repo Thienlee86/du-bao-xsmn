@@ -35765,3 +35765,636 @@ console.log(
   'XSMN V2.6 Shadow Deep Debug ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — SHADOW HISTORICAL DRAWS FIX
+
+   Root cause:
+   - Production V2.3 / V2.4 / V2.5 sử dụng:
+       getAllDrawsForProvince(provinceSlug)
+   - Shadow 8A lại tìm:
+       drawListOfProvince()
+       provinceDraws()
+       province.draws
+   - Vì vậy Shadow trả NO_SHADOW_DRAWS.
+
+   Fix:
+   - Shadow đọc cùng historical data source với Production.
+   - READ ONLY.
+   - Không mutate DATA.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SHADOW DRAW SOURCE
+   ========================================================================= */
+
+function getShadowDrawsV26(
+  provinceSlug
+) {
+
+  let draws = null;
+
+
+  /*
+   * PRIMARY SOURCE
+   *
+   * Đây là data pipeline thật mà
+   * V2.3 / V2.4 / V2.5 đang sử dụng.
+   */
+
+  if (
+    typeof getAllDrawsForProvince ===
+    'function'
+  ) {
+
+    try {
+
+      draws =
+        getAllDrawsForProvince(
+          provinceSlug
+        );
+
+    } catch (
+      error
+    ) {
+
+      console.error(
+        'V2.6 Shadow getAllDrawsForProvince error:',
+        error
+      );
+
+    }
+
+  }
+
+
+  /*
+   * Chỉ chấp nhận array có dữ liệu.
+   */
+
+  if (
+    Array.isArray(
+      draws
+    ) &&
+    draws.length
+  ) {
+
+    /*
+     * Clone để Shadow tuyệt đối
+     * không mutate array Production.
+     */
+
+    return draws.slice();
+
+  }
+
+
+  /*
+   * FALLBACK 1
+   */
+
+  if (
+    typeof drawListOfProvince ===
+    'function'
+  ) {
+
+    try {
+
+      draws =
+        drawListOfProvince(
+          provinceSlug
+        );
+
+    } catch (
+      error
+    ) {
+
+      console.warn(
+        'V2.6 Shadow drawList fallback:',
+        error
+      );
+
+    }
+
+  }
+
+
+  if (
+    Array.isArray(
+      draws
+    ) &&
+    draws.length
+  ) {
+
+    return draws.slice();
+
+  }
+
+
+  /*
+   * FALLBACK 2
+   */
+
+  if (
+    typeof provinceDraws ===
+    'function'
+  ) {
+
+    try {
+
+      draws =
+        provinceDraws(
+          provinceSlug
+        );
+
+    } catch (
+      error
+    ) {
+
+      console.warn(
+        'V2.6 Shadow provinceDraws fallback:',
+        error
+      );
+
+    }
+
+  }
+
+
+  if (
+    Array.isArray(
+      draws
+    ) &&
+    draws.length
+  ) {
+
+    return draws.slice();
+
+  }
+
+
+  return [];
+
+}
+
+
+/* =========================================================================
+   2. REPLACE SHADOW RANKING BUILDER
+
+   Override function Block 8A cũ.
+
+   Logic dự báo giữ nguyên.
+   Chỉ sửa nguồn historical draws.
+   ========================================================================= */
+
+buildShadowRankingV26 =
+function(
+  provinceSlug,
+  giaiKey = 'db'
+) {
+
+  const eligibility =
+    isShadowEligibleV26(
+      provinceSlug
+    );
+
+
+  if (
+    !eligibility.eligible
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        eligibility.reason,
+
+      eligibility
+
+    };
+
+  }
+
+
+  const decision =
+    eligibility.decision;
+
+
+  const config =
+    getShadowModelConfigV26(
+      decision.model
+    );
+
+
+  if (!config) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_MODEL_CONFIG_NOT_FOUND',
+
+      decision
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * FIX QUAN TRỌNG:
+   *
+   * Lấy historical draws từ Production
+   * data pipeline thật.
+   * -------------------------------------------------------------
+   */
+
+  const draws =
+    getShadowDrawsV26(
+      provinceSlug
+    );
+
+
+  if (
+    !Array.isArray(
+      draws
+    ) ||
+    !draws.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'NO_SHADOW_DRAWS',
+
+      decision
+
+    };
+
+  }
+
+
+  /*
+   * Clone + sort.
+   *
+   * Không thay đổi Production DATA.
+   */
+
+  const historical =
+    draws
+      .slice()
+      .sort(
+        (a, b) =>
+          b.date.localeCompare(
+            a.date
+          )
+      );
+
+
+  let scores;
+
+
+  try {
+
+    scores =
+      modelLabScoresV23(
+        historical,
+        giaiKey,
+        decision.window,
+        config.weights
+      );
+
+  } catch (
+    error
+  ) {
+
+    console.error(
+      'V2.6 Shadow Score Error:',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'SHADOW_SCORE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      decision,
+
+      historyCount:
+        historical.length
+
+    };
+
+  }
+
+
+  const ranked =
+    rankedNumbers(
+      scores
+    );
+
+
+  if (
+    !Array.isArray(
+      ranked
+    ) ||
+    !ranked.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      prize:
+        giaiKey,
+
+      reason:
+        'EMPTY_SHADOW_RANKING',
+
+      decision,
+
+      historyCount:
+        historical.length
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'SHADOW',
+
+    researchOnly:
+      true,
+
+    productionOverride:
+      false,
+
+    province:
+      provinceSlug,
+
+    prize:
+      giaiKey,
+
+    model:
+      decision.model,
+
+    window:
+      decision.window,
+
+    gateScore:
+      decision.gateScore,
+
+    oosDelta:
+      decision.delta,
+
+    winRate:
+      decision.winRate,
+
+    generatedAt:
+      new Date()
+        .toISOString(),
+
+    historyCount:
+      historical.length,
+
+    ranked,
+
+    ranking:
+      ranked.map(
+        item =>
+          item[0]
+      ),
+
+    top1:
+      ranked
+        .slice(
+          0,
+          1
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top2:
+      ranked
+        .slice(
+          0,
+          2
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top3:
+      ranked
+        .slice(
+          0,
+          3
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top5:
+      ranked
+        .slice(
+          0,
+          5
+        )
+        .map(
+          item =>
+            item[0]
+        ),
+
+    top10:
+      ranked
+        .slice(
+          0,
+          10
+        )
+        .map(
+          item =>
+            item[0]
+        )
+
+  };
+
+};
+
+
+/* =========================================================================
+   3. MOBILE VERIFY DRAW SOURCE
+   ========================================================================= */
+
+function verifyShadowDrawSourceV26Mobile() {
+
+  const slugs = [
+    'tay-ninh',
+    'tp-hcm',
+    'tien-giang',
+    'binh-duong'
+  ];
+
+
+  const lines = [
+    '🔬 V2.6 SHADOW DRAW SOURCE',
+    ''
+  ];
+
+
+  slugs.forEach(
+    slug => {
+
+      const draws =
+        getShadowDrawsV26(
+          slug
+        );
+
+
+      lines.push(
+        slug
+      );
+
+
+      lines.push(
+        'Draws: ' +
+        (
+          Array.isArray(draws)
+            ? draws.length
+            : 0
+        )
+      );
+
+
+      if (
+        Array.isArray(draws) &&
+        draws.length
+      ) {
+
+        lines.push(
+          'Latest: ' +
+          (
+            draws[0] &&
+            draws[0].date
+              ? draws[0].date
+              : '-'
+          )
+        );
+
+      }
+
+
+      lines.push(
+        '--------------------'
+      );
+
+    }
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   4. SAFETY
+   ========================================================================= */
+
+function shadowHistoricalFixSafetyV26() {
+
+  return {
+
+    version:
+      'V2.6',
+
+    fix:
+      'SHADOW_HISTORICAL_DRAWS',
+
+    source:
+      'getAllDrawsForProvince',
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    productionDataMutated:
+      false,
+
+    predictionButtonModified:
+      false,
+
+    researchOnly:
+      true,
+
+    status:
+      'SAFE'
+
+  };
+
+}
+
+
+console.log(
+  'XSMN V2.6 Shadow Historical Draws Fix loaded'
+);
+
