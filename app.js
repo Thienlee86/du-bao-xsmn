@@ -53749,3 +53749,785 @@ console.log(
   'XSMN V2.6 Persistent Test Buttons loaded'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A2
+   PERSISTENCE FIX
+
+   Mục tiêu:
+   - Lưu SHADOW_SNAPSHOTS_V26 thật sự vào localStorage.
+   - Restore snapshot sau reload.
+   - Không để [] trong RAM ghi đè dữ liệu persistent.
+   - Chống duplicate cơ bản.
+   - Research Only.
+   - Production Engine unchanged.
+   ========================================================================= */
+
+const SHADOW_PERSIST_KEY_V26 =
+  'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+/* =========================================================================
+   1. READ RAW PERSISTENT STORE
+   ========================================================================= */
+
+function readShadowPersistentStoreV26() {
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        SHADOW_PERSIST_KEY_V26
+      );
+
+
+    if (!raw) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'PERSISTENT_EMPTY',
+
+        snapshots: []
+
+      };
+
+    }
+
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+
+    if (
+      !Array.isArray(
+        parsed
+      )
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PERSISTENT_STORE_NOT_ARRAY',
+
+        snapshots: []
+
+      };
+
+    }
+
+
+    return {
+
+      ready: true,
+
+      source:
+        'PERSISTENT_FOUND',
+
+      snapshots:
+        parsed
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      snapshots: []
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   2. SNAPSHOT IDENTITY
+   ========================================================================= */
+
+function shadowSnapshotIdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return null;
+
+  }
+
+
+  /*
+   * Ưu tiên ID đã có trong snapshot.
+   */
+
+  if (
+    snapshot.id != null &&
+    String(
+      snapshot.id
+    ).trim()
+  ) {
+
+    return (
+      'ID:' +
+      String(
+        snapshot.id
+      )
+    );
+
+  }
+
+
+  /*
+   * Fallback identity.
+   *
+   * Dùng các field đã thấy trong schema hiện tại.
+   */
+
+  const province =
+    snapshot.province ||
+    snapshot.provinceSlug ||
+    snapshot.slug ||
+    'UNKNOWN';
+
+
+  const prize =
+    snapshot.prize ||
+    'db';
+
+
+  const draw =
+    snapshot.latestDraw ||
+    snapshot.draw ||
+    snapshot.drawDate ||
+    snapshot.targetDraw ||
+    snapshot.date ||
+    'NO_DRAW';
+
+
+  const model =
+    snapshot.model ||
+    'NO_MODEL';
+
+
+  const windowSize =
+    snapshot.window != null
+      ? snapshot.window
+      : 'NO_WINDOW';
+
+
+  return [
+    province,
+    prize,
+    draw,
+    model,
+    windowSize
+  ].join(
+    '|'
+  );
+
+}
+
+
+/* =========================================================================
+   3. DEDUPLICATE SNAPSHOTS
+   ========================================================================= */
+
+function deduplicateShadowSnapshotsV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return [];
+
+  }
+
+
+  const seen =
+    new Set();
+
+
+  const result =
+    [];
+
+
+  snapshots.forEach(
+    snapshot => {
+
+      const identity =
+        shadowSnapshotIdentityV26(
+          snapshot
+        );
+
+
+      if (!identity) {
+
+        return;
+
+      }
+
+
+      if (
+        seen.has(
+          identity
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      seen.add(
+        identity
+      );
+
+
+      result.push(
+        snapshot
+      );
+
+    }
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. WRITE PERSISTENT STORE
+   ========================================================================= */
+
+function writeShadowPersistentStoreV26(
+  snapshots
+) {
+
+  try {
+
+    const clean =
+      deduplicateShadowSnapshotsV26(
+        Array.isArray(
+          snapshots
+        )
+          ? snapshots
+          : []
+      );
+
+
+    localStorage.setItem(
+      SHADOW_PERSIST_KEY_V26,
+      JSON.stringify(
+        clean
+      )
+    );
+
+
+    /*
+     * Read-after-write verification.
+     */
+
+    const verifyRaw =
+      localStorage.getItem(
+        SHADOW_PERSIST_KEY_V26
+      );
+
+
+    if (!verifyRaw) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PERSIST_WRITE_VERIFY_EMPTY'
+
+      };
+
+    }
+
+
+    const verified =
+      JSON.parse(
+        verifyRaw
+      );
+
+
+    if (
+      !Array.isArray(
+        verified
+      )
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PERSIST_WRITE_VERIFY_INVALID'
+
+      };
+
+    }
+
+
+    return {
+
+      ready: true,
+
+      saved:
+        verified.length,
+
+      snapshots:
+        verified
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   5. RESTORE + MERGE
+
+   Quan trọng:
+   Không lấy RAM [] rồi ghi đè persistent.
+
+   Ta đọc cả hai:
+   persistent + RAM
+   rồi merge.
+   ========================================================================= */
+
+function restoreShadowPersistentStoreV26() {
+
+  const persistent =
+    readShadowPersistentStoreV26();
+
+
+  if (
+    !persistent.ready
+  ) {
+
+    return persistent;
+
+  }
+
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const merged =
+    deduplicateShadowSnapshotsV26(
+      [
+        ...persistent.snapshots,
+        ...ram
+      ]
+    );
+
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    merged;
+
+
+  const write =
+    writeShadowPersistentStoreV26(
+      merged
+    );
+
+
+  if (
+    !write.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        write.reason,
+
+      error:
+        write.error
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    source:
+      persistent.snapshots.length
+        ? 'PERSISTENT_RESTORED'
+        : (
+            ram.length
+              ? 'RAM_MIGRATED'
+              : 'PERSISTENT_INITIALIZED'
+          ),
+
+    persistentBefore:
+      persistent.snapshots.length,
+
+    ramBefore:
+      ram.length,
+
+    total:
+      merged.length,
+
+    snapshots:
+      merged
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. SAVE ONE SNAPSHOT TO PERSISTENT STORE
+   ========================================================================= */
+
+function persistShadowSnapshotV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const persistent =
+    readShadowPersistentStoreV26();
+
+
+  if (
+    !persistent.ready
+  ) {
+
+    return persistent;
+
+  }
+
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const before =
+    deduplicateShadowSnapshotsV26(
+      [
+        ...persistent.snapshots,
+        ...ram
+      ]
+    );
+
+
+  const beforeCount =
+    before.length;
+
+
+  const after =
+    deduplicateShadowSnapshotsV26(
+      [
+        ...before,
+        snapshot
+      ]
+    );
+
+
+  const write =
+    writeShadowPersistentStoreV26(
+      after
+    );
+
+
+  if (
+    !write.ready
+  ) {
+
+    return write;
+
+  }
+
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    write.snapshots;
+
+
+  return {
+
+    ready: true,
+
+    savedNew:
+      write.snapshots.length >
+      beforeCount,
+
+    duplicate:
+      write.snapshots.length ===
+      beforeCount,
+
+    total:
+      write.snapshots.length,
+
+    snapshot
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. SYNC CURRENT RAM STORE
+
+   Dùng để migrate snapshot đang có trong RAM
+   sang persistent store.
+   ========================================================================= */
+
+function syncShadowSnapshotsToPersistentV26() {
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const persistent =
+    readShadowPersistentStoreV26();
+
+
+  if (
+    !persistent.ready
+  ) {
+
+    return persistent;
+
+  }
+
+
+  const merged =
+    deduplicateShadowSnapshotsV26(
+      [
+        ...persistent.snapshots,
+        ...ram
+      ]
+    );
+
+
+  const write =
+    writeShadowPersistentStoreV26(
+      merged
+    );
+
+
+  if (
+    !write.ready
+  ) {
+
+    return write;
+
+  }
+
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    write.snapshots;
+
+
+  return {
+
+    ready: true,
+
+    source:
+      'PERSISTENT_SYNC',
+
+    ramBefore:
+      ram.length,
+
+    persistentBefore:
+      persistent.snapshots.length,
+
+    total:
+      write.snapshots.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   8. PATCH saveShadowSnapshotV26
+
+   Giữ engine tạo snapshot cũ.
+   Chỉ thêm persistence sau khi save thành công.
+   ========================================================================= */
+
+if (
+  typeof window.saveShadowSnapshotV26 ===
+    'function' &&
+  !window
+    .SAVE_SHADOW_SNAPSHOT_V26_PERSIST_PATCHED
+) {
+
+  window
+    .SAVE_SHADOW_SNAPSHOT_V26_ORIGINAL =
+      window.saveShadowSnapshotV26;
+
+
+  window.saveShadowSnapshotV26 =
+    function (
+      provinceSlug,
+      giaiKey = 'db'
+    ) {
+
+      const result =
+        window
+          .SAVE_SHADOW_SNAPSHOT_V26_ORIGINAL(
+            provinceSlug,
+            giaiKey
+          );
+
+
+      if (
+        !result ||
+        !result.ready ||
+        !result.snapshot
+      ) {
+
+        return result;
+
+      }
+
+
+      const persist =
+        persistShadowSnapshotV26(
+          result.snapshot
+        );
+
+
+      return {
+
+        ...result,
+
+        persistent:
+          persist.ready,
+
+        persistentSavedNew:
+          Boolean(
+            persist.savedNew
+          ),
+
+        persistentDuplicate:
+          Boolean(
+            persist.duplicate
+          ),
+
+        persistentTotal:
+          persist.total != null
+            ? persist.total
+            : null,
+
+        persistentReason:
+          persist.ready
+            ? null
+            : persist.reason
+
+      };
+
+    };
+
+
+  window
+    .SAVE_SHADOW_SNAPSHOT_V26_PERSIST_PATCHED =
+      true;
+
+}
+
+
+/* =========================================================================
+   9. AUTO RESTORE ON LOAD
+   ========================================================================= */
+
+const V26_PERSISTENCE_RESTORE_RESULT =
+  restoreShadowPersistentStoreV26();
+
+
+window
+  .LAST_V26_PERSISTENCE_RESTORE =
+    V26_PERSISTENCE_RESTORE_RESULT;
+
+
+console.log(
+  'XSMN V2.6 8C-A2 Persistence Fix loaded',
+  V26_PERSISTENCE_RESTORE_RESULT
+);
+
