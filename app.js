@@ -47276,3 +47276,778 @@ console.log(
   'XSMN V2.6 Province Decision Lookup Fix ready'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX
+   DECISION LOOKUP BOOTSTRAP
+
+   Mục tiêu:
+   - Sau reload, tự bảo đảm Decision Layer tồn tại trước khi Lookup.
+   - Tận dụng pipeline/global đã có nếu có.
+   - Chỉ chạy Cross OOS khi thực sự cần.
+   - Không thay Production Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. ENSURE DECISION FOR LOOKUP
+   ========================================================================= */
+
+function ensureDecisionForLookupV26() {
+
+  /*
+   * CASE 1:
+   * Decision Layer đã có sẵn.
+   */
+
+  const existing =
+    window.LAST_PROVINCE_DECISION_V26;
+
+
+  if (
+    existing &&
+    existing.ready &&
+    (
+      (
+        Array.isArray(
+          existing.decisions
+        ) &&
+        existing.decisions.length
+      ) ||
+      (
+        Array.isArray(
+          existing.results
+        ) &&
+        existing.results.length
+      )
+    )
+  ) {
+
+    /*
+     * Chuẩn hóa alias.
+     */
+
+    if (
+      !Array.isArray(
+        existing.results
+      ) &&
+      Array.isArray(
+        existing.decisions
+      )
+    ) {
+
+      existing.results =
+        existing.decisions;
+
+    }
+
+
+    if (
+      !Array.isArray(
+        existing.decisions
+      ) &&
+      Array.isArray(
+        existing.results
+      )
+    ) {
+
+      existing.decisions =
+        existing.results;
+
+    }
+
+
+    return {
+
+      ready: true,
+
+      source:
+        'EXISTING_DECISION',
+
+      result:
+        existing
+
+    };
+
+  }
+
+
+  /*
+   * CASE 2:
+   * Dùng helper bootstrap đã tạo ở Block 8B.
+   */
+
+  if (
+    typeof ensureDecisionLayerForSnapshotV26 ===
+      'function'
+  ) {
+
+    try {
+
+      const bootstrap =
+        ensureDecisionLayerForSnapshotV26();
+
+
+      if (
+        bootstrap &&
+        bootstrap.ready &&
+        bootstrap.result
+      ) {
+
+        const result =
+          bootstrap.result;
+
+
+        if (
+          Array.isArray(
+            result.decisions
+          ) &&
+          result.decisions.length
+        ) {
+
+          result.results =
+            result.decisions;
+
+        }
+
+
+        if (
+          !Array.isArray(
+            result.decisions
+          ) &&
+          Array.isArray(
+            result.results
+          )
+        ) {
+
+          result.decisions =
+            result.results;
+
+        }
+
+
+        window.LAST_PROVINCE_DECISION_V26 =
+          result;
+
+
+        return {
+
+          ready: true,
+
+          source:
+            'SNAPSHOT_DECISION_BOOTSTRAP',
+
+          result
+
+        };
+
+      }
+
+
+      return {
+
+        ready: false,
+
+        reason:
+          bootstrap &&
+          bootstrap.reason
+            ? bootstrap.reason
+            : 'DECISION_BOOTSTRAP_NOT_READY',
+
+        stage:
+          bootstrap &&
+          bootstrap.stage
+            ? bootstrap.stage
+            : 'DECISION_LAYER',
+
+        detail:
+          bootstrap
+
+      };
+
+    } catch (
+      error
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'DECISION_BOOTSTRAP_ERROR',
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * CASE 3:
+   * Fallback trực tiếp.
+   *
+   * Gate đã có thì chạy Decision Layer.
+   */
+
+  const gate =
+    window.LAST_PROVINCE_GATE_V26;
+
+
+  if (
+    gate &&
+    gate.ready &&
+    Array.isArray(
+      gate.results
+    ) &&
+    gate.results.length &&
+    typeof runProvinceDecisionLayerV26 ===
+      'function'
+  ) {
+
+    try {
+
+      const result =
+        runProvinceDecisionLayerV26(
+          gate
+        );
+
+
+      const finalResult =
+        result &&
+        result.ready
+          ? result
+          : window
+              .LAST_PROVINCE_DECISION_V26;
+
+
+      if (
+        finalResult &&
+        finalResult.ready
+      ) {
+
+        if (
+          Array.isArray(
+            finalResult.decisions
+          ) &&
+          finalResult.decisions.length
+        ) {
+
+          finalResult.results =
+            finalResult.decisions;
+
+        }
+
+
+        if (
+          !Array.isArray(
+            finalResult.decisions
+          ) &&
+          Array.isArray(
+            finalResult.results
+          )
+        ) {
+
+          finalResult.decisions =
+            finalResult.results;
+
+        }
+
+
+        window.LAST_PROVINCE_DECISION_V26 =
+          finalResult;
+
+
+        return {
+
+          ready: true,
+
+          source:
+            'DIRECT_DECISION_RUNNER',
+
+          result:
+            finalResult
+
+        };
+
+      }
+
+    } catch (
+      error
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'DIRECT_DECISION_ERROR',
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      };
+
+    }
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'DECISION_LAYER_NOT_AVAILABLE'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BOOTSTRAPPED LOOKUP TEST
+   ========================================================================= */
+
+function testProvinceDecisionLookupBootstrappedV26() {
+
+  const started =
+    performance.now();
+
+
+  /*
+   * STEP 1:
+   * Bảo đảm Decision Layer tồn tại.
+   */
+
+  const bootstrap =
+    ensureDecisionForLookupV26();
+
+
+  if (
+    !bootstrap ||
+    !bootstrap.ready
+  ) {
+
+    let text =
+
+      '❌ V2.6 DECISION LOOKUP BOOTSTRAP\n\n' +
+
+      'Reason: ' +
+      (
+        bootstrap &&
+        bootstrap.reason
+          ? bootstrap.reason
+          : 'UNKNOWN'
+      );
+
+
+    if (
+      bootstrap &&
+      bootstrap.stage
+    ) {
+
+      text +=
+        '\nStage: ' +
+        bootstrap.stage;
+
+    }
+
+
+    if (
+      bootstrap &&
+      bootstrap.error
+    ) {
+
+      text +=
+        '\n\nError:\n' +
+        bootstrap.error;
+
+    }
+
+
+    alert(
+      text
+    );
+
+
+    return bootstrap;
+
+  }
+
+
+  /*
+   * STEP 2:
+   * Decision Layer phải có 21 rows.
+   */
+
+  const layer =
+    bootstrap.result;
+
+
+  const rows =
+
+    Array.isArray(
+      layer.decisions
+    ) &&
+    layer.decisions.length
+
+      ? layer.decisions
+
+      : (
+          Array.isArray(
+            layer.results
+          )
+            ? layer.results
+            : []
+        );
+
+
+  /*
+   * Đảm bảo helper Lookup nhìn đúng global.
+   */
+
+  layer.decisions =
+    rows;
+
+  layer.results =
+    rows;
+
+
+  window.LAST_PROVINCE_DECISION_V26 =
+    layer;
+
+
+  /*
+   * STEP 3:
+   * Test 4 Adaptive.
+   */
+
+  const targets = [
+
+    'tay-ninh',
+
+    'tp-hcm',
+
+    'tien-giang',
+
+    'binh-duong'
+
+  ];
+
+
+  const lines = [
+
+    '🔗 V2.6 DECISION LOOKUP BOOTSTRAP',
+
+    '',
+
+    'Bootstrap: READY',
+
+    'Source: ' +
+      bootstrap.source,
+
+    'Decision Rows: ' +
+      rows.length,
+
+    ''
+
+  ];
+
+
+  const results =
+    targets.map(
+      slug => {
+
+        const decision =
+          findProvinceDecisionV26(
+            slug
+          );
+
+
+        const eligibility =
+          isShadowEligibleV26(
+            slug
+          );
+
+
+        lines.push(
+          eligibility.eligible
+            ? '✅ ' + slug
+            : '❌ ' + slug
+        );
+
+
+        lines.push(
+          'Decision: ' +
+          (
+            decision
+              ? (
+                  decision.action ||
+                  decision.decision ||
+                  decision.recommendation ||
+                  '-'
+                )
+              : 'NOT_FOUND'
+          )
+        );
+
+
+        lines.push(
+          'Model: ' +
+          (
+            decision &&
+            decision.model
+              ? decision.model
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Window: ' +
+          (
+            decision &&
+            decision.window
+              ? decision.window
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Eligibility: ' +
+          (
+            eligibility.eligible
+              ? 'READY'
+              : eligibility.reason
+          )
+        );
+
+
+        lines.push(
+          '--------------------'
+        );
+
+
+        return {
+
+          slug,
+
+          decision,
+
+          eligibility
+
+        };
+
+      }
+    );
+
+
+  const readyCount =
+    results.filter(
+      item =>
+        item.eligibility &&
+        item.eligibility.eligible
+    ).length;
+
+
+  const elapsed =
+    (
+      (
+        performance.now() -
+        started
+      ) /
+      1000
+    ).toFixed(
+      2
+    );
+
+
+  lines.push(
+    ''
+  );
+
+
+  lines.push(
+    'READY: ' +
+    readyCount +
+    '/4'
+  );
+
+
+  lines.push(
+    'Time: ' +
+    elapsed +
+    's'
+  );
+
+
+  if (
+    readyCount === 4
+  ) {
+
+    lines.push(
+      ''
+    );
+
+    lines.push(
+      '✅ ALL 4 DECISIONS READY'
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  const result = {
+
+    ready:
+      readyCount === 4,
+
+    bootstrap:
+      bootstrap.source,
+
+    decisionCount:
+      rows.length,
+
+    readyCount,
+
+    elapsedSeconds:
+      Number(
+        elapsed
+      ),
+
+    results
+
+  };
+
+
+  window
+    .LAST_DECISION_LOOKUP_BOOTSTRAP_TEST_V26 =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. PATCH EXISTING LOOKUP BUTTON
+
+   Không tạo thêm nút.
+   Nút:
+     🔗 Test V2.6 Decision Lookup
+
+   sẽ chạy bản Bootstrapped mới.
+   ========================================================================= */
+
+function patchProvinceDecisionLookupButtonV26() {
+
+  const button =
+    document.getElementById(
+      'btnProvinceDecisionLookupV26'
+    );
+
+
+  if (!button) {
+
+    return false;
+
+  }
+
+
+  /*
+   * Clone để bỏ listener cũ.
+   */
+
+  const replacement =
+    button.cloneNode(
+      true
+    );
+
+
+  replacement.textContent =
+    '🔗 Test V2.6 Decision Lookup';
+
+
+  replacement.onclick =
+    function() {
+
+      testProvinceDecisionLookupBootstrappedV26();
+
+    };
+
+
+  button.parentNode.replaceChild(
+    replacement,
+    button
+  );
+
+
+  return true;
+
+}
+
+
+/* =========================================================================
+   4. INIT
+   ========================================================================= */
+
+function initDecisionLookupBootstrapV26() {
+
+  const patched =
+    patchProvinceDecisionLookupButtonV26();
+
+
+  if (!patched) {
+
+    if (
+      document.readyState ===
+        'loading'
+    ) {
+
+      document.addEventListener(
+        'DOMContentLoaded',
+        patchProvinceDecisionLookupButtonV26
+      );
+
+    } else {
+
+      /*
+       * Cho UI cũ một nhịp tạo button.
+       */
+
+      setTimeout(
+        patchProvinceDecisionLookupButtonV26,
+        300
+      );
+
+    }
+
+  }
+
+}
+
+
+initDecisionLookupBootstrapV26();
+
+
+console.log(
+  'XSMN V2.6 Decision Lookup Bootstrap Fix ready'
+);
+
