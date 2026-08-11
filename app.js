@@ -64968,3 +64968,1275 @@ function testAutoVerificationHookV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B5
+   VERIFIED PERSISTENCE INTEGRITY TEST
+
+   Mục tiêu:
+
+   1. Không thay Production Prediction Engine.
+   2. Không thay 4 Shadow Snapshot thật.
+   3. Tạo test snapshot cô lập từ draw lịch sử có thật.
+   4. Dùng verifyOneShadowSnapshotV26() thật để VERIFY.
+   5. Ghi snapshot test bằng Wrapper writer thật.
+   6. Read-back từ persistent store.
+   7. Kiểm tra VERIFIED schema còn nguyên sau JSON round-trip.
+   8. Luôn restore persistent store + RAM trong finally.
+
+   Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CLONE JSON SAFE
+   ========================================================================= */
+
+function cloneJsonSafeV26(
+  value
+) {
+
+  return JSON.parse(
+    JSON.stringify(
+      value
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   2. BUILD ISOLATED VERIFIED TEST SNAPSHOT
+   ========================================================================= */
+
+function buildB5TestSnapshotV26() {
+
+  /*
+   * Ưu tiên tỉnh đang chọn.
+   * Nếu tỉnh đó không có draw thì tìm
+   * một tỉnh bất kỳ có historical data.
+   */
+
+  const candidates =
+    [];
+
+
+  if (
+    typeof SELECTED_PROVINCE !==
+      'undefined' &&
+    SELECTED_PROVINCE
+  ) {
+
+    candidates.push(
+      SELECTED_PROVINCE
+    );
+
+  }
+
+
+  if (
+    typeof PROVINCES !==
+      'undefined' &&
+    Array.isArray(
+      PROVINCES
+    )
+  ) {
+
+    PROVINCES.forEach(
+      province => {
+
+        const slug =
+          province &&
+          (
+            province.slug ||
+            province.id ||
+            province.value
+          );
+
+
+        if (
+          slug &&
+          !candidates.includes(
+            slug
+          )
+        ) {
+
+          candidates.push(
+            slug
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  let province =
+    null;
+
+  let draw =
+    null;
+
+
+  for (
+    const candidate of candidates
+  ) {
+
+    let draws =
+      [];
+
+
+    try {
+
+      draws =
+        getShadowDrawsV26(
+          candidate
+        );
+
+    } catch (error) {
+
+      draws = [];
+
+    }
+
+
+    if (
+      Array.isArray(
+        draws
+      ) &&
+      draws.length
+    ) {
+
+      const validDraw =
+        draws.find(
+          item =>
+            item &&
+            item.date &&
+            item.prizes &&
+            item.prizes.db != null
+        );
+
+
+      if (
+        validDraw
+      ) {
+
+        province =
+          candidate;
+
+        draw =
+          validDraw;
+
+        break;
+
+      }
+
+    }
+
+  }
+
+
+  if (
+    !province ||
+    !draw
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'B5_TEST_DRAW_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const actual =
+    getShadowActualTargetV26(
+      draw
+    );
+
+
+  if (
+    !actual.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        actual.reason ||
+        'B5_ACTUAL_TARGET_NOT_READY'
+
+    };
+
+  }
+
+
+  const actualTarget =
+    actual.actualTarget;
+
+
+  /*
+   * Tạo ranking deterministic.
+   *
+   * Đặt actualTarget ở rank 3 để test:
+   *
+   * Top1  -> MISS
+   * Top3  -> HIT
+   * Top5  -> HIT
+   * Top10 -> HIT
+   * Rank  -> 3
+   */
+
+  const pool =
+    [];
+
+
+  for (
+    let i = 0;
+    i <= 99;
+    i++
+  ) {
+
+    const number =
+      String(i)
+        .padStart(
+          2,
+          '0'
+        );
+
+
+    if (
+      number !==
+      actualTarget
+    ) {
+
+      pool.push(
+        number
+      );
+
+    }
+
+  }
+
+
+  const ranking = [
+
+    pool[0],
+
+    pool[1],
+
+    actualTarget,
+
+    pool[2],
+
+    pool[3],
+
+    pool[4],
+
+    pool[5],
+
+    pool[6],
+
+    pool[7],
+
+    pool[8]
+
+  ];
+
+
+  const testId =
+    [
+      'V26',
+      'B5',
+      province,
+      draw.date,
+      Date.now()
+    ].join(
+      '_'
+    );
+
+
+  const snapshot = {
+
+    id:
+      testId,
+
+    snapshotKey:
+      [
+        'v26-b5-test',
+        province,
+        draw.date,
+        Date.now()
+      ].join(
+        '|'
+      ),
+
+    version:
+      'V2.6',
+
+    trackingVersion:
+      '8C-B5-TEST',
+
+    engine:
+      'SHADOW_TRACKING_TEST',
+
+    researchOnly:
+      true,
+
+    b5Test:
+      true,
+
+    province,
+
+    prize:
+      'db',
+
+    model:
+      'B5_TEST_MODEL',
+
+    window:
+      0,
+
+    /*
+     * B3 guard yêu cầu đủ cả hai field.
+     */
+
+    targetDrawDate:
+      String(
+        draw.date
+      ),
+
+    targetDrawKey:
+      [
+        province,
+        draw.date
+      ].join(
+        '|'
+      ),
+
+    top1:
+      ranking.slice(
+        0,
+        1
+      ),
+
+    top3:
+      ranking.slice(
+        0,
+        3
+      ),
+
+    top5:
+      ranking.slice(
+        0,
+        5
+      ),
+
+    top10:
+      ranking.slice(
+        0,
+        10
+      ),
+
+    actual:
+      null,
+
+    actualTarget:
+      null,
+
+    actualDate:
+      null,
+
+    status:
+      'PENDING',
+
+    verification: {
+
+      status:
+        'PENDING',
+
+      top1Hit:
+        null,
+
+      top3Hit:
+        null,
+
+      top5Hit:
+        null,
+
+      top10Hit:
+        null,
+
+      rank:
+        null,
+
+      verifiedAt:
+        null
+
+    }
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    province,
+
+    draw,
+
+    actual,
+
+    snapshot,
+
+    expected: {
+
+      actualTarget,
+
+      rank:
+        3,
+
+      top1Hit:
+        false,
+
+      top3Hit:
+        true,
+
+      top5Hit:
+        true,
+
+      top10Hit:
+        true
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. RUN B5 TRANSACTION TEST
+   ========================================================================= */
+
+function testVerifiedPersistenceIntegrityV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * BACKUP PERSISTENT STORE
+   * -------------------------------------------------------------
+   */
+
+  const persistentBackup =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistentBackup ||
+    !persistentBackup.ready ||
+    !persistentBackup.store ||
+    !Array.isArray(
+      persistentBackup.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B5_PERSISTENT_BACKUP_FAILED'
+
+    };
+
+
+    window.LAST_V26_B5_TEST =
+      result;
+
+
+    alert(
+      '🧪 V2.6 8C-B5\n\n' +
+      'PASS: NO ❌\n' +
+      'Reason: ' +
+      result.reason
+    );
+
+
+    return result;
+
+  }
+
+
+  const backupSnapshots =
+    cloneJsonSafeV26(
+      persistentBackup
+        .store
+        .snapshots
+    );
+
+
+  /*
+   * Backup RAM riêng.
+   */
+
+  const ramBackup =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? cloneJsonSafeV26(
+          window.SHADOW_SNAPSHOTS_V26
+        )
+      : null;
+
+
+  const lastRamBackup =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? cloneJsonSafeV26(
+          window.LAST_SHADOW_SNAPSHOTS_V26
+        )
+      : null;
+
+
+  let result =
+    null;
+
+
+  try {
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 1
+     * Build isolated test snapshot.
+     * -----------------------------------------------------------
+     */
+
+    const built =
+      buildB5TestSnapshotV26();
+
+
+    if (
+      !built.ready
+    ) {
+
+      throw new Error(
+        built.reason ||
+        'B5_BUILD_FAILED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 2
+     * Verify bằng B3 single-snapshot engine thật.
+     * -----------------------------------------------------------
+     */
+
+    const verified =
+      verifyOneShadowSnapshotV26(
+        built.snapshot
+      );
+
+
+    if (
+      !verified ||
+      !verified.ready ||
+      !verified.verified ||
+      !verified.snapshot
+    ) {
+
+      throw new Error(
+        verified &&
+        verified.reason
+          ? verified.reason
+          : 'B5_VERIFY_FAILED'
+      );
+
+    }
+
+
+    const verifiedSnapshot =
+      verified.snapshot;
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 3
+     * Kiểm tra evaluation trước persistence.
+     * -----------------------------------------------------------
+     */
+
+    const evaluationPass =
+      (
+        verifiedSnapshot.status ===
+          'VERIFIED' &&
+
+        verifiedSnapshot
+          .verification &&
+        verifiedSnapshot
+          .verification
+          .status ===
+          'VERIFIED' &&
+
+        verifiedSnapshot.actualTarget ===
+          built.expected.actualTarget &&
+
+        verifiedSnapshot
+          .verification
+          .rank ===
+          built.expected.rank &&
+
+        verifiedSnapshot
+          .verification
+          .top1Hit ===
+          built.expected.top1Hit &&
+
+        verifiedSnapshot
+          .verification
+          .top3Hit ===
+          built.expected.top3Hit &&
+
+        verifiedSnapshot
+          .verification
+          .top5Hit ===
+          built.expected.top5Hit &&
+
+        verifiedSnapshot
+          .verification
+          .top10Hit ===
+          built.expected.top10Hit
+      );
+
+
+    if (
+      !evaluationPass
+    ) {
+
+      throw new Error(
+        'B5_VERIFICATION_SCHEMA_MISMATCH'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 4
+     * Ghi TEST STORE tạm thời.
+     *
+     * Chỉ chứa test snapshot.
+     * Persistent thật đã backup ở trên.
+     * -----------------------------------------------------------
+     */
+
+    const write =
+      writeShadowPersistentWrapperV26(
+        [
+          verifiedSnapshot
+        ]
+      );
+
+
+    if (
+      !write ||
+      !write.ready
+    ) {
+
+      throw new Error(
+        write &&
+        write.reason
+          ? write.reason
+          : 'B5_TEST_WRITE_FAILED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 5
+     * Read-back thật từ localStorage.
+     * -----------------------------------------------------------
+     */
+
+    const readBack =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !readBack ||
+      !readBack.ready ||
+      !readBack.store ||
+      !Array.isArray(
+        readBack.store.snapshots
+      )
+    ) {
+
+      throw new Error(
+        'B5_READ_BACK_FAILED'
+      );
+
+    }
+
+
+    const restored =
+      readBack
+        .store
+        .snapshots[0];
+
+
+    if (
+      !restored
+    ) {
+
+      throw new Error(
+        'B5_READ_BACK_SNAPSHOT_MISSING'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 6
+     * Integrity assertions sau JSON round-trip.
+     * -----------------------------------------------------------
+     */
+
+    const persistencePass =
+      (
+        restored.id ===
+          verifiedSnapshot.id &&
+
+        restored.snapshotKey ===
+          verifiedSnapshot.snapshotKey &&
+
+        restored.status ===
+          'VERIFIED' &&
+
+        restored.actual ===
+          verifiedSnapshot.actual &&
+
+        restored.actualTarget ===
+          built.expected.actualTarget &&
+
+        restored.actualDate ===
+          String(
+            built.draw.date
+          ) &&
+
+        restored.verification &&
+        restored.verification.status ===
+          'VERIFIED' &&
+
+        restored.verification.rank ===
+          3 &&
+
+        restored.verification.top1Hit ===
+          false &&
+
+        restored.verification.top3Hit ===
+          true &&
+
+        restored.verification.top5Hit ===
+          true &&
+
+        restored.verification.top10Hit ===
+          true &&
+
+        Boolean(
+          restored
+            .verification
+            .verifiedAt
+        )
+      );
+
+
+    if (
+      !persistencePass
+    ) {
+
+      throw new Error(
+        'B5_PERSISTENCE_INTEGRITY_MISMATCH'
+      );
+
+    }
+
+
+    result = {
+
+      ready: true,
+
+      passed: true,
+
+      version:
+        'V2.6',
+
+      engine:
+        '8C-B5_VERIFIED_PERSISTENCE_INTEGRITY',
+
+      researchOnly:
+        true,
+
+      province:
+        built.province,
+
+      targetDrawDate:
+        String(
+          built.draw.date
+        ),
+
+      actualDb:
+        verified.evaluation.actualDb,
+
+      actualTarget:
+        verified.evaluation.actualTarget,
+
+      rank:
+        restored
+          .verification
+          .rank,
+
+      top1Hit:
+        restored
+          .verification
+          .top1Hit,
+
+      top3Hit:
+        restored
+          .verification
+          .top3Hit,
+
+      top5Hit:
+        restored
+          .verification
+          .top5Hit,
+
+      top10Hit:
+        restored
+          .verification
+          .top10Hit,
+
+      wrapperWrite:
+        true,
+
+      wrapperReadBack:
+        true,
+
+      integrity:
+        true,
+
+      productionSnapshotCount:
+        backupSnapshots.length
+
+    };
+
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      version:
+        'V2.6',
+
+      engine:
+        '8C-B5_VERIFIED_PERSISTENCE_INTEGRITY',
+
+      researchOnly:
+        true,
+
+      reason:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+
+  } finally {
+
+    /*
+     * -----------------------------------------------------------
+     * CRITICAL RESTORE
+     *
+     * Bất kể PASS hay FAIL:
+     * restore persistent store thật.
+     * -----------------------------------------------------------
+     */
+
+    const restore =
+      writeShadowPersistentWrapperV26(
+        backupSnapshots
+      );
+
+
+    /*
+     * Restore RAM đúng trạng thái trước test.
+     */
+
+    if (
+      ramBackup !==
+      null
+    ) {
+
+      window.SHADOW_SNAPSHOTS_V26 =
+        ramBackup;
+
+    }
+
+
+    if (
+      lastRamBackup !==
+      null
+    ) {
+
+      window.LAST_SHADOW_SNAPSHOTS_V26 =
+        lastRamBackup;
+
+    }
+
+
+    if (
+      result
+    ) {
+
+      result.restoreReady =
+        Boolean(
+          restore &&
+          restore.ready
+        );
+
+
+      result.restoredSnapshotCount =
+        restore &&
+        restore.count != null
+          ? restore.count
+          : null;
+
+
+      /*
+       * Nếu restore thất bại:
+       * toàn test phải FAIL.
+       */
+
+      if (
+        !result.restoreReady
+      ) {
+
+        result.ready =
+          false;
+
+        result.passed =
+          false;
+
+        result.reason =
+          'B5_CRITICAL_RESTORE_FAILED';
+
+      }
+
+    }
+
+  }
+
+
+  window.LAST_V26_B5_TEST =
+    result;
+
+
+  /*
+   * -------------------------------------------------------------
+   * MOBILE RESULT
+   * -------------------------------------------------------------
+   */
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🧪 V2.6 8C-B5 VERIFIED PERSISTENCE'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'PASS: ' +
+    (
+      result &&
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  if (
+    result &&
+    result.passed
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Province: ' +
+      result.province
+    );
+
+
+    lines.push(
+      'Target Draw: ' +
+      result.targetDrawDate
+    );
+
+
+    lines.push(
+      'Actual DB: ' +
+      result.actualDb
+    );
+
+
+    lines.push(
+      'Actual Target: ' +
+      result.actualTarget
+    );
+
+
+    lines.push(
+      'Rank: ' +
+      result.rank
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'Top1: ' +
+      (
+        result.top1Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top3: ' +
+      (
+        result.top3Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top5: ' +
+      (
+        result.top5Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top10: ' +
+      (
+        result.top10Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'Wrapper Write: PASS'
+    );
+
+
+    lines.push(
+      'Wrapper Read-Back: PASS'
+    );
+
+
+    lines.push(
+      'Integrity: PASS'
+    );
+
+  } else {
+
+    lines.push('');
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Restore: ' +
+    (
+      result &&
+      result.restoreReady
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'Production Snapshots: ' +
+    (
+      result &&
+      result.restoredSnapshotCount != null
+        ? result.restoredSnapshotCount
+        : '-'
+    )
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. MOBILE TEST BUTTON
+   ========================================================================= */
+
+(function addV26B5TestButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b5-persistence'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b5-persistence';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 Test V2.6 Verified Persistence';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testVerifiedPersistenceIntegrityV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB5_VERIFIED_PERSISTENCE =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B5 Verified Persistence Integrity: ACTIVE'
+);
+
