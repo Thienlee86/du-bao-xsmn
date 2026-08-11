@@ -66240,3 +66240,1226 @@ console.log(
   'XSMN V2.6 8C-B5 Verified Persistence Integrity: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B6
+   PRODUCTION LIFECYCLE AUDIT
+
+   READ-ONLY AUDIT
+
+   Mục tiêu:
+   - Đọc Production Snapshot Store.
+   - Không mutate snapshot.
+   - Không write localStorage.
+   - Không chạy verifier.
+   - Audit PENDING / VERIFIED lifecycle.
+   - Kiểm tra Target Identity.
+   - Kiểm tra Verification Integrity.
+   - So sánh Persistent Store và RAM.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. AUDIT ONE PRODUCTION SNAPSHOT
+   ========================================================================= */
+
+function auditOneProductionSnapshotV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      valid: false,
+
+      lifecycle:
+        'INVALID',
+
+      issues: [
+        'INVALID_SNAPSHOT'
+      ]
+
+    };
+
+  }
+
+
+  const issues =
+    [];
+
+
+  const province =
+    snapshot.province ||
+    snapshot.provinceSlug ||
+    snapshot.slug ||
+    '-';
+
+
+  const rootStatus =
+    String(
+      snapshot.status ||
+      ''
+    )
+      .toUpperCase();
+
+
+  const verificationStatus =
+    String(
+      snapshot.verification &&
+      snapshot.verification.status
+        ? snapshot.verification.status
+        : ''
+    )
+      .toUpperCase();
+
+
+  /*
+   * Snapshot cũ có thể chỉ có
+   * verification.status.
+   */
+
+  const lifecycle =
+    rootStatus ||
+    verificationStatus ||
+    'PENDING';
+
+
+  /*
+   * -------------------------------------------------------------
+   * BASIC IDENTITY
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !snapshot.id
+  ) {
+
+    issues.push(
+      'MISSING_ID'
+    );
+
+  }
+
+
+  if (
+    !snapshot.snapshotKey
+  ) {
+
+    issues.push(
+      'MISSING_SNAPSHOT_KEY'
+    );
+
+  }
+
+
+  if (
+    !snapshot.province &&
+    !snapshot.provinceSlug &&
+    !snapshot.slug
+  ) {
+
+    issues.push(
+      'MISSING_PROVINCE'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * TARGET IDENTITY
+   * -------------------------------------------------------------
+   */
+
+  const hasTargetDate =
+    Boolean(
+      snapshot.targetDrawDate
+    );
+
+
+  const hasTargetKey =
+    Boolean(
+      snapshot.targetDrawKey
+    );
+
+
+  if (
+    !hasTargetDate
+  ) {
+
+    issues.push(
+      'MISSING_TARGET_DRAW_DATE'
+    );
+
+  }
+
+
+  if (
+    !hasTargetKey
+  ) {
+
+    issues.push(
+      'MISSING_TARGET_DRAW_KEY'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * RANKING
+   * -------------------------------------------------------------
+   */
+
+  const top1 =
+    Array.isArray(
+      snapshot.top1
+    )
+      ? snapshot.top1
+      : [];
+
+
+  const top3 =
+    Array.isArray(
+      snapshot.top3
+    )
+      ? snapshot.top3
+      : [];
+
+
+  const top5 =
+    Array.isArray(
+      snapshot.top5
+    )
+      ? snapshot.top5
+      : [];
+
+
+  const top10 =
+    Array.isArray(
+      snapshot.top10
+    )
+      ? snapshot.top10
+      : [];
+
+
+  if (
+    !top1.length
+  ) {
+
+    issues.push(
+      'TOP1_EMPTY'
+    );
+
+  }
+
+
+  if (
+    !top3.length
+  ) {
+
+    issues.push(
+      'TOP3_EMPTY'
+    );
+
+  }
+
+
+  if (
+    !top5.length
+  ) {
+
+    issues.push(
+      'TOP5_EMPTY'
+    );
+
+  }
+
+
+  if (
+    !top10.length
+  ) {
+
+    issues.push(
+      'TOP10_EMPTY'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * STATUS CONSISTENCY
+   * -------------------------------------------------------------
+   */
+
+  if (
+    rootStatus &&
+    verificationStatus &&
+    rootStatus !==
+      verificationStatus
+  ) {
+
+    issues.push(
+      'STATUS_MISMATCH'
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * VERIFIED INTEGRITY
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle ===
+    'VERIFIED'
+  ) {
+
+    if (
+      snapshot.actual == null ||
+      snapshot.actual ===
+        ''
+    ) {
+
+      issues.push(
+        'VERIFIED_MISSING_ACTUAL_DB'
+      );
+
+    }
+
+
+    if (
+      snapshot.actualTarget == null ||
+      snapshot.actualTarget ===
+        ''
+    ) {
+
+      issues.push(
+        'VERIFIED_MISSING_ACTUAL_TARGET'
+      );
+
+    }
+
+
+    if (
+      !snapshot.actualDate
+    ) {
+
+      issues.push(
+        'VERIFIED_MISSING_ACTUAL_DATE'
+      );
+
+    }
+
+
+    if (
+      !snapshot.verification
+    ) {
+
+      issues.push(
+        'VERIFIED_MISSING_VERIFICATION'
+      );
+
+    } else {
+
+      if (
+        snapshot
+          .verification
+          .status !==
+        'VERIFIED'
+      ) {
+
+        issues.push(
+          'VERIFICATION_STATUS_INVALID'
+        );
+
+      }
+
+
+      if (
+        !snapshot
+          .verification
+          .verifiedAt
+      ) {
+
+        issues.push(
+          'VERIFIED_AT_MISSING'
+        );
+
+      }
+
+
+      /*
+       * rank có thể null nếu actual
+       * nằm ngoài Top10.
+       *
+       * Vì vậy null KHÔNG phải lỗi.
+       */
+
+      const hitFields = [
+
+        'top1Hit',
+
+        'top3Hit',
+
+        'top5Hit',
+
+        'top10Hit'
+
+      ];
+
+
+      hitFields.forEach(
+        field => {
+
+          const value =
+            snapshot
+              .verification[
+                field
+              ];
+
+
+          if (
+            typeof value !==
+              'boolean'
+          ) {
+
+            issues.push(
+              'INVALID_' +
+              field.toUpperCase()
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PENDING INTEGRITY
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle ===
+    'PENDING'
+  ) {
+
+    /*
+     * PENDING chưa được phép có
+     * actual result.
+     */
+
+    if (
+      snapshot.actual != null
+    ) {
+
+      issues.push(
+        'PENDING_HAS_ACTUAL_DB'
+      );
+
+    }
+
+
+    if (
+      snapshot.actualTarget != null
+    ) {
+
+      issues.push(
+        'PENDING_HAS_ACTUAL_TARGET'
+      );
+
+    }
+
+
+    if (
+      snapshot.actualDate != null
+    ) {
+
+      issues.push(
+        'PENDING_HAS_ACTUAL_DATE'
+      );
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * TARGET DATE VS ACTUAL DATE
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle ===
+      'VERIFIED' &&
+    snapshot.targetDrawDate &&
+    snapshot.actualDate &&
+    String(
+      snapshot.targetDrawDate
+    ) !==
+      String(
+        snapshot.actualDate
+      )
+  ) {
+
+    issues.push(
+      'TARGET_ACTUAL_DATE_MISMATCH'
+    );
+
+  }
+
+
+  return {
+
+    valid:
+      issues.length === 0,
+
+    province,
+
+    lifecycle,
+
+    targetDrawDate:
+      snapshot.targetDrawDate ||
+      null,
+
+    targetDrawKey:
+      snapshot.targetDrawKey ||
+      null,
+
+    model:
+      snapshot.model ||
+      '-',
+
+    window:
+      snapshot.window != null
+        ? snapshot.window
+        : '-',
+
+    actualTarget:
+      snapshot.actualTarget != null
+        ? snapshot.actualTarget
+        : null,
+
+    rank:
+      snapshot.verification &&
+      snapshot.verification.rank != null
+        ? snapshot
+            .verification
+            .rank
+        : null,
+
+    issues
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. PRODUCTION LIFECYCLE AUDIT
+   ========================================================================= */
+
+function auditProductionLifecycleV26() {
+
+  /*
+   * READ ONLY:
+   *
+   * Không gọi writer.
+   * Không gọi verifier.
+   */
+
+  const persistent =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistent ||
+    !persistent.ready ||
+    !persistent.store ||
+    !Array.isArray(
+      persistent.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PERSISTENT_STORE_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_B6_AUDIT =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const snapshots =
+    persistent
+      .store
+      .snapshots;
+
+
+  const details =
+    snapshots.map(
+      snapshot =>
+        auditOneProductionSnapshotV26(
+          snapshot
+        )
+    );
+
+
+  const pending =
+    details.filter(
+      item =>
+        item.lifecycle ===
+        'PENDING'
+    ).length;
+
+
+  const verified =
+    details.filter(
+      item =>
+        item.lifecycle ===
+        'VERIFIED'
+    ).length;
+
+
+  const other =
+    details.length -
+    pending -
+    verified;
+
+
+  const valid =
+    details.filter(
+      item =>
+        item.valid
+    ).length;
+
+
+  const invalid =
+    details.length -
+    valid;
+
+
+  /*
+   * -------------------------------------------------------------
+   * RAM COMPARISON
+   * -------------------------------------------------------------
+   */
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const lastRam =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? window.LAST_SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const persistentKeys =
+    snapshots
+      .map(
+        item =>
+          item.snapshotKey ||
+          null
+      )
+      .filter(
+        Boolean
+      )
+      .sort();
+
+
+  const ramKeys =
+    ram
+      .map(
+        item =>
+          item.snapshotKey ||
+          null
+      )
+      .filter(
+        Boolean
+      )
+      .sort();
+
+
+  const lastRamKeys =
+    lastRam
+      .map(
+        item =>
+          item.snapshotKey ||
+          null
+      )
+      .filter(
+        Boolean
+      )
+      .sort();
+
+
+  const persistentSignature =
+    JSON.stringify(
+      persistentKeys
+    );
+
+
+  const ramMatch =
+    persistentSignature ===
+    JSON.stringify(
+      ramKeys
+    );
+
+
+  const lastRamMatch =
+    persistentSignature ===
+    JSON.stringify(
+      lastRamKeys
+    );
+
+
+  /*
+   * RAM array có thể chưa được hydrate
+   * trong một số thời điểm load.
+   *
+   * Vì vậy report riêng, không tự xem
+   * RAM mismatch là corruption.
+   */
+
+
+  /*
+   * -------------------------------------------------------------
+   * DUPLICATE SNAPSHOT KEY AUDIT
+   * -------------------------------------------------------------
+   */
+
+  const keyCounts =
+    new Map();
+
+
+  persistentKeys.forEach(
+    key => {
+
+      keyCounts.set(
+        key,
+        (
+          keyCounts.get(
+            key
+          ) ||
+          0
+        ) + 1
+      );
+
+    }
+  );
+
+
+  const duplicateKeys =
+    Array.from(
+      keyCounts.entries()
+    )
+      .filter(
+        entry =>
+          entry[1] > 1
+      )
+      .map(
+        entry =>
+          entry[0]
+      );
+
+
+  const passed =
+    (
+      invalid === 0 &&
+      other === 0 &&
+      duplicateKeys.length === 0
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B6_PRODUCTION_LIFECYCLE_AUDIT',
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    source:
+      persistent.source ||
+      'PERSISTENT_WRAPPER',
+
+    total:
+      details.length,
+
+    pending,
+
+    verified,
+
+    other,
+
+    valid,
+
+    invalid,
+
+    duplicateSnapshotKeys:
+      duplicateKeys.length,
+
+    duplicateKeys,
+
+    ramCount:
+      ram.length,
+
+    lastRamCount:
+      lastRam.length,
+
+    ramMatch,
+
+    lastRamMatch,
+
+    details,
+
+    auditedAt:
+      new Date()
+        .toISOString()
+
+  };
+
+
+  window.LAST_V26_B6_AUDIT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. MOBILE AUDIT REPORT
+   ========================================================================= */
+
+function showProductionLifecycleAuditV26() {
+
+  const result =
+    auditProductionLifecycleV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🔎 V2.6 8C-B6 PRODUCTION LIFECYCLE AUDIT'
+  );
+
+  lines.push('');
+
+
+  if (
+    !result.ready
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      result.reason
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'Ready: YES ✅'
+  );
+
+
+  lines.push(
+    'Audit: ' +
+    (
+      result.passed
+        ? 'PASS ✅'
+        : 'CHECK REQUIRED ⚠️'
+    )
+  );
+
+
+  lines.push(
+    'Mode: READ ONLY 🔒'
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Total Snapshots: ' +
+    result.total
+  );
+
+
+  lines.push(
+    'Pending: ' +
+    result.pending
+  );
+
+
+  lines.push(
+    'Verified: ' +
+    result.verified
+  );
+
+
+  lines.push(
+    'Other Status: ' +
+    result.other
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Valid: ' +
+    result.valid
+  );
+
+
+  lines.push(
+    'Invalid: ' +
+    result.invalid
+  );
+
+
+  lines.push(
+    'Duplicate Keys: ' +
+    result
+      .duplicateSnapshotKeys
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Persistent: ' +
+    result.total
+  );
+
+
+  lines.push(
+    'RAM: ' +
+    result.ramCount
+  );
+
+
+  lines.push(
+    'LAST RAM: ' +
+    result.lastRamCount
+  );
+
+
+  lines.push(
+    'RAM Match: ' +
+    (
+      result.ramMatch
+        ? 'YES ✅'
+        : 'NO ⚠️'
+    )
+  );
+
+
+  lines.push(
+    'LAST RAM Match: ' +
+    (
+      result.lastRamMatch
+        ? 'YES ✅'
+        : 'NO ⚠️'
+    )
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * DETAILS
+   * -------------------------------------------------------------
+   */
+
+  if (
+    result.details.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'SNAPSHOTS'
+    );
+
+
+    result.details.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        lines.push('');
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          item.province
+        );
+
+
+        lines.push(
+          'Status: ' +
+          item.lifecycle
+        );
+
+
+        lines.push(
+          'Target: ' +
+          (
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Model: ' +
+          item.model +
+          ' / ' +
+          item.window
+        );
+
+
+        if (
+          item.lifecycle ===
+          'VERIFIED'
+        ) {
+
+          lines.push(
+            'Actual: ' +
+            (
+              item.actualTarget != null
+                ? item.actualTarget
+                : '-'
+            )
+          );
+
+
+          lines.push(
+            'Rank: ' +
+            (
+              item.rank != null
+                ? item.rank
+                : '>10'
+            )
+          );
+
+        }
+
+
+        lines.push(
+          'Integrity: ' +
+          (
+            item.valid
+              ? 'PASS'
+              : 'CHECK'
+          )
+        );
+
+
+        if (
+          item.issues.length
+        ) {
+
+          lines.push(
+            'Issues: ' +
+            item.issues.join(
+              ', '
+            )
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B6AuditButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b6-audit'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b6-audit';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 Audit V2.6 Production Lifecycle';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showProductionLifecycleAuditV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB6_PRODUCTION_AUDIT =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B6 Production Lifecycle Audit: ACTIVE'
+);
+
