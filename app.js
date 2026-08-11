@@ -60300,3 +60300,339 @@ console.log(
   'XSMN V2.6 8C-B1 Pending Diagnostic: ACTIVE'
 );
 
+/* =========================================================================
+   V2.6 8C-B1A — DIRECT PERSISTENT READ CHECK
+   READ ONLY
+   ========================================================================= */
+
+function testV26B1DirectPersistentRead() {
+
+  const key =
+    'XSMN_V26_SHADOW_SNAPSHOTS';
+
+  const lines = [];
+
+  lines.push(
+    '🔬 V2.6 8C-B1A DIRECT READ'
+  );
+
+  lines.push('');
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        key
+      );
+
+    if (!raw) {
+
+      lines.push(
+        '❌ STORAGE EMPTY'
+      );
+
+      alert(
+        lines.join('\n')
+      );
+
+      return {
+        ready: false,
+        reason: 'STORAGE_EMPTY'
+      };
+
+    }
+
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+
+    const type =
+      Array.isArray(parsed)
+        ? 'ARRAY'
+        : (
+            parsed &&
+            typeof parsed === 'object'
+              ? 'OBJECT'
+              : typeof parsed
+          );
+
+
+    let snapshots = [];
+
+
+    if (
+      Array.isArray(parsed)
+    ) {
+
+      snapshots =
+        parsed;
+
+    } else if (
+      parsed &&
+      Array.isArray(
+        parsed.snapshots
+      )
+    ) {
+
+      snapshots =
+        parsed.snapshots;
+
+    }
+
+
+    lines.push(
+      'Key: ' + key
+    );
+
+    lines.push(
+      'Raw Length: ' +
+      raw.length
+    );
+
+    lines.push(
+      'Parsed Type: ' +
+      type
+    );
+
+    lines.push(
+      'Snapshots: ' +
+      snapshots.length
+    );
+
+
+    if (
+      parsed &&
+      !Array.isArray(parsed) &&
+      typeof parsed === 'object'
+    ) {
+
+      lines.push(
+        'Wrapper Keys: ' +
+        Object.keys(parsed).join(', ')
+      );
+
+      lines.push(
+        'Version: ' +
+        (
+          parsed.version ||
+          '-'
+        )
+      );
+
+      lines.push(
+        'Updated At: ' +
+        (
+          parsed.updatedAt ||
+          '-'
+        )
+      );
+
+    }
+
+
+    lines.push('');
+
+    lines.push(
+      'RAM Snapshots: ' +
+      (
+        Array.isArray(
+          window.SHADOW_SNAPSHOTS_V26
+        )
+          ? window
+              .SHADOW_SNAPSHOTS_V26
+              .length
+          : 'NOT ARRAY'
+      )
+    );
+
+
+    if (
+      snapshots.length > 0
+    ) {
+
+      const first =
+        snapshots[0];
+
+      lines.push('');
+      lines.push(
+        'FIRST SNAPSHOT'
+      );
+
+      lines.push(
+        'Province: ' +
+        (
+          first.province ||
+          '-'
+        )
+      );
+
+      lines.push(
+        'Status: ' +
+        (
+          first.verification &&
+          first.verification.status
+            ? first.verification.status
+            : (
+                first.status ||
+                'UNKNOWN'
+              )
+        )
+      );
+
+      lines.push(
+        'Latest Draw: ' +
+        (
+          first.latestDrawDate ||
+          '-'
+        )
+      );
+
+      lines.push(
+        'Draw Key: ' +
+        (
+          first.latestDrawKey ||
+          '-'
+        )
+      );
+
+    }
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+
+      ready: true,
+
+      type,
+
+      count:
+        snapshots.length,
+
+      snapshots
+
+    };
+
+
+  } catch (error) {
+
+    alert(
+      '❌ 8C-B1A ERROR\n\n' +
+      String(
+        error.message ||
+        error
+      )
+    );
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'DIRECT_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+}
+
+
+/* -------------------------------------------------------------
+   MOBILE BUTTON
+   ------------------------------------------------------------- */
+
+(function addV26B1DirectReadButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b1-direct-read'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+    button.id =
+      'btn-v26-b1-direct-read';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 Test 8C-B1 Direct Read';
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.onclick =
+      testV26B1DirectPersistentRead;
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+console.log(
+  'V2.6 8C-B1A Direct Persistent Read: ACTIVE'
+);
+
