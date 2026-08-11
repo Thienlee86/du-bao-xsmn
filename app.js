@@ -58202,3 +58202,97 @@ function testPersistentWriteDiagnosticV26() {
 
      }
 
+/* =========================================================================
+V2.6 8C-A5 — PERSISTENT WRITE DIAGNOSTIC BUTTON
+========================================================================= */
+
+document.addEventListener(
+  'DOMContentLoaded',
+  function () {
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 Test V2.6 Persistent Write';
+
+    button.style.width =
+      '100%';
+
+    button.style.marginTop =
+      '16px';
+
+    button.style.padding =
+      '18px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.borderRadius =
+      '16px';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        if (
+          typeof
+            testPersistentWriteDiagnosticV26 !==
+          'function'
+        ) {
+
+          alert(
+            '❌ testPersistentWriteDiagnosticV26 NOT FOUND'
+          );
+
+          return;
+
+        }
+
+
+        testPersistentWriteDiagnosticV26();
+
+      }
+    );
+
+
+    /*
+     * Ưu tiên đặt trong màn Cài đặt.
+     * Nếu không tìm được container,
+     * đặt vào cuối body.
+     */
+
+    const settings =
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    (
+      settings ||
+      document.body
+    ).appendChild(
+      button
+    );
+
+  }
+);
+
