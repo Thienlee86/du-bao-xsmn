@@ -58614,3 +58614,378 @@ function testEmptyStoreOverwriteDiagnosticV26() {
 
 }
 
+/* =========================================================================
+   V2.6 BLOCK 8C-A6
+   EMPTY STORE WATCH BUTTON
+
+   Mục đích:
+   - Đọc diagnostic của Empty Store Watch.
+   - Không ghi localStorage.
+   - Không sửa RAM store.
+   - Không chạy Shadow.
+   - Diagnostic only.
+   ========================================================================= */
+
+(function installEmptyStoreWatchButtonV26() {
+
+  function showEmptyStoreWatchV26() {
+
+    const lines = [
+      '🕵️ V2.6 EMPTY STORE WATCH',
+      ''
+    ];
+
+
+    /*
+     * -------------------------------------------------------------
+     * 1. Kiểm tra Watch có được cài hay chưa.
+     * -------------------------------------------------------------
+     */
+
+    const watch =
+      window.EMPTY_STORE_WATCH_V26 ||
+      window.EMPTY_STORE_OVERWRITE_WATCH_V26 ||
+      window.LAST_EMPTY_STORE_WATCH_V26 ||
+      null;
+
+
+    if (!watch) {
+
+      lines.push(
+        'Watch Object: NOT FOUND ❌'
+      );
+
+      lines.push('');
+
+      lines.push(
+        'Không tìm thấy watch object.'
+      );
+
+      lines.push(
+        'Sẽ kiểm tra trực tiếp storage.'
+      );
+
+    } else {
+
+      lines.push(
+        'Watch Object: FOUND ✅'
+      );
+
+      lines.push('');
+
+      lines.push(
+        'Keys: ' +
+        Object.keys(watch).join(', ')
+      );
+
+
+      if (
+        Array.isArray(
+          watch.events
+        )
+      ) {
+
+        lines.push(
+          'Events: ' +
+          watch.events.length
+        );
+
+      }
+
+
+      if (
+        watch.lastEvent
+      ) {
+
+        lines.push('');
+
+        lines.push(
+          'LAST EVENT'
+        );
+
+        lines.push(
+          JSON.stringify(
+            watch.lastEvent,
+            null,
+            2
+          )
+        );
+
+      }
+
+    }
+
+
+    /*
+     * -------------------------------------------------------------
+     * 2. Đọc trực tiếp persistent key.
+     * -------------------------------------------------------------
+     */
+
+    lines.push('');
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'DIRECT STORAGE CHECK'
+    );
+
+
+    const key =
+      'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+    lines.push(
+      'Key: ' + key
+    );
+
+
+    try {
+
+      const raw =
+        localStorage.getItem(
+          key
+        );
+
+
+      if (raw === null) {
+
+        lines.push(
+          'Raw: NOT FOUND ❌'
+        );
+
+      } else {
+
+        lines.push(
+          'Raw Length: ' +
+          raw.length
+        );
+
+
+        const parsed =
+          JSON.parse(
+            raw
+          );
+
+
+        lines.push(
+          'Parsed Type: ' +
+          (
+            Array.isArray(parsed)
+              ? 'array'
+              : typeof parsed
+          )
+        );
+
+
+        if (
+          Array.isArray(parsed)
+        ) {
+
+          lines.push(
+            'Snapshots: ' +
+            parsed.length
+          );
+
+        } else if (
+          parsed &&
+          Array.isArray(
+            parsed.snapshots
+          )
+        ) {
+
+          lines.push(
+            'Wrapper Snapshots: ' +
+            parsed.snapshots.length
+          );
+
+          lines.push(
+            'Wrapper Version: ' +
+            (
+              parsed.version ||
+              '-'
+            )
+          );
+
+          lines.push(
+            'Updated At: ' +
+            (
+              parsed.updatedAt ||
+              '-'
+            )
+          );
+
+        } else {
+
+          lines.push(
+            'Snapshot Array: NOT FOUND ❌'
+          );
+
+        }
+
+      }
+
+    } catch (error) {
+
+      lines.push('');
+
+      lines.push(
+        'Storage Read Error:'
+      );
+
+      lines.push(
+        String(
+          error.message ||
+          error
+        )
+      );
+
+    }
+
+
+    /*
+     * -------------------------------------------------------------
+     * 3. RAM check.
+     * -------------------------------------------------------------
+     */
+
+    lines.push('');
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'RAM CHECK'
+    );
+
+
+    const ram =
+      window.SHADOW_SNAPSHOTS_V26;
+
+
+    lines.push(
+      'RAM Type: ' +
+      (
+        Array.isArray(ram)
+          ? 'array'
+          : typeof ram
+      )
+    );
+
+
+    lines.push(
+      'RAM Snapshots: ' +
+      (
+        Array.isArray(ram)
+          ? ram.length
+          : 'N/A'
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Tạo button.
+   * -------------------------------------------------------------
+   */
+
+  function addEmptyStoreWatchButtonV26() {
+
+    if (
+      document.getElementById(
+        'btn-empty-store-watch-v26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-empty-store-watch-v26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🕵️ Empty Store Watch';
+
+
+    button.style.cssText = [
+      'width:calc(100% - 48px)',
+      'margin:14px 24px',
+      'padding:20px',
+      'border:0',
+      'border-radius:18px',
+      'font-size:18px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      showEmptyStoreWatchV26
+    );
+
+
+    /*
+     * Đưa vào cuối phần nội dung hiện tại.
+     */
+
+    const target =
+      document.querySelector(
+        'main'
+      ) ||
+      document.querySelector(
+        '.settings'
+      ) ||
+      document.body;
+
+
+    target.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      addEmptyStoreWatchButtonV26
+    );
+
+  } else {
+
+    addEmptyStoreWatchButtonV26();
+
+  }
+
+
+  window.showEmptyStoreWatchV26 =
+    showEmptyStoreWatchV26;
+
+})();
+
