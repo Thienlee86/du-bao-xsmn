@@ -67234,7 +67234,82 @@ function showProductionLifecycleAuditV26() {
    * DETAILS
    * -------------------------------------------------------------
    */
+  /*
+   * B6 DIAGNOSTIC SUMMARY
+   *
+   * Hiển thị lỗi trước để mobile alert
+   * không cắt mất thông tin quan trọng.
+   */
 
+  const invalidDetails =
+    result.details.filter(
+      item =>
+        !item.valid
+    );
+
+
+  if (
+    invalidDetails.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'INVALID SNAPSHOTS'
+    );
+
+
+    invalidDetails.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        lines.push('');
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          item.province
+        );
+
+
+        lines.push(
+          'Status: ' +
+          item.lifecycle
+        );
+
+
+        lines.push(
+          'Target: ' +
+          (
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Issues: ' +
+          (
+            item.issues.length
+              ? item.issues.join(', ')
+              : 'UNKNOWN'
+          )
+        );
+
+      }
+    );
+
+  }
+   
   if (
     result.details.length
   ) {
