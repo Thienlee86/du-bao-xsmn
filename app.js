@@ -62758,3 +62758,1714 @@ console.log(
   'XSMN V2.6 8C-B2 Target Draw Identity: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B3
+   AUTOMATIC RESULT VERIFICATION
+
+   Mục tiêu:
+
+   1. Đọc Shadow Snapshot đang PENDING.
+
+   2. Dùng:
+      - province
+      - targetDrawDate
+
+      để tìm đúng kỳ quay thực tế.
+
+   3. Nếu chưa có kỳ quay:
+      -> giữ nguyên PENDING.
+
+   4. Nếu đã có kỳ quay:
+      -> lấy 2 số cuối giải DB bằng loOfPrize(draw, 'db')
+      -> tính rank
+      -> tính Top1 / Top3 / Top5 / Top10 hit
+      -> chuyển snapshot thành VERIFIED.
+
+   5. Persist chỉ khi có snapshot thực sự được VERIFIED.
+
+   6. Không thay Production Prediction Engine.
+
+   Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. NORMALIZE SHADOW RANKING NUMBER
+   ========================================================================= */
+
+function normalizeShadowRankingNumberV26(
+  value
+) {
+
+  if (
+    value == null
+  ) {
+
+    return null;
+
+  }
+
+
+  const text =
+    String(
+      value
+    )
+      .trim();
+
+
+  if (
+    !text
+  ) {
+
+    return null;
+
+  }
+
+
+  /*
+   * Nếu đã là 1 chữ số:
+   * thêm zero phía trước.
+   */
+
+  if (
+    /^\d$/.test(
+      text
+    )
+  ) {
+
+    return (
+      '0' +
+      text
+    );
+
+  }
+
+
+  /*
+   * Chỉ nhận đúng 2 chữ số.
+   */
+
+  if (
+    /^\d{2}$/.test(
+      text
+    )
+  ) {
+
+    return text;
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   2. NORMALIZE ONE RANKING ARRAY
+   ========================================================================= */
+
+function normalizeShadowRankingArrayV26(
+  values
+) {
+
+  if (
+    !Array.isArray(
+      values
+    )
+  ) {
+
+    return [];
+
+  }
+
+
+  const output =
+    [];
+
+
+  const seen =
+    new Set();
+
+
+  values.forEach(
+    value => {
+
+      const normalized =
+        normalizeShadowRankingNumberV26(
+          value
+        );
+
+
+      if (
+        !normalized ||
+        seen.has(
+          normalized
+        )
+      ) {
+
+        return;
+
+      }
+
+
+      seen.add(
+        normalized
+      );
+
+
+      output.push(
+        normalized
+      );
+
+    }
+  );
+
+
+  return output;
+
+}
+
+
+/* =========================================================================
+   3. FIND TARGET DRAW FOR SNAPSHOT
+   ========================================================================= */
+
+function findShadowTargetDrawV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const province =
+    snapshot.provinceSlug ||
+    snapshot.province ||
+    snapshot.slug ||
+    null;
+
+
+  if (
+    !province
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_PROVINCE_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const targetDrawDate =
+    snapshot.targetDrawDate ||
+    null;
+
+
+  if (
+    !targetDrawDate
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'TARGET_DRAW_DATE_NOT_FOUND',
+
+      province
+
+    };
+
+  }
+
+
+  let draws =
+    [];
+
+
+  try {
+
+    draws =
+      getShadowDrawsV26(
+        province
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SHADOW_DRAW_SOURCE_ERROR',
+
+      province,
+
+      targetDrawDate,
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      draws
+    ) ||
+    !draws.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      pending: true,
+
+      reason:
+        'NO_DRAWS_AVAILABLE',
+
+      province,
+
+      targetDrawDate
+
+    };
+
+  }
+
+
+  /*
+   * Identity của draw hiện tại:
+   *
+   * province + date
+   *
+   * Chỉ nhận EXACT DATE MATCH.
+   */
+
+  const draw =
+    draws.find(
+      item =>
+        item &&
+        String(
+          item.date ||
+          ''
+        ) ===
+        String(
+          targetDrawDate
+        )
+    );
+
+
+  if (
+    !draw
+  ) {
+
+    return {
+
+      ready: false,
+
+      pending: true,
+
+      reason:
+        'TARGET_DRAW_NOT_AVAILABLE_YET',
+
+      province,
+
+      targetDrawDate,
+
+      availableLatestDate:
+        draws[0] &&
+        draws[0].date
+          ? String(
+              draws[0].date
+            )
+          : null
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    province,
+
+    targetDrawDate:
+      String(
+        targetDrawDate
+      ),
+
+    draw
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. GET ACTUAL DB TARGET
+   ========================================================================= */
+
+function getShadowActualTargetV26(
+  draw
+) {
+
+  if (
+    !draw ||
+    typeof draw !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_ACTUAL_DRAW'
+
+    };
+
+  }
+
+
+  /*
+   * Dùng helper Production hiện có.
+   *
+   * loOfPrize(draw, 'db')
+   * trả 2 số cuối của giải đặc biệt.
+   */
+
+  let values =
+    [];
+
+
+  try {
+
+    values =
+      loOfPrize(
+        draw,
+        'db'
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'ACTUAL_DB_EXTRACTION_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      values
+    ) ||
+    !values.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'ACTUAL_DB_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const actualTarget =
+    normalizeShadowRankingNumberV26(
+      values[0]
+    );
+
+
+  if (
+    !actualTarget
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'ACTUAL_TARGET_INVALID',
+
+      values
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    actualTarget,
+
+    actualDb:
+      draw.prizes &&
+      draw.prizes.db != null
+        ? String(
+            draw.prizes.db
+          )
+        : null
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. CALCULATE ACTUAL RANK
+   ========================================================================= */
+
+function calculateShadowActualRankV26(
+  snapshot,
+  actualTarget
+) {
+
+  if (
+    !snapshot ||
+    !actualTarget
+  ) {
+
+    return null;
+
+  }
+
+
+  /*
+   * top10 là ranking rộng nhất.
+   *
+   * Rank 1 = phần tử đầu tiên.
+   */
+
+  const top10 =
+    normalizeShadowRankingArrayV26(
+      snapshot.top10
+    );
+
+
+  const index =
+    top10.indexOf(
+      actualTarget
+    );
+
+
+  if (
+    index < 0
+  ) {
+
+    return null;
+
+  }
+
+
+  return (
+    index + 1
+  );
+
+}
+
+
+/* =========================================================================
+   6. EVALUATE ONE PENDING SNAPSHOT
+   ========================================================================= */
+
+function verifyOneShadowSnapshotV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      verified: false,
+
+      pending: false,
+
+      reason:
+        'INVALID_SNAPSHOT',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const status =
+    String(
+      snapshot.status ||
+      (
+        snapshot.verification &&
+        snapshot.verification.status
+      ) ||
+      'PENDING'
+    )
+      .toUpperCase();
+
+
+  /*
+   * Không verify lại record đã VERIFIED.
+   */
+
+  if (
+    status ===
+    'VERIFIED'
+  ) {
+
+    return {
+
+      ready: true,
+
+      verified: false,
+
+      pending: false,
+
+      alreadyVerified: true,
+
+      reason:
+        'ALREADY_VERIFIED',
+
+      snapshot
+
+    };
+
+  }
+
+
+  /*
+   * Chỉ xử lý PENDING.
+   */
+
+  if (
+    status !==
+    'PENDING'
+  ) {
+
+    return {
+
+      ready: true,
+
+      verified: false,
+
+      pending: false,
+
+      skipped: true,
+
+      reason:
+        'STATUS_NOT_PENDING',
+
+      snapshot
+
+    };
+
+  }
+
+
+  /*
+   * Guard B2.
+   */
+
+  if (
+    !snapshot.targetDrawDate ||
+    !snapshot.targetDrawKey
+  ) {
+
+    return {
+
+      ready: false,
+
+      verified: false,
+
+      pending: true,
+
+      reason:
+        'TARGET_DRAW_IDENTITY_NOT_READY',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const target =
+    findShadowTargetDrawV26(
+      snapshot
+    );
+
+
+  /*
+   * Chưa có kết quả kỳ mục tiêu.
+   *
+   * Không sửa snapshot.
+   */
+
+  if (
+    !target.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      verified: false,
+
+      pending:
+        Boolean(
+          target.pending
+        ),
+
+      reason:
+        target.reason,
+
+      target,
+
+      snapshot
+
+    };
+
+  }
+
+
+  const actual =
+    getShadowActualTargetV26(
+      target.draw
+    );
+
+
+  if (
+    !actual.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      verified: false,
+
+      pending: false,
+
+      reason:
+        actual.reason,
+
+      target,
+
+      actual,
+
+      snapshot
+
+    };
+
+  }
+
+
+  const top1 =
+    normalizeShadowRankingArrayV26(
+      snapshot.top1
+    );
+
+
+  const top3 =
+    normalizeShadowRankingArrayV26(
+      snapshot.top3
+    );
+
+
+  const top5 =
+    normalizeShadowRankingArrayV26(
+      snapshot.top5
+    );
+
+
+  const top10 =
+    normalizeShadowRankingArrayV26(
+      snapshot.top10
+    );
+
+
+  /*
+   * Ranking phải tồn tại.
+   */
+
+  if (
+    !top10.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      verified: false,
+
+      pending: false,
+
+      reason:
+        'SNAPSHOT_RANKING_NOT_READY',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const actualTarget =
+    actual.actualTarget;
+
+
+  const rank =
+    calculateShadowActualRankV26(
+      snapshot,
+      actualTarget
+    );
+
+
+  const verifiedAt =
+    new Date()
+      .toISOString();
+
+
+  const verification = {
+
+    ...(
+      snapshot.verification ||
+      {}
+    ),
+
+    status:
+      'VERIFIED',
+
+    top1Hit:
+      top1.includes(
+        actualTarget
+      ),
+
+    top3Hit:
+      top3.includes(
+        actualTarget
+      ),
+
+    top5Hit:
+      top5.includes(
+        actualTarget
+      ),
+
+    top10Hit:
+      top10.includes(
+        actualTarget
+      ),
+
+    rank,
+
+    verifiedAt
+
+  };
+
+
+  /*
+   * Clone.
+   *
+   * Không mutate snapshot gốc.
+   */
+
+  const updated = {
+
+    ...snapshot,
+
+    /*
+     * status cấp root giúp tương thích
+     * resolver / bridge cũ.
+     */
+
+    status:
+      'VERIFIED',
+
+    actual:
+      actual.actualDb,
+
+    actualTarget,
+
+    actualDate:
+      target.targetDrawDate,
+
+    verification
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    verified: true,
+
+    pending: false,
+
+    reason:
+      'VERIFIED',
+
+    evaluation: {
+
+      province:
+        target.province,
+
+      targetDrawDate:
+        target.targetDrawDate,
+
+      actualDate:
+        target.targetDrawDate,
+
+      actualDb:
+        actual.actualDb,
+
+      actualTarget,
+
+      rank,
+
+      top1Hit:
+        verification.top1Hit,
+
+      top3Hit:
+        verification.top3Hit,
+
+      top5Hit:
+        verification.top5Hit,
+
+      top10Hit:
+        verification.top10Hit
+
+    },
+
+    snapshot:
+      updated
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. VERIFY ALL PENDING SNAPSHOTS
+   ========================================================================= */
+
+function verifyPendingShadowSnapshotsV26() {
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  if (
+    !snapshots.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_EMPTY',
+
+      total:
+        0
+
+    };
+
+  }
+
+
+  let requested =
+    0;
+
+  let verified =
+    0;
+
+  let stillPending =
+    0;
+
+  let alreadyVerified =
+    0;
+
+  let skipped =
+    0;
+
+  let failed =
+    0;
+
+
+  const details =
+    [];
+
+
+  const updated =
+    snapshots.map(
+      snapshot => {
+
+        const status =
+          String(
+            snapshot.status ||
+            (
+              snapshot.verification &&
+              snapshot.verification.status
+            ) ||
+            'PENDING'
+          )
+            .toUpperCase();
+
+
+        if (
+          status ===
+          'VERIFIED'
+        ) {
+
+          alreadyVerified++;
+
+
+          return snapshot;
+
+        }
+
+
+        if (
+          status !==
+          'PENDING'
+        ) {
+
+          skipped++;
+
+
+          return snapshot;
+
+        }
+
+
+        requested++;
+
+
+        const result =
+          verifyOneShadowSnapshotV26(
+            snapshot
+          );
+
+
+        /*
+         * VERIFIED
+         */
+
+        if (
+          result.ready &&
+          result.verified
+        ) {
+
+          verified++;
+
+
+          details.push({
+
+            province:
+              result.evaluation
+                .province,
+
+            targetDrawDate:
+              result.evaluation
+                .targetDrawDate,
+
+            status:
+              'VERIFIED',
+
+            actualDb:
+              result.evaluation
+                .actualDb,
+
+            actualTarget:
+              result.evaluation
+                .actualTarget,
+
+            rank:
+              result.evaluation
+                .rank,
+
+            top1Hit:
+              result.evaluation
+                .top1Hit,
+
+            top3Hit:
+              result.evaluation
+                .top3Hit,
+
+            top5Hit:
+              result.evaluation
+                .top5Hit,
+
+            top10Hit:
+              result.evaluation
+                .top10Hit
+
+          });
+
+
+          return result.snapshot;
+
+        }
+
+
+        /*
+         * Chưa tới kỳ / chưa có data.
+         */
+
+        if (
+          result.pending
+        ) {
+
+          stillPending++;
+
+
+          details.push({
+
+            province:
+              snapshot.province ||
+              snapshot.provinceSlug ||
+              '-',
+
+            targetDrawDate:
+              snapshot.targetDrawDate ||
+              '-',
+
+            status:
+              'PENDING',
+
+            reason:
+              result.reason,
+
+            availableLatestDate:
+              result.target &&
+              result.target
+                .availableLatestDate
+                ? result.target
+                    .availableLatestDate
+                : (
+                    result.target &&
+                    result.target.target &&
+                    result.target.target
+                      .availableLatestDate
+                      ? result.target
+                          .target
+                          .availableLatestDate
+                      : null
+                  )
+
+          });
+
+
+          return snapshot;
+
+        }
+
+
+        /*
+         * Lỗi thật sự.
+         */
+
+        failed++;
+
+
+        details.push({
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            '-',
+
+          targetDrawDate:
+            snapshot.targetDrawDate ||
+            '-',
+
+          status:
+            'FAILED',
+
+          reason:
+            result.reason
+
+        });
+
+
+        return snapshot;
+
+      }
+    );
+
+
+  /*
+   * Chỉ persist khi có ít nhất
+   * một snapshot chuyển VERIFIED.
+   */
+
+  let saved =
+    false;
+
+
+  if (
+    verified > 0
+  ) {
+
+    saved =
+      writeShadowSnapshotsV26(
+        updated
+      );
+
+
+    if (
+      !saved
+    ) {
+
+      const result = {
+
+        ready: false,
+
+        reason:
+          'VERIFIED_STORE_WRITE_FAILED',
+
+        researchOnly:
+          true,
+
+        total:
+          snapshots.length,
+
+        requested,
+
+        verified,
+
+        stillPending,
+
+        alreadyVerified,
+
+        skipped,
+
+        failed,
+
+        saved:
+          false,
+
+        details
+
+      };
+
+
+      window.LAST_V26_B3_VERIFICATION =
+        result;
+
+
+      return result;
+
+    }
+
+
+    /*
+     * Đồng bộ RAM.
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      updated.slice();
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      updated.slice();
+
+  }
+
+
+  const result = {
+
+    /*
+     * "ready" ở cấp batch có nghĩa
+     * verifier chạy thành công.
+     *
+     * PENDING vì chưa có kết quả
+     * không được coi là lỗi.
+     */
+
+    ready:
+      failed === 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B3_AUTOMATIC_RESULT_VERIFICATION',
+
+    researchOnly:
+      true,
+
+    total:
+      updated.length,
+
+    requested,
+
+    verified,
+
+    stillPending,
+
+    alreadyVerified,
+
+    skipped,
+
+    failed,
+
+    saved,
+
+    details
+
+  };
+
+
+  window.LAST_V26_B3_VERIFICATION =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   8. MOBILE DIAGNOSTIC
+   ========================================================================= */
+
+function testAutomaticShadowVerificationV26() {
+
+  const result =
+    verifyPendingShadowSnapshotsV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🧪 V2.6 8C-B3 AUTOMATIC VERIFICATION'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      result.ready
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Total: ' +
+    (
+      result.total != null
+        ? result.total
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Requested: ' +
+    (
+      result.requested != null
+        ? result.requested
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Verified New: ' +
+    (
+      result.verified != null
+        ? result.verified
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Still Pending: ' +
+    (
+      result.stillPending != null
+        ? result.stillPending
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Already Verified: ' +
+    (
+      result.alreadyVerified != null
+        ? result.alreadyVerified
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Failed: ' +
+    (
+      result.failed != null
+        ? result.failed
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Saved: ' +
+    (
+      result.saved
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  if (
+    Array.isArray(
+      result.details
+    ) &&
+    result.details.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'DETAILS'
+    );
+
+
+    result.details.forEach(
+      item => {
+
+        lines.push('');
+
+        lines.push(
+          String(
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Target: ' +
+          String(
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Status: ' +
+          String(
+            item.status ||
+            '-'
+          )
+        );
+
+
+        if (
+          item.status ===
+          'VERIFIED'
+        ) {
+
+          lines.push(
+            'DB: ' +
+            String(
+              item.actualDb ||
+              '-'
+            )
+          );
+
+
+          lines.push(
+            'Actual Target: ' +
+            String(
+              item.actualTarget ||
+              '-'
+            )
+          );
+
+
+          lines.push(
+            'Rank: ' +
+            (
+              item.rank != null
+                ? String(
+                    item.rank
+                  )
+                : 'OUTSIDE TOP10'
+            )
+          );
+
+
+          lines.push(
+            'Top1: ' +
+            (
+              item.top1Hit
+                ? 'HIT'
+                : 'MISS'
+            )
+          );
+
+
+          lines.push(
+            'Top3: ' +
+            (
+              item.top3Hit
+                ? 'HIT'
+                : 'MISS'
+            )
+          );
+
+
+          lines.push(
+            'Top5: ' +
+            (
+              item.top5Hit
+                ? 'HIT'
+                : 'MISS'
+            )
+          );
+
+
+          lines.push(
+            'Top10: ' +
+            (
+              item.top10Hit
+                ? 'HIT'
+                : 'MISS'
+            )
+          );
+
+        } else {
+
+          if (
+            item.availableLatestDate
+          ) {
+
+            lines.push(
+              'Latest Data: ' +
+              item.availableLatestDate
+            );
+
+          }
+
+
+          if (
+            item.reason
+          ) {
+
+            lines.push(
+              'Reason: ' +
+              item.reason
+            );
+
+          }
+
+        }
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   9. MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B3VerificationButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b3-auto-verification'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b3-auto-verification';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 Test V2.6 Automatic Verification';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testAutomaticShadowVerificationV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB3_AUTOMATIC_VERIFICATION =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B3 Automatic Result Verification: ACTIVE'
+);
+
