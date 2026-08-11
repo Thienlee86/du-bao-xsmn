@@ -59465,3 +59465,838 @@ console.log(
   'XSMN V2.6 Shadow Bridge Wrapper Fix: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B1
+   PENDING SNAPSHOT DIAGNOSTIC
+
+   Mục tiêu:
+   - Đọc snapshot từ persistent wrapper đã PASS ở 8C-A.
+   - Xác định snapshot nào đang PENDING.
+   - Kiểm tra draw identity tại thời điểm prediction.
+   - Chưa verify.
+   - Chưa update snapshot.
+   - Không ghi localStorage.
+   - Không thay Production Prediction Engine.
+
+   RESEARCH ONLY.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. NORMALIZE SNAPSHOT VERIFICATION STATUS
+   ========================================================================= */
+
+function getShadowSnapshotVerificationStatusV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return 'INVALID';
+
+  }
+
+
+  /*
+   * Schema mới:
+   * verification.status
+   */
+
+  if (
+    snapshot.verification &&
+    snapshot.verification.status
+  ) {
+
+    return String(
+      snapshot
+        .verification
+        .status
+    ).toUpperCase();
+
+  }
+
+
+  /*
+   * Một số snapshot bridge cũ
+   * có thể dùng status trực tiếp.
+   */
+
+  if (
+    snapshot.status
+  ) {
+
+    return String(
+      snapshot.status
+    ).toUpperCase();
+
+  }
+
+
+  /*
+   * Schema cũ hơn có evaluated.
+   */
+
+  if (
+    snapshot.evaluated === true
+  ) {
+
+    return 'VERIFIED';
+
+  }
+
+
+  return 'PENDING';
+
+}
+
+
+/* =========================================================================
+   2. READ SNAPSHOTS FOR 8C-B
+
+   Chỉ READ.
+   Ưu tiên wrapper chuẩn 8C-A.
+   ========================================================================= */
+
+function readPendingDiagnosticSnapshotsV26() {
+
+  try {
+
+    /*
+     * Reader wrapper chuẩn.
+     */
+
+    if (
+      typeof
+        readShadowPersistentWrapperV26 ===
+      'function'
+    ) {
+
+      const read =
+        readShadowPersistentWrapperV26();
+
+
+      if (
+        read &&
+        read.ready &&
+        read.store &&
+        Array.isArray(
+          read.store.snapshots
+        )
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'PERSISTENT_WRAPPER',
+
+          snapshots:
+            read.store
+              .snapshots
+              .slice()
+
+        };
+
+      }
+
+    }
+
+
+    /*
+     * Fallback reader đã được
+     * Final Persistence Fix override.
+     */
+
+    if (
+      typeof
+        readShadowSnapshotsV26 ===
+      'function'
+    ) {
+
+      const snapshots =
+        readShadowSnapshotsV26();
+
+
+      if (
+        Array.isArray(
+          snapshots
+        )
+      ) {
+
+        return {
+
+          ready: true,
+
+          source:
+            'SNAPSHOT_READER',
+
+          snapshots:
+            snapshots.slice()
+
+        };
+
+      }
+
+    }
+
+
+    /*
+     * Cuối cùng mới fallback RAM.
+     */
+
+    if (
+      Array.isArray(
+        window.SHADOW_SNAPSHOTS_V26
+      )
+    ) {
+
+      return {
+
+        ready: true,
+
+        source:
+          'RAM_FALLBACK',
+
+        snapshots:
+          window
+            .SHADOW_SNAPSHOTS_V26
+            .slice()
+
+      };
+
+    }
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_FOUND',
+
+      snapshots: []
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_DIAGNOSTIC_READ_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      snapshots: []
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. INSPECT ONE PENDING SNAPSHOT
+
+   Chưa resolve actual result ở B1.
+   B1 chỉ xác định đầy đủ identity
+   trước khi B2 nối historical resolver.
+   ========================================================================= */
+
+function inspectPendingShadowSnapshotV26(
+  snapshot,
+  index
+) {
+
+  const status =
+    getShadowSnapshotVerificationStatusV26(
+      snapshot
+    );
+
+
+  const province =
+    snapshot &&
+    snapshot.province
+      ? snapshot.province
+      : null;
+
+
+  const prize =
+    snapshot &&
+    snapshot.prize
+      ? snapshot.prize
+      : 'db';
+
+
+  const latestDrawDate =
+    snapshot &&
+    snapshot.latestDrawDate
+      ? snapshot.latestDrawDate
+      : null;
+
+
+  const latestDrawKey =
+    snapshot &&
+    snapshot.latestDrawKey
+      ? snapshot.latestDrawKey
+      : null;
+
+
+  const generatedAt =
+    snapshot &&
+    (
+      snapshot.generatedAt ||
+      snapshot.savedAt ||
+      snapshot.createdAt
+    )
+      ? (
+          snapshot.generatedAt ||
+          snapshot.savedAt ||
+          snapshot.createdAt
+        )
+      : null;
+
+
+  const snapshotKey =
+    snapshot &&
+    snapshot.snapshotKey
+      ? snapshot.snapshotKey
+      : null;
+
+
+  return {
+
+    index,
+
+    ready:
+      Boolean(
+        snapshot &&
+        typeof snapshot ===
+          'object' &&
+        province
+      ),
+
+    status,
+
+    pending:
+      status ===
+      'PENDING',
+
+    province,
+
+    prize,
+
+    model:
+      snapshot &&
+      snapshot.model
+        ? snapshot.model
+        : null,
+
+    window:
+      snapshot &&
+      snapshot.window != null
+        ? snapshot.window
+        : null,
+
+    latestDrawDate,
+
+    latestDrawKey,
+
+    generatedAt,
+
+    snapshotKey,
+
+    hasTop1:
+      Boolean(
+        snapshot &&
+        Array.isArray(
+          snapshot.top1
+        ) &&
+        snapshot.top1.length
+      ),
+
+    hasTop3:
+      Boolean(
+        snapshot &&
+        Array.isArray(
+          snapshot.top3
+        ) &&
+        snapshot.top3.length
+      ),
+
+    hasTop5:
+      Boolean(
+        snapshot &&
+        Array.isArray(
+          snapshot.top5
+        ) &&
+        snapshot.top5.length
+      ),
+
+    hasTop10:
+      Boolean(
+        snapshot &&
+        Array.isArray(
+          snapshot.top10
+        ) &&
+        snapshot.top10.length
+      )
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. RUN 8C-B1 DIAGNOSTIC
+   ========================================================================= */
+
+function debugPendingShadowSnapshotsV26() {
+
+  const read =
+    readPendingDiagnosticSnapshotsV26();
+
+
+  if (
+    !read.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      version:
+        'V2.6',
+
+      block:
+        '8C-B1',
+
+      reason:
+        read.reason,
+
+      error:
+        read.error ||
+        null
+
+    };
+
+  }
+
+
+  const rows =
+    read.snapshots.map(
+      (
+        snapshot,
+        index
+      ) =>
+        inspectPendingShadowSnapshotV26(
+          snapshot,
+          index
+        )
+    );
+
+
+  const valid =
+    rows.filter(
+      row =>
+        row.ready
+    );
+
+
+  const pending =
+    valid.filter(
+      row =>
+        row.pending
+    );
+
+
+  const verified =
+    valid.filter(
+      row =>
+        row.status ===
+        'VERIFIED'
+    );
+
+
+  const missingDrawIdentity =
+    pending.filter(
+      row =>
+        !row.latestDrawDate ||
+        !row.latestDrawKey
+    );
+
+
+  const missingRanking =
+    pending.filter(
+      row =>
+        !row.hasTop1 ||
+        !row.hasTop3
+    );
+
+
+  return {
+
+    ready: true,
+
+    version:
+      'V2.6',
+
+    block:
+      '8C-B1',
+
+    engine:
+      'PENDING_SNAPSHOT_DIAGNOSTIC',
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    source:
+      read.source,
+
+    totalSnapshots:
+      rows.length,
+
+    validSnapshots:
+      valid.length,
+
+    pendingCount:
+      pending.length,
+
+    verifiedCount:
+      verified.length,
+
+    missingDrawIdentity:
+      missingDrawIdentity.length,
+
+    missingRanking:
+      missingRanking.length,
+
+    pending,
+
+    rows
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. MOBILE ALERT TEST
+   ========================================================================= */
+
+function testPendingShadowSnapshotsV26() {
+
+  const result =
+    debugPendingShadowSnapshotsV26();
+
+
+  const lines = [];
+
+
+  lines.push(
+    '🔬 V2.6 8C-B1 PENDING DIAGNOSTIC'
+  );
+
+  lines.push('');
+
+
+  if (
+    !result.ready
+  ) {
+
+    lines.push(
+      '❌ NOT READY'
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result.reason ||
+        'UNKNOWN'
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    '✅ READ SUCCESS'
+  );
+
+  lines.push(
+    'Source: ' +
+    result.source
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Total Snapshots: ' +
+    result.totalSnapshots
+  );
+
+  lines.push(
+    'Valid: ' +
+    result.validSnapshots
+  );
+
+  lines.push(
+    'Pending: ' +
+    result.pendingCount
+  );
+
+  lines.push(
+    'Verified: ' +
+    result.verifiedCount
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Missing Draw Identity: ' +
+    result.missingDrawIdentity
+  );
+
+  lines.push(
+    'Missing Ranking: ' +
+    result.missingRanking
+  );
+
+
+  /*
+   * Chỉ hiện tối đa 12 pending
+   * để popup mobile không quá dài.
+   */
+
+  result.pending
+    .slice(
+      0,
+      12
+    )
+    .forEach(
+      (
+        row,
+        index
+      ) => {
+
+        lines.push('');
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          (
+            row.province ||
+            '-'
+          )
+        );
+
+        lines.push(
+          'Status: ' +
+          row.status
+        );
+
+        lines.push(
+          'Model: ' +
+          (
+            row.model ||
+            '-'
+          ) +
+          ' / ' +
+          (
+            row.window != null
+              ? row.window
+              : '-'
+          )
+        );
+
+        lines.push(
+          'Latest Draw: ' +
+          (
+            row.latestDrawDate ||
+            'MISSING'
+          )
+        );
+
+        lines.push(
+          'Draw Key: ' +
+          (
+            row.latestDrawKey ||
+            'MISSING'
+          )
+        );
+
+        lines.push(
+          'Top1: ' +
+          (
+            row.hasTop1
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Top3: ' +
+          (
+            row.hasTop3
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+      }
+    );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  window.LAST_V26_8CB1_DIAGNOSTIC =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   6. DEBUG BUTTON
+   ========================================================================= */
+
+(function addV26PendingDiagnosticButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-8cb1-pending'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-8cb1-pending';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔬 Test V2.6 Pending Verification';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testPendingShadowSnapshotsV26();
+
+      };
+
+
+    /*
+     * Gắn cuối body để chắc chắn
+     * có nút test trên mobile.
+     */
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB1_PENDING_DIAGNOSTIC =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B1 Pending Diagnostic: ACTIVE'
+);
+
