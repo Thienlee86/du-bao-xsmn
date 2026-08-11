@@ -60636,3 +60636,846 @@ console.log(
   'V2.6 8C-B1A Direct Persistent Read: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-A7
+   PERSISTENT EMPTY WRITE GUARD
+
+   Mục tiêu:
+   - Bảo vệ writer thấp nhất:
+       writeShadowPersistentWrapperV26()
+
+   - snapshots có dữ liệu:
+       cho phép ghi bình thường.
+
+   - snapshots = []
+     + persistent cũng rỗng:
+       cho phép trạng thái empty.
+
+   - snapshots = []
+     + persistent đang có dữ liệu:
+       BLOCK WRITE.
+       Không xóa persistent.
+       Restore RAM từ persistent.
+       Ghi diagnostic để truy caller.
+
+   - Không thay Production Prediction Engine.
+   - Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. LOW LEVEL SAFE WRAPPER WRITER
+   ========================================================================= */
+
+writeShadowPersistentWrapperV26 =
+function (
+  snapshots
+) {
+
+  /*
+   * -------------------------------------------------------------
+   * INPUT VALIDATION
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOTS_NOT_ARRAY',
+
+      protected:
+        true
+
+    };
+
+  }
+
+
+  const key =
+    'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE A
+   *
+   * Có snapshot mới.
+   * Ghi bình thường.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    snapshots.length > 0
+  ) {
+
+    const store = {
+
+      version:
+        'V2.6',
+
+      updatedAt:
+        new Date()
+          .toISOString(),
+
+      snapshots:
+        snapshots.slice()
+
+    };
+
+
+    try {
+
+      localStorage.setItem(
+        key,
+        JSON.stringify(
+          store
+        )
+      );
+
+
+      /*
+       * Đồng bộ RAM theo dữ liệu
+       * vừa ghi thành công.
+       */
+
+      window.SHADOW_SNAPSHOTS_V26 =
+        snapshots.slice();
+
+
+      window.LAST_SHADOW_SNAPSHOTS_V26 =
+        snapshots.slice();
+
+
+      const result = {
+
+        ready: true,
+
+        source:
+          'A7_WRAPPER_SAVED',
+
+        protected:
+          true,
+
+        blocked:
+          false,
+
+        count:
+          snapshots.length,
+
+        store
+
+      };
+
+
+      window.LAST_V26_A7_WRITE =
+        result;
+
+
+      return result;
+
+
+    } catch (error) {
+
+      const result = {
+
+        ready: false,
+
+        reason:
+          'A7_LOCAL_STORAGE_WRITE_ERROR',
+
+        protected:
+          true,
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      };
+
+
+      window.LAST_V26_A7_WRITE =
+        result;
+
+
+      return result;
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE B
+   *
+   * Caller đang yêu cầu ghi [].
+   *
+   * TUYỆT ĐỐI chưa ghi.
+   * Đọc persistent hiện tại trước.
+   * -------------------------------------------------------------
+   */
+
+  let existingRaw =
+    null;
+
+
+  try {
+
+    existingRaw =
+      localStorage.getItem(
+        key
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'A7_EXISTING_STORE_READ_ERROR',
+
+      protected:
+        true,
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+
+  let existingSnapshots =
+    [];
+
+  let existingStore =
+    null;
+
+
+  if (
+    existingRaw
+  ) {
+
+    try {
+
+      const parsed =
+        JSON.parse(
+          existingRaw
+        );
+
+
+      /*
+       * Wrapper schema hiện tại.
+       */
+
+      if (
+        parsed &&
+        !Array.isArray(
+          parsed
+        ) &&
+        Array.isArray(
+          parsed.snapshots
+        )
+      ) {
+
+        existingSnapshots =
+          parsed.snapshots.slice();
+
+        existingStore =
+          parsed;
+
+      }
+
+
+      /*
+       * Legacy array schema.
+       */
+
+      else if (
+        Array.isArray(
+          parsed
+        )
+      ) {
+
+        existingSnapshots =
+          parsed.slice();
+
+        existingStore = {
+
+          version:
+            'V2.6',
+
+          updatedAt:
+            null,
+
+          snapshots:
+            parsed.slice()
+
+        };
+
+      }
+
+    } catch (error) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'A7_EXISTING_STORE_PARSE_ERROR',
+
+        protected:
+          true,
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      };
+
+    }
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE B1
+   *
+   * Caller muốn ghi []
+   * NHƯNG persistent đang có dữ liệu.
+   *
+   * BLOCK.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    existingSnapshots.length > 0
+  ) {
+
+    /*
+     * Restore RAM từ persistent.
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      existingSnapshots.slice();
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      existingSnapshots.slice();
+
+
+    /*
+     * Thu stack để sau này biết
+     * caller nào đã thử ghi [].
+     */
+
+    let stack =
+      null;
+
+
+    try {
+
+      stack =
+        new Error(
+          'A7_EMPTY_WRITE_BLOCKED'
+        ).stack ||
+        null;
+
+    } catch (error) {
+
+      stack =
+        null;
+
+    }
+
+
+    const event = {
+
+      at:
+        new Date()
+          .toISOString(),
+
+      reason:
+        'EMPTY_WRITE_BLOCKED',
+
+      attemptedCount:
+        0,
+
+      preservedCount:
+        existingSnapshots.length,
+
+      stack
+
+    };
+
+
+    if (
+      !Array.isArray(
+        window.V26_A7_BLOCKED_EVENTS
+      )
+    ) {
+
+      window.V26_A7_BLOCKED_EVENTS =
+        [];
+
+    }
+
+
+    window
+      .V26_A7_BLOCKED_EVENTS
+      .push(
+        event
+      );
+
+
+    /*
+     * Chỉ giữ 20 event gần nhất.
+     */
+
+    if (
+      window
+        .V26_A7_BLOCKED_EVENTS
+        .length > 20
+    ) {
+
+      window
+        .V26_A7_BLOCKED_EVENTS =
+        window
+          .V26_A7_BLOCKED_EVENTS
+          .slice(
+            -20
+          );
+
+    }
+
+
+    const result = {
+
+      ready: true,
+
+      source:
+        'A7_EMPTY_WRITE_BLOCKED',
+
+      protected:
+        true,
+
+      blocked:
+        true,
+
+      restored:
+        true,
+
+      count:
+        existingSnapshots.length,
+
+      preservedCount:
+        existingSnapshots.length,
+
+      store:
+        existingStore,
+
+      event
+
+    };
+
+
+    window.LAST_V26_A7_WRITE =
+      result;
+
+
+    console.warn(
+      'XSMN V2.6 A7 blocked empty persistent write.',
+      event
+    );
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CASE B2
+   *
+   * Caller muốn ghi []
+   * và persistent hiện tại cũng rỗng.
+   *
+   * Không có dữ liệu để bảo vệ.
+   *
+   * Ta KHÔNG cần setItem thêm.
+   * Tránh tạo updatedAt giả chỉ vì startup.
+   * -------------------------------------------------------------
+   */
+
+  const result = {
+
+    ready: true,
+
+    source:
+      'A7_EMPTY_STORE_NO_WRITE',
+
+    protected:
+      true,
+
+    blocked:
+      false,
+
+    restored:
+      false,
+
+    count:
+      0,
+
+    store:
+      existingStore
+
+  };
+
+
+  window.LAST_V26_A7_WRITE =
+    result;
+
+
+  return result;
+
+};
+
+
+/* =========================================================================
+   2. A7 STATUS TEST
+   ========================================================================= */
+
+function testV26A7EmptyWriteGuard() {
+
+  const key =
+    'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+  const lines = [];
+
+
+  lines.push(
+    '🛡️ V2.6 8C-A7 EMPTY WRITE GUARD'
+  );
+
+  lines.push('');
+
+
+  let persistentCount =
+    0;
+
+  let persistentType =
+    'NOT FOUND';
+
+
+  try {
+
+    const raw =
+      localStorage.getItem(
+        key
+      );
+
+
+    if (
+      raw
+    ) {
+
+      const parsed =
+        JSON.parse(
+          raw
+        );
+
+
+      if (
+        Array.isArray(
+          parsed
+        )
+      ) {
+
+        persistentType =
+          'LEGACY ARRAY';
+
+        persistentCount =
+          parsed.length;
+
+      } else if (
+        parsed &&
+        Array.isArray(
+          parsed.snapshots
+        )
+      ) {
+
+        persistentType =
+          'WRAPPER';
+
+        persistentCount =
+          parsed.snapshots.length;
+
+      } else {
+
+        persistentType =
+          'UNKNOWN';
+
+      }
+
+    }
+
+  } catch (error) {
+
+    persistentType =
+      'READ ERROR';
+
+  }
+
+
+  const ramCount =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window
+          .SHADOW_SNAPSHOTS_V26
+          .length
+      : -1;
+
+
+  const events =
+    Array.isArray(
+      window.V26_A7_BLOCKED_EVENTS
+    )
+      ? window
+          .V26_A7_BLOCKED_EVENTS
+      : [];
+
+
+  const last =
+    window.LAST_V26_A7_WRITE ||
+    null;
+
+
+  lines.push(
+    'Guard: ACTIVE ✅'
+  );
+
+  lines.push(
+    'Persistent Type: ' +
+    persistentType
+  );
+
+  lines.push(
+    'Persistent Snapshots: ' +
+    persistentCount
+  );
+
+  lines.push(
+    'RAM Snapshots: ' +
+    ramCount
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Blocked Events: ' +
+    events.length
+  );
+
+  lines.push(
+    'Last Action: ' +
+    (
+      last &&
+      last.source
+        ? last.source
+        : 'NONE'
+    )
+  );
+
+
+  if (
+    events.length > 0
+  ) {
+
+    const event =
+      events[
+        events.length - 1
+      ];
+
+
+    lines.push('');
+
+    lines.push(
+      'LAST BLOCKED EVENT'
+    );
+
+    lines.push(
+      'At: ' +
+      event.at
+    );
+
+    lines.push(
+      'Preserved: ' +
+      event.preservedCount
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return {
+
+    ready: true,
+
+    protected:
+      true,
+
+    persistentType,
+
+    persistentCount,
+
+    ramCount,
+
+    blockedEvents:
+      events.length,
+
+    lastAction:
+      last &&
+      last.source
+        ? last.source
+        : null,
+
+    lastBlockedEvent:
+      events.length
+        ? events[
+            events.length - 1
+          ]
+        : null
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. MOBILE TEST BUTTON
+   ========================================================================= */
+
+(function addV26A7GuardButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-a7-empty-guard'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-a7-empty-guard';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ Test V2.6 Empty Write Guard';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testV26A7EmptyWriteGuard();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CA7_EMPTY_WRITE_GUARD =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-A7 Empty Write Guard: ACTIVE'
+);
+
