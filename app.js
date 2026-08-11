@@ -64469,3 +64469,502 @@ console.log(
   'XSMN V2.6 8C-B3 Automatic Result Verification: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B4
+   AUTOMATIC VERIFICATION LIFECYCLE HOOK
+
+   Mục tiêu:
+
+   - Theo dõi mergeExtraDraws().
+   - Sau khi dữ liệu mới được merge thành công:
+       -> chạy B3 verifier.
+   - Áp dụng cho:
+       1. Live update
+       2. Paste / Import
+   - Không sửa Production Prediction Engine.
+   - Không thay logic mergeExtraDraws gốc.
+   - Không chạy verifier khi reset dữ liệu.
+
+   Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. INSTALL GUARD
+   ========================================================================= */
+
+if (
+  !window.V26_8CB4_AUTO_VERIFY_HOOK_INSTALLED
+) {
+
+  /*
+   * Bảo đảm Production function tồn tại
+   * trước khi wrap.
+   */
+
+  if (
+    typeof mergeExtraDraws ===
+    'function'
+  ) {
+
+    /*
+     * Giữ nguyên Production function.
+     */
+
+    const originalMergeExtraDrawsV26 =
+      mergeExtraDraws;
+
+
+    /*
+     * Override bằng wrapper.
+     *
+     * Production merge luôn chạy trước.
+     */
+
+    mergeExtraDraws =
+      function (
+        newDraws
+      ) {
+
+        const mergeResult =
+          originalMergeExtraDrawsV26(
+            newDraws
+          );
+
+
+        /*
+         * Chỉ chạy Research verifier
+         * sau khi merge gốc hoàn tất.
+         *
+         * Không thay đổi mergeResult.
+         */
+
+        let verification =
+          null;
+
+
+        try {
+
+          if (
+            typeof
+              verifyPendingShadowSnapshotsV26 ===
+            'function'
+          ) {
+
+            verification =
+              verifyPendingShadowSnapshotsV26();
+
+          }
+
+        } catch (error) {
+
+          /*
+           * Research verifier tuyệt đối
+           * không được làm Production
+           * merge thất bại.
+           */
+
+          console.warn(
+            'V2.6 B4 Auto Verification Error:',
+            error
+          );
+
+
+          verification = {
+
+            ready: false,
+
+            reason:
+              'AUTO_VERIFICATION_ERROR',
+
+            error:
+              String(
+                error.message ||
+                error
+              )
+
+          };
+
+        }
+
+
+        /*
+         * Diagnostic only.
+         */
+
+        window.LAST_V26_B4_AUTO_VERIFY = {
+
+          version:
+            'V2.6',
+
+          engine:
+            '8C-B4_AUTO_VERIFICATION_HOOK',
+
+          researchOnly:
+            true,
+
+          triggeredAt:
+            new Date()
+              .toISOString(),
+
+          incomingCount:
+            Array.isArray(
+              newDraws
+            )
+              ? newDraws.length
+              : 0,
+
+          mergeResult,
+
+          verification
+
+        };
+
+
+        /*
+         * Cực kỳ quan trọng:
+         *
+         * Caller Production vẫn nhận
+         * chính mergeResult gốc.
+         */
+
+        return mergeResult;
+
+      };
+
+
+    window
+      .V26_8CB4_AUTO_VERIFY_HOOK_INSTALLED =
+      true;
+
+
+    console.log(
+      'XSMN V2.6 8C-B4 Auto Verification Hook: ACTIVE'
+    );
+
+  } else {
+
+    console.warn(
+      'XSMN V2.6 8C-B4: mergeExtraDraws not found'
+    );
+
+  }
+
+}
+
+
+/* =========================================================================
+   2. B4 DIAGNOSTIC
+   ========================================================================= */
+
+function testAutoVerificationHookV26() {
+
+  const installed =
+    Boolean(
+      window
+        .V26_8CB4_AUTO_VERIFY_HOOK_INSTALLED
+    );
+
+
+  const last =
+    window
+      .LAST_V26_B4_AUTO_VERIFY ||
+    null;
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🧪 V2.6 8C-B4 AUTO VERIFY HOOK'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Hook Installed: ' +
+    (
+      installed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Merge Function: ' +
+    (
+      typeof mergeExtraDraws ===
+        'function'
+        ? 'READY'
+        : 'NOT READY'
+    )
+  );
+
+
+  lines.push(
+    'B3 Verifier: ' +
+    (
+      typeof
+        verifyPendingShadowSnapshotsV26 ===
+      'function'
+        ? 'READY'
+        : 'NOT READY'
+    )
+  );
+
+
+  if (last) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'LAST AUTO TRIGGER'
+    );
+
+
+    lines.push(
+      'Triggered: ' +
+      String(
+        last.triggeredAt ||
+        '-'
+      )
+    );
+
+
+    lines.push(
+      'Incoming Draws: ' +
+      String(
+        last.incomingCount != null
+          ? last.incomingCount
+          : '-'
+      )
+    );
+
+
+    if (
+      last.mergeResult
+    ) {
+
+      lines.push(
+        'Merge Added: ' +
+        String(
+          last.mergeResult.added != null
+            ? last.mergeResult.added
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Merge Updated: ' +
+        String(
+          last.mergeResult.updated != null
+            ? last.mergeResult.updated
+            : '-'
+        )
+      );
+
+    }
+
+
+    if (
+      last.verification
+    ) {
+
+      lines.push('');
+
+      lines.push(
+        'Verification Ready: ' +
+        (
+          last.verification.ready
+            ? 'YES'
+            : 'NO'
+        )
+      );
+
+
+      lines.push(
+        'Verified New: ' +
+        String(
+          last.verification.verified != null
+            ? last.verification.verified
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Still Pending: ' +
+        String(
+          last.verification.stillPending != null
+            ? last.verification.stillPending
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Failed: ' +
+        String(
+          last.verification.failed != null
+            ? last.verification.failed
+            : '-'
+        )
+      );
+
+
+      lines.push(
+        'Saved: ' +
+        (
+          last.verification.saved
+            ? 'YES'
+            : 'NO'
+        )
+      );
+
+    }
+
+  } else {
+
+    lines.push('');
+
+    lines.push(
+      'Last Auto Trigger: NONE'
+    );
+
+
+    lines.push(
+      'Chưa có merge mới kể từ khi B4 được load.'
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return {
+
+    ready:
+      installed &&
+      typeof mergeExtraDraws ===
+        'function' &&
+      typeof
+        verifyPendingShadowSnapshotsV26 ===
+        'function',
+
+    installed,
+
+    last
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. MOBILE TEST BUTTON
+   ========================================================================= */
+
+(function addV26B4TestButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b4-auto-verify'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b4-auto-verify';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 Test V2.6 Auto Verify Hook';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testAutoVerificationHookV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
