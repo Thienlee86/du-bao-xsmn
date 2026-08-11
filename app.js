@@ -67081,6 +67081,44 @@ function showProductionLifecycleAuditV26() {
   const result =
     auditProductionLifecycleV26();
 
+const firstInvalid =
+  result.details &&
+  result.details.find(
+    item =>
+      !item.valid
+  );
+
+
+if (firstInvalid) {
+
+  alert(
+    [
+      '🔎 B6 FIRST INVALID SNAPSHOT',
+      '',
+      'Province: ' +
+        firstInvalid.province,
+      'Status: ' +
+        firstInvalid.lifecycle,
+      'Target: ' +
+        (
+          firstInvalid.targetDrawDate ||
+          '-'
+        ),
+      '',
+      'Issues:',
+      (
+        firstInvalid.issues &&
+        firstInvalid.issues.length
+          ? firstInvalid.issues.join('\n')
+          : 'UNKNOWN'
+      )
+    ].join('\n')
+  );
+
+
+  return result;
+
+}
 
   const lines =
     [];
