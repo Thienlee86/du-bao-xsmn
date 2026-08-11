@@ -67263,50 +67263,43 @@ function showProductionLifecycleAuditV26() {
     );
 
 
-    invalidDetails.forEach(
-      (
-        item,
-        index
-      ) => {
-
-        lines.push('');
-
-        lines.push(
-          '#' +
-          (
-            index + 1
-          ) +
-          ' ' +
-          item.province
-        );
+    const firstInvalid =
+  invalidDetails[0];
 
 
-        lines.push(
-          'Status: ' +
-          item.lifecycle
-        );
+lines.push('');
 
+lines.push(
+  '#1 ' +
+  firstInvalid.province
+);
 
-        lines.push(
-          'Target: ' +
-          (
-            item.targetDrawDate ||
-            '-'
-          )
-        );
+lines.push(
+  'Status: ' +
+  firstInvalid.lifecycle
+);
 
+lines.push(
+  'Target: ' +
+  (
+    firstInvalid.targetDrawDate ||
+    '-'
+  )
+);
 
-        lines.push(
-          'Issues: ' +
-          (
-            item.issues.length
-              ? item.issues.join(', ')
-              : 'UNKNOWN'
-          )
-        );
+lines.push(
+  'Issues:'
+);
 
-      }
+firstInvalid.issues.forEach(
+  issue => {
+
+    lines.push(
+      '- ' + issue
     );
+
+  }
+);
 
   }
    
