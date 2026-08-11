@@ -59327,3 +59327,141 @@ console.log(
   'XSMN V2.6 Final Persistence Schema Fix: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — 8C-A6
+   SHADOW BRIDGE -> WRAPPER PERSISTENCE FIX
+
+   Mục tiêu:
+   - Bridge Store dùng chung Wrapper Schema.
+   - Không còn writer array riêng.
+   - RAM và localStorage đồng bộ cùng dữ liệu.
+   - Không thay Production Prediction Engine.
+   ========================================================================= */
+
+writeShadowSnapshotStoreBridgeV26 =
+function (
+  rows
+) {
+
+  if (
+    !Array.isArray(
+      rows
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT_STORE'
+
+    };
+
+  }
+
+
+  try {
+
+    /*
+     * Writer chuẩn duy nhất:
+     *
+     * {
+     *   version: 'V2.6',
+     *   updatedAt: ...,
+     *   snapshots: [...]
+     * }
+     */
+
+    const write =
+      writeShadowPersistentWrapperV26(
+        rows
+      );
+
+
+    if (
+      !write ||
+      !write.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          write &&
+          write.reason
+            ? write.reason
+            : 'WRAPPER_WRITE_FAILED',
+
+        write
+
+      };
+
+    }
+
+
+    /*
+     * Clone RAM để tránh cùng reference
+     * với array đang được Bridge xử lý.
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      rows.slice();
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      rows.slice();
+
+
+    return {
+
+      ready: true,
+
+      schema:
+        'WRAPPER',
+
+      count:
+        rows.length,
+
+      persistentCount:
+        write.count != null
+          ? write.count
+          : rows.length,
+
+      protected:
+        true
+
+    };
+
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_WRAPPER_WRITE_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
+
+};
+
+
+window.V26_SHADOW_BRIDGE_WRAPPER_FIX =
+  true;
+
+
+console.log(
+  'XSMN V2.6 Shadow Bridge Wrapper Fix: ACTIVE'
+);
+
