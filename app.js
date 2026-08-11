@@ -58989,3 +58989,341 @@ function testEmptyStoreOverwriteDiagnosticV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — FINAL PERSISTENCE SCHEMA FIX
+
+   Mục tiêu:
+   1. Một schema duy nhất:
+      {
+        version,
+        updatedAt,
+        snapshots: []
+      }
+
+   2. readShadowSnapshotsV26()
+      đọc được:
+      - Wrapper schema mới
+      - Legacy Array schema cũ
+
+   3. writeShadowSnapshotsV26()
+      luôn ghi Wrapper schema.
+
+   4. persistCurrentShadowSnapshotsV26()
+      KHÔNG cho RAM [] ghi đè persistent đang có dữ liệu.
+
+   5. Không thay Production Prediction Engine.
+   Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. COMPATIBLE READ
+   ========================================================================= */
+
+readShadowSnapshotsV26 =
+function () {
+
+  try {
+
+    const read =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !read ||
+      !read.ready ||
+      !read.store ||
+      !Array.isArray(
+        read.store.snapshots
+      )
+    ) {
+
+      return [];
+
+    }
+
+
+    return read
+      .store
+      .snapshots
+      .slice();
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Final Snapshot Read Error:',
+      error
+    );
+
+
+    return [];
+
+  }
+
+};
+
+
+/* =========================================================================
+   2. UNIFIED WRAPPER WRITE
+   ========================================================================= */
+
+writeShadowSnapshotsV26 =
+function (
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return false;
+
+  }
+
+
+  try {
+
+    /*
+     * Giữ giới hạn cũ nếu config tồn tại.
+     */
+
+    const maxSnapshots =
+      (
+        typeof
+          SHADOW_TRACKING_V26_CONFIG !==
+        'undefined' &&
+        SHADOW_TRACKING_V26_CONFIG &&
+        Number.isFinite(
+          Number(
+            SHADOW_TRACKING_V26_CONFIG
+              .maxSnapshots
+          )
+        )
+      )
+        ? Number(
+            SHADOW_TRACKING_V26_CONFIG
+              .maxSnapshots
+          )
+        : 500;
+
+
+    const limited =
+      snapshots.slice(
+        -maxSnapshots
+      );
+
+
+    const result =
+      writeShadowPersistentWrapperV26(
+        limited
+      );
+
+
+    return Boolean(
+      result &&
+      result.ready
+    );
+
+  } catch (error) {
+
+    console.error(
+      'V2.6 Final Snapshot Write Error:',
+      error
+    );
+
+
+    return false;
+
+  }
+
+};
+
+
+/* =========================================================================
+   3. SAFE RAM -> PERSISTENT
+
+   Quy tắc:
+   - RAM có dữ liệu -> được ghi.
+   - RAM [] + persistent [] -> được giữ rỗng.
+   - RAM [] + persistent có dữ liệu
+     -> KHÔNG được overwrite.
+   ========================================================================= */
+
+persistCurrentShadowSnapshotsV26 =
+function () {
+
+  const ram =
+    window
+      .SHADOW_SNAPSHOTS_V26;
+
+
+  if (
+    !Array.isArray(
+      ram
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'RAM_STORE_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * RAM có snapshot:
+   * ghi bình thường.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    ram.length > 0
+  ) {
+
+    return (
+      writeShadowPersistentWrapperV26(
+        ram
+      )
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * RAM đang rỗng.
+   * Đọc persistent trước khi quyết định.
+   * -------------------------------------------------------------
+   */
+
+  const existing =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !existing ||
+    !existing.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        existing &&
+        existing.reason
+          ? existing.reason
+          : 'PERSISTENT_READ_NOT_READY',
+
+      protected:
+        true
+
+    };
+
+  }
+
+
+  const persistentSnapshots =
+    (
+      existing.store &&
+      Array.isArray(
+        existing.store.snapshots
+      )
+    )
+      ? existing
+          .store
+          .snapshots
+      : [];
+
+
+  /*
+   * Persistent đang có dữ liệu:
+   * tuyệt đối không cho RAM [] ghi đè.
+   */
+
+  if (
+    persistentSnapshots.length > 0
+  ) {
+
+    /*
+     * Đồng bộ RAM trở lại từ persistent.
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      persistentSnapshots.slice();
+
+
+    return {
+
+      ready: true,
+
+      source:
+        'EMPTY_RAM_WRITE_BLOCKED',
+
+      protected:
+        true,
+
+      restored:
+        true,
+
+      count:
+        persistentSnapshots.length,
+
+      store:
+        existing.store
+
+    };
+
+  }
+
+
+  /*
+   * Cả RAM và persistent đều rỗng.
+   * Không cần write thêm một wrapper rỗng.
+   */
+
+  return {
+
+    ready: true,
+
+    source:
+      'EMPTY_STORE_NO_WRITE',
+
+    protected:
+      true,
+
+    restored:
+      false,
+
+    count:
+      0,
+
+    store:
+      existing.store
+
+  };
+
+};
+
+
+/* =========================================================================
+   4. FINAL FIX MARKER
+   ========================================================================= */
+
+window
+  .V26_FINAL_PERSISTENCE_SCHEMA_FIX =
+  true;
+
+
+console.log(
+  'XSMN V2.6 Final Persistence Schema Fix: ACTIVE'
+);
+
