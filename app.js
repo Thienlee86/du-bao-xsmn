@@ -61479,3 +61479,1282 @@ console.log(
   'XSMN V2.6 8C-A7 Empty Write Guard: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B2
+   TARGET DRAW IDENTITY
+
+   Mục tiêu:
+
+   1. Xác định kỳ xổ MỤC TIÊU của Shadow Prediction.
+
+   2. Target phải STRICTLY AFTER latestDrawDate.
+      Không được dùng lại historical cutoff.
+
+   3. Backfill các snapshot PENDING hiện tại.
+
+   4. Không thay:
+      - latestDrawKey
+      - latestDrawDate
+      - snapshotKey
+      - model / window
+      - rankings
+
+   5. Không thay Production Prediction Engine.
+
+   Research Only.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. STRICT NEXT SHADOW DRAW DATE
+   ========================================================================= */
+
+function getNextShadowTargetDrawDateV26(
+  provinceSlug,
+  latestDrawDate
+) {
+
+  if (
+    !provinceSlug
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_NOT_PROVIDED'
+
+    };
+
+  }
+
+
+  if (
+    !latestDrawDate
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LATEST_DRAW_DATE_NOT_PROVIDED',
+
+      province:
+        provinceSlug
+
+    };
+
+  }
+
+
+  const province =
+    provinceBySlug(
+      provinceSlug
+    );
+
+
+  if (
+    !province
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_NOT_FOUND',
+
+      province:
+        provinceSlug
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      province.days
+    ) ||
+    !province.days.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_DRAW_DAYS_NOT_FOUND',
+
+      province:
+        provinceSlug
+
+    };
+
+  }
+
+
+  /*
+   * Dùng noon local time để giảm rủi ro
+   * lệch ngày do timezone / DST parser.
+   */
+
+  const base =
+    new Date(
+      String(
+        latestDrawDate
+      ) +
+      'T12:00:00'
+    );
+
+
+  if (
+    Number.isNaN(
+      base.getTime()
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'LATEST_DRAW_DATE_INVALID',
+
+      province:
+        provinceSlug,
+
+      latestDrawDate
+
+    };
+
+  }
+
+
+  const days =
+    new Set(
+      province.days
+        .map(
+          day =>
+            DAY_INDEX[
+              day
+            ]
+        )
+        .filter(
+          day =>
+            Number.isInteger(
+              day
+            )
+        )
+    );
+
+
+  if (
+    !days.size
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PROVINCE_DAY_INDEX_NOT_FOUND',
+
+      province:
+        provinceSlug,
+
+      provinceDays:
+        province.days.slice()
+
+    };
+
+  }
+
+
+  /*
+   * QUAN TRỌNG:
+   *
+   * offset bắt đầu từ 1.
+   *
+   * Không bao giờ trả lại
+   * latestDrawDate.
+   */
+
+  for (
+    let offset = 1;
+    offset <= 7;
+    offset++
+  ) {
+
+    const candidate =
+      new Date(
+        base
+      );
+
+
+    candidate.setDate(
+      base.getDate() +
+      offset
+    );
+
+
+    if (
+      days.has(
+        candidate.getDay()
+      )
+    ) {
+
+      const targetDrawDate =
+        isoDate(
+          candidate
+        );
+
+
+      /*
+       * Defensive check.
+       */
+
+      if (
+        targetDrawDate <=
+        String(
+          latestDrawDate
+        )
+      ) {
+
+        continue;
+
+      }
+
+
+      return {
+
+        ready: true,
+
+        province:
+          provinceSlug,
+
+        latestDrawDate:
+          String(
+            latestDrawDate
+          ),
+
+        targetDrawDate,
+
+        dayIndex:
+          candidate.getDay(),
+
+        offsetDays:
+          offset
+
+      };
+
+    }
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    reason:
+      'NEXT_SHADOW_DRAW_NOT_FOUND',
+
+    province:
+      provinceSlug,
+
+    latestDrawDate:
+      String(
+        latestDrawDate
+      )
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BUILD TARGET DRAW IDENTITY
+   ========================================================================= */
+
+function buildShadowTargetDrawIdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_SNAPSHOT'
+
+    };
+
+  }
+
+
+  const province =
+    snapshot.provinceSlug ||
+    snapshot.province ||
+    snapshot.slug ||
+    null;
+
+
+  if (
+    !province
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_PROVINCE_NOT_FOUND'
+
+    };
+
+  }
+
+
+  const latestDrawDate =
+    snapshot.latestDrawDate ||
+    snapshot.latestDraw ||
+    null;
+
+
+  if (
+    !latestDrawDate
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_LATEST_DRAW_DATE_NOT_FOUND',
+
+      province
+
+    };
+
+  }
+
+
+  const next =
+    getNextShadowTargetDrawDateV26(
+      province,
+      latestDrawDate
+    );
+
+
+  if (
+    !next.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        next.reason,
+
+      province,
+
+      latestDrawDate,
+
+      next
+
+    };
+
+  }
+
+
+  const prize =
+    snapshot.prize ||
+    'db';
+
+
+  /*
+   * Target key KHÔNG thay snapshotKey.
+   *
+   * Đây chỉ là identity của kỳ
+   * cần Automatic Verification.
+   */
+
+  const targetDrawKey =
+    [
+      'v26-target',
+      normalizeShadowIdentityV26(
+        province
+      ),
+      normalizeShadowIdentityV26(
+        prize
+      ),
+      normalizeShadowIdentityV26(
+        next.targetDrawDate
+      )
+    ].join(
+      '|'
+    );
+
+
+  return {
+
+    ready: true,
+
+    province,
+
+    prize,
+
+    latestDrawDate:
+      String(
+        latestDrawDate
+      ),
+
+    targetDrawDate:
+      next.targetDrawDate,
+
+    targetDrawKey,
+
+    offsetDays:
+      next.offsetDays
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. BACKFILL ONE SNAPSHOT
+   ========================================================================= */
+
+function backfillOneShadowTargetIdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      changed: false,
+
+      reason:
+        'INVALID_SNAPSHOT',
+
+      snapshot
+
+    };
+
+  }
+
+
+  /*
+   * Snapshot đã có target identity:
+   * giữ nguyên.
+   */
+
+  if (
+    snapshot.targetDrawDate &&
+    snapshot.targetDrawKey
+  ) {
+
+    return {
+
+      ready: true,
+
+      changed: false,
+
+      reason:
+        'TARGET_IDENTITY_ALREADY_EXISTS',
+
+      snapshot
+
+    };
+
+  }
+
+
+  const identity =
+    buildShadowTargetDrawIdentityV26(
+      snapshot
+    );
+
+
+  if (
+    !identity.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      changed: false,
+
+      reason:
+        identity.reason,
+
+      identity,
+
+      snapshot
+
+    };
+
+  }
+
+
+  /*
+   * Clone snapshot.
+   *
+   * Không mutate record gốc trước
+   * khi toàn batch được kiểm tra.
+   */
+
+  const updated = {
+
+    ...snapshot,
+
+    targetDrawDate:
+      identity.targetDrawDate,
+
+    targetDrawKey:
+      identity.targetDrawKey
+
+  };
+
+
+  return {
+
+    ready: true,
+
+    changed: true,
+
+    reason:
+      'TARGET_IDENTITY_BACKFILLED',
+
+    identity,
+
+    snapshot:
+      updated
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. BACKFILL PENDING SNAPSHOTS
+   ========================================================================= */
+
+function backfillPendingShadowTargetIdentityV26() {
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  if (
+    !snapshots.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_EMPTY',
+
+      total:
+        0
+
+    };
+
+  }
+
+
+  let pending =
+    0;
+
+  let changed =
+    0;
+
+  let unchanged =
+    0;
+
+  let failed =
+    0;
+
+
+  const details =
+    [];
+
+
+  const updated =
+    snapshots.map(
+      snapshot => {
+
+        /*
+         * Hỗ trợ cả:
+         *
+         * snapshot.status
+         *
+         * và:
+         *
+         * snapshot.verification.status
+         */
+
+        const status =
+          String(
+            snapshot.status ||
+            (
+              snapshot.verification &&
+              snapshot.verification.status
+            ) ||
+            'PENDING'
+          )
+            .toUpperCase();
+
+
+        /*
+         * Chỉ backfill snapshot PENDING.
+         */
+
+        if (
+          status !==
+          'PENDING'
+        ) {
+
+          unchanged++;
+
+
+          return snapshot;
+
+        }
+
+
+        pending++;
+
+
+        const result =
+          backfillOneShadowTargetIdentityV26(
+            snapshot
+          );
+
+
+        if (
+          !result.ready
+        ) {
+
+          failed++;
+
+
+          details.push({
+
+            province:
+              snapshot.province ||
+              snapshot.provinceSlug ||
+              '-',
+
+            latestDrawDate:
+              snapshot.latestDrawDate ||
+              snapshot.latestDraw ||
+              '-',
+
+            targetDrawDate:
+              '-',
+
+            changed:
+              false,
+
+            reason:
+              result.reason
+
+          });
+
+
+          return snapshot;
+
+        }
+
+
+        if (
+          result.changed
+        ) {
+
+          changed++;
+
+        } else {
+
+          unchanged++;
+
+        }
+
+
+        details.push({
+
+          province:
+            result.snapshot.province ||
+            result.snapshot.provinceSlug ||
+            '-',
+
+          latestDrawDate:
+            result.snapshot
+              .latestDrawDate ||
+            result.snapshot
+              .latestDraw ||
+            '-',
+
+          targetDrawDate:
+            result.snapshot
+              .targetDrawDate ||
+            '-',
+
+          targetDrawKey:
+            result.snapshot
+              .targetDrawKey ||
+            '-',
+
+          changed:
+            result.changed,
+
+          reason:
+            result.reason
+
+        });
+
+
+        return result.snapshot;
+
+      }
+    );
+
+
+  /*
+   * Không ghi nếu có lỗi.
+   *
+   * Ta không muốn một partial migration
+   * làm store khó diagnostic.
+   */
+
+  if (
+    failed > 0
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      reason:
+        'TARGET_IDENTITY_BACKFILL_INCOMPLETE',
+
+      researchOnly:
+        true,
+
+      total:
+        snapshots.length,
+
+      pending,
+
+      changed,
+
+      unchanged,
+
+      failed,
+
+      saved:
+        false,
+
+      details
+
+    };
+
+
+    window.LAST_V26_B2_BACKFILL =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Nếu không có gì thay đổi,
+   * không cần write.
+   */
+
+  if (
+    changed === 0
+  ) {
+
+    const result = {
+
+      ready: true,
+
+      status:
+        'NO_BACKFILL_REQUIRED',
+
+      researchOnly:
+        true,
+
+      total:
+        snapshots.length,
+
+      pending,
+
+      changed,
+
+      unchanged,
+
+      failed:
+        0,
+
+      saved:
+        false,
+
+      details
+
+    };
+
+
+    window.LAST_V26_B2_BACKFILL =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Ghi qua writer chuẩn.
+   *
+   * Không gọi localStorage.setItem()
+   * trực tiếp.
+   */
+
+  const saved =
+    writeShadowSnapshotsV26(
+      updated
+    );
+
+
+  if (
+    !saved
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      reason:
+        'TARGET_IDENTITY_STORE_WRITE_FAILED',
+
+      researchOnly:
+        true,
+
+      total:
+        snapshots.length,
+
+      pending,
+
+      changed,
+
+      unchanged,
+
+      failed:
+        0,
+
+      saved:
+        false,
+
+      details
+
+    };
+
+
+    window.LAST_V26_B2_BACKFILL =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Đồng bộ RAM.
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    updated.slice();
+
+
+  window.LAST_SHADOW_SNAPSHOTS_V26 =
+    updated.slice();
+
+
+  const result = {
+
+    ready: true,
+
+    status:
+      'TARGET_IDENTITY_BACKFILLED',
+
+    researchOnly:
+      true,
+
+    total:
+      updated.length,
+
+    pending,
+
+    changed,
+
+    unchanged,
+
+    failed:
+      0,
+
+    saved:
+      true,
+
+    details
+
+  };
+
+
+  window.LAST_V26_B2_BACKFILL =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   5. TEST / MOBILE DIAGNOSTIC
+   ========================================================================= */
+
+function testShadowTargetIdentityV26() {
+
+  const result =
+    backfillPendingShadowTargetIdentityV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🎯 V2.6 8C-B2 TARGET DRAW IDENTITY'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      result.ready
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Status: ' +
+    (
+      result.status ||
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Total Snapshots: ' +
+    (
+      result.total != null
+        ? result.total
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Pending: ' +
+    (
+      result.pending != null
+        ? result.pending
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Changed: ' +
+    (
+      result.changed != null
+        ? result.changed
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Unchanged: ' +
+    (
+      result.unchanged != null
+        ? result.unchanged
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Failed: ' +
+    (
+      result.failed != null
+        ? result.failed
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Saved: ' +
+    (
+      result.saved
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  if (
+    Array.isArray(
+      result.details
+    ) &&
+    result.details.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'DETAILS'
+    );
+
+
+    result.details.forEach(
+      item => {
+
+        lines.push('');
+
+        lines.push(
+          String(
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Latest: ' +
+          String(
+            item.latestDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Target: ' +
+          String(
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Changed: ' +
+          (
+            item.changed
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        if (
+          item.reason
+        ) {
+
+          lines.push(
+            'Reason: ' +
+            item.reason
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   6. MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B2TargetIdentityButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b2-target-identity'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b2-target-identity';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🎯 Test V2.6 Target Draw Identity';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        testShadowTargetIdentityV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB2_TARGET_DRAW_IDENTITY =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B2 Target Draw Identity: ACTIVE'
+);
+
