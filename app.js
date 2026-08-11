@@ -58296,3 +58296,321 @@ document.addEventListener(
   }
 );
 
+/* =========================================================================
+V2.6 8C-A6 — EMPTY STORE OVERWRITE DIAGNOSTIC
+
+Mục đích:
+Theo dõi writeShadowSnapshotStoreBridgeV26()
+để phát hiện lần ghi store rỗng.
+
+DIAGNOSTIC ONLY.
+KHÔNG tự ghi localStorage.
+KHÔNG xóa snapshot.
+========================================================================= */
+
+(function installEmptyStoreOverwriteDiagnosticV26() {
+
+  if (
+    window.EMPTY_STORE_WATCH_V26_INSTALLED
+  ) {
+    return;
+  }
+
+  window.EMPTY_STORE_WATCH_V26_INSTALLED =
+    true;
+
+  window.EMPTY_STORE_WRITE_LOG_V26 =
+    [];
+
+
+  if (
+    typeof
+      writeShadowSnapshotStoreBridgeV26 !==
+    'function'
+  ) {
+
+    window.EMPTY_STORE_WATCH_V26_ERROR =
+      'WRITER_NOT_FOUND';
+
+    return;
+  }
+
+
+  const originalWriter =
+    writeShadowSnapshotStoreBridgeV26;
+
+
+  window.ORIGINAL_WRITE_SHADOW_STORE_V26 =
+    originalWriter;
+
+
+  writeShadowSnapshotStoreBridgeV26 =
+    function (store) {
+
+      const count =
+        Array.isArray(store)
+          ? store.length
+          : (
+              store &&
+              Array.isArray(
+                store.snapshots
+              )
+                ? store.snapshots.length
+                : -1
+            );
+
+
+      const entry = {
+
+        time:
+          new Date()
+            .toISOString(),
+
+        count,
+
+        inputType:
+          Array.isArray(store)
+            ? 'ARRAY'
+            : (
+                store === null
+                  ? 'NULL'
+                  : typeof store
+              ),
+
+        empty:
+          count === 0,
+
+        stack:
+          null
+
+      };
+
+
+      /*
+       * Chỉ lấy stack khi có nguy cơ
+       * ghi store rỗng.
+       */
+
+      if (
+        count === 0
+      ) {
+
+        try {
+
+          entry.stack =
+            new Error(
+              'EMPTY_STORE_WRITE'
+            ).stack || null;
+
+        } catch (error) {
+
+          entry.stack =
+            'STACK_NOT_AVAILABLE';
+
+        }
+
+      }
+
+
+      window
+        .EMPTY_STORE_WRITE_LOG_V26
+        .push(
+          entry
+        );
+
+
+      /*
+       * Giữ tối đa 20 lần gọi gần nhất.
+       */
+
+      if (
+        window
+          .EMPTY_STORE_WRITE_LOG_V26
+          .length > 20
+      ) {
+
+        window
+          .EMPTY_STORE_WRITE_LOG_V26
+          .shift();
+
+      }
+
+
+      /*
+       * Quan trọng:
+       * vẫn gọi writer gốc.
+       * Diagnostic không thay đổi
+       * behavior hiện tại.
+       */
+
+      return originalWriter(
+        store
+      );
+
+    };
+
+})();
+
+
+/* =========================================================================
+SHORT REPORT
+========================================================================= */
+
+function testEmptyStoreOverwriteDiagnosticV26() {
+
+  const logs =
+    Array.isArray(
+      window.EMPTY_STORE_WRITE_LOG_V26
+    )
+      ? window.EMPTY_STORE_WRITE_LOG_V26
+      : [];
+
+
+  const emptyWrites =
+    logs.filter(
+      item =>
+        item.empty
+    );
+
+
+  const last =
+    logs.length
+      ? logs[
+          logs.length - 1
+        ]
+      : null;
+
+
+  const lastEmpty =
+    emptyWrites.length
+      ? emptyWrites[
+          emptyWrites.length - 1
+        ]
+      : null;
+
+
+  /*
+   * Rút gọn stack để popup
+   * không bị "..."
+   */
+
+  let caller =
+    '-';
+
+
+  if (
+    lastEmpty &&
+    lastEmpty.stack
+  ) {
+
+    const lines =
+      String(
+        lastEmpty.stack
+      )
+        .split('\n')
+        .map(
+          line =>
+            line.trim()
+        )
+        .filter(
+          Boolean
+        );
+
+
+    caller =
+      lines.length >= 3
+        ? lines[2]
+        : (
+            lines[1] ||
+            lines[0] ||
+            '-'
+          );
+
+  }
+
+
+  const text = [
+
+    '🕵️ V2.6 EMPTY STORE WATCH',
+    '',
+
+    'Installed: ' +
+      (
+        window
+          .EMPTY_STORE_WATCH_V26_INSTALLED
+          ? 'YES ✅'
+          : 'NO ❌'
+      ),
+
+    'Writer Error: ' +
+      (
+        window
+          .EMPTY_STORE_WATCH_V26_ERROR ||
+        '-'
+      ),
+
+    '',
+
+    'Total Writes: ' +
+      logs.length,
+
+    'Empty Writes: ' +
+      emptyWrites.length,
+
+    '',
+
+    'Last Count: ' +
+      (
+        last
+          ? last.count
+          : '-'
+      ),
+
+    'Last Empty Time: ' +
+      (
+        lastEmpty
+          ? lastEmpty.time
+          : '-'
+      ),
+
+    '',
+
+    'Empty Caller:',
+    caller
+
+  ].join(
+    '\n'
+  );
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 EMPTY STORE WRITE LOG',
+    logs
+  );
+
+
+  return {
+
+    ready: true,
+
+    totalWrites:
+      logs.length,
+
+    emptyWrites:
+      emptyWrites.length,
+
+    last,
+
+    lastEmpty,
+
+    logs
+
+  };
+
+}
+
