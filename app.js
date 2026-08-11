@@ -57699,3 +57699,506 @@ function printShadowPersistentSaveDiagnosticV26() {
 
 })();
 
+/* =========================================================================
+V2.6 8C-A5 — PERSISTENT WRITE DIAGNOSTIC
+
+Mục đích:
+Snapshot READY
+→ RAM
+→ Persistent Writer
+→ localStorage
+→ Read Back
+
+DIAGNOSTIC ONLY.
+KHÔNG thay đổi Production Prediction.
+========================================================================= */
+
+function debugPersistentWriteV26() {
+
+  const report = {
+
+    ready: false,
+
+    stage:
+      'START',
+
+    ramBefore:
+      null,
+
+    ramAfter:
+      null,
+
+    persistentBefore:
+      null,
+
+    persistentAfter:
+      null,
+
+    writeFunction:
+      null,
+
+    writeReturnType:
+      null,
+
+    writeReady:
+      null,
+
+    writeReason:
+      null,
+
+    storageType:
+      null,
+
+    wrapperKeys:
+      [],
+
+    snapshotCount:
+      null,
+
+    error:
+      null
+
+  };
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 1 — RAM STORE
+     * ---------------------------------------------------------
+     */
+
+    report.stage =
+      'READ_RAM';
+
+
+    const ram =
+      Array.isArray(
+        window.SHADOW_SNAPSHOTS_V26
+      )
+        ? window.SHADOW_SNAPSHOTS_V26
+        : [];
+
+
+    report.ramBefore =
+      ram.length;
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 2 — PERSISTENT STORE BEFORE WRITE
+     * ---------------------------------------------------------
+     */
+
+    report.stage =
+      'READ_PERSISTENT_BEFORE';
+
+
+    const key =
+      'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+    const rawBefore =
+      localStorage.getItem(
+        key
+      );
+
+
+    if (!rawBefore) {
+
+      report.persistentBefore =
+        0;
+
+    } else {
+
+      try {
+
+        const parsedBefore =
+          JSON.parse(
+            rawBefore
+          );
+
+
+        if (
+          Array.isArray(
+            parsedBefore
+          )
+        ) {
+
+          report.persistentBefore =
+            parsedBefore.length;
+
+        } else if (
+          parsedBefore &&
+          Array.isArray(
+            parsedBefore.snapshots
+          )
+        ) {
+
+          report.persistentBefore =
+            parsedBefore
+              .snapshots
+              .length;
+
+        } else {
+
+          report.persistentBefore =
+            -1;
+
+        }
+
+      } catch (error) {
+
+        report.persistentBefore =
+          -2;
+
+      }
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 3 — FIND WRITER
+     * ---------------------------------------------------------
+     */
+
+    report.stage =
+      'FIND_WRITER';
+
+
+    let writer =
+      null;
+
+
+    if (
+      typeof
+        writeShadowSnapshotStoreBridgeV26 ===
+      'function'
+    ) {
+
+      writer =
+        writeShadowSnapshotStoreBridgeV26;
+
+      report.writeFunction =
+        'writeShadowSnapshotStoreBridgeV26';
+
+    } else if (
+      typeof
+        writeShadowSnapshotsV26 ===
+      'function'
+    ) {
+
+      writer =
+        writeShadowSnapshotsV26;
+
+      report.writeFunction =
+        'writeShadowSnapshotsV26';
+
+    } else {
+
+      throw new Error(
+        'PERSISTENT_WRITER_NOT_FOUND'
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 4 — WRITE CURRENT RAM STORE
+     * ---------------------------------------------------------
+     */
+
+    report.stage =
+      'WRITE';
+
+
+    const writeResult =
+      writer(
+        ram
+      );
+
+
+    report.writeReturnType =
+      writeResult === null
+        ? 'null'
+        : Array.isArray(
+            writeResult
+          )
+          ? 'array'
+          : typeof writeResult;
+
+
+    if (
+      writeResult &&
+      typeof writeResult ===
+        'object'
+    ) {
+
+      report.writeReady =
+        writeResult.ready != null
+          ? Boolean(
+              writeResult.ready
+            )
+          : null;
+
+
+      report.writeReason =
+        writeResult.reason ||
+        null;
+
+    } else {
+
+      /*
+       * Một số writer cũ trả boolean.
+       */
+
+      report.writeReady =
+        writeResult === true;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 5 — READ BACK DIRECTLY FROM LOCALSTORAGE
+     * ---------------------------------------------------------
+     */
+
+    report.stage =
+      'READ_BACK';
+
+
+    const rawAfter =
+      localStorage.getItem(
+        key
+      );
+
+
+    if (!rawAfter) {
+
+      report.persistentAfter =
+        0;
+
+      report.storageType =
+        'EMPTY';
+
+    } else {
+
+      const parsedAfter =
+        JSON.parse(
+          rawAfter
+        );
+
+
+      report.storageType =
+        Array.isArray(
+          parsedAfter
+        )
+          ? 'ARRAY'
+          : typeof parsedAfter;
+
+
+      if (
+        parsedAfter &&
+        typeof parsedAfter ===
+          'object'
+      ) {
+
+        report.wrapperKeys =
+          Object.keys(
+            parsedAfter
+          );
+
+      }
+
+
+      if (
+        Array.isArray(
+          parsedAfter
+        )
+      ) {
+
+        report.snapshotCount =
+          parsedAfter.length;
+
+      } else if (
+        parsedAfter &&
+        Array.isArray(
+          parsedAfter.snapshots
+        )
+      ) {
+
+        report.snapshotCount =
+          parsedAfter
+            .snapshots
+            .length;
+
+      } else {
+
+        report.snapshotCount =
+          -1;
+
+      }
+
+
+      report.persistentAfter =
+        report.snapshotCount;
+
+    }
+
+
+    report.ramAfter =
+      Array.isArray(
+        window.SHADOW_SNAPSHOTS_V26
+      )
+        ? window
+            .SHADOW_SNAPSHOTS_V26
+            .length
+        : -1;
+
+
+    report.ready =
+      report.persistentAfter ===
+        report.ramAfter;
+
+
+    report.stage =
+      'COMPLETE';
+
+
+    return report;
+
+
+  } catch (error) {
+
+    report.error =
+      String(
+        error &&
+        (
+          error.stack ||
+          error.message
+        ) ||
+        error
+      );
+
+
+    return report;
+
+  }
+
+}
+
+
+/* =========================================================================
+SHORT ALERT — tránh popup bị ...
+========================================================================= */
+
+function testPersistentWriteDiagnosticV26() {
+
+  const r =
+    debugPersistentWriteV26();
+
+
+  const text = [
+
+    '🔬 V2.6 PERSISTENT WRITE',
+    '',
+
+    'Stage: ' +
+      r.stage,
+
+    'Result: ' +
+      (
+        r.ready
+          ? 'READY ✅'
+          : 'NOT READY ❌'
+      ),
+
+    '',
+
+    'RAM Before: ' +
+      r.ramBefore,
+
+    'RAM After: ' +
+      r.ramAfter,
+
+    '',
+
+    'Persistent Before: ' +
+      r.persistentBefore,
+
+    'Persistent After: ' +
+      r.persistentAfter,
+
+    '',
+
+    'Writer:',
+    String(
+      r.writeFunction
+    ),
+
+    '',
+
+    'Write Return: ' +
+      r.writeReturnType,
+
+    'Write Ready: ' +
+      r.writeReady,
+
+    'Write Reason: ' +
+      (
+        r.writeReason ||
+        '-'
+      ),
+
+    '',
+
+    'Storage Type: ' +
+      r.storageType,
+
+    'Snapshot Count: ' +
+      r.snapshotCount,
+
+    '',
+
+    'Wrapper Keys:',
+    r.wrapperKeys.length
+      ? r.wrapperKeys.join(
+          ', '
+        )
+      : '-',
+
+    r.error
+      ? (
+          '\n❌ ERROR:\n' +
+          r.error
+        )
+      : ''
+
+  ].join(
+    '\n'
+  );
+
+
+  alert(
+    text
+  );
+
+
+  console.log(
+    'V2.6 PERSISTENT WRITE DIAGNOSTIC',
+    r
+  );
+
+
+  window.LAST_PERSISTENT_WRITE_DEBUG_V26 =
+    r;
+
+
+  return r;
+
+     }
+
