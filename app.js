@@ -68353,3 +68353,146 @@ console.log(
   'XSMN V2.6 8C-B6A Safe Legacy ID Migration: ACTIVE'
 );
 
+/* =========================================================================
+   V2.6 — 8C-B7
+   STARTUP LIFECYCLE RECOVERY
+
+   Mục tiêu:
+   - Đọc snapshot persistent.
+   - Khôi phục RAM khi app khởi động.
+   - Không tạo snapshot mới.
+   - Không sửa snapshot.
+   - Không verify.
+   - Không ghi localStorage.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. RECOVER SNAPSHOTS FROM PERSISTENT STORE
+   ========================================================================= */
+
+function recoverShadowSnapshotsOnStartupV26() {
+
+  /*
+   * B7 chỉ sử dụng persistent store
+   * đã được B5/B6 xác nhận.
+   */
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      recovered: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_ARRAY',
+
+      persistentCount:
+        0,
+
+      ramCount:
+        0,
+
+      lastRamCount:
+        0
+
+    };
+
+
+    window.LAST_V26_B7_RECOVERY =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Clone array.
+   *
+   * Không để RAM dùng trực tiếp
+   * cùng array reference với store.
+   */
+
+  const recovered =
+    snapshots.slice();
+
+
+  /*
+   * Khôi phục RAM chính.
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    recovered.slice();
+
+
+  /*
+   * Khôi phục LAST RAM baseline.
+   *
+   * B6 dùng vùng này để audit
+   * lifecycle consistency.
+   */
+
+  window.LAST_SHADOW_SNAPSHOTS_V26 =
+    recovered.slice();
+
+
+  const result = {
+
+    ready: true,
+
+    recovered: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B7_STARTUP_LIFECYCLE_RECOVERY',
+
+    researchOnly:
+      true,
+
+    persistentCount:
+      snapshots.length,
+
+    ramCount:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length,
+
+    lastRamCount:
+      window
+        .LAST_SHADOW_SNAPSHOTS_V26
+        .length,
+
+    empty:
+      snapshots.length === 0
+
+  };
+
+
+  window.LAST_V26_B7_RECOVERY =
+    result;
+
+
+  console.log(
+    'V2.6 B7 Startup Recovery:',
+    result
+  );
+
+
+  return result;
+
+}
+
