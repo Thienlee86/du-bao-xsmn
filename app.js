@@ -6648,7 +6648,21 @@ async function init() {
 
   await loadSeedData();
 
+/*
+ * V2.6 8C-B7
+ * Restore persistent Shadow lifecycle
+ * sau khi seed data đã sẵn sàng.
+ */
 
+const startupRecoveryV26 =
+  recoverShadowSnapshotsOnStartupV26();
+
+
+console.log(
+  'V2.6 B7 Startup Recovery:',
+  startupRecoveryV26
+);
+   
   dataHealthCheck();
 
 
