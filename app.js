@@ -31083,6 +31083,11 @@ if (
     historyCount:
       shadow.historyCount,
 
+   latestDrawKey:
+  String(
+    latestDrawKey
+  ),
+   
     latestDrawDate:
       String(
         latestDrawDate
