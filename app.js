@@ -30977,6 +30977,30 @@ function createShadowSnapshotV26(
 
   }
 
+const latestDrawDate =
+  latestDrawDateForSnapshotV26(
+    provinceSlug
+  );
+
+
+if (
+  !latestDrawDate
+) {
+
+  return {
+
+    ready: false,
+
+    province:
+      provinceSlug,
+
+    reason:
+      'LATEST_DRAW_DATE_NOT_FOUND'
+
+  };
+
+}
+   
 
   const snapshot = {
 
