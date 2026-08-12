@@ -69167,3 +69167,276 @@ function runStartupAutoVerificationV26() {
 
 }
 
+/* =========================================================================
+   V2.6 — 8C-B8
+   STARTUP AUTO VERIFICATION DIAGNOSTIC
+
+   READ ONLY:
+   - Không gọi verifier lần nữa.
+   - Không ghi localStorage.
+   - Chỉ đọc LAST_V26_B8_STARTUP_VERIFY.
+   ========================================================================= */
+
+function testStartupAutoVerificationV26() {
+
+  const startup =
+    window.LAST_V26_B8_STARTUP_VERIFY;
+
+
+  if (!startup) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B8_STARTUP_RESULT_NOT_FOUND'
+
+    };
+
+  }
+
+
+  if (!startup.ran) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        startup.reason ||
+        'B8_STARTUP_NOT_RUN',
+
+      startup
+
+    };
+
+  }
+
+
+  const verification =
+    startup.verification;
+
+
+  if (
+    !verification ||
+    typeof verification !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B8_VERIFICATION_RESULT_NOT_FOUND',
+
+      startup
+
+    };
+
+  }
+
+
+  /*
+   * Startup được coi là PASS khi:
+   *
+   * - B8 thực sự đã chạy.
+   * - B3 verifier hoàn tất.
+   * - Không có lỗi verification.
+   *
+   * PENDING không phải lỗi.
+   */
+
+  const passed =
+    startup.ran === true &&
+    startup.ready === true &&
+    Number(
+      startup.failed || 0
+    ) === 0;
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B8_STARTUP_VERIFICATION_DIAGNOSTIC',
+
+    researchOnly:
+      true,
+
+    autoTriggered:
+      startup.ran === true,
+
+    total:
+      startup.total || 0,
+
+    requested:
+      startup.requested || 0,
+
+    verifiedNew:
+      startup.verifiedNew || 0,
+
+    stillPending:
+      startup.stillPending || 0,
+
+    alreadyVerified:
+      startup.alreadyVerified || 0,
+
+    failed:
+      startup.failed || 0,
+
+    saved:
+      Boolean(
+        startup.saved
+      )
+
+  };
+
+
+  window.LAST_V26_B8_TEST =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   SHOW B8 DIAGNOSTIC
+   ========================================================================= */
+
+function showStartupAutoVerificationTestV26() {
+
+  const result =
+    testStartupAutoVerificationV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '⚡ V2.6 8C-B8 STARTUP AUTO VERIFY'
+  );
+
+  lines.push('');
+
+
+  if (!result.ready) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      result.reason
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'PASS: ' +
+    (
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Auto Triggered: ' +
+    (
+      result.autoTriggered
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Total: ' +
+    result.total
+  );
+
+
+  lines.push(
+    'Requested: ' +
+    result.requested
+  );
+
+
+  lines.push(
+    'Verified New: ' +
+    result.verifiedNew
+  );
+
+
+  lines.push(
+    'Still Pending: ' +
+    result.stillPending
+  );
+
+
+  lines.push(
+    'Already Verified: ' +
+    result.alreadyVerified
+  );
+
+
+  lines.push(
+    'Failed: ' +
+    result.failed
+  );
+
+
+  lines.push(
+    'Saved: ' +
+    (
+      result.saved
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
