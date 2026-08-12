@@ -68934,3 +68934,218 @@ console.log(
   'XSMN V2.6 8C-B7 Startup Recovery Test Button: ACTIVE'
 );
 
+/* =========================================================================
+   V2.6 — 8C-B8
+   STARTUP AUTO VERIFICATION
+
+   Mục tiêu:
+   - Chạy sau B7 Startup Recovery.
+   - Kiểm tra snapshot PENDING.
+   - Nếu đã có target draw -> B3 verify.
+   - B3 chịu trách nhiệm persist VERIFIED.
+   - Không tạo snapshot mới.
+   ========================================================================= */
+
+function runStartupAutoVerificationV26() {
+
+  /*
+   * Guard B7.
+   *
+   * Không chạy startup verification nếu
+   * lifecycle chưa được recovery.
+   */
+
+  const recovery =
+    window.LAST_V26_B7_RECOVERY;
+
+
+  if (
+    !recovery ||
+    !recovery.ready ||
+    !recovery.recovered
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      ran: false,
+
+      reason:
+        'B7_STARTUP_RECOVERY_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_B8_STARTUP_VERIFY =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Guard verifier B3.
+   */
+
+  if (
+    typeof verifyPendingShadowSnapshotsV26 !==
+      'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      ran: false,
+
+      reason:
+        'B3_VERIFIER_NOT_AVAILABLE'
+
+    };
+
+
+    window.LAST_V26_B8_STARTUP_VERIFY =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * Chạy verifier production.
+   *
+   * PENDING vì chưa tới kỳ không phải lỗi.
+   */
+
+  let verification;
+
+
+  try {
+
+    verification =
+      verifyPendingShadowSnapshotsV26();
+
+  } catch (
+    error
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      ran: true,
+
+      reason:
+        'STARTUP_VERIFICATION_EXCEPTION',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        )
+
+    };
+
+
+    window.LAST_V26_B8_STARTUP_VERIFY =
+      result;
+
+
+    console.error(
+      'V2.6 B8 Startup Verification:',
+      result
+    );
+
+
+    return result;
+
+  }
+
+
+  const result = {
+
+    ready:
+      Boolean(
+        verification &&
+        verification.ready
+      ),
+
+    ran: true,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B8_STARTUP_AUTO_VERIFICATION',
+
+    researchOnly:
+      true,
+
+    total:
+      verification &&
+      verification.total != null
+        ? verification.total
+        : 0,
+
+    requested:
+      verification &&
+      verification.requested != null
+        ? verification.requested
+        : 0,
+
+    verifiedNew:
+      verification &&
+      verification.verified != null
+        ? verification.verified
+        : 0,
+
+    stillPending:
+      verification &&
+      verification.stillPending != null
+        ? verification.stillPending
+        : 0,
+
+    alreadyVerified:
+      verification &&
+      verification.alreadyVerified != null
+        ? verification.alreadyVerified
+        : 0,
+
+    failed:
+      verification &&
+      verification.failed != null
+        ? verification.failed
+        : 0,
+
+    saved:
+      Boolean(
+        verification &&
+        verification.saved
+      ),
+
+    verification
+
+  };
+
+
+  window.LAST_V26_B8_STARTUP_VERIFY =
+    result;
+
+
+  console.log(
+    'V2.6 B8 Startup Auto Verification:',
+    result
+  );
+
+
+  return result;
+
+}
+
