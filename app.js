@@ -49391,6 +49391,19 @@ function shadowResultToSnapshotV26(
 
 
   const snapshot = {
+    id:
+      [
+        'V26',
+        shadow.province,
+        shadow.prize || 'db',
+        Date.now(),
+        Math.floor(
+          Math.random() *
+          1000000
+        )
+      ].join(
+        '_'
+      ),
 
     version:
       'V2.6',
