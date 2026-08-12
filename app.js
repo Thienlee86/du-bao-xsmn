@@ -68829,3 +68829,108 @@ function showStartupRecoveryTestV26() {
 
 }
 
+/* =========================================================================
+   V2.6 — 8C-B7
+   MOBILE STARTUP RECOVERY TEST BUTTON
+   ========================================================================= */
+
+(function addV26B7StartupRecoveryTestButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b7-startup-recovery'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b7-startup-recovery';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '♻️ Test V2.6 Startup Recovery';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showStartupRecoveryTestV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB7_STARTUP_RECOVERY_TEST =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B7 Startup Recovery Test Button: ACTIVE'
+);
+
