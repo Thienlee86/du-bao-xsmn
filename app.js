@@ -31049,7 +31049,12 @@ if (
 
     historyCount:
       shadow.historyCount,
-
+     
+latestDrawDate:
+  String(
+    latestDrawDate
+  ),
+     
     ranking:
       shadow.ranking
         .slice(),
