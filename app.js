@@ -42849,24 +42849,33 @@ function showSnapshotBootstrapTestV26Mobile() {
 
 
     if (
-      batch.skippedDuplicate != null
-    ) {
+  batch.skippedDuplicate != null
+) {
 
-      lines.push(
-        'Skipped Duplicate: ' +
-        batch.skippedDuplicate
-      );
+  lines.push(
+    'Skipped Duplicate: ' +
+    batch.skippedDuplicate
+  );
 
-    } else if (
-      batch.duplicateCount != null
-    ) {
+} else if (
+  batch.duplicateCount != null
+) {
 
-      lines.push(
-        'Skipped Duplicate: ' +
-        batch.duplicateCount
-      );
+  lines.push(
+    'Skipped Duplicate: ' +
+    batch.duplicateCount
+  );
 
-    }
+} else if (
+  batch.skipped != null
+) {
+
+  lines.push(
+    'Skipped Duplicate: ' +
+    batch.skipped
+  );
+
+}
 
 
     if (
