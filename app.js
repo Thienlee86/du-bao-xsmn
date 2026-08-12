@@ -42878,16 +42878,25 @@ function showSnapshotBootstrapTestV26Mobile() {
 }
 
 
-    if (
-      batch.failedCount != null
-    ) {
+   if (
+  batch.failedCount != null
+) {
 
-      lines.push(
-        'Failed: ' +
-        batch.failedCount
-      );
+  lines.push(
+    'Failed: ' +
+    batch.failedCount
+  );
 
-    }
+} else if (
+  batch.failed != null
+) {
+
+  lines.push(
+    'Failed: ' +
+    batch.failed
+  );
+
+}
 
 
     if (
