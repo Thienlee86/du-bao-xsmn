@@ -67897,39 +67897,48 @@ if (firstInvalid) {
     );
 
 
-    const firstInvalid =
-  invalidDetails[0];
-
-
-lines.push('');
-
-lines.push(
-  '#1 ' +
-  firstInvalid.province
-);
-
-lines.push(
-  'Status: ' +
-  firstInvalid.lifecycle
-);
-
-lines.push(
-  'Target: ' +
+    invalidDetails.forEach(
   (
-    firstInvalid.targetDrawDate ||
-    '-'
-  )
-);
+    item,
+    index
+  ) => {
 
-lines.push(
-  'Issues:'
-);
-
-firstInvalid.issues.forEach(
-  issue => {
+    lines.push('');
 
     lines.push(
-      '- ' + issue
+      '#' +
+      (
+        index + 1
+      ) +
+      ' ' +
+      item.province
+    );
+
+    lines.push(
+      'Status: ' +
+      item.lifecycle
+    );
+
+    lines.push(
+      'Target: ' +
+      (
+        item.targetDrawDate ||
+        '-'
+      )
+    );
+
+    lines.push(
+      'Issues:'
+    );
+
+    item.issues.forEach(
+      issue => {
+
+        lines.push(
+          '- ' + issue
+        );
+
+      }
     );
 
   }
