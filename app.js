@@ -31088,14 +31088,23 @@ function createShadowSnapshotV26(
               : []
           ),
 
-    evaluated:
-      false,
+   evaluated:
+  false,
 
-    actual:
-      null,
+status:
+  'PENDING',
 
-    result:
-      null
+actual:
+  null,
+
+actualTarget:
+  null,
+
+actualDate:
+  null,
+
+result:
+  null
 
   };
 
