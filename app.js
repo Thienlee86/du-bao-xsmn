@@ -6665,6 +6665,24 @@ console.log(
    
   dataHealthCheck();
 
+/*
+ * V2.6 8C-B8
+ * Startup Automatic Verification
+ *
+ * Chỉ chạy sau:
+ * 1. Seed / Extra data đã load.
+ * 2. B7 đã recover lifecycle.
+ * 3. Data health check đã hoàn tất.
+ */
+
+const startupVerificationV26 =
+  runStartupAutoVerificationV26();
+
+
+console.log(
+  'V2.6 B8 Startup Verification:',
+  startupVerificationV26
+);
 
   populateProvinceSelects();
 
