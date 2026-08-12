@@ -42819,24 +42819,33 @@ function showSnapshotBootstrapTestV26Mobile() {
 
 
     if (
-      batch.savedCount != null
-    ) {
+  batch.savedCount != null
+) {
 
-      lines.push(
-        'Saved New: ' +
-        batch.savedCount
-      );
+  lines.push(
+    'Saved New: ' +
+    batch.savedCount
+  );
 
-    } else if (
-      batch.savedNew != null
-    ) {
+} else if (
+  batch.savedNew != null
+) {
 
-      lines.push(
-        'Saved New: ' +
-        batch.savedNew
-      );
+  lines.push(
+    'Saved New: ' +
+    batch.savedNew
+  );
 
-    }
+} else if (
+  batch.saved != null
+) {
+
+  lines.push(
+    'Saved New: ' +
+    batch.saved
+  );
+
+}
 
 
     if (
