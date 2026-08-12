@@ -68510,3 +68510,322 @@ function recoverShadowSnapshotsOnStartupV26() {
 
 }
 
+/* =========================================================================
+   V2.6 — 8C-B7
+   STARTUP RECOVERY TEST
+
+   Kiểm tra:
+   Persistent -> RAM -> LAST RAM
+
+   READ ONLY:
+   - Không ghi localStorage.
+   - Không tạo snapshot.
+   - Không verify snapshot.
+   ========================================================================= */
+
+function testStartupRecoveryV26() {
+
+  const recovery =
+    window.LAST_V26_B7_RECOVERY;
+
+
+  if (
+    !recovery ||
+    !recovery.ready
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B7_STARTUP_RECOVERY_NOT_FOUND'
+
+    };
+
+
+    window.LAST_V26_B7_TEST =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const persistent =
+    readShadowSnapshotsV26();
+
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const lastRam =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? window.LAST_SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  /*
+   * So sánh identity thay vì
+   * object reference.
+   */
+
+  const identityOf =
+    snapshot =>
+      String(
+        snapshot &&
+        (
+          snapshot.id ||
+          snapshot.snapshotKey ||
+          ''
+        )
+      );
+
+
+  const persistentIds =
+    persistent.map(
+      identityOf
+    );
+
+
+  const ramIds =
+    ram.map(
+      identityOf
+    );
+
+
+  const lastRamIds =
+    lastRam.map(
+      identityOf
+    );
+
+
+  const ramMatch =
+    JSON.stringify(
+      persistentIds
+    ) ===
+    JSON.stringify(
+      ramIds
+    );
+
+
+  const lastRamMatch =
+    JSON.stringify(
+      persistentIds
+    ) ===
+    JSON.stringify(
+      lastRamIds
+    );
+
+
+  /*
+   * Kiểm tra không mất identity.
+   */
+
+  const identityPreserved =
+    persistentIds.every(
+      id =>
+        Boolean(id)
+    );
+
+
+  const passed =
+    recovery.recovered === true &&
+    persistent.length ===
+      recovery.persistentCount &&
+    ram.length ===
+      persistent.length &&
+    lastRam.length ===
+      persistent.length &&
+    ramMatch &&
+    lastRamMatch &&
+    identityPreserved;
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B7_STARTUP_RECOVERY_TEST',
+
+    researchOnly:
+      true,
+
+    persistentCount:
+      persistent.length,
+
+    ramCount:
+      ram.length,
+
+    lastRamCount:
+      lastRam.length,
+
+    ramMatch,
+
+    lastRamMatch,
+
+    identityPreserved,
+
+    recoveryFound:
+      true
+
+  };
+
+
+  window.LAST_V26_B7_TEST =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   SHOW B7 TEST
+   ========================================================================= */
+
+function showStartupRecoveryTestV26() {
+
+  const result =
+    testStartupRecoveryV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '♻️ V2.6 8C-B7 STARTUP RECOVERY'
+  );
+
+  lines.push('');
+
+
+  if (
+    !result.ready
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      result.reason
+    );
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'PASS: ' +
+    (
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Persistent: ' +
+    result.persistentCount
+  );
+
+
+  lines.push(
+    'RAM: ' +
+    result.ramCount
+  );
+
+
+  lines.push(
+    'LAST RAM: ' +
+    result.lastRamCount
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'RAM Match: ' +
+    (
+      result.ramMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'LAST RAM Match: ' +
+    (
+      result.lastRamMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Identity Preserved: ' +
+    (
+      result.identityPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Recovery Found: ' +
+    (
+      result.recoveryFound
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
