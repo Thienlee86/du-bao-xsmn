@@ -30977,30 +30977,31 @@ function createShadowSnapshotV26(
 
   }
 
-const latestDrawDate =
-  latestDrawDateForSnapshotV26(
-    provinceSlug
-  );
+
+  const latestDrawDate =
+    latestDrawDateForSnapshotV26(
+      provinceSlug
+    );
 
 
-if (
-  !latestDrawDate
-) {
+  if (
+    !latestDrawDate
+  ) {
 
-  return {
+    return {
 
-    ready: false,
+      ready: false,
 
-    province:
-      provinceSlug,
+      province:
+        provinceSlug,
 
-    reason:
-      'LATEST_DRAW_DATE_NOT_FOUND'
+      reason:
+        'LATEST_DRAW_DATE_NOT_FOUND'
 
-  };
+    };
 
-}
-   
+  }
+
 
   const snapshot = {
 
@@ -31049,12 +31050,12 @@ if (
 
     historyCount:
       shadow.historyCount,
-     
-latestDrawDate:
-  String(
-    latestDrawDate
-  ),
-     
+
+    latestDrawDate:
+      String(
+        latestDrawDate
+      ),
+
     ranking:
       shadow.ranking
         .slice(),
@@ -31070,22 +31071,23 @@ latestDrawDate:
     top5:
       shadow.top5
         .slice(),
-top10:
-  Array.isArray(
-    shadow.top10
-  )
-    ? shadow.top10.slice()
-    : (
-        Array.isArray(
-          shadow.ranking
-        )
-          ? shadow.ranking.slice(
-              0,
-              10
+
+    top10:
+      Array.isArray(
+        shadow.top10
+      )
+        ? shadow.top10.slice()
+        : (
+            Array.isArray(
+              shadow.ranking
             )
-          : []
-      ),
-     
+              ? shadow.ranking.slice(
+                  0,
+                  10
+                )
+              : []
+          ),
+
     evaluated:
       false,
 
@@ -31096,6 +31098,53 @@ top10:
       null
 
   };
+
+
+  /*
+   * -------------------------------------------------------------
+   * B8 PRODUCTION TARGET IDENTITY ADAPTER
+   *
+   * Reuse Block 8C-B2.
+   * Không tự tính lại lịch quay.
+   * -------------------------------------------------------------
+   */
+
+  const targetIdentity =
+    buildShadowTargetDrawIdentityV26(
+      snapshot
+    );
+
+
+  if (
+    !targetIdentity.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      province:
+        provinceSlug,
+
+      reason:
+        targetIdentity.reason ||
+        'TARGET_DRAW_IDENTITY_NOT_READY',
+
+      targetIdentity,
+
+      shadow
+
+    };
+
+  }
+
+
+  snapshot.targetDrawDate =
+    targetIdentity.targetDrawDate;
+
+
+  snapshot.targetDrawKey =
+    targetIdentity.targetDrawKey;
 
 
   return {
