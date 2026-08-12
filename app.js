@@ -31041,7 +31041,22 @@ function createShadowSnapshotV26(
     top5:
       shadow.top5
         .slice(),
-
+top10:
+  Array.isArray(
+    shadow.top10
+  )
+    ? shadow.top10.slice()
+    : (
+        Array.isArray(
+          shadow.ranking
+        )
+          ? shadow.ranking.slice(
+              0,
+              10
+            )
+          : []
+      ),
+     
     evaluated:
       false,
 
