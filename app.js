@@ -31222,6 +31222,26 @@ snapshot.snapshotKey =
     shadow
   );
 
+if (
+  !snapshot.snapshotKey
+) {
+
+  return {
+
+    ready: false,
+
+    province:
+      provinceSlug,
+
+    reason:
+      'SNAPSHOT_KEY_NOT_CREATED',
+
+    shadow
+
+  };
+
+}
+
   return {
 
     ready: true,
