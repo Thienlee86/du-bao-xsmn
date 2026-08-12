@@ -62738,6 +62738,332 @@ function backfillPendingShadowTargetIdentityV26() {
 /* =========================================================================
    5. TEST / MOBILE DIAGNOSTIC
    ========================================================================= */
+/* =========================================================================
+   V2.6 B8 — LEGACY SNAPSHOT SCHEMA DIAGNOSTIC
+
+   READ ONLY.
+   Không write persistent store.
+   Không mutate snapshot.
+   ========================================================================= */
+
+function diagnoseLegacyShadowSnapshotsV26() {
+
+  const snapshots =
+    readShadowSnapshotsV26();
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'SNAPSHOT_STORE_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  let missingSnapshotKey =
+    0;
+
+  let missingLatestDrawKey =
+    0;
+
+  let missingLatestDrawDate =
+    0;
+
+  let missingTargetDrawDate =
+    0;
+
+  let missingTargetDrawKey =
+    0;
+
+  let fullyModern =
+    0;
+
+  let legacy =
+    0;
+
+
+  const details =
+    [];
+
+
+  snapshots.forEach(
+    snapshot => {
+
+      const missing =
+        [];
+
+
+      if (
+        !snapshot ||
+        typeof snapshot !==
+          'object'
+      ) {
+
+        legacy++;
+
+
+        details.push({
+
+          province:
+            '-',
+
+          missing: [
+            'INVALID_SNAPSHOT'
+          ]
+
+        });
+
+
+        return;
+
+      }
+
+
+      if (
+        !snapshot.snapshotKey
+      ) {
+
+        missingSnapshotKey++;
+
+        missing.push(
+          'snapshotKey'
+        );
+
+      }
+
+
+      if (
+        !snapshot.latestDrawKey
+      ) {
+
+        missingLatestDrawKey++;
+
+        missing.push(
+          'latestDrawKey'
+        );
+
+      }
+
+
+      if (
+        !snapshot.latestDrawDate
+      ) {
+
+        missingLatestDrawDate++;
+
+        missing.push(
+          'latestDrawDate'
+        );
+
+      }
+
+
+      if (
+        !snapshot.targetDrawDate
+      ) {
+
+        missingTargetDrawDate++;
+
+        missing.push(
+          'targetDrawDate'
+        );
+
+      }
+
+
+      if (
+        !snapshot.targetDrawKey
+      ) {
+
+        missingTargetDrawKey++;
+
+        missing.push(
+          'targetDrawKey'
+        );
+
+      }
+
+
+      if (
+        missing.length ===
+        0
+      ) {
+
+        fullyModern++;
+
+      } else {
+
+        legacy++;
+
+
+        details.push({
+
+          id:
+            snapshot.id ||
+            '-',
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            snapshot.slug ||
+            '-',
+
+          latestDrawKey:
+            snapshot.latestDrawKey ||
+            '-',
+
+          latestDrawDate:
+            snapshot.latestDrawDate ||
+            '-',
+
+          targetDrawDate:
+            snapshot.targetDrawDate ||
+            '-',
+
+          missing
+
+        });
+
+      }
+
+    }
+  );
+
+
+  const result = {
+
+    ready: true,
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    total:
+      snapshots.length,
+
+    missingSnapshotKey,
+
+    missingLatestDrawKey,
+
+    missingLatestDrawDate,
+
+    missingTargetDrawDate,
+
+    missingTargetDrawKey,
+
+    fullyModern,
+
+    legacy,
+
+    details
+
+  };
+
+
+  window
+    .LAST_V26_LEGACY_SCHEMA_DIAGNOSTIC =
+    result;
+
+
+  const lines = [
+
+    '🔬 V2.6 LEGACY SNAPSHOT DIAGNOSTIC',
+
+    '',
+
+    'Mode: READ ONLY 🔒',
+
+    '',
+
+    'Total: ' +
+      result.total,
+
+    'Missing snapshotKey: ' +
+      result.missingSnapshotKey,
+
+    'Missing latestDrawKey: ' +
+      result.missingLatestDrawKey,
+
+    'Missing latestDrawDate: ' +
+      result.missingLatestDrawDate,
+
+    'Missing targetDrawDate: ' +
+      result.missingTargetDrawDate,
+
+    'Missing targetDrawKey: ' +
+      result.missingTargetDrawKey,
+
+    '',
+
+    'Fully Modern: ' +
+      result.fullyModern,
+
+    'Legacy: ' +
+      result.legacy
+
+  ];
+
+
+  if (
+    details.length
+  ) {
+
+    const first =
+      details[0];
+
+
+    lines.push(
+      '',
+      '--------------------',
+      'FIRST LEGACY',
+      'Province: ' +
+        first.province,
+      'Latest Key: ' +
+        (
+          first.latestDrawKey ||
+          '-'
+        ),
+      'Latest Date: ' +
+        (
+          first.latestDrawDate ||
+          '-'
+        ),
+      'Target: ' +
+        (
+          first.targetDrawDate ||
+          '-'
+        ),
+      'Missing: ' +
+        first.missing.join(
+          ', '
+        )
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
 
 function testShadowTargetIdentityV26() {
 
