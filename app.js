@@ -31218,8 +31218,8 @@ result:
     targetIdentity.targetDrawKey;
 
 snapshot.snapshotKey =
-  shadowSnapshotUniqueKeyV26(
-    snapshot
+  buildStableShadowSnapshotKeyV26(
+    shadow
   );
 
   return {
