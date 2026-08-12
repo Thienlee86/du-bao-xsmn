@@ -30978,30 +30978,62 @@ function createShadowSnapshotV26(
   }
 
 
-  const latestDrawDate =
-    latestDrawDateForSnapshotV26(
-      provinceSlug
-    );
+  const drawIdentity =
+  getLatestShadowDrawIdentityV26(
+    provinceSlug
+  );
 
 
-  if (
-    !latestDrawDate
-  ) {
+if (
+  !drawIdentity.ready
+) {
 
-    return {
+  return {
 
-      ready: false,
+    ready: false,
 
-      province:
-        provinceSlug,
+    province:
+      provinceSlug,
 
-      reason:
-        'LATEST_DRAW_DATE_NOT_FOUND'
+    reason:
+      drawIdentity.reason ||
+      'DRAW_IDENTITY_NOT_READY',
 
-    };
+    drawIdentity
 
-  }
+  };
 
+}
+
+
+const latestDrawKey =
+  drawIdentity.drawKey;
+
+
+const latestDrawDate =
+  drawIdentity.drawDate;
+
+
+if (
+  !latestDrawKey ||
+  !latestDrawDate
+) {
+
+  return {
+
+    ready: false,
+
+    province:
+      provinceSlug,
+
+    reason:
+      'LATEST_DRAW_IDENTITY_INCOMPLETE',
+
+    drawIdentity
+
+  };
+
+}
 
   const snapshot = {
 
