@@ -69440,3 +69440,132 @@ function showStartupAutoVerificationTestV26() {
 
 }
 
+/* =========================================================================
+   V2.6 — 8C-B8
+   MOBILE STARTUP AUTO VERIFY TEST BUTTON
+   ========================================================================= */
+
+(function addV26B8StartupAutoVerifyTestButton() {
+
+  function install() {
+
+    /*
+     * Không tạo nút trùng nếu
+     * block được gọi nhiều lần.
+     */
+
+    if (
+      document.getElementById(
+        'btn-v26-b8-startup-auto-verify'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b8-startup-auto-verify';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '⚡ Test V2.6 Startup Auto Verify';
+
+
+    /*
+     * Giữ cùng kiểu với các nút
+     * diagnostic V2.6 hiện tại.
+     */
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    /*
+     * QUAN TRỌNG:
+     *
+     * Nút này chỉ đọc kết quả B8
+     * đã chạy lúc startup.
+     *
+     * Nó KHÔNG gọi verifier lại.
+     */
+
+    button.onclick =
+      function () {
+
+        showStartupAutoVerificationTestV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  /*
+   * Nếu DOM chưa sẵn sàng,
+   * chờ DOMContentLoaded.
+   */
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB8_STARTUP_AUTO_VERIFY_TEST =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B8 Startup Auto Verify Test Button: ACTIVE'
+);
+
