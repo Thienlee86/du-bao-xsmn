@@ -42910,6 +42910,16 @@ function showSnapshotBootstrapTestV26Mobile() {
 
     }
 
+   if (
+  batch.totalSnapshots != null
+) {
+
+  lines.push(
+    'Total Snapshots: ' +
+    batch.totalSnapshots
+  );
+
+}
 
     lines.push(
       '',
