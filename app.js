@@ -31146,6 +31146,10 @@ function createShadowSnapshotV26(
   snapshot.targetDrawKey =
     targetIdentity.targetDrawKey;
 
+snapshot.snapshotKey =
+  shadowSnapshotUniqueKeyV26(
+    snapshot
+  );
 
   return {
 
