@@ -31103,6 +31103,31 @@ actualTarget:
 actualDate:
   null,
 
+verification: {
+
+  status:
+    'PENDING',
+
+  top1Hit:
+    null,
+
+  top3Hit:
+    null,
+
+  top5Hit:
+    null,
+
+  top10Hit:
+    null,
+
+  rank:
+    null,
+
+  verifiedAt:
+    null
+
+},
+
 result:
   null
 
