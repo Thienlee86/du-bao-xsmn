@@ -67161,8 +67161,6 @@ if (firstInvalid) {
   );
 
 
-  return result;
-
 }
 
   const lines =
