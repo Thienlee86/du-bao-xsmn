@@ -67582,3 +67582,774 @@ console.log(
   'XSMN V2.6 8C-B6 Production Lifecycle Audit: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — BLOCK 8C-B6A
+   SAFE LEGACY SNAPSHOT ID MIGRATION
+
+   Mục tiêu:
+   - Chỉ backfill ID cho snapshot thiếu ID.
+   - Không thay snapshotKey.
+   - Không thay Target Draw Identity.
+   - Không thay ranking.
+   - Không thay lifecycle / verification.
+   - Persist bằng wrapper hiện tại.
+   - Read-back để xác nhận.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD LEGACY MIGRATION ID
+   ========================================================================= */
+
+function buildLegacyShadowSnapshotIdV26(
+  snapshot,
+  index
+) {
+
+  const province =
+    snapshot.province ||
+    snapshot.provinceSlug ||
+    snapshot.slug ||
+    'unknown';
+
+
+  const prize =
+    snapshot.prize ||
+    'db';
+
+
+  return [
+    'V26',
+    'LEGACY',
+    province,
+    prize,
+    Date.now(),
+    index,
+    Math.floor(
+      Math.random() *
+      1000000
+    )
+  ].join(
+    '_'
+  );
+
+}
+
+
+/* =========================================================================
+   2. SAFE LEGACY ID MIGRATION
+   ========================================================================= */
+
+function migrateLegacyShadowSnapshotIdsV26() {
+
+  /*
+   * Đọc trực tiếp Production Persistent Wrapper.
+   */
+
+  const read =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !read ||
+    !read.ready ||
+    !read.store ||
+    !Array.isArray(
+      read.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'PERSISTENT_STORE_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_B6A_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const original =
+    read.store.snapshots;
+
+
+  /*
+   * Clone từng snapshot.
+   *
+   * Không mutate object vừa đọc.
+   */
+
+  const updated =
+    original.map(
+      snapshot => ({
+        ...snapshot
+      })
+    );
+
+
+  const beforeMissing =
+    updated.filter(
+      snapshot =>
+        !snapshot.id
+    ).length;
+
+
+  /*
+   * Không có gì cần migration.
+   */
+
+  if (
+    beforeMissing === 0
+  ) {
+
+    const result = {
+
+      ready: true,
+
+      migrated: false,
+
+      reason:
+        'NO_MISSING_IDS',
+
+      total:
+        updated.length,
+
+      beforeMissing:
+        0,
+
+      migratedCount:
+        0,
+
+      afterMissing:
+        0
+
+    };
+
+
+    window.LAST_V26_B6A_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BACKFILL ONLY MISSING ID
+   * -------------------------------------------------------------
+   */
+
+  let migratedCount =
+    0;
+
+
+  updated.forEach(
+    (
+      snapshot,
+      index
+    ) => {
+
+      if (
+        snapshot.id
+      ) {
+
+        return;
+
+      }
+
+
+      snapshot.id =
+        buildLegacyShadowSnapshotIdV26(
+          snapshot,
+          index
+        );
+
+
+      migratedCount++;
+
+    }
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * SAFETY CHECK BEFORE WRITE
+   *
+   * Snapshot count phải giữ nguyên.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    updated.length !==
+    original.length
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'SNAPSHOT_COUNT_CHANGED_BEFORE_WRITE',
+
+      before:
+        original.length,
+
+      after:
+        updated.length
+
+    };
+
+
+    window.LAST_V26_B6A_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PERSIST
+   * -------------------------------------------------------------
+   */
+
+  const write =
+    writeShadowPersistentWrapperV26(
+      updated
+    );
+
+
+  if (
+    !write ||
+    !write.ready
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        write &&
+        write.reason
+          ? write.reason
+          : 'PERSISTENT_WRITE_FAILED',
+
+      write
+
+    };
+
+
+    window.LAST_V26_B6A_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * READ-BACK
+   * -------------------------------------------------------------
+   */
+
+  const verify =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !verify ||
+    !verify.ready ||
+    !verify.store ||
+    !Array.isArray(
+      verify.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: true,
+
+      reason:
+        'READ_BACK_FAILED'
+
+    };
+
+
+    window.LAST_V26_B6A_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const verifiedSnapshots =
+    verify.store.snapshots;
+
+
+  const afterMissing =
+    verifiedSnapshots.filter(
+      snapshot =>
+        !snapshot.id
+    ).length;
+
+
+  /*
+   * -------------------------------------------------------------
+   * ID UNIQUENESS
+   * -------------------------------------------------------------
+   */
+
+  const ids =
+    verifiedSnapshots
+      .map(
+        snapshot =>
+          snapshot.id
+      )
+      .filter(
+        Boolean
+      );
+
+
+  const uniqueIds =
+    new Set(
+      ids
+    );
+
+
+  const duplicateIds =
+    ids.length -
+    uniqueIds.size;
+
+
+  /*
+   * -------------------------------------------------------------
+   * SNAPSHOT KEY INTEGRITY
+   *
+   * Migration không được thay snapshotKey.
+   * -------------------------------------------------------------
+   */
+
+  const originalKeys =
+    original.map(
+      snapshot =>
+        snapshot.snapshotKey ||
+        null
+    );
+
+
+  const verifiedKeys =
+    verifiedSnapshots.map(
+      snapshot =>
+        snapshot.snapshotKey ||
+        null
+    );
+
+
+  const snapshotKeysPreserved =
+    JSON.stringify(
+      originalKeys
+    ) ===
+    JSON.stringify(
+      verifiedKeys
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * TARGET IDENTITY INTEGRITY
+   * -------------------------------------------------------------
+   */
+
+  const originalTargets =
+    original.map(
+      snapshot => ({
+        targetDrawDate:
+          snapshot.targetDrawDate ||
+          null,
+
+        targetDrawKey:
+          snapshot.targetDrawKey ||
+          null
+      })
+    );
+
+
+  const verifiedTargets =
+    verifiedSnapshots.map(
+      snapshot => ({
+        targetDrawDate:
+          snapshot.targetDrawDate ||
+          null,
+
+        targetDrawKey:
+          snapshot.targetDrawKey ||
+          null
+      })
+    );
+
+
+  const targetIdentityPreserved =
+    JSON.stringify(
+      originalTargets
+    ) ===
+    JSON.stringify(
+      verifiedTargets
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * SYNC RAM
+   * -------------------------------------------------------------
+   */
+
+  window.SHADOW_SNAPSHOTS_V26 =
+    verifiedSnapshots.slice();
+
+
+  window.LAST_SHADOW_SNAPSHOTS_V26 =
+    verifiedSnapshots.slice();
+
+
+  const passed =
+    (
+      verifiedSnapshots.length ===
+        original.length &&
+
+      afterMissing === 0 &&
+
+      duplicateIds === 0 &&
+
+      snapshotKeysPreserved &&
+
+      targetIdentityPreserved
+    );
+
+
+  const result = {
+
+    ready:
+      passed,
+
+    migrated: true,
+
+    passed,
+
+    version:
+      'V2.6',
+
+    engine:
+      '8C-B6A_SAFE_LEGACY_ID_MIGRATION',
+
+    researchOnly:
+      true,
+
+    total:
+      verifiedSnapshots.length,
+
+    beforeMissing,
+
+    migratedCount,
+
+    afterMissing,
+
+    duplicateIds,
+
+    snapshotKeysPreserved,
+
+    targetIdentityPreserved,
+
+    ramCount:
+      window
+        .SHADOW_SNAPSHOTS_V26
+        .length
+
+  };
+
+
+  window.LAST_V26_B6A_MIGRATION =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. MOBILE MIGRATION TEST
+   ========================================================================= */
+
+function showLegacyShadowIdMigrationV26() {
+
+  const result =
+    migrateLegacyShadowSnapshotIdsV26();
+
+
+  const lines = [
+    '🧬 V2.6 8C-B6A SAFE ID MIGRATION',
+    ''
+  ];
+
+
+  if (
+    !result.ready
+  ) {
+
+    lines.push(
+      'PASS: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result.reason ||
+        'MIGRATION_CHECK_FAILED'
+      )
+    );
+
+
+    if (
+      result.beforeMissing != null
+    ) {
+
+      lines.push(
+        'Before Missing: ' +
+        result.beforeMissing
+      );
+
+    }
+
+
+    if (
+      result.afterMissing != null
+    ) {
+
+      lines.push(
+        'After Missing: ' +
+        result.afterMissing
+      );
+
+    }
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'PASS: YES ✅'
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Total: ' +
+    result.total
+  );
+
+
+  lines.push(
+    'Before Missing ID: ' +
+    result.beforeMissing
+  );
+
+
+  lines.push(
+    'Migrated: ' +
+    result.migratedCount
+  );
+
+
+  lines.push(
+    'After Missing ID: ' +
+    result.afterMissing
+  );
+
+
+  lines.push(
+    'Duplicate IDs: ' +
+    result.duplicateIds
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Snapshot Keys: ' +
+    (
+      result.snapshotKeysPreserved
+        ? 'PRESERVED ✅'
+        : 'CHANGED ❌'
+    )
+  );
+
+
+  lines.push(
+    'Target Identity: ' +
+    (
+      result.targetIdentityPreserved
+        ? 'PRESERVED ✅'
+        : 'CHANGED ❌'
+    )
+  );
+
+
+  lines.push(
+    'RAM: ' +
+    result.ramCount
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B6AMigrationButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b6a-migration'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b6a-migration';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧬 Migrate V2.6 Legacy Snapshot IDs';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showLegacyShadowIdMigrationV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_8CB6A_LEGACY_ID_MIGRATION =
+  true;
+
+
+console.log(
+  'XSMN V2.6 8C-B6A Safe Legacy ID Migration: ACTIVE'
+);
+
