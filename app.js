@@ -70811,11 +70811,14 @@ function runStartupAutoVerificationV26() {
 
 
   /*
-   * Guard verifier B3.
+   * Guard B9 Safe Verification Gate.
+   *
+   * Startup không được gọi trực tiếp B3.
+   * Mọi verification phải đi qua Safe Gate.
    */
 
   if (
-    typeof verifyPendingShadowSnapshotsV26 !==
+    typeof runSafeShadowVerificationV26 !==
       'function'
   ) {
 
@@ -70826,7 +70829,7 @@ function runStartupAutoVerificationV26() {
       ran: false,
 
       reason:
-        'B3_VERIFIER_NOT_AVAILABLE'
+        'B9_SAFE_VERIFICATION_GATE_NOT_AVAILABLE'
 
     };
 
@@ -70841,9 +70844,13 @@ function runStartupAutoVerificationV26() {
 
 
   /*
-   * Chạy verifier production.
+   * Chạy Safe Verification Gate.
    *
-   * PENDING vì chưa tới kỳ không phải lỗi.
+   * WAITING:
+   * Gate chạy nhưng B3 không được execute.
+   *
+   * AVAILABLE:
+   * Gate cho phép B3 verify.
    */
 
   let verification;
@@ -70852,7 +70859,7 @@ function runStartupAutoVerificationV26() {
   try {
 
     verification =
-      verifyPendingShadowSnapshotsV26();
+      runSafeShadowVerificationV26();
 
   } catch (
     error
@@ -70883,7 +70890,7 @@ function runStartupAutoVerificationV26() {
 
 
     console.error(
-      'V2.6 B8 Startup Verification:',
+      'V2.6 B9 C3 Startup Safe Verification:',
       result
     );
 
@@ -70892,6 +70899,10 @@ function runStartupAutoVerificationV26() {
 
   }
 
+
+  /*
+   * Normalize Safe Gate result.
+   */
 
   const result = {
 
@@ -70907,16 +70918,79 @@ function runStartupAutoVerificationV26() {
       'V2.6',
 
     engine:
-      '8C-B8_STARTUP_AUTO_VERIFICATION',
+      'B9_C3_STARTUP_SAFE_AUTO_VERIFICATION',
 
     researchOnly:
       true,
 
-    total:
+    /*
+     * Safe Gate state.
+     */
+
+    gateReady:
+      Boolean(
+        verification &&
+        verification.ready
+      ),
+
+    allowed:
+      Boolean(
+        verification &&
+        verification.allowed
+      ),
+
+    executed:
+      Boolean(
+        verification &&
+        verification.executed
+      ),
+
+    waiting:
+      Boolean(
+        verification &&
+        verification.waiting
+      ),
+
+    blocked:
+      Boolean(
+        verification &&
+        verification.blocked
+      ),
+
+    reason:
       verification &&
-      verification.total != null
-        ? verification.total
-        : 0,
+      verification.reason
+        ? verification.reason
+        : null,
+
+    /*
+     * Snapshot lifecycle.
+     */
+
+    pending:
+      verification &&
+      verification.pending != null
+        ? verification.pending
+        : null,
+
+    readyToVerify:
+      verification &&
+      verification.readyToVerify != null
+        ? verification.readyToVerify
+        : null,
+
+    waitingCount:
+      verification &&
+      verification.waitingCount != null
+        ? verification.waitingCount
+        : null,
+
+    /*
+     * B3 result.
+     *
+     * Các field này chỉ được populated
+     * khi Safe Gate thực sự execute B3.
+     */
 
     requested:
       verification &&
@@ -70934,7 +71008,12 @@ function runStartupAutoVerificationV26() {
       verification &&
       verification.stillPending != null
         ? verification.stillPending
-        : 0,
+        : (
+            verification &&
+            verification.pending != null
+              ? verification.pending
+              : 0
+          ),
 
     alreadyVerified:
       verification &&
@@ -70954,6 +71033,11 @@ function runStartupAutoVerificationV26() {
         verification.saved
       ),
 
+    /*
+     * Giữ nguyên toàn bộ Safe Gate
+     * diagnostic để audit.
+     */
+
     verification
 
   };
@@ -70964,7 +71048,7 @@ function runStartupAutoVerificationV26() {
 
 
   console.log(
-    'V2.6 B8 Startup Auto Verification:',
+    'V2.6 B9 C3 Startup Safe Verification:',
     result
   );
 
