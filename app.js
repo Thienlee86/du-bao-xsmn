@@ -74037,3 +74037,746 @@ function showRealVerificationTransitionGuardV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — B9-C1
+   SAFE VERIFICATION GATE
+
+   Mục tiêu:
+   - Tạo một cổng duy nhất trước B3 verifier.
+   - Luôn chạy B9 Transition Guard trước.
+   - Chỉ gọi B3 khi Guard cho phép.
+   - WAITING không phải lỗi.
+   - Không thay Production Prediction Engine.
+   - Chưa wire vào Auto Verification Hook.
+   ========================================================================= */
+
+function runSafeShadowVerificationV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * 1. TRANSITION GUARD MUST EXIST
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof guardRealVerificationTransitionV26 !==
+    'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      executed: false,
+
+      allowed: false,
+
+      reason:
+        'B9_TRANSITION_GUARD_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_SAFE_VERIFICATION_GATE',
+
+      researchOnly:
+        true
+
+    };
+
+
+    window.LAST_V26_B9_SAFE_GATE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. RUN READ-ONLY GUARD
+   * -------------------------------------------------------------
+   */
+
+  const guard =
+    guardRealVerificationTransitionV26();
+
+
+  if (
+    !guard ||
+    !guard.ready
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      executed: false,
+
+      allowed: false,
+
+      reason:
+        guard &&
+        guard.reason
+          ? guard.reason
+          : 'B9_TRANSITION_GUARD_FAILED',
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_SAFE_VERIFICATION_GATE',
+
+      researchOnly:
+        true,
+
+      guard
+
+    };
+
+
+    window.LAST_V26_B9_SAFE_GATE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. GUARD DOES NOT ALLOW VERIFICATION
+   *
+   * Trạng thái WAITING hiện tại sẽ đi vào đây.
+   *
+   * CỰC KỲ QUAN TRỌNG:
+   * Không gọi B3 verifier.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !guard.allowed
+  ) {
+
+    const result = {
+
+      ready: true,
+
+      executed: false,
+
+      allowed: false,
+
+      waiting:
+        Boolean(
+          guard.waiting
+        ),
+
+      blocked:
+        Boolean(
+          guard.blocked
+        ),
+
+      reason:
+        guard.reason ||
+        'VERIFICATION_NOT_ALLOWED',
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_SAFE_VERIFICATION_GATE',
+
+      researchOnly:
+        true,
+
+      pending:
+        guard.pending != null
+          ? guard.pending
+          : null,
+
+      verified:
+        guard.verified != null
+          ? guard.verified
+          : null,
+
+      readyToVerify:
+        guard.readyToVerify != null
+          ? guard.readyToVerify
+          : null,
+
+      waitingCount:
+        guard.waitingCount != null
+          ? guard.waitingCount
+          : null,
+
+      errors:
+        guard.errors != null
+          ? guard.errors
+          : null,
+
+      guard
+
+    };
+
+
+    window.LAST_V26_B9_SAFE_GATE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. B3 VERIFIER MUST EXIST
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof verifyPendingShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      executed: false,
+
+      allowed: true,
+
+      reason:
+        'B3_VERIFIER_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_SAFE_VERIFICATION_GATE',
+
+      researchOnly:
+        true,
+
+      guard
+
+    };
+
+
+    window.LAST_V26_B9_SAFE_GATE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 5. EXECUTE REAL VERIFICATION
+   *
+   * Đây là điểm DUY NHẤT trong Gate
+   * được phép gọi B3.
+   *
+   * Chỉ tới đây khi:
+   *
+   * guard.ready   === true
+   * guard.allowed === true
+   * -------------------------------------------------------------
+   */
+
+  let verification =
+    null;
+
+
+  try {
+
+    verification =
+      verifyPendingShadowSnapshotsV26();
+
+  } catch (error) {
+
+    const result = {
+
+      ready: false,
+
+      executed: true,
+
+      allowed: true,
+
+      reason:
+        'B9_SAFE_VERIFICATION_EXECUTION_ERROR',
+
+      error:
+        String(
+          error.message ||
+          error
+        ),
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_SAFE_VERIFICATION_GATE',
+
+      researchOnly:
+        true,
+
+      guard
+
+    };
+
+
+    window.LAST_V26_B9_SAFE_GATE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 6. NORMALIZE RESULT
+   * -------------------------------------------------------------
+   */
+
+  const result = {
+
+    ready:
+      Boolean(
+        verification &&
+        verification.ready
+      ),
+
+    executed: true,
+
+    allowed: true,
+
+    reason:
+      verification &&
+      verification.ready
+        ? 'SAFE_VERIFICATION_EXECUTED'
+        : (
+            verification &&
+            verification.reason
+              ? verification.reason
+              : 'SAFE_VERIFICATION_NOT_READY'
+          ),
+
+    version:
+      'V2.6',
+
+    engine:
+      'B9_SAFE_VERIFICATION_GATE',
+
+    researchOnly:
+      true,
+
+    requested:
+      verification &&
+      verification.requested != null
+        ? verification.requested
+        : null,
+
+    verified:
+      verification &&
+      verification.verified != null
+        ? verification.verified
+        : null,
+
+    stillPending:
+      verification &&
+      verification.stillPending != null
+        ? verification.stillPending
+        : null,
+
+    alreadyVerified:
+      verification &&
+      verification.alreadyVerified != null
+        ? verification.alreadyVerified
+        : null,
+
+    skipped:
+      verification &&
+      verification.skipped != null
+        ? verification.skipped
+        : null,
+
+    failed:
+      verification &&
+      verification.failed != null
+        ? verification.failed
+        : null,
+
+    saved:
+      Boolean(
+        verification &&
+        verification.saved
+      ),
+
+    guard,
+
+    verification
+
+  };
+
+
+  window.LAST_V26_B9_SAFE_GATE =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   B9-C1 MOBILE REPORT
+
+   Lưu ý:
+   Nút này CÓ THỂ gọi verifier thật nếu Guard allowed = true.
+
+   Ở trạng thái hiện tại:
+   Ready To Verify = 0
+   nên Gate phải STOP trước B3.
+   ========================================================================= */
+
+function showSafeShadowVerificationGateV26() {
+
+  const result =
+    runSafeShadowVerificationV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🚦 V2.6 B9 SAFE VERIFICATION GATE'
+  );
+
+  lines.push('');
+
+
+  if (
+    !result
+  ) {
+
+    lines.push(
+      'Gate: ERROR ❌'
+    );
+
+    lines.push(
+      'Reason: NO_RESULT'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'Gate Ready: ' +
+    (
+      result.ready
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Guard Allowed: ' +
+    (
+      result.allowed
+        ? 'YES'
+        : 'NO 🔒'
+    )
+  );
+
+
+  lines.push(
+    'Verifier Executed: ' +
+    (
+      result.executed
+        ? 'YES'
+        : 'NO 🔒'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * WAITING / BLOCKED
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !result.executed
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Pending: ' +
+      (
+        result.pending != null
+          ? result.pending
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Verified: ' +
+      (
+        result.verified != null
+          ? result.verified
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Ready To Verify: ' +
+      (
+        result.readyToVerify != null
+          ? result.readyToVerify
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Waiting: ' +
+      (
+        result.waitingCount != null
+          ? result.waitingCount
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Errors: ' +
+      (
+        result.errors != null
+          ? result.errors
+          : '-'
+      )
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * VERIFIER EXECUTED
+   * -------------------------------------------------------------
+   */
+
+  if (
+    result.executed
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'B3 VERIFICATION RESULT'
+    );
+
+
+    lines.push(
+      'Requested: ' +
+      (
+        result.requested != null
+          ? result.requested
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Verified New: ' +
+      (
+        result.verified != null
+          ? result.verified
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Still Pending: ' +
+      (
+        result.stillPending != null
+          ? result.stillPending
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Already Verified: ' +
+      (
+        result.alreadyVerified != null
+          ? result.alreadyVerified
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Failed: ' +
+      (
+        result.failed != null
+          ? result.failed
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Saved: ' +
+      (
+        result.saved
+          ? 'YES ✅'
+          : 'NO'
+      )
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   B9-C1 MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B9SafeVerificationGateButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b9-safe-verification-gate'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b9-safe-verification-gate';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🚦 Test V2.6 Safe Verification Gate';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showSafeShadowVerificationGateV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
