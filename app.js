@@ -65143,16 +65143,37 @@ if (
 
         try {
 
-          if (
-            typeof
-              verifyPendingShadowSnapshotsV26 ===
-            'function'
-          ) {
+          /*
+ * B9-C4 Safe Verification Gate.
+ *
+ * Auto verification sau Production merge
+ * không được gọi trực tiếp B3.
+ */
 
-            verification =
-              verifyPendingShadowSnapshotsV26();
+if (
+  typeof runSafeShadowVerificationV26 ===
+    'function'
+) {
 
-          }
+  verification =
+    runSafeShadowVerificationV26();
+
+} else {
+
+  verification = {
+
+    ready: false,
+
+    executed: false,
+
+    allowed: false,
+
+    reason:
+      'B9_SAFE_VERIFICATION_GATE_NOT_AVAILABLE'
+
+  };
+
+}
 
         } catch (error) {
 
