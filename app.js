@@ -72672,3 +72672,777 @@ function showB8IsolatedAutoTriggerV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — B9
+   REAL DRAW LIFECYCLE OBSERVER
+
+   READ ONLY
+
+   Mục tiêu:
+   - Quan sát lifecycle snapshot thật.
+   - Tái sử dụng B8 Verification Preflight.
+   - Không gọi verifier.
+   - Không gọi writer.
+   - Không thay RAM.
+   - Không thay persistent store.
+   ========================================================================= */
+
+function observeRealDrawLifecycleV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * PREFLIGHT
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof
+      preflightPendingShadowVerificationV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'B8_PREFLIGHT_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  const preflight =
+    preflightPendingShadowVerificationV26();
+
+
+  if (
+    !preflight ||
+    (
+      !preflight.ready &&
+      preflight.total == null
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        preflight &&
+        preflight.reason
+          ? preflight.reason
+          : 'B9_PREFLIGHT_FAILED',
+
+      preflight
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PERSISTENT SNAPSHOTS
+   * -------------------------------------------------------------
+   */
+
+  const persistent =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistent ||
+    !persistent.ready ||
+    !persistent.store ||
+    !Array.isArray(
+      persistent.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'B9_PERSISTENT_STORE_NOT_READY',
+
+      preflight
+
+    };
+
+  }
+
+
+  const snapshots =
+    persistent.store.snapshots;
+
+
+  let pending =
+    0;
+
+  let verified =
+    0;
+
+  let other =
+    0;
+
+
+  const verifiedDetails =
+    [];
+
+
+  snapshots.forEach(
+    snapshot => {
+
+      const status =
+        String(
+          snapshot.status ||
+          (
+            snapshot.verification &&
+            snapshot.verification.status
+          ) ||
+          'PENDING'
+        )
+          .toUpperCase();
+
+
+      if (
+        status ===
+        'PENDING'
+      ) {
+
+        pending++;
+
+        return;
+
+      }
+
+
+      if (
+        status ===
+        'VERIFIED'
+      ) {
+
+        verified++;
+
+
+        const verification =
+          snapshot.verification ||
+          {};
+
+
+        verifiedDetails.push({
+
+          id:
+            snapshot.id ||
+            null,
+
+          province:
+            snapshot.provinceSlug ||
+            snapshot.province ||
+            snapshot.slug ||
+            '-',
+
+          targetDrawDate:
+            snapshot.targetDrawDate ||
+            '-',
+
+          actualDb:
+            snapshot.actual != null
+              ? String(
+                  snapshot.actual
+                )
+              : null,
+
+          actualTarget:
+            snapshot.actualTarget != null
+              ? String(
+                  snapshot.actualTarget
+                )
+              : null,
+
+          rank:
+            verification.rank != null
+              ? verification.rank
+              : null,
+
+          top1Hit:
+            verification.top1Hit === true,
+
+          top3Hit:
+            verification.top3Hit === true,
+
+          top5Hit:
+            verification.top5Hit === true,
+
+          top10Hit:
+            verification.top10Hit === true,
+
+          verifiedAt:
+            verification.verifiedAt ||
+            null
+
+        });
+
+
+        return;
+
+      }
+
+
+      other++;
+
+    }
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * RAM CONSISTENCY
+   * -------------------------------------------------------------
+   */
+
+  const ram =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? window.SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const lastRam =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? window.LAST_SHADOW_SNAPSHOTS_V26
+      : [];
+
+
+  const identityOf =
+    snapshot =>
+      String(
+        snapshot &&
+        (
+          snapshot.id ||
+          snapshot.snapshotKey ||
+          ''
+        )
+      );
+
+
+  const persistentIds =
+    snapshots.map(
+      identityOf
+    );
+
+
+  const ramIds =
+    ram.map(
+      identityOf
+    );
+
+
+  const lastRamIds =
+    lastRam.map(
+      identityOf
+    );
+
+
+  const ramMatch =
+    JSON.stringify(
+      persistentIds
+    ) ===
+    JSON.stringify(
+      ramIds
+    );
+
+
+  const lastRamMatch =
+    JSON.stringify(
+      persistentIds
+    ) ===
+    JSON.stringify(
+      lastRamIds
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * LIFECYCLE STATE
+   * -------------------------------------------------------------
+   */
+
+  let lifecycleState =
+    'WAITING';
+
+
+  if (
+    verified > 0
+  ) {
+
+    lifecycleState =
+      'VERIFIED_EXISTS';
+
+  } else if (
+    preflight.readyToVerify > 0
+  ) {
+
+    lifecycleState =
+      'READY_TO_VERIFY';
+
+  } else if (
+    preflight.errors > 0
+  ) {
+
+    lifecycleState =
+      'ERROR';
+
+  }
+
+
+  const result = {
+
+    ready:
+      preflight.errors === 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'B9_REAL_DRAW_LIFECYCLE_OBSERVER',
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    lifecycleState,
+
+    total:
+      snapshots.length,
+
+    pending,
+
+    verified,
+
+    other,
+
+    readyToVerify:
+      preflight.readyToVerify,
+
+    waiting:
+      preflight.waiting,
+
+    errors:
+      preflight.errors,
+
+    persistentCount:
+      snapshots.length,
+
+    ramCount:
+      ram.length,
+
+    lastRamCount:
+      lastRam.length,
+
+    ramMatch,
+
+    lastRamMatch,
+
+    preflightDetails:
+      Array.isArray(
+        preflight.details
+      )
+        ? preflight.details
+        : [],
+
+    verifiedDetails
+
+  };
+
+
+  window.LAST_V26_B9_OBSERVER =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showRealDrawLifecycleObserverV26() {
+
+  const result =
+    observeRealDrawLifecycleV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '👁️ V2.6 B9 REAL DRAW LIFECYCLE'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Mode: READ ONLY 🔒'
+  );
+
+
+  if (
+    !result ||
+    (
+      !result.ready &&
+      result.total == null
+    )
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Observer: ' +
+    (
+      result.ready
+        ? 'PASS ✅'
+        : 'CHECK ⚠️'
+    )
+  );
+
+
+  lines.push(
+    'Lifecycle: ' +
+    result.lifecycleState
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Total: ' +
+    result.total
+  );
+
+  lines.push(
+    'Pending: ' +
+    result.pending
+  );
+
+  lines.push(
+    'Verified: ' +
+    result.verified
+  );
+
+  lines.push(
+    'Other: ' +
+    result.other
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Ready To Verify: ' +
+    result.readyToVerify
+  );
+
+  lines.push(
+    'Waiting: ' +
+    result.waiting
+  );
+
+  lines.push(
+    'Errors: ' +
+    result.errors
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Persistent: ' +
+    result.persistentCount
+  );
+
+  lines.push(
+    'RAM: ' +
+    result.ramCount
+  );
+
+  lines.push(
+    'LAST RAM: ' +
+    result.lastRamCount
+  );
+
+  lines.push(
+    'RAM Match: ' +
+    (
+      result.ramMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+  lines.push(
+    'LAST RAM Match: ' +
+    (
+      result.lastRamMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  /*
+   * Nếu đã xuất hiện VERIFIED thật,
+   * hiển thị record để audit.
+   */
+
+  if (
+    result.verifiedDetails.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'VERIFIED SNAPSHOTS'
+    );
+
+
+    result.verifiedDetails.forEach(
+      (item, index) => {
+
+        lines.push('');
+
+        lines.push(
+          String(index + 1) +
+          '. ' +
+          item.province
+        );
+
+        lines.push(
+          'Target: ' +
+          item.targetDrawDate
+        );
+
+        lines.push(
+          'Actual DB: ' +
+          (
+            item.actualDb != null
+              ? item.actualDb
+              : '-'
+          )
+        );
+
+        lines.push(
+          'Actual Target: ' +
+          (
+            item.actualTarget != null
+              ? item.actualTarget
+              : '-'
+          )
+        );
+
+        lines.push(
+          'Rank: ' +
+          (
+            item.rank != null
+              ? item.rank
+              : 'OUTSIDE TOP10'
+          )
+        );
+
+        lines.push(
+          'Top1: ' +
+          (
+            item.top1Hit
+              ? 'HIT'
+              : 'MISS'
+          )
+        );
+
+        lines.push(
+          'Top3: ' +
+          (
+            item.top3Hit
+              ? 'HIT'
+              : 'MISS'
+          )
+        );
+
+        lines.push(
+          'Top5: ' +
+          (
+            item.top5Hit
+              ? 'HIT'
+              : 'MISS'
+          )
+        );
+
+        lines.push(
+          'Top10: ' +
+          (
+            item.top10Hit
+              ? 'HIT'
+              : 'MISS'
+          )
+        );
+
+        lines.push(
+          'Verified At: ' +
+          (
+            item.verifiedAt ||
+            '-'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B9LifecycleObserverButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b9-lifecycle-observer'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b9-lifecycle-observer';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '👁️ Observe V2.6 Real Draw Lifecycle';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showRealDrawLifecycleObserverV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
