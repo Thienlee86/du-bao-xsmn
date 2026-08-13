@@ -71891,3 +71891,784 @@ function showVerificationPreflightV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — B8 ISOLATED AUTO-TRIGGER TEST
+
+   Mục tiêu:
+   - Test mergeExtraDraws -> B4 Hook -> B3 Verifier.
+   - Không thay đổi Production snapshots sau test.
+   - Không thay đổi EXTRA_DRAWS sau test.
+   - Luôn restore trong finally.
+   ========================================================================= */
+
+function testB8IsolatedAutoTriggerV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * PRECHECK
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !window.V26_8CB4_AUTO_VERIFY_HOOK_INSTALLED ||
+    typeof mergeExtraDraws !==
+      'function' ||
+    typeof verifyPendingShadowSnapshotsV26 !==
+      'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B4_HOOK_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_B8_AUTO_TRIGGER_TEST =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BACKUP EXTRA_DRAWS
+   * -------------------------------------------------------------
+   */
+
+  const extraDrawsBackup =
+    JSON.parse(
+      JSON.stringify(
+        Array.isArray(EXTRA_DRAWS)
+          ? EXTRA_DRAWS
+          : []
+      )
+    );
+
+
+  /*
+   * Backup raw localStorage để restore
+   * chính xác trạng thái trước test.
+   */
+
+  let extraDrawsRawBackup =
+    null;
+
+
+  try {
+
+    extraDrawsRawBackup =
+      localStorage.getItem(
+        LS_KEYS.extraDraws
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'EXTRA_DRAWS_BACKUP_FAILED'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BACKUP SNAPSHOTS
+   * -------------------------------------------------------------
+   */
+
+  const persistentBackup =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistentBackup ||
+    !persistentBackup.ready ||
+    !persistentBackup.store ||
+    !Array.isArray(
+      persistentBackup.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'SNAPSHOT_BACKUP_FAILED'
+
+    };
+
+  }
+
+
+  const snapshotBackup =
+    JSON.parse(
+      JSON.stringify(
+        persistentBackup.store.snapshots
+      )
+    );
+
+
+  const ramBackup =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  const lastRamBackup =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.LAST_SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  const previousLastAuto =
+    window.LAST_V26_B4_AUTO_VERIFY ||
+    null;
+
+
+  let result =
+    null;
+
+
+  try {
+
+    /*
+     * -----------------------------------------------------------
+     * CHỌN HISTORICAL DRAW THẬT
+     * -----------------------------------------------------------
+     */
+
+    let testDraw =
+      null;
+
+
+    if (
+      Array.isArray(SEED_DRAWS)
+    ) {
+
+      testDraw =
+        SEED_DRAWS.find(
+          draw =>
+            draw &&
+            draw.province &&
+            draw.date &&
+            draw.prizes &&
+            draw.prizes.db != null
+        ) ||
+        null;
+
+    }
+
+
+    /*
+     * Nếu SEED_DRAWS chưa có draw,
+     * thử EXTRA_DRAWS.
+     */
+
+    if (
+      !testDraw &&
+      Array.isArray(EXTRA_DRAWS)
+    ) {
+
+      testDraw =
+        EXTRA_DRAWS.find(
+          draw =>
+            draw &&
+            draw.province &&
+            draw.date &&
+            draw.prizes &&
+            draw.prizes.db != null
+        ) ||
+        null;
+
+    }
+
+
+    if (
+      !testDraw
+    ) {
+
+      throw new Error(
+        'B8_TEST_DRAW_NOT_FOUND'
+      );
+
+    }
+
+
+    /*
+     * Clone để không mutate draw nguồn.
+     */
+
+    const clonedDraw =
+      JSON.parse(
+        JSON.stringify(
+          testDraw
+        )
+      );
+
+
+    /*
+     * -----------------------------------------------------------
+     * AUTO TRIGGER
+     *
+     * Gọi merge function HIỆN TẠI.
+     * Đây chính là function đã được
+     * B4 wrapper.
+     * -----------------------------------------------------------
+     */
+
+    const mergeResult =
+      mergeExtraDraws(
+        [
+          clonedDraw
+        ]
+      );
+
+
+    /*
+     * B4 phải tạo diagnostic mới.
+     */
+
+    const last =
+      window.LAST_V26_B4_AUTO_VERIFY ||
+      null;
+
+
+    if (
+      !last
+    ) {
+
+      throw new Error(
+        'B4_AUTO_TRIGGER_NOT_RECORDED'
+      );
+
+    }
+
+
+    if (
+      !last.verification
+    ) {
+
+      throw new Error(
+        'B4_VERIFICATION_NOT_RECORDED'
+      );
+
+    }
+
+
+    /*
+     * 8 Production snapshots hiện đang
+     * WAITING, vì vậy B3 được phép chạy
+     * nhưng không được phát sinh failure.
+     */
+
+    const passed =
+      (
+        last.verification.failed === 0 &&
+        last.verification.total ===
+          snapshotBackup.length
+      );
+
+
+    if (
+      !passed
+    ) {
+
+      throw new Error(
+        'B4_AUTO_TRIGGER_VERIFICATION_FAILED'
+      );
+
+    }
+
+
+    result = {
+
+      ready: true,
+
+      passed: true,
+
+      version:
+        'V2.6',
+
+      engine:
+        'B8_ISOLATED_AUTO_TRIGGER_TEST',
+
+      researchOnly:
+        true,
+
+      province:
+        clonedDraw.province,
+
+      drawDate:
+        clonedDraw.date,
+
+      mergeAdded:
+        mergeResult &&
+        mergeResult.added != null
+          ? mergeResult.added
+          : null,
+
+      mergeUpdated:
+        mergeResult &&
+        mergeResult.updated != null
+          ? mergeResult.updated
+          : null,
+
+      hookTriggered:
+        true,
+
+      verificationReady:
+        last.verification.ready,
+
+      verificationTotal:
+        last.verification.total,
+
+      verified:
+        last.verification.verified,
+
+      stillPending:
+        last.verification.stillPending,
+
+      failed:
+        last.verification.failed
+
+    };
+
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      version:
+        'V2.6',
+
+      engine:
+        'B8_ISOLATED_AUTO_TRIGGER_TEST',
+
+      researchOnly:
+        true,
+
+      reason:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+
+  } finally {
+
+    /*
+     * -----------------------------------------------------------
+     * RESTORE EXTRA_DRAWS RAM
+     * -----------------------------------------------------------
+     */
+
+    EXTRA_DRAWS =
+      JSON.parse(
+        JSON.stringify(
+          extraDrawsBackup
+        )
+      );
+
+
+    /*
+     * Restore raw localStorage chính xác.
+     */
+
+    try {
+
+      if (
+        extraDrawsRawBackup === null
+      ) {
+
+        localStorage.removeItem(
+          LS_KEYS.extraDraws
+        );
+
+      } else {
+
+        localStorage.setItem(
+          LS_KEYS.extraDraws,
+          extraDrawsRawBackup
+        );
+
+      }
+
+    } catch (error) {
+
+      if (result) {
+
+        result.ready =
+          false;
+
+        result.passed =
+          false;
+
+        result.reason =
+          'B8_EXTRA_DRAWS_RESTORE_FAILED';
+
+      }
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * RESTORE SNAPSHOT PERSISTENT
+     * -----------------------------------------------------------
+     */
+
+    const snapshotRestore =
+      writeShadowPersistentWrapperV26(
+        snapshotBackup
+      );
+
+
+    if (
+      ramBackup !== null
+    ) {
+
+      window.SHADOW_SNAPSHOTS_V26 =
+        ramBackup;
+
+    }
+
+
+    if (
+      lastRamBackup !== null
+    ) {
+
+      window.LAST_SHADOW_SNAPSHOTS_V26 =
+        lastRamBackup;
+
+    }
+
+
+    /*
+     * Diagnostic trước test cũng restore,
+     * để test không giả lập một production
+     * trigger thật.
+     */
+
+    window.LAST_V26_B4_AUTO_VERIFY =
+      previousLastAuto;
+
+
+    if (
+      result
+    ) {
+
+      result.extraDrawsRestored =
+        true;
+
+
+      result.snapshotsRestored =
+        Boolean(
+          snapshotRestore &&
+          snapshotRestore.ready
+        );
+
+
+      result.productionSnapshotCount =
+        snapshotBackup.length;
+
+
+      if (
+        !result.snapshotsRestored
+      ) {
+
+        result.ready =
+          false;
+
+        result.passed =
+          false;
+
+        result.reason =
+          'B8_SNAPSHOT_RESTORE_FAILED';
+
+      }
+
+    }
+
+  }
+
+
+  window.LAST_V26_B8_AUTO_TRIGGER_TEST =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showB8IsolatedAutoTriggerV26() {
+
+  const result =
+    testB8IsolatedAutoTriggerV26();
+
+
+  const lines = [
+
+    '🧪 V2.6 B8 ISOLATED AUTO TRIGGER',
+
+    '',
+
+    'PASS: ' +
+    (
+      result &&
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+
+  ];
+
+
+  if (
+    result &&
+    result.passed
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Province: ' +
+      result.province
+    );
+
+    lines.push(
+      'Draw: ' +
+      result.drawDate
+    );
+
+    lines.push('');
+
+    lines.push(
+      'Hook Triggered: YES ✅'
+    );
+
+    lines.push(
+      'Verification Ready: ' +
+      (
+        result.verificationReady
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+    lines.push(
+      'Snapshots Checked: ' +
+      result.verificationTotal
+    );
+
+    lines.push(
+      'Verified: ' +
+      result.verified
+    );
+
+    lines.push(
+      'Still Pending: ' +
+      result.stillPending
+    );
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+  } else {
+
+    lines.push('');
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'EXTRA_DRAWS Restore: ' +
+    (
+      result &&
+      result.extraDrawsRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'Snapshots Restore: ' +
+    (
+      result &&
+      result.snapshotsRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'Production Snapshots: ' +
+    (
+      result &&
+      result.productionSnapshotCount != null
+        ? result.productionSnapshotCount
+        : '-'
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B8AutoTriggerTestButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b8-auto-trigger'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b8-auto-trigger';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 Test V2.6 B8 Auto Trigger';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showB8IsolatedAutoTriggerV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
