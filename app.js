@@ -69126,6 +69126,603 @@ console.log(
 );
 
 /* =========================================================================
+   V2.6 — B8 TARGET IDENTITY BACKFILL CORE
+
+   Mục tiêu:
+   - Backfill Target Identity cho legacy PENDING snapshots.
+   - Reuse buildShadowTargetDrawIdentityV26().
+   - Không tạo snapshot mới.
+   - Không thay ID.
+   - Không thay snapshotKey.
+   - Không thay prediction/ranking.
+   - Abort trước khi write nếu có candidate build thất bại.
+   ========================================================================= */
+
+function backfillLegacyShadowTargetIdentityV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * 1. READ PRODUCTION PERSISTENT STORE
+   * -------------------------------------------------------------
+   */
+
+  const read =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !read ||
+    !read.ready ||
+    !read.store ||
+    !Array.isArray(
+      read.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'PERSISTENT_STORE_NOT_READY'
+
+    };
+
+  }
+
+
+  const original =
+    read.store.snapshots;
+
+
+  /*
+   * Clone từng snapshot.
+   * Không mutate persistent objects vừa đọc.
+   */
+
+  const updated =
+    original.map(
+      snapshot => ({
+        ...snapshot
+      })
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. FIND ONLY PENDING LEGACY TARGETS
+   * -------------------------------------------------------------
+   */
+
+  const candidateIndexes =
+    [];
+
+
+  updated.forEach(
+    (
+      snapshot,
+      index
+    ) => {
+
+      const status =
+        String(
+          snapshot.status ||
+          (
+            snapshot.verification &&
+            snapshot.verification.status
+          ) ||
+          'PENDING'
+        ).toUpperCase();
+
+
+      if (
+        status !==
+        'PENDING'
+      ) {
+
+        return;
+
+      }
+
+
+      if (
+        !snapshot.targetDrawDate ||
+        !snapshot.targetDrawKey
+      ) {
+
+        candidateIndexes.push(
+          index
+        );
+
+      }
+
+    }
+  );
+
+
+  const beforeMissing =
+    candidateIndexes.length;
+
+
+  /*
+   * Không có gì cần backfill.
+   */
+
+  if (
+    beforeMissing === 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      migrated: false,
+
+      reason:
+        'NO_MISSING_TARGET_IDENTITY',
+
+      total:
+        updated.length,
+
+      beforeMissing:
+        0,
+
+      migratedCount:
+        0,
+
+      afterMissing:
+        0
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. PRE-BUILD ALL TARGET IDENTITIES
+   *
+   * Chưa sửa updated.
+   * Nếu một candidate fail -> abort toàn bộ.
+   * -------------------------------------------------------------
+   */
+
+  const plans =
+    [];
+
+
+  for (
+    const index of
+    candidateIndexes
+  ) {
+
+    const snapshot =
+      updated[index];
+
+
+    const target =
+      buildShadowTargetDrawIdentityV26(
+        snapshot
+      );
+
+
+    if (
+      !target ||
+      !target.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        migrated: false,
+
+        reason:
+          'TARGET_IDENTITY_BUILD_FAILED',
+
+        failedIndex:
+          index,
+
+        province:
+          snapshot.province ||
+          snapshot.provinceSlug ||
+          snapshot.slug ||
+          null,
+
+        target
+
+      };
+
+    }
+
+
+    plans.push({
+
+      index,
+
+      targetDrawDate:
+        target.targetDrawDate,
+
+      targetDrawKey:
+        target.targetDrawKey
+
+    });
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. APPLY PLANS TO CLONES ONLY
+   * -------------------------------------------------------------
+   */
+
+  plans.forEach(
+    plan => {
+
+      const snapshot =
+        updated[
+          plan.index
+        ];
+
+
+      if (
+        !snapshot.targetDrawDate
+      ) {
+
+        snapshot.targetDrawDate =
+          plan.targetDrawDate;
+
+      }
+
+
+      if (
+        !snapshot.targetDrawKey
+      ) {
+
+        snapshot.targetDrawKey =
+          plan.targetDrawKey;
+
+      }
+
+    }
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 5. SAFETY BEFORE WRITE
+   * -------------------------------------------------------------
+   */
+
+  if (
+    updated.length !==
+    original.length
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'SNAPSHOT_COUNT_CHANGED_BEFORE_WRITE'
+
+    };
+
+  }
+
+
+  /*
+   * Không được thay ID.
+   */
+
+  const originalIds =
+    original.map(
+      snapshot =>
+        snapshot.id ||
+        null
+    );
+
+
+  const updatedIds =
+    updated.map(
+      snapshot =>
+        snapshot.id ||
+        null
+    );
+
+
+  if (
+    JSON.stringify(
+      originalIds
+    ) !==
+    JSON.stringify(
+      updatedIds
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'SNAPSHOT_IDS_CHANGED_BEFORE_WRITE'
+
+    };
+
+  }
+
+
+  /*
+   * Không được thay snapshotKey.
+   */
+
+  const originalKeys =
+    original.map(
+      snapshot =>
+        snapshot.snapshotKey ||
+        null
+    );
+
+
+  const updatedKeys =
+    updated.map(
+      snapshot =>
+        snapshot.snapshotKey ||
+        null
+    );
+
+
+  if (
+    JSON.stringify(
+      originalKeys
+    ) !==
+    JSON.stringify(
+      updatedKeys
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        'SNAPSHOT_KEYS_CHANGED_BEFORE_WRITE'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 6. PERSIST
+   * -------------------------------------------------------------
+   */
+
+  const write =
+    writeShadowPersistentWrapperV26(
+      updated
+    );
+
+
+  if (
+    !write ||
+    !write.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        write &&
+        write.reason
+          ? write.reason
+          : 'PERSISTENT_WRITE_FAILED',
+
+      write
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 7. READ-BACK VERIFY
+   * -------------------------------------------------------------
+   */
+
+  const verify =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !verify ||
+    !verify.ready ||
+    !verify.store ||
+    !Array.isArray(
+      verify.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      migrated: true,
+
+      reason:
+        'READ_BACK_FAILED'
+
+    };
+
+  }
+
+
+  const verified =
+    verify.store.snapshots;
+
+
+  const afterMissing =
+    verified.filter(
+      snapshot => {
+
+        const status =
+          String(
+            snapshot.status ||
+            (
+              snapshot.verification &&
+              snapshot.verification.status
+            ) ||
+            'PENDING'
+          ).toUpperCase();
+
+
+        return (
+          status ===
+            'PENDING' &&
+          (
+            !snapshot.targetDrawDate ||
+            !snapshot.targetDrawKey
+          )
+        );
+
+      }
+    ).length;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 8. FINAL INTEGRITY
+   * -------------------------------------------------------------
+   */
+
+  const verifiedIds =
+    verified.map(
+      snapshot =>
+        snapshot.id ||
+        null
+    );
+
+
+  const verifiedKeys =
+    verified.map(
+      snapshot =>
+        snapshot.snapshotKey ||
+        null
+    );
+
+
+  const idsPreserved =
+    JSON.stringify(
+      originalIds
+    ) ===
+    JSON.stringify(
+      verifiedIds
+    );
+
+
+  const snapshotKeysPreserved =
+    JSON.stringify(
+      originalKeys
+    ) ===
+    JSON.stringify(
+      verifiedKeys
+    );
+
+
+  const passed =
+    (
+      verified.length ===
+        original.length &&
+
+      afterMissing === 0 &&
+
+      idsPreserved &&
+
+      snapshotKeysPreserved
+    );
+
+
+  /*
+   * Chỉ sync RAM sau read-back.
+   */
+
+  if (passed) {
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      verified.slice();
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      verified.slice();
+
+  }
+
+
+  const result = {
+
+    ready:
+      passed,
+
+    migrated: true,
+
+    passed,
+
+    version:
+      'V2.6',
+
+    engine:
+      'B8_TARGET_IDENTITY_BACKFILL',
+
+    researchOnly:
+      true,
+
+    total:
+      verified.length,
+
+    beforeMissing,
+
+    migratedCount:
+      plans.length,
+
+    afterMissing,
+
+    idsPreserved,
+
+    snapshotKeysPreserved,
+
+    ramCount:
+      Array.isArray(
+        window.SHADOW_SNAPSHOTS_V26
+      )
+        ? window.SHADOW_SNAPSHOTS_V26.length
+        : 0
+
+  };
+
+
+  window.LAST_V26_TARGET_IDENTITY_BACKFILL =
+    result;
+
+
+  return result;
+
+}
+
+/* =========================================================================
    V2.6 — 8C-B7
    STARTUP LIFECYCLE RECOVERY
 
