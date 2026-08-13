@@ -63316,7 +63316,7 @@ function testShadowTargetIdentityV26() {
 
     button.onclick =
       function () {
-diagnoseLegacyShadowSnapshotsV26();
+showInvalidSnapshotDiagnosticV26();
         // testShadowTargetIdentityV26();
 
       };
