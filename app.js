@@ -74780,3 +74780,1020 @@ function showSafeShadowVerificationGateV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — B9-C2.2
+   ISOLATED SAFE GATE ALLOWED-PATH TEST
+
+   Mục tiêu:
+   - Test nhánh Guard ALLOW bằng historical draw thật.
+   - Safe Gate phải gọi B3 verifier thật.
+   - Snapshot test phải chuyển PENDING -> VERIFIED.
+   - Persistent read-back phải giữ VERIFIED.
+   - Luôn restore Production snapshots + RAM.
+   ========================================================================= */
+
+function testB9SafeGateAllowedPathV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * PRECHECK
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof buildB5TestSnapshotV26 !==
+      'function' ||
+    typeof runSafeShadowVerificationV26 !==
+      'function' ||
+    typeof readShadowPersistentWrapperV26 !==
+      'function' ||
+    typeof writeShadowPersistentWrapperV26 !==
+      'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B9_C2_REQUIRED_FUNCTION_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_B9_C2_ALLOWED_TEST =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * BACKUP PERSISTENT SNAPSHOTS
+   * -------------------------------------------------------------
+   */
+
+  const persistentBackup =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistentBackup ||
+    !persistentBackup.ready ||
+    !persistentBackup.store ||
+    !Array.isArray(
+      persistentBackup.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'B9_C2_SNAPSHOT_BACKUP_FAILED'
+
+    };
+
+
+    window.LAST_V26_B9_C2_ALLOWED_TEST =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const snapshotBackup =
+    JSON.parse(
+      JSON.stringify(
+        persistentBackup.store.snapshots
+      )
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * BACKUP RAM
+   * -------------------------------------------------------------
+   */
+
+  const ramBackup =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  const lastRamBackup =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.LAST_SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  /*
+   * Diagnostic của Gate trước test.
+   */
+
+  const previousLastGate =
+    window.LAST_V26_B9_SAFE_GATE ||
+    null;
+
+
+  const previousLastGuard =
+    window.LAST_V26_B9_TRANSITION_GUARD ||
+    null;
+
+
+  const previousLastVerification =
+    window.LAST_V26_B3_VERIFICATION ||
+    null;
+
+
+  let result =
+    null;
+
+
+  try {
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 1
+     * BUILD HISTORICAL TEST SNAPSHOT
+     * -----------------------------------------------------------
+     */
+
+    const built =
+      buildB5TestSnapshotV26();
+
+
+    if (
+      !built ||
+      !built.ready ||
+      !built.snapshot
+    ) {
+
+      throw new Error(
+        built &&
+        built.reason
+          ? built.reason
+          : 'B9_C2_TEST_SNAPSHOT_BUILD_FAILED'
+      );
+
+    }
+
+
+    const testSnapshot =
+      JSON.parse(
+        JSON.stringify(
+          built.snapshot
+        )
+      );
+
+
+    /*
+     * B5 builder tạo snapshot PENDING
+     * có targetDrawDate trùng historical
+     * draw thật.
+     */
+
+    if (
+      testSnapshot.status !==
+        'PENDING' ||
+      !testSnapshot.targetDrawDate ||
+      !testSnapshot.targetDrawKey
+    ) {
+
+      throw new Error(
+        'B9_C2_TEST_SNAPSHOT_INVALID'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 2
+     * INSTALL ISOLATED TEST STORE
+     * -----------------------------------------------------------
+     */
+
+    const testWrite =
+      writeShadowPersistentWrapperV26(
+        [
+          testSnapshot
+        ]
+      );
+
+
+    if (
+      !testWrite ||
+      !testWrite.ready
+    ) {
+
+      throw new Error(
+        'B9_C2_TEST_STORE_WRITE_FAILED'
+      );
+
+    }
+
+
+    /*
+     * Đồng bộ RAM với isolated store.
+     *
+     * Guard yêu cầu:
+     * Persistent = RAM = LAST RAM
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            testSnapshot
+          )
+        )
+      ];
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            testSnapshot
+          )
+        )
+      ];
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 3
+     * RUN SAFE GATE THẬT
+     * -----------------------------------------------------------
+     */
+
+    const gate =
+      runSafeShadowVerificationV26();
+
+
+    if (
+      !gate
+    ) {
+
+      throw new Error(
+        'B9_C2_GATE_NO_RESULT'
+      );
+
+    }
+
+
+    /*
+     * Guard phải cho phép.
+     */
+
+    if (
+      gate.allowed !== true
+    ) {
+
+      throw new Error(
+        'B9_C2_GUARD_DID_NOT_ALLOW'
+      );
+
+    }
+
+
+    /*
+     * Gate phải thực sự gọi B3.
+     */
+
+    if (
+      gate.executed !== true
+    ) {
+
+      throw new Error(
+        'B9_C2_VERIFIER_NOT_EXECUTED'
+      );
+
+    }
+
+
+    if (
+      gate.ready !== true
+    ) {
+
+      throw new Error(
+        gate.reason ||
+        'B9_C2_GATE_NOT_READY'
+      );
+
+    }
+
+
+    /*
+     * Chỉ có 1 isolated snapshot.
+     * Nó phải được verify.
+     */
+
+    if (
+      gate.verified !== 1
+    ) {
+
+      throw new Error(
+        'B9_C2_EXPECTED_ONE_VERIFIED'
+      );
+
+    }
+
+
+    if (
+      gate.failed !== 0
+    ) {
+
+      throw new Error(
+        'B9_C2_VERIFICATION_FAILED'
+      );
+
+    }
+
+
+    if (
+      gate.saved !== true
+    ) {
+
+      throw new Error(
+        'B9_C2_VERIFIED_NOT_SAVED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 4
+     * READ-BACK PERSISTENT
+     * -----------------------------------------------------------
+     */
+
+    const readBack =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !readBack ||
+      !readBack.ready ||
+      !readBack.store ||
+      !Array.isArray(
+        readBack.store.snapshots
+      ) ||
+      readBack.store.snapshots.length !==
+        1
+    ) {
+
+      throw new Error(
+        'B9_C2_READ_BACK_FAILED'
+      );
+
+    }
+
+
+    const verifiedSnapshot =
+      readBack.store.snapshots[0];
+
+
+    /*
+     * -----------------------------------------------------------
+     * STEP 5
+     * ASSERT VERIFIED IDENTITY + RESULT
+     * -----------------------------------------------------------
+     */
+
+    if (
+      verifiedSnapshot.id !==
+        testSnapshot.id
+    ) {
+
+      throw new Error(
+        'B9_C2_ID_CHANGED'
+      );
+
+    }
+
+
+    if (
+      verifiedSnapshot.snapshotKey !==
+        testSnapshot.snapshotKey
+    ) {
+
+      throw new Error(
+        'B9_C2_SNAPSHOT_KEY_CHANGED'
+      );
+
+    }
+
+
+    if (
+      verifiedSnapshot.status !==
+        'VERIFIED' ||
+      !verifiedSnapshot.verification ||
+      verifiedSnapshot.verification.status !==
+        'VERIFIED'
+    ) {
+
+      throw new Error(
+        'B9_C2_VERIFIED_STATUS_NOT_PERSISTED'
+      );
+
+    }
+
+
+    if (
+      verifiedSnapshot.actualTarget !==
+        built.expected.actualTarget
+    ) {
+
+      throw new Error(
+        'B9_C2_ACTUAL_TARGET_MISMATCH'
+      );
+
+    }
+
+
+    if (
+      verifiedSnapshot.verification.rank !==
+        built.expected.rank
+    ) {
+
+      throw new Error(
+        'B9_C2_RANK_MISMATCH'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * PASS
+     * -----------------------------------------------------------
+     */
+
+    result = {
+
+      ready: true,
+
+      passed: true,
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_C2_ISOLATED_SAFE_GATE_ALLOWED_PATH',
+
+      researchOnly:
+        true,
+
+      province:
+        built.province,
+
+      targetDrawDate:
+        String(
+          built.draw.date
+        ),
+
+      guardAllowed:
+        gate.allowed,
+
+      verifierExecuted:
+        gate.executed,
+
+      requested:
+        gate.requested,
+
+      verified:
+        gate.verified,
+
+      failed:
+        gate.failed,
+
+      saved:
+        gate.saved,
+
+      actualTarget:
+        verifiedSnapshot.actualTarget,
+
+      rank:
+        verifiedSnapshot
+          .verification
+          .rank,
+
+      top1Hit:
+        verifiedSnapshot
+          .verification
+          .top1Hit,
+
+      top3Hit:
+        verifiedSnapshot
+          .verification
+          .top3Hit,
+
+      top5Hit:
+        verifiedSnapshot
+          .verification
+          .top5Hit,
+
+      top10Hit:
+        verifiedSnapshot
+          .verification
+          .top10Hit,
+
+      persistenceReadBack:
+        true
+
+    };
+
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_C2_ISOLATED_SAFE_GATE_ALLOWED_PATH',
+
+      researchOnly:
+        true,
+
+      reason:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+
+  } finally {
+
+    /*
+     * -----------------------------------------------------------
+     * CRITICAL PRODUCTION RESTORE
+     * -----------------------------------------------------------
+     */
+
+    const snapshotRestore =
+      writeShadowPersistentWrapperV26(
+        snapshotBackup
+      );
+
+
+    /*
+     * Restore RAM.
+     */
+
+    if (
+      ramBackup !== null
+    ) {
+
+      window.SHADOW_SNAPSHOTS_V26 =
+        ramBackup;
+
+    }
+
+
+    if (
+      lastRamBackup !== null
+    ) {
+
+      window.LAST_SHADOW_SNAPSHOTS_V26 =
+        lastRamBackup;
+
+    }
+
+
+    /*
+     * Restore diagnostics.
+     */
+
+    window.LAST_V26_B9_SAFE_GATE =
+      previousLastGate;
+
+
+    window.LAST_V26_B9_TRANSITION_GUARD =
+      previousLastGuard;
+
+
+    window.LAST_V26_B3_VERIFICATION =
+      previousLastVerification;
+
+
+    /*
+     * Record restore result.
+     */
+
+    if (
+      result
+    ) {
+
+      result.snapshotsRestored =
+        Boolean(
+          snapshotRestore &&
+          snapshotRestore.ready
+        );
+
+
+      result.productionSnapshotCount =
+        snapshotBackup.length;
+
+
+      result.ramRestored =
+        (
+          ramBackup === null ||
+          (
+            Array.isArray(
+              window.SHADOW_SNAPSHOTS_V26
+            ) &&
+            window.SHADOW_SNAPSHOTS_V26.length ===
+              ramBackup.length
+          )
+        );
+
+
+      result.lastRamRestored =
+        (
+          lastRamBackup === null ||
+          (
+            Array.isArray(
+              window.LAST_SHADOW_SNAPSHOTS_V26
+            ) &&
+            window.LAST_SHADOW_SNAPSHOTS_V26.length ===
+              lastRamBackup.length
+          )
+        );
+
+
+      if (
+        !result.snapshotsRestored ||
+        !result.ramRestored ||
+        !result.lastRamRestored
+      ) {
+
+        result.ready =
+          false;
+
+        result.passed =
+          false;
+
+        result.reason =
+          'B9_C2_CRITICAL_RESTORE_FAILED';
+
+      }
+
+    }
+
+  }
+
+
+  window.LAST_V26_B9_C2_ALLOWED_TEST =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showB9SafeGateAllowedPathV26() {
+
+  const result =
+    testB9SafeGateAllowedPathV26();
+
+
+  const lines = [
+
+    '🧪 V2.6 B9-C2 SAFE GATE ALLOWED PATH',
+
+    '',
+
+    'PASS: ' +
+    (
+      result &&
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+
+  ];
+
+
+  if (
+    result &&
+    result.passed
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Province: ' +
+      result.province
+    );
+
+
+    lines.push(
+      'Target Draw: ' +
+      result.targetDrawDate
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'Guard Allowed: ' +
+      (
+        result.guardAllowed
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Verifier Executed: ' +
+      (
+        result.verifierExecuted
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Verified: ' +
+      result.verified
+    );
+
+
+    lines.push(
+      'Failed: ' +
+      result.failed
+    );
+
+
+    lines.push(
+      'Saved: ' +
+      (
+        result.saved
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'Actual Target: ' +
+      result.actualTarget
+    );
+
+
+    lines.push(
+      'Rank: ' +
+      result.rank
+    );
+
+
+    lines.push(
+      'Top1: ' +
+      (
+        result.top1Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top3: ' +
+      (
+        result.top3Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top5: ' +
+      (
+        result.top5Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+
+    lines.push(
+      'Top10: ' +
+      (
+        result.top10Hit
+          ? 'HIT'
+          : 'MISS'
+      )
+    );
+
+  } else {
+
+    lines.push('');
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Snapshots Restore: ' +
+    (
+      result &&
+      result.snapshotsRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'RAM Restore: ' +
+    (
+      result &&
+      result.ramRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'LAST RAM Restore: ' +
+    (
+      result &&
+      result.lastRamRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'Production Snapshots: ' +
+    (
+      result &&
+      result.productionSnapshotCount != null
+        ? result.productionSnapshotCount
+        : '-'
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B9SafeGateAllowedPathButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b9-safe-gate-allowed-path'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b9-safe-gate-allowed-path';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 Test V2.6 Safe Gate Allowed Path';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showB9SafeGateAllowedPathV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
