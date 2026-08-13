@@ -71375,3 +71375,519 @@ console.log(
   'XSMN V2.6 8C-B8 Startup Auto Verify Test Button: ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — B8 VERIFICATION PREFLIGHT
+   READ ONLY
+
+   Mục tiêu:
+   - Kiểm tra snapshot PENDING nào đã có target draw.
+   - Không gọi verifier.
+   - Không gọi writer.
+   - Không thay RAM.
+   - Không thay persistent store.
+   ========================================================================= */
+
+function preflightPendingShadowVerificationV26() {
+
+  const persistent =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistent ||
+    !persistent.ready ||
+    !persistent.store ||
+    !Array.isArray(
+      persistent.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PERSISTENT_STORE_NOT_READY'
+
+    };
+
+  }
+
+
+  const snapshots =
+    persistent.store.snapshots;
+
+
+  let pending =
+    0;
+
+  let readyToVerify =
+    0;
+
+  let waiting =
+    0;
+
+  let errors =
+    0;
+
+
+  const details =
+    [];
+
+
+  snapshots.forEach(
+    snapshot => {
+
+      const status =
+        String(
+          snapshot.status ||
+          (
+            snapshot.verification &&
+            snapshot.verification.status
+          ) ||
+          'PENDING'
+        )
+          .toUpperCase();
+
+
+      if (
+        status !==
+        'PENDING'
+      ) {
+
+        return;
+
+      }
+
+
+      pending++;
+
+
+      /*
+       * Chỉ kiểm tra identity.
+       */
+
+      if (
+        !snapshot.targetDrawDate ||
+        !snapshot.targetDrawKey
+      ) {
+
+        errors++;
+
+
+        details.push({
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            '-',
+
+          targetDrawDate:
+            snapshot.targetDrawDate ||
+            '-',
+
+          state:
+            'ERROR',
+
+          reason:
+            'TARGET_DRAW_IDENTITY_NOT_READY'
+
+        });
+
+
+        return;
+
+      }
+
+
+      /*
+       * READ ONLY lookup.
+       *
+       * findShadowTargetDrawV26()
+       * chỉ tìm draw, không verify
+       * và không persist.
+       */
+
+      const target =
+        findShadowTargetDrawV26(
+          snapshot
+        );
+
+
+      if (
+        target.ready
+      ) {
+
+        readyToVerify++;
+
+
+        details.push({
+
+          province:
+            target.province,
+
+          targetDrawDate:
+            target.targetDrawDate,
+
+          state:
+            'READY_TO_VERIFY',
+
+          reason:
+            'TARGET_DRAW_AVAILABLE'
+
+        });
+
+
+        return;
+
+      }
+
+
+      if (
+        target.pending
+      ) {
+
+        waiting++;
+
+
+        details.push({
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            '-',
+
+          targetDrawDate:
+            snapshot.targetDrawDate ||
+            '-',
+
+          state:
+            'WAITING',
+
+          reason:
+            target.reason,
+
+          availableLatestDate:
+            target.availableLatestDate ||
+            null
+
+        });
+
+
+        return;
+
+      }
+
+
+      errors++;
+
+
+      details.push({
+
+        province:
+          snapshot.province ||
+          snapshot.provinceSlug ||
+          '-',
+
+        targetDrawDate:
+          snapshot.targetDrawDate ||
+          '-',
+
+        state:
+          'ERROR',
+
+        reason:
+          target.reason ||
+          'UNKNOWN_PREFLIGHT_ERROR'
+
+      });
+
+    }
+  );
+
+
+  return {
+
+    ready:
+      errors === 0,
+
+    version:
+      'V2.6',
+
+    engine:
+      'B8_VERIFICATION_PREFLIGHT',
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    total:
+      snapshots.length,
+
+    pending,
+
+    readyToVerify,
+
+    waiting,
+
+    errors,
+
+    details
+
+  };
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showVerificationPreflightV26() {
+
+  const result =
+    preflightPendingShadowVerificationV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🔬 V2.6 VERIFICATION PREFLIGHT'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Mode: READ ONLY 🔒'
+  );
+
+
+  if (
+    !result.ready &&
+    result.total == null
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      result.reason
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Total Snapshots: ' +
+    result.total
+  );
+
+  lines.push(
+    'Pending: ' +
+    result.pending
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Ready To Verify: ' +
+    result.readyToVerify
+  );
+
+  lines.push(
+    'Waiting Target Draw: ' +
+    result.waiting
+  );
+
+  lines.push(
+    'Errors: ' +
+    result.errors
+  );
+
+
+  if (
+    result.details.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'DETAILS'
+    );
+
+
+    result.details.forEach(
+      (item, index) => {
+
+        lines.push('');
+
+        lines.push(
+          String(index + 1) +
+          '. ' +
+          item.province
+        );
+
+        lines.push(
+          'Target: ' +
+          item.targetDrawDate
+        );
+
+        lines.push(
+          'State: ' +
+          item.state
+        );
+
+        lines.push(
+          'Reason: ' +
+          item.reason
+        );
+
+
+        if (
+          item.availableLatestDate
+        ) {
+
+          lines.push(
+            'Latest Data: ' +
+            item.availableLatestDate
+          );
+
+        }
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  window.LAST_V26_B8_PREFLIGHT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE TEST BUTTON
+   ========================================================================= */
+
+(function addV26B8PreflightButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b8-preflight'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b8-preflight';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔬 Test V2.6 Verification Preflight';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showVerificationPreflightV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
