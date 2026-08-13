@@ -67673,6 +67673,185 @@ function auditProductionLifecycleV26() {
 /* =========================================================================
    3. MOBILE AUDIT REPORT
    ========================================================================= */
+function showInvalidSnapshotDiagnosticV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * B8 INVALID SNAPSHOT DIAGNOSTIC
+   *
+   * READ ONLY.
+   * Không write localStorage.
+   * Không backfill.
+   * Không migration.
+   * Không mutate snapshot.
+   * -------------------------------------------------------------
+   */
+
+  const result =
+    auditProductionLifecycleV26();
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    alert(
+      '🔎 V2.6 INVALID SNAPSHOT DIAGNOSTIC\n\n' +
+      '❌ NOT READY\n\n' +
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  const details =
+    Array.isArray(
+      result.details
+    )
+      ? result.details
+      : [];
+
+
+  const invalid =
+    details.filter(
+      item =>
+        item &&
+        !item.valid
+    );
+
+
+  let lines = [
+
+    '🔎 V2.6 INVALID SNAPSHOT DIAGNOSTIC',
+
+    '',
+
+    'Mode: READ ONLY 🔒',
+
+    '',
+
+    'Total: ' +
+      result.total,
+
+    'Valid: ' +
+      result.valid,
+
+    'Invalid: ' +
+      result.invalid,
+
+    ''
+
+  ];
+
+
+  invalid
+    .slice(
+      0,
+      4
+    )
+    .forEach(
+      (
+        item,
+        index
+      ) => {
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Status: ' +
+          (
+            item.lifecycle ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Target: ' +
+          (
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Issues: ' +
+          (
+            Array.isArray(
+              item.issues
+            ) &&
+            item.issues.length
+              ? item.issues.join(
+                  ', '
+                )
+              : 'UNKNOWN'
+          )
+        );
+
+
+        lines.push('');
+
+      }
+    );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  const diagnostic = {
+
+    ready: true,
+
+    readOnly: true,
+
+    total:
+      result.total,
+
+    valid:
+      result.valid,
+
+    invalid:
+      result.invalid,
+
+    invalidSnapshots:
+      invalid
+
+  };
+
+
+  window.LAST_V26_INVALID_DIAGNOSTIC =
+    diagnostic;
+
+
+  return diagnostic;
+
+}
 
 function showProductionLifecycleAuditV26() {
 
