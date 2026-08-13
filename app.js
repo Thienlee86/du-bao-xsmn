@@ -72398,19 +72398,31 @@ if (
         true,
 
       verificationReady:
-        last.verification.ready,
+  Boolean(
+    last.verification.ready
+  ),
 
-      verificationTotal:
-        last.verification.total,
+verificationTotal:
+  snapshotBackup.length,
 
-      verified:
-        last.verification.verified,
+verified:
+  last.verification.verified != null
+    ? last.verification.verified
+    : 0,
 
-      stillPending:
-        last.verification.stillPending,
+stillPending:
+  last.verification.stillPending != null
+    ? last.verification.stillPending
+    : (
+        last.verification.pending != null
+          ? last.verification.pending
+          : 0
+      ),
 
-      failed:
-        last.verification.failed
+failed:
+  last.verification.failed != null
+    ? last.verification.failed
+    : 0
 
     };
 
