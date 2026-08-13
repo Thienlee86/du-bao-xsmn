@@ -67756,7 +67756,7 @@ function showInvalidSnapshotDiagnosticV26() {
 
   invalid
     .slice(
-      0,
+      3,
       4
     )
     .forEach(
