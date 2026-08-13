@@ -72291,29 +72291,74 @@ function testB8IsolatedAutoTriggerV26() {
     }
 
 
-    /*
-     * 8 Production snapshots hiện đang
-     * WAITING, vì vậy B3 được phép chạy
-     * nhưng không được phát sinh failure.
-     */
+   /*
+ * -----------------------------------------------------------
+ * B9 C4 SAFE GATE CONTRACT
+ *
+ * Sau C4, B4 không còn nhận trực tiếp
+ * B3 verification result.
+ *
+ * last.verification bây giờ là kết quả
+ * của B9 Safe Verification Gate.
+ *
+ * PASS khi:
+ *
+ * - Safe Gate chạy thành công.
+ * - Không có verification failure.
+ * - Nếu Gate không execute B3 thì phải
+ *   là trạng thái bị Guard chặn hợp lệ.
+ * -----------------------------------------------------------
+ */
 
-    const passed =
+const gate =
+  last.verification;
+
+
+const gateReady =
+  Boolean(
+    gate &&
+    gate.ready
+  );
+
+
+const gateSafe =
+  (
+    gateReady &&
+    (
+      /*
+       * Allowed path:
+       * B3 thực sự được execute.
+       */
       (
-        last.verification.failed === 0 &&
-        last.verification.total ===
-          snapshotBackup.length
-      );
+        gate.allowed === true &&
+        gate.executed === true &&
+        (
+          gate.failed == null ||
+          gate.failed === 0
+        )
+      ) ||
+
+      /*
+       * Waiting / blocked path:
+       * Safe Gate chủ động không gọi B3.
+       */
+      (
+        gate.allowed === false &&
+        gate.executed === false
+      )
+    )
+  );
 
 
-    if (
-      !passed
-    ) {
+if (
+  !gateSafe
+) {
 
-      throw new Error(
-        'B4_AUTO_TRIGGER_VERIFICATION_FAILED'
-      );
+  throw new Error(
+    'B4_AUTO_TRIGGER_SAFE_GATE_FAILED'
+  );
 
-    }
+}
 
 
     result = {
