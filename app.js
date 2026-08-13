@@ -69936,6 +69936,96 @@ function dryRunLegacyShadowTargetIdentityV26() {
 
 }
 
+function showTargetIdentityDryRunV26() {
+
+  const result =
+    dryRunLegacyShadowTargetIdentityV26();
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    alert(
+      [
+        '🧪 V2.6 TARGET IDENTITY DRY RUN',
+        '',
+        'PASS: NO ❌',
+        '',
+        'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : 'DRY_RUN_FAILED'
+          ),
+        '',
+        'Candidates: ' +
+          (
+            result &&
+            result.candidates != null
+              ? result.candidates
+              : '-'
+          ),
+        'Build Success: ' +
+          (
+            result &&
+            result.buildSuccess != null
+              ? result.buildSuccess
+              : '-'
+          ),
+        'Build Failed: ' +
+          (
+            result &&
+            result.buildFailed != null
+              ? result.buildFailed
+              : '-'
+          ),
+        '',
+        'Persistent Write: NO 🔒'
+      ].join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  alert(
+    [
+      '🧪 V2.6 TARGET IDENTITY DRY RUN',
+      '',
+      'PASS: YES ✅',
+      'Mode: READ ONLY 🔒',
+      '',
+      'Total: ' +
+        result.total,
+      'Candidates: ' +
+        result.candidates,
+      'Build Success: ' +
+        result.buildSuccess,
+      'Build Failed: ' +
+        result.buildFailed,
+      '',
+      'Persistent Write: NO 🔒',
+      'Change IDs: NO',
+      'Change SnapshotKeys: NO',
+      '',
+      'Production unchanged'
+    ].join('\n')
+  );
+
+
+  window.LAST_V26_TARGET_IDENTITY_DRY_RUN =
+    result;
+
+
+  return result;
+
+}
+
 /* =========================================================================
    V2.6 — 8C-B7
    STARTUP LIFECYCLE RECOVERY
