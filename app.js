@@ -69723,6 +69723,171 @@ function backfillLegacyShadowTargetIdentityV26() {
 }
 
 /* =========================================================================
+   V2.6 — B8 TARGET IDENTITY BACKFILL MOBILE REPORT
+   ========================================================================= */
+
+function showTargetIdentityBackfillV26() {
+
+  const result =
+    backfillLegacyShadowTargetIdentityV26();
+
+
+  const lines = [
+    '🧬 V2.6 TARGET IDENTITY BACKFILL',
+    ''
+  ];
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    lines.push(
+      'PASS: NO ❌'
+    );
+
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'BACKFILL_FAILED'
+      )
+    );
+
+
+    if (
+      result &&
+      result.beforeMissing != null
+    ) {
+
+      lines.push(
+        'Before Missing: ' +
+        result.beforeMissing
+      );
+
+    }
+
+
+    if (
+      result &&
+      result.afterMissing != null
+    ) {
+
+      lines.push(
+        'After Missing: ' +
+        result.afterMissing
+      );
+
+    }
+
+
+    if (
+      result &&
+      result.province
+    ) {
+
+      lines.push(
+        'Province: ' +
+        result.province
+      );
+
+    }
+
+
+    alert(
+      lines.join(
+        '\n'
+      )
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push(
+    'PASS: YES ✅'
+  );
+
+
+  lines.push(
+    'Persistent Write: YES'
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Total: ' +
+    result.total
+  );
+
+
+  lines.push(
+    'Before Missing: ' +
+    result.beforeMissing
+  );
+
+
+  lines.push(
+    'Migrated: ' +
+    result.migratedCount
+  );
+
+
+  lines.push(
+    'After Missing: ' +
+    result.afterMissing
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'IDs Preserved: ' +
+    (
+      result.idsPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'SnapshotKeys Preserved: ' +
+    (
+      result.snapshotKeysPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'RAM: ' +
+    result.ramCount
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+/* =========================================================================
    V2.6 — B8 TARGET IDENTITY BACKFILL DRY RUN
 
    READ ONLY:
