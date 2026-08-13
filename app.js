@@ -63316,7 +63316,7 @@ function testShadowTargetIdentityV26() {
 
     button.onclick =
       function () {
-showInvalidSnapshotDiagnosticV26();
+showTargetIdentityDryRunV26();
         // testShadowTargetIdentityV26();
 
       };
