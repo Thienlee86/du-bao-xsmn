@@ -63316,7 +63316,7 @@ function testShadowTargetIdentityV26() {
 
     button.onclick =
       function () {
-showTargetIdentityBackfillV26();
+showTargetIdentityDryRunV26();
         // testShadowTargetIdentityV26();
 
       };
