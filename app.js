@@ -69723,6 +69723,220 @@ function backfillLegacyShadowTargetIdentityV26() {
 }
 
 /* =========================================================================
+   V2.6 — B8 TARGET IDENTITY BACKFILL DRY RUN
+
+   READ ONLY:
+   - Không write persistent store.
+   - Không sửa RAM.
+   - Không mutate snapshot.
+   - Chỉ kiểm tra candidate và khả năng build Target Identity.
+   ========================================================================= */
+
+function dryRunLegacyShadowTargetIdentityV26() {
+
+  const read =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !read ||
+    !read.ready ||
+    !read.store ||
+    !Array.isArray(
+      read.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      dryRun: true,
+
+      reason:
+        'PERSISTENT_STORE_NOT_READY'
+
+    };
+
+  }
+
+
+  const snapshots =
+    read.store.snapshots;
+
+
+  const candidates =
+    snapshots.filter(
+      snapshot => {
+
+        if (
+          !snapshot ||
+          typeof snapshot !==
+            'object'
+        ) {
+
+          return false;
+
+        }
+
+
+        const status =
+          String(
+            snapshot.status ||
+            (
+              snapshot.verification &&
+              snapshot.verification.status
+            ) ||
+            'PENDING'
+          ).toUpperCase();
+
+
+        return (
+          status ===
+            'PENDING' &&
+          (
+            !snapshot.targetDrawDate ||
+            !snapshot.targetDrawKey
+          )
+        );
+
+      }
+    );
+
+
+  const details =
+    [];
+
+
+  let buildSuccess =
+    0;
+
+
+  let buildFailed =
+    0;
+
+
+  candidates.forEach(
+    snapshot => {
+
+      const target =
+        buildShadowTargetDrawIdentityV26(
+          snapshot
+        );
+
+
+      if (
+        target &&
+        target.ready
+      ) {
+
+        buildSuccess++;
+
+
+        details.push({
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            snapshot.slug ||
+            null,
+
+          ready:
+            true,
+
+          latestDrawDate:
+            snapshot.latestDrawDate ||
+            snapshot.latestDraw ||
+            null,
+
+          targetDrawDate:
+            target.targetDrawDate,
+
+          targetDrawKey:
+            target.targetDrawKey
+
+        });
+
+      } else {
+
+        buildFailed++;
+
+
+        details.push({
+
+          province:
+            snapshot.province ||
+            snapshot.provinceSlug ||
+            snapshot.slug ||
+            null,
+
+          ready:
+            false,
+
+          reason:
+            target &&
+            target.reason
+              ? target.reason
+              : 'TARGET_BUILD_FAILED'
+
+        });
+
+      }
+
+    }
+  );
+
+
+  const result = {
+
+    ready:
+      buildFailed === 0,
+
+    dryRun:
+      true,
+
+    version:
+      'V2.6',
+
+    engine:
+      'B8_TARGET_IDENTITY_BACKFILL_DRY_RUN',
+
+    researchOnly:
+      true,
+
+    total:
+      snapshots.length,
+
+    candidates:
+      candidates.length,
+
+    buildSuccess,
+
+    buildFailed,
+
+    wouldWritePersistent:
+      false,
+
+    wouldChangeIds:
+      false,
+
+    wouldChangeSnapshotKeys:
+      false,
+
+    details
+
+  };
+
+
+  window.LAST_V26_TARGET_IDENTITY_DRY_RUN =
+    result;
+
+
+  return result;
+
+}
+
+/* =========================================================================
    V2.6 — 8C-B7
    STARTUP LIFECYCLE RECOVERY
 
