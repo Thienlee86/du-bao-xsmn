@@ -73446,3 +73446,594 @@ function showRealDrawLifecycleObserverV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — B9
+   REAL VERIFICATION TRANSITION GUARD
+
+   READ ONLY
+
+   Mục tiêu:
+   - Kiểm tra điều kiện trước real verification.
+   - Không gọi verifier.
+   - Không gọi writer.
+   - Không thay RAM.
+   - Không thay persistent store.
+   - Chỉ cho phép transition khi target draw thật đã sẵn sàng.
+   ========================================================================= */
+
+function guardRealVerificationTransitionV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * OBSERVER MUST EXIST
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof observeRealDrawLifecycleV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      allowed: false,
+
+      reason:
+        'B9_LIFECYCLE_OBSERVER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  const lifecycle =
+    observeRealDrawLifecycleV26();
+
+
+  /*
+   * -------------------------------------------------------------
+   * OBSERVER FAILURE
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !lifecycle ||
+    (
+      !lifecycle.ready &&
+      lifecycle.total == null
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      allowed: false,
+
+      reason:
+        lifecycle &&
+        lifecycle.reason
+          ? lifecycle.reason
+          : 'B9_LIFECYCLE_NOT_READY',
+
+      lifecycle
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * CONSISTENCY GUARD
+   *
+   * Persistent / RAM / LAST RAM phải đồng bộ.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !lifecycle.ramMatch ||
+    !lifecycle.lastRamMatch
+  ) {
+
+    return {
+
+      ready: true,
+
+      allowed: false,
+
+      blocked: true,
+
+      reason:
+        'B9_MEMORY_STATE_MISMATCH',
+
+      lifecycle
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * PREFLIGHT ERROR GUARD
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle.errors > 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      allowed: false,
+
+      blocked: true,
+
+      reason:
+        'B9_PREFLIGHT_ERRORS_PRESENT',
+
+      lifecycle
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * NO PENDING SNAPSHOTS
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle.pending <= 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      allowed: false,
+
+      blocked: false,
+
+      reason:
+        'NO_PENDING_SNAPSHOTS',
+
+      lifecycle
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * WAITING
+   *
+   * Đây chính là trạng thái hiện tại của chúng ta.
+   * Không phải lỗi.
+   * -------------------------------------------------------------
+   */
+
+  if (
+    lifecycle.readyToVerify <= 0
+  ) {
+
+    const result = {
+
+      ready: true,
+
+      allowed: false,
+
+      blocked: false,
+
+      waiting: true,
+
+      reason:
+        'WAITING_FOR_REAL_TARGET_DRAW',
+
+      version:
+        'V2.6',
+
+      engine:
+        'B9_REAL_VERIFICATION_TRANSITION_GUARD',
+
+      researchOnly:
+        true,
+
+      readOnly:
+        true,
+
+      total:
+        lifecycle.total,
+
+      pending:
+        lifecycle.pending,
+
+      verified:
+        lifecycle.verified,
+
+      readyToVerify:
+        lifecycle.readyToVerify,
+
+      waitingCount:
+        lifecycle.waiting,
+
+      errors:
+        lifecycle.errors
+
+    };
+
+
+    window.LAST_V26_B9_TRANSITION_GUARD =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * REAL TARGET DRAW AVAILABLE
+   *
+   * Guard chỉ ALLOW.
+   * KHÔNG tự gọi verifier.
+   * -------------------------------------------------------------
+   */
+
+  const result = {
+
+    ready: true,
+
+    allowed: true,
+
+    blocked: false,
+
+    waiting: false,
+
+    reason:
+      'REAL_VERIFICATION_ALLOWED',
+
+    version:
+      'V2.6',
+
+    engine:
+      'B9_REAL_VERIFICATION_TRANSITION_GUARD',
+
+    researchOnly:
+      true,
+
+    readOnly:
+      true,
+
+    total:
+      lifecycle.total,
+
+    pending:
+      lifecycle.pending,
+
+    verified:
+      lifecycle.verified,
+
+    readyToVerify:
+      lifecycle.readyToVerify,
+
+    waitingCount:
+      lifecycle.waiting,
+
+    errors:
+      lifecycle.errors,
+
+    candidates:
+      Array.isArray(
+        lifecycle.preflightDetails
+      )
+        ? lifecycle.preflightDetails
+            .filter(
+              item =>
+                item &&
+                item.state ===
+                  'READY'
+            )
+        : []
+
+  };
+
+
+  window.LAST_V26_B9_TRANSITION_GUARD =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showRealVerificationTransitionGuardV26() {
+
+  const result =
+    guardRealVerificationTransitionV26();
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    '🛡️ V2.6 B9 REAL TRANSITION GUARD'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Mode: READ ONLY 🔒'
+  );
+
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Guard: ERROR ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Guard: PASS ✅'
+  );
+
+
+  lines.push(
+    'Verification Allowed: ' +
+    (
+      result.allowed
+        ? 'YES ✅'
+        : 'NO 🔒'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    result.reason
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Pending: ' +
+    (
+      result.pending != null
+        ? result.pending
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Verified: ' +
+    (
+      result.verified != null
+        ? result.verified
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Ready To Verify: ' +
+    (
+      result.readyToVerify != null
+        ? result.readyToVerify
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Waiting: ' +
+    (
+      result.waitingCount != null
+        ? result.waitingCount
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Errors: ' +
+    (
+      result.errors != null
+        ? result.errors
+        : '-'
+    )
+  );
+
+
+  if (
+    result.allowed &&
+    Array.isArray(
+      result.candidates
+    )
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Candidates: ' +
+      result.candidates.length
+    );
+
+
+    result.candidates.forEach(
+      (item, index) => {
+
+        lines.push('');
+
+        lines.push(
+          String(index + 1) +
+          '. ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+        lines.push(
+          'Target: ' +
+          (
+            item.targetDrawDate ||
+            '-'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+(function addV26B9TransitionGuardButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btn-v26-b9-transition-guard'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btn-v26-b9-transition-guard';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ Test V2.6 Real Transition Guard';
+
+
+    button.style.width =
+      'calc(100% - 48px)';
+
+    button.style.margin =
+      '14px 24px';
+
+    button.style.padding =
+      '22px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '20px';
+
+    button.style.fontSize =
+      '18px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.onclick =
+      function () {
+
+        showRealVerificationTransitionGuardV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
