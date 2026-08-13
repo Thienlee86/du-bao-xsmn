@@ -67946,10 +67946,6 @@ if (firstInvalid) {
 
   }
    
-  if (
-    result.details.length
-  ) {
-     
 if (
   false &&
   result.details.length
