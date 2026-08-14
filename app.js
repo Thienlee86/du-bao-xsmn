@@ -64699,7 +64699,7 @@ function verifyPendingShadowSnapshotsV26() {
 function testAutomaticShadowVerificationV26() {
 
   const result =
-    verifyPendingShadowSnapshotsV26();
+    runSafeShadowVerificationV26();
 
 
   const lines =
@@ -64707,14 +64707,37 @@ function testAutomaticShadowVerificationV26() {
 
 
   lines.push(
-    '🧪 V2.6 8C-B3 AUTOMATIC VERIFICATION'
+    '🧪 V2.6 B9 SAFE AUTOMATIC VERIFICATION'
   );
 
   lines.push('');
 
 
+  if (
+    !result
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: NO_RESULT'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
   lines.push(
-    'Ready: ' +
+    'Gate Ready: ' +
     (
       result.ready
         ? 'YES ✅'
@@ -64723,83 +64746,108 @@ function testAutomaticShadowVerificationV26() {
   );
 
 
-  lines.push('');
-
   lines.push(
-    'Total: ' +
+    'Guard Allowed: ' +
     (
-      result.total != null
-        ? result.total
-        : '-'
+      result.allowed
+        ? 'YES ✅'
+        : 'NO 🔒'
     )
   );
 
 
   lines.push(
-    'Requested: ' +
+    'Verifier Executed: ' +
     (
-      result.requested != null
-        ? result.requested
-        : '-'
+      result.executed
+        ? 'YES ✅'
+        : 'NO 🔒'
     )
   );
 
 
   lines.push(
-    'Verified New: ' +
+    'Reason: ' +
     (
-      result.verified != null
-        ? result.verified
-        : '-'
+      result.reason ||
+      '-'
     )
   );
 
 
-  lines.push(
-    'Still Pending: ' +
-    (
-      result.stillPending != null
-        ? result.stillPending
-        : '-'
-    )
-  );
-
-
-  lines.push(
-    'Already Verified: ' +
-    (
-      result.alreadyVerified != null
-        ? result.alreadyVerified
-        : '-'
-    )
-  );
-
-
-  lines.push(
-    'Failed: ' +
-    (
-      result.failed != null
-        ? result.failed
-        : '-'
-    )
-  );
-
-
-  lines.push(
-    'Saved: ' +
-    (
-      result.saved
-        ? 'YES'
-        : 'NO'
-    )
-  );
-
+  /*
+   * -------------------------------------------------------------
+   * GATE BLOCKED / WAITING
+   * -------------------------------------------------------------
+   */
 
   if (
-    Array.isArray(
-      result.details
-    ) &&
-    result.details.length
+    !result.executed
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      'Pending: ' +
+      (
+        result.pending != null
+          ? result.pending
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Verified Existing: ' +
+      (
+        result.verified != null
+          ? result.verified
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Ready To Verify: ' +
+      (
+        result.readyToVerify != null
+          ? result.readyToVerify
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Waiting: ' +
+      (
+        result.waitingCount != null
+          ? result.waitingCount
+          : '-'
+      )
+    );
+
+
+    lines.push(
+      'Errors: ' +
+      (
+        result.errors != null
+          ? result.errors
+          : '-'
+      )
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * B3 ACTUALLY EXECUTED
+   * -------------------------------------------------------------
+   */
+
+  if (
+    result.executed
   ) {
 
     lines.push('');
@@ -64809,158 +64857,80 @@ function testAutomaticShadowVerificationV26() {
     );
 
     lines.push(
-      'DETAILS'
+      'B3 VERIFICATION RESULT'
     );
 
 
-    result.details.forEach(
-      item => {
-
-        lines.push('');
-
-        lines.push(
-          String(
-            item.province ||
-            '-'
-          )
-        );
+    lines.push(
+      'Requested: ' +
+      (
+        result.requested != null
+          ? result.requested
+          : '-'
+      )
+    );
 
 
-        lines.push(
-          'Target: ' +
-          String(
-            item.targetDrawDate ||
-            '-'
-          )
-        );
+    lines.push(
+      'Verified New: ' +
+      (
+        result.verified != null
+          ? result.verified
+          : '-'
+      )
+    );
 
 
-        lines.push(
-          'Status: ' +
-          String(
-            item.status ||
-            '-'
-          )
-        );
+    lines.push(
+      'Still Pending: ' +
+      (
+        result.stillPending != null
+          ? result.stillPending
+          : '-'
+      )
+    );
 
 
-        if (
-          item.status ===
-          'VERIFIED'
-        ) {
-
-          lines.push(
-            'DB: ' +
-            String(
-              item.actualDb ||
-              '-'
-            )
-          );
+    lines.push(
+      'Already Verified: ' +
+      (
+        result.alreadyVerified != null
+          ? result.alreadyVerified
+          : '-'
+      )
+    );
 
 
-          lines.push(
-            'Actual Target: ' +
-            String(
-              item.actualTarget ||
-              '-'
-            )
-          );
+    lines.push(
+      'Failed: ' +
+      (
+        result.failed != null
+          ? result.failed
+          : '-'
+      )
+    );
 
 
-          lines.push(
-            'Rank: ' +
-            (
-              item.rank != null
-                ? String(
-                    item.rank
-                  )
-                : 'OUTSIDE TOP10'
-            )
-          );
-
-
-          lines.push(
-            'Top1: ' +
-            (
-              item.top1Hit
-                ? 'HIT'
-                : 'MISS'
-            )
-          );
-
-
-          lines.push(
-            'Top3: ' +
-            (
-              item.top3Hit
-                ? 'HIT'
-                : 'MISS'
-            )
-          );
-
-
-          lines.push(
-            'Top5: ' +
-            (
-              item.top5Hit
-                ? 'HIT'
-                : 'MISS'
-            )
-          );
-
-
-          lines.push(
-            'Top10: ' +
-            (
-              item.top10Hit
-                ? 'HIT'
-                : 'MISS'
-            )
-          );
-
-        } else {
-
-          if (
-            item.availableLatestDate
-          ) {
-
-            lines.push(
-              'Latest Data: ' +
-              item.availableLatestDate
-            );
-
-          }
-
-
-          if (
-            item.reason
-          ) {
-
-            lines.push(
-              'Reason: ' +
-              item.reason
-            );
-
-          }
-
-        }
-
-      }
+    lines.push(
+      'Saved: ' +
+      (
+        result.saved
+          ? 'YES ✅'
+          : 'NO'
+      )
     );
 
   }
 
 
   alert(
-    lines.join(
-      '\n'
-    )
+    lines.join('\n')
   );
 
 
   return result;
 
-}
+         }
 
 
 /* =========================================================================
