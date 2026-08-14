@@ -81633,3 +81633,414 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03B.3 — LEGACY V2.2 / V2.4 UI RETIREMENT
+   -------------------------------------------------------------------------
+   UI CLEANUP ONLY.
+
+   Retire:
+   - V2.2 Walk-Forward Backtest UI
+   - V2.4 Auto Model Selection UI
+
+   IMPORTANT:
+   - Engines remain untouched.
+   - Production prediction remains untouched.
+   - Storage remains untouched.
+   - Shadow lifecycle remains untouched.
+   ========================================================================= */
+
+(function installFix03B3LegacyResearchUiRetirement() {
+
+  if (
+    window
+      .V26_FIX03B3_LEGACY_UI_RETIREMENT_INSTALLED
+  ) {
+    return;
+  }
+
+
+  window
+    .V26_FIX03B3_LEGACY_UI_RETIREMENT_INSTALLED =
+    true;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 1. UI SIGNATURES
+   * -------------------------------------------------------------
+   */
+
+  const SIGNATURES = [
+
+    {
+      name:
+        'V2.2 BACKTEST',
+
+      required: [
+        'Kiểm định mô hình V2.2',
+        'Chạy Backtest tỉnh đang chọn'
+      ]
+    },
+
+    {
+      name:
+        'V2.4 AUTO MODEL',
+
+      required: [
+        'Auto Model',
+        'Selection V2.4',
+        'Tìm Model + Window tốt'
+      ]
+    }
+
+  ];
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. FIND SMALLEST SAFE CONTAINER
+   * -------------------------------------------------------------
+   */
+
+  function findSmallestResearchContainerV26(
+    root,
+    signature
+  ) {
+
+    if (!root) {
+      return null;
+    }
+
+
+    const candidates =
+      Array.from(
+        root.querySelectorAll(
+          'section, article, div'
+        )
+      );
+
+
+    const matches =
+      candidates.filter(
+        element => {
+
+          /*
+           * Never remove Settings root.
+           */
+
+          if (
+            element === root ||
+            element.id ===
+              'tab-settings'
+          ) {
+            return false;
+          }
+
+
+          const text =
+            String(
+              element.innerText ||
+              element.textContent ||
+              ''
+            );
+
+
+          return signature.required
+            .every(
+              token =>
+                text.includes(
+                  token
+                )
+            );
+
+        }
+      );
+
+
+    if (!matches.length) {
+      return null;
+    }
+
+
+    /*
+     * Choose smallest matching DOM subtree.
+     *
+     * This avoids accidentally removing a large
+     * parent containing unrelated Settings UI.
+     */
+
+    matches.sort(
+      (a, b) => {
+
+        const aSize =
+          a.querySelectorAll('*')
+            .length;
+
+        const bSize =
+          b.querySelectorAll('*')
+            .length;
+
+
+        return aSize - bSize;
+
+      }
+    );
+
+
+    return matches[0];
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. RETIRE ONE LEGACY UI
+   * -------------------------------------------------------------
+   */
+
+  function retireLegacyResearchPanelV26(
+    settings,
+    signature
+  ) {
+
+    const target =
+      findSmallestResearchContainerV26(
+        settings,
+        signature
+      );
+
+
+    if (!target) {
+
+      return {
+        name:
+          signature.name,
+
+        removed:
+          false
+      };
+
+    }
+
+
+    /*
+     * Final safety guard.
+     */
+
+    if (
+      target === settings ||
+      target.id ===
+        'tab-settings' ||
+      target === document.body ||
+      target === document.documentElement
+    ) {
+
+      return {
+        name:
+          signature.name,
+
+        removed:
+          false,
+
+        blocked:
+          true
+      };
+
+    }
+
+
+    target.remove();
+
+
+    return {
+      name:
+        signature.name,
+
+      removed:
+        true
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. MASTER CLEANUP
+   * -------------------------------------------------------------
+   */
+
+  function retireLegacyResearchUiV26() {
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return {
+        ready:
+          false,
+
+        reason:
+          'SETTINGS_NOT_FOUND'
+      };
+
+    }
+
+
+    const results =
+      SIGNATURES.map(
+        signature =>
+          retireLegacyResearchPanelV26(
+            settings,
+            signature
+          )
+      );
+
+
+    const removed =
+      results.filter(
+        item =>
+          item.removed === true
+      ).length;
+
+
+    const result = {
+
+      ready:
+        true,
+
+      removed,
+
+      results
+
+    };
+
+
+    window
+      .LAST_V26_FIX03B3_UI_RETIREMENT =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 5. RUN NOW
+   * -------------------------------------------------------------
+   */
+
+  retireLegacyResearchUiV26();
+
+
+  /*
+   * -------------------------------------------------------------
+   * 6. LATE RENDER PROTECTION
+   * -------------------------------------------------------------
+   */
+
+  let scheduled =
+    false;
+
+
+  const observer =
+    new MutationObserver(
+      () => {
+
+        if (scheduled) {
+          return;
+        }
+
+
+        scheduled =
+          true;
+
+
+        queueMicrotask(
+          () => {
+
+            scheduled =
+              false;
+
+            retireLegacyResearchUiV26();
+
+          }
+        );
+
+      }
+    );
+
+
+  function startFix03B3ObserverV26() {
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+      return;
+    }
+
+
+    observer.observe(
+      settings,
+      {
+        childList:
+          true,
+
+        subtree:
+          true
+      }
+    );
+
+
+    retireLegacyResearchUiV26();
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      startFix03B3ObserverV26,
+      {
+        once:
+          true
+      }
+    );
+
+  } else {
+
+    startFix03B3ObserverV26();
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 7. EXPOSE READ-ONLY MANUAL RETIREMENT
+   * -------------------------------------------------------------
+   */
+
+  window
+    .retireLegacyResearchUiV26 =
+    retireLegacyResearchUiV26;
+
+
+  console.log(
+    'FIX-03B.3 Legacy V2.2/V2.4 UI Retirement installed'
+  );
+
+})();
+
