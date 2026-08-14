@@ -77468,3 +77468,367 @@ console.log(
   'XSMN V2.6 FIX-01D — Safe Legacy Migration READY'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01D GATE TEST
+   PRE-MIGRATION READ-ONLY CHECK
+
+   KHÔNG:
+   - migrate
+   - write
+   - delete
+   - modify storage
+   ========================================================================= */
+
+function testFix01DPreMigrationGateV26() {
+
+  const result = {
+
+    ready: false,
+
+    allowed: false,
+
+    readOnly: true,
+
+    canonicalReader:
+      typeof readCanonicalShadowStoreV26 ===
+      'function',
+
+    canonicalWriter:
+      typeof writeCanonicalShadowStoreV26 ===
+      'function',
+
+    migrationFunction:
+      typeof migrateLegacyShadowStorageV26 ===
+      'function',
+
+    migrationFlag:
+      window
+        .V26_FIX_01D_SAFE_LEGACY_MIGRATION ===
+      true,
+
+    canonical:
+      null,
+
+    legacy: [],
+
+    reason:
+      null
+
+  };
+
+
+  /*
+   * -------------------------------------------------------------
+   * 1. REQUIRED FUNCTIONS
+   * -------------------------------------------------------------
+   */
+
+  if (
+    !result.canonicalReader
+  ) {
+
+    result.reason =
+      'FIX_01B_CANONICAL_READER_NOT_READY';
+
+    return result;
+
+  }
+
+
+  if (
+    !result.canonicalWriter
+  ) {
+
+    result.reason =
+      'FIX_01C_CANONICAL_WRITER_NOT_READY';
+
+    return result;
+
+  }
+
+
+  if (
+    !result.migrationFunction ||
+    !result.migrationFlag
+  ) {
+
+    result.reason =
+      'FIX_01D_NOT_LOADED';
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. READ CANONICAL ONLY
+   * -------------------------------------------------------------
+   */
+
+  const canonical =
+    readCanonicalShadowStoreV26();
+
+
+  result.canonical = {
+
+    ready:
+      Boolean(
+        canonical &&
+        canonical.ready
+      ),
+
+    reason:
+      canonical &&
+      canonical.reason
+        ? canonical.reason
+        : null,
+
+    count:
+      canonical &&
+      Array.isArray(
+        canonical.snapshots
+      )
+        ? canonical.snapshots.length
+        : null
+
+  };
+
+
+  if (
+    !canonical ||
+    canonical.ready !== true
+  ) {
+
+    result.reason =
+      'CANONICAL_STORE_NOT_READY';
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. INSPECT LEGACY KEYS
+   *
+   * READ ONLY.
+   * Không parse/merge/write.
+   * -------------------------------------------------------------
+   */
+
+  SHADOW_LEGACY_KEYS_V26
+    .forEach(
+      key => {
+
+        let raw =
+          null;
+
+        let readable =
+          true;
+
+        let error =
+          null;
+
+
+        try {
+
+          raw =
+            localStorage.getItem(
+              key
+            );
+
+        } catch (err) {
+
+          readable =
+            false;
+
+          error =
+            String(
+              err.message ||
+              err
+            );
+
+        }
+
+
+        result.legacy.push({
+
+          key,
+
+          readable,
+
+          exists:
+            raw !== null,
+
+          bytes:
+            raw !== null
+              ? raw.length
+              : 0,
+
+          error
+
+        });
+
+      }
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. FINAL GATE
+   * -------------------------------------------------------------
+   */
+
+  const legacyReadErrors =
+    result.legacy.filter(
+      item =>
+        !item.readable
+    ).length;
+
+
+  if (
+    legacyReadErrors > 0
+  ) {
+
+    result.reason =
+      'LEGACY_STORAGE_READ_ERROR';
+
+    return result;
+
+  }
+
+
+  result.ready =
+    true;
+
+  result.allowed =
+    true;
+
+  result.reason =
+    'PRE_MIGRATION_GATE_PASS';
+
+
+  window.LAST_V26_FIX_01D_GATE =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showFix01DPreMigrationGateV26() {
+
+  const result =
+    testFix01DPreMigrationGateV26();
+
+
+  const lines = [
+
+    '🛡️ V2.6 FIX-01D GATE',
+    '',
+
+    'Mode: READ ONLY 🔒',
+
+    '',
+
+    'Reader: ' +
+    (
+      result.canonicalReader
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'Writer: ' +
+    (
+      result.canonicalWriter
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'Migration: ' +
+    (
+      result.migrationFunction
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    '',
+
+    'Canonical: ' +
+    (
+      result.canonical &&
+      result.canonical.ready
+        ? 'READY ✅'
+        : 'NOT READY ❌'
+    ),
+
+    'Canonical Rows: ' +
+    (
+      result.canonical &&
+      result.canonical.count != null
+        ? result.canonical.count
+        : '-'
+    ),
+
+    '',
+
+    'Legacy Keys: ' +
+    (
+      Array.isArray(
+        result.legacy
+      )
+        ? result.legacy.length
+        : 0
+    ),
+
+    'Legacy Existing: ' +
+    (
+      Array.isArray(
+        result.legacy
+      )
+        ? result.legacy.filter(
+            item =>
+              item.exists
+          ).length
+        : 0
+    ),
+
+    '',
+
+    'Migration Allowed: ' +
+    (
+      result.allowed
+        ? 'YES ✅'
+        : 'NO 🔒'
+    ),
+
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+
+  ];
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-01D PRE-MIGRATION GATE:',
+    result
+  );
+
+
+  return result;
+
+}
+
