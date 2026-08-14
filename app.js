@@ -81276,3 +81276,360 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03B.2 — FULL RESEARCH-UI RETIREMENT
+   -------------------------------------------------------------------------
+   Production cleanup only.
+
+   REMOVE FROM UI:
+   - V2.2 Backtest / Model Validation card
+   - V2.4 Auto Model Selection card
+   - V2.5 Stability Validation card
+   - V2.6 Cross-Province OOS controls
+   - V2.6 Province Adaptive Gate card
+
+   KEEP:
+   - All research engines
+   - Prediction engine
+   - Shadow lifecycle
+   - Persistence
+   - Auto verification
+   - Recovery / startup logic
+
+   Safe + reversible.
+   ========================================================================= */
+
+(function installFix03B2ResearchUiRetirement() {
+
+  if (
+    window
+      .V26_FIX03B2_RESEARCH_UI_RETIREMENT_INSTALLED
+  ) {
+    return;
+  }
+
+
+  window
+    .V26_FIX03B2_RESEARCH_UI_RETIREMENT_INSTALLED =
+    true;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 1. KNOWN RESEARCH CONTAINERS
+   * -------------------------------------------------------------
+   */
+
+  const RETIRED_CONTAINER_IDS = [
+
+    'v25SafeCard',
+
+    'provinceGatePanelV26',
+
+    'crossOOSControlsV26'
+
+  ];
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. EXACT RESEARCH CARD TITLES
+   *
+   * V2.2 / V2.4 legacy UI does not expose a sufficiently
+   * reliable container ID in the current code inventory.
+   *
+   * Therefore locate ONLY the exact research card title,
+   * then retire its nearest .card.
+   * -------------------------------------------------------------
+   */
+
+  const RETIRED_CARD_TITLES = [
+
+    'Kiểm định mô hình V2.2',
+
+    'Auto Model Selection V2.4'
+
+  ];
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. REMOVE KNOWN CONTAINERS
+   * -------------------------------------------------------------
+   */
+
+  function retireKnownResearchContainersV26() {
+
+    let removed =
+      0;
+
+
+    RETIRED_CONTAINER_IDS.forEach(
+      id => {
+
+        const element =
+          document.getElementById(
+            id
+          );
+
+
+        if (!element) {
+          return;
+        }
+
+
+        element.remove();
+
+        removed++;
+
+      }
+    );
+
+
+    return removed;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. REMOVE LEGACY RESEARCH CARDS
+   *
+   * IMPORTANT:
+   * - Search only inside tab-settings.
+   * - Require exact known title.
+   * - Remove nearest .card only.
+   * - Never remove tab-settings itself.
+   * -------------------------------------------------------------
+   */
+
+  function retireLegacyResearchCardsV26() {
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+      return 0;
+    }
+
+
+    let removed =
+      0;
+
+
+    RETIRED_CARD_TITLES.forEach(
+      title => {
+
+        const candidates =
+          Array.from(
+            settings.querySelectorAll(
+              '.card'
+            )
+          );
+
+
+        const card =
+          candidates.find(
+            element => {
+
+              const text =
+                String(
+                  element.textContent ||
+                  ''
+                );
+
+
+              return text.includes(
+                title
+              );
+
+            }
+          );
+
+
+        if (!card) {
+          return;
+        }
+
+
+        /*
+         * Absolute safety:
+         * never remove the Settings root.
+         */
+
+        if (
+          card === settings ||
+          card.id ===
+            'tab-settings'
+        ) {
+          return;
+        }
+
+
+        card.remove();
+
+        removed++;
+
+      }
+    );
+
+
+    return removed;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 5. MASTER RETIREMENT
+   * -------------------------------------------------------------
+   */
+
+  function retireResearchUiV26() {
+
+    const knownRemoved =
+      retireKnownResearchContainersV26();
+
+
+    const legacyRemoved =
+      retireLegacyResearchCardsV26();
+
+
+    const total =
+      knownRemoved +
+      legacyRemoved;
+
+
+    window
+      .V26_FIX03B2_LAST_REMOVED_COUNT =
+      total;
+
+
+    return total;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 6. INITIAL CLEANUP
+   * -------------------------------------------------------------
+   */
+
+  retireResearchUiV26();
+
+
+  /*
+   * -------------------------------------------------------------
+   * 7. STARTUP / LATE-INSTALL PROTECTION
+   *
+   * Some research UI is created after DOMContentLoaded.
+   * Observer prevents those cards from reappearing.
+   * -------------------------------------------------------------
+   */
+
+  let cleanupScheduled =
+    false;
+
+
+  const observer =
+    new MutationObserver(
+      () => {
+
+        /*
+         * Avoid recursive cleanup storms when our own
+         * remove() operations generate DOM mutations.
+         */
+
+        if (cleanupScheduled) {
+          return;
+        }
+
+
+        cleanupScheduled =
+          true;
+
+
+        queueMicrotask(
+          () => {
+
+            cleanupScheduled =
+              false;
+
+            retireResearchUiV26();
+
+          }
+        );
+
+      }
+    );
+
+
+  function startResearchUiRetirementV26() {
+
+    if (!document.body) {
+      return;
+    }
+
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
+
+
+    retireResearchUiV26();
+
+  }
+
+
+  if (document.body) {
+
+    startResearchUiRetirementV26();
+
+  } else {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      startResearchUiRetirementV26,
+      {
+        once: true
+      }
+    );
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 8. READ-ONLY DIAGNOSTIC
+   * -------------------------------------------------------------
+   */
+
+  window
+    .V26_FIX03B2_RETIRED_CONTAINER_IDS =
+    RETIRED_CONTAINER_IDS.slice();
+
+
+  window
+    .V26_FIX03B2_RETIRED_CARD_TITLES =
+    RETIRED_CARD_TITLES.slice();
+
+
+  window
+    .retireResearchUiV26 =
+    retireResearchUiV26;
+
+
+  console.log(
+    'FIX-03B.2 FULL RESEARCH UI RETIREMENT installed'
+  );
+
+})();
+
