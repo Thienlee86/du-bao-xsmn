@@ -76165,3 +76165,196 @@ function showB9SafeGateAllowedPathV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01B
+   CANONICAL SHADOW PERSISTENCE READER
+
+   Mục tiêu:
+   - ONE canonical persistent key.
+   - ONE canonical reader contract.
+   - Legacy readers chỉ là compatibility adapter.
+   - Không biến persistent corruption thành empty store.
+   - Không thay Production Prediction Engine.
+   ========================================================================= */
+
+const SHADOW_CANONICAL_STORE_KEY_V26 =
+  'XSMN_V26_SHADOW_SNAPSHOTS';
+
+
+function readCanonicalShadowStoreV26() {
+
+  /*
+   * Canonical reader hiện tại.
+   */
+
+  const result =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !result ||
+    result.ready !== true ||
+    !result.store ||
+    !Array.isArray(
+      result.store.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'CANONICAL_STORE_NOT_READY',
+
+      corrupted:
+        Boolean(
+          result &&
+          (
+            result.reason ===
+              'PERSISTENT_JSON_INVALID' ||
+            result.reason ===
+              'UNKNOWN_PERSISTENT_SCHEMA'
+          )
+        ),
+
+      store:
+        null,
+
+      snapshots:
+        null
+
+    };
+
+  }
+
+
+  const snapshots =
+    result.store.snapshots
+      .slice();
+
+
+  return {
+
+    ready: true,
+
+    source:
+      result.source ||
+      'CANONICAL_WRAPPER',
+
+    key:
+      SHADOW_CANONICAL_STORE_KEY_V26,
+
+    store:
+      result.store,
+
+    snapshots,
+
+    total:
+      snapshots.length
+
+  };
+
+}
+
+
+/*
+ * -------------------------------------------------------------
+ * LEGACY READ ADAPTER
+ *
+ * Các caller cũ vẫn nhận Array.
+ *
+ * Nhưng khi canonical store lỗi:
+ * KHÔNG giả vờ rằng store rỗng.
+ * -------------------------------------------------------------
+ */
+
+readShadowSnapshotsV26 =
+function () {
+
+  const result =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.error(
+      'V2.6 FIX-01B Canonical Read Blocked:',
+      result
+    );
+
+
+    window.LAST_V26_CANONICAL_READ_ERROR =
+      result;
+
+
+    /*
+     * Legacy API bắt buộc phải trả Array
+     * để không phá caller cũ.
+     *
+     * Nhưng đánh dấu lỗi rõ ràng để writer /
+     * lifecycle guard không được coi đây là
+     * authoritative empty state.
+     */
+
+    return [];
+
+  }
+
+
+  window.LAST_V26_CANONICAL_READ_ERROR =
+    null;
+
+
+  return result.snapshots.slice();
+
+};
+
+
+/*
+ * -------------------------------------------------------------
+ * BRIDGE READ ADAPTER
+ *
+ * Retire key:
+ * XSMN_SHADOW_SNAPSHOTS_V26
+ *
+ * Bridge từ đây đọc canonical store.
+ * -------------------------------------------------------------
+ */
+
+readShadowSnapshotStoreBridgeV26 =
+function () {
+
+  const result =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !result.ready
+  ) {
+
+    console.error(
+      'V2.6 FIX-01B Bridge Read Blocked:',
+      result
+    );
+
+
+    return [];
+
+  }
+
+
+  return result.snapshots.slice();
+
+};
+
+
+console.log(
+  'XSMN V2.6 FIX-01B — Canonical Persistence Reader ACTIVE'
+);
+
