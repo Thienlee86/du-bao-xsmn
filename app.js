@@ -79775,3 +79775,1153 @@ console.log(
   'XSMN V2.6 FIX-02A Go-Live Diagnostic loaded'
 );
 
+/* =========================================================================
+   V2.6 FIX-02E
+   POST-ARRIVAL IDEMPOTENCY / DOUBLE-VERIFY PROTECTION TEST
+
+   Mục tiêu:
+   - Tạo isolated PENDING snapshot từ historical real draw.
+   - Verify lần 1: phải PENDING -> VERIFIED.
+   - Verify lần 2: không được verify lại.
+   - Identity / result của VERIFIED snapshot không được thay đổi.
+   - Không được tạo duplicate.
+   - Production persistent + RAM luôn được restore.
+   ========================================================================= */
+
+function testFix02EDoubleVerifyProtectionV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * 1. PRECHECK
+   * -------------------------------------------------------------
+   */
+
+  if (
+    typeof buildB5TestSnapshotV26 !==
+      'function' ||
+
+    typeof runSafeShadowVerificationV26 !==
+      'function' ||
+
+    typeof readShadowPersistentWrapperV26 !==
+      'function' ||
+
+    typeof writeShadowPersistentWrapperV26 !==
+      'function'
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FIX_02E_REQUIRED_FUNCTION_NOT_READY'
+
+    };
+
+
+    window.LAST_V26_FIX_02E =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. BACKUP PRODUCTION PERSISTENT STORE
+   * -------------------------------------------------------------
+   */
+
+  const persistentBackup =
+    readShadowPersistentWrapperV26();
+
+
+  if (
+    !persistentBackup ||
+    persistentBackup.ready !== true ||
+    !persistentBackup.store ||
+    !Array.isArray(
+      persistentBackup.store.snapshots
+    )
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FIX_02E_PRODUCTION_BACKUP_FAILED'
+
+    };
+
+
+    window.LAST_V26_FIX_02E =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const productionSnapshots =
+    JSON.parse(
+      JSON.stringify(
+        persistentBackup.store.snapshots
+      )
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. BACKUP RAM
+   * -------------------------------------------------------------
+   */
+
+  const ramBackup =
+    Array.isArray(
+      window.SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  const lastRamBackup =
+    Array.isArray(
+      window.LAST_SHADOW_SNAPSHOTS_V26
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            window.LAST_SHADOW_SNAPSHOTS_V26
+          )
+        )
+      : null;
+
+
+  let result = null;
+
+
+  try {
+
+    /*
+     * -----------------------------------------------------------
+     * 4. BUILD HISTORICAL PENDING SNAPSHOT
+     * -----------------------------------------------------------
+     */
+
+    const built =
+      buildB5TestSnapshotV26();
+
+
+    if (
+      !built ||
+      built.ready !== true ||
+      !built.snapshot
+    ) {
+
+      throw new Error(
+        built &&
+        built.reason
+          ? built.reason
+          : 'FIX_02E_TEST_SNAPSHOT_BUILD_FAILED'
+      );
+
+    }
+
+
+    const testSnapshot =
+      JSON.parse(
+        JSON.stringify(
+          built.snapshot
+        )
+      );
+
+
+    if (
+      testSnapshot.status !==
+        'PENDING' ||
+      !testSnapshot.targetDrawDate ||
+      !testSnapshot.targetDrawKey
+    ) {
+
+      throw new Error(
+        'FIX_02E_INVALID_PENDING_SNAPSHOT'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 5. INSTALL ISOLATED STORE
+     * -----------------------------------------------------------
+     */
+
+    const isolatedWrite =
+      writeShadowPersistentWrapperV26(
+        [
+          testSnapshot
+        ]
+      );
+
+
+    if (
+      !isolatedWrite ||
+      isolatedWrite.ready !== true
+    ) {
+
+      throw new Error(
+        'FIX_02E_ISOLATED_STORE_WRITE_FAILED'
+      );
+
+    }
+
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            testSnapshot
+          )
+        )
+      ];
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            testSnapshot
+          )
+        )
+      ];
+
+
+    /*
+     * -----------------------------------------------------------
+     * 6. FIRST VERIFICATION
+     *
+     * PENDING -> VERIFIED
+     * -----------------------------------------------------------
+     */
+
+    const firstGate =
+      runSafeShadowVerificationV26();
+
+
+    if (!firstGate) {
+
+      throw new Error(
+        'FIX_02E_FIRST_GATE_NO_RESULT'
+      );
+
+    }
+
+
+    if (
+      firstGate.allowed !== true
+    ) {
+
+      throw new Error(
+        'FIX_02E_FIRST_GATE_NOT_ALLOWED'
+      );
+
+    }
+
+
+    if (
+      firstGate.executed !== true
+    ) {
+
+      throw new Error(
+        'FIX_02E_FIRST_VERIFIER_NOT_EXECUTED'
+      );
+
+    }
+
+
+    if (
+      firstGate.ready !== true
+    ) {
+
+      throw new Error(
+        firstGate.reason ||
+        'FIX_02E_FIRST_GATE_NOT_READY'
+      );
+
+    }
+
+
+    if (
+      firstGate.verified !== 1
+    ) {
+
+      throw new Error(
+        'FIX_02E_FIRST_VERIFY_EXPECTED_ONE'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 7. READ VERIFIED SNAPSHOT
+     * -----------------------------------------------------------
+     */
+
+    const firstRead =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !firstRead ||
+      firstRead.ready !== true ||
+      !firstRead.store ||
+      !Array.isArray(
+        firstRead.store.snapshots
+      ) ||
+      firstRead.store.snapshots.length !==
+        1
+    ) {
+
+      throw new Error(
+        'FIX_02E_FIRST_READ_BACK_FAILED'
+      );
+
+    }
+
+
+    const firstVerified =
+      JSON.parse(
+        JSON.stringify(
+          firstRead.store.snapshots[0]
+        )
+      );
+
+
+    if (
+      firstVerified.status !==
+        'VERIFIED' ||
+      !firstVerified.verification ||
+      firstVerified.verification.status !==
+        'VERIFIED'
+    ) {
+
+      throw new Error(
+        'FIX_02E_FIRST_STATUS_NOT_VERIFIED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 8. CAPTURE IMMUTABLE VERIFIED EVIDENCE
+     * -----------------------------------------------------------
+     */
+
+    const firstId =
+      firstVerified.id;
+
+
+    const firstSnapshotKey =
+      firstVerified.snapshotKey;
+
+
+    const firstActual =
+      firstVerified.actual;
+
+
+    const firstActualTarget =
+      firstVerified.actualTarget;
+
+
+    const firstRank =
+      firstVerified.verification.rank;
+
+
+    const firstVerificationJson =
+      JSON.stringify(
+        firstVerified.verification
+      );
+
+
+    /*
+     * -----------------------------------------------------------
+     * 9. SYNC RAM TO VERIFIED STATE
+     *
+     * Safe Gate cần Persistent = RAM = LAST RAM.
+     * -----------------------------------------------------------
+     */
+
+    window.SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            firstVerified
+          )
+        )
+      ];
+
+
+    window.LAST_SHADOW_SNAPSHOTS_V26 =
+      [
+        JSON.parse(
+          JSON.stringify(
+            firstVerified
+          )
+        )
+      ];
+
+
+    /*
+     * -----------------------------------------------------------
+     * 10. SECOND VERIFICATION ATTEMPT
+     *
+     * Đây là trọng tâm FIX-02E.
+     * Snapshot đã VERIFIED không được verify lại.
+     * -----------------------------------------------------------
+     */
+
+    const secondGate =
+      runSafeShadowVerificationV26();
+
+
+    if (!secondGate) {
+
+      throw new Error(
+        'FIX_02E_SECOND_GATE_NO_RESULT'
+      );
+
+    }
+
+
+    /*
+     * Gate có thể:
+     *
+     * A. Không execute verifier vì không còn PENDING.
+     *
+     * hoặc
+     *
+     * B. Execute verifier nhưng B3 nhận diện
+     *    ALREADY_VERIFIED.
+     *
+     * Cả hai đều hợp lệ miễn là:
+     * verified mới = 0
+     * và persistent snapshot không đổi.
+     */
+
+
+    const secondVerified =
+      secondGate.verified != null
+        ? secondGate.verified
+        : 0;
+
+
+    if (
+      secondVerified !== 0
+    ) {
+
+      throw new Error(
+        'FIX_02E_DOUBLE_VERIFY_DETECTED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 11. SECOND READ-BACK
+     * -----------------------------------------------------------
+     */
+
+    const secondRead =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !secondRead ||
+      secondRead.ready !== true ||
+      !secondRead.store ||
+      !Array.isArray(
+        secondRead.store.snapshots
+      )
+    ) {
+
+      throw new Error(
+        'FIX_02E_SECOND_READ_BACK_FAILED'
+      );
+
+    }
+
+
+    const secondSnapshots =
+      secondRead.store.snapshots;
+
+
+    /*
+     * Không được tạo duplicate.
+     */
+
+    if (
+      secondSnapshots.length !==
+        1
+    ) {
+
+      throw new Error(
+        'FIX_02E_DUPLICATE_SNAPSHOT_CREATED'
+      );
+
+    }
+
+
+    const afterSecond =
+      secondSnapshots[0];
+
+
+    /*
+     * -----------------------------------------------------------
+     * 12. ASSERT IDENTITY IMMUTABILITY
+     * -----------------------------------------------------------
+     */
+
+    if (
+      afterSecond.id !==
+        firstId
+    ) {
+
+      throw new Error(
+        'FIX_02E_ID_CHANGED'
+      );
+
+    }
+
+
+    if (
+      afterSecond.snapshotKey !==
+        firstSnapshotKey
+    ) {
+
+      throw new Error(
+        'FIX_02E_SNAPSHOT_KEY_CHANGED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 13. ASSERT RESULT IMMUTABILITY
+     * -----------------------------------------------------------
+     */
+
+    if (
+      afterSecond.actual !==
+        firstActual
+    ) {
+
+      throw new Error(
+        'FIX_02E_ACTUAL_CHANGED'
+      );
+
+    }
+
+
+    if (
+      afterSecond.actualTarget !==
+        firstActualTarget
+    ) {
+
+      throw new Error(
+        'FIX_02E_ACTUAL_TARGET_CHANGED'
+      );
+
+    }
+
+
+    if (
+      !afterSecond.verification ||
+      afterSecond.verification.rank !==
+        firstRank
+    ) {
+
+      throw new Error(
+        'FIX_02E_RANK_CHANGED'
+      );
+
+    }
+
+
+    /*
+     * Toàn bộ verification object
+     * phải giữ nguyên.
+     */
+
+    const secondVerificationJson =
+      JSON.stringify(
+        afterSecond.verification
+      );
+
+
+    if (
+      secondVerificationJson !==
+        firstVerificationJson
+    ) {
+
+      throw new Error(
+        'FIX_02E_VERIFICATION_MUTATED'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * 14. FINAL STATUS
+     * -----------------------------------------------------------
+     */
+
+    if (
+      afterSecond.status !==
+        'VERIFIED' ||
+      afterSecond.verification.status !==
+        'VERIFIED'
+    ) {
+
+      throw new Error(
+        'FIX_02E_VERIFIED_STATUS_LOST'
+      );
+
+    }
+
+
+    /*
+     * -----------------------------------------------------------
+     * PASS
+     * -----------------------------------------------------------
+     */
+
+    result = {
+
+      ready: true,
+
+      passed: true,
+
+      reason:
+        'FIX_02E_IDEMPOTENCY_PASS',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-02E',
+
+      mode:
+        'ISOLATED_DOUBLE_VERIFY_PROTECTION',
+
+      researchOnly:
+        true,
+
+      province:
+        built.province,
+
+      targetDrawDate:
+        String(
+          built.draw.date
+        ),
+
+      firstPass: {
+
+        allowed:
+          firstGate.allowed,
+
+        executed:
+          firstGate.executed,
+
+        verified:
+          firstGate.verified,
+
+        saved:
+          firstGate.saved
+
+      },
+
+      secondPass: {
+
+        allowed:
+          secondGate.allowed === true,
+
+        executed:
+          secondGate.executed === true,
+
+        verified:
+          secondVerified,
+
+        alreadyVerified:
+          secondGate.alreadyVerified != null
+            ? secondGate.alreadyVerified
+            : 0,
+
+        reason:
+          secondGate.reason ||
+          null
+
+      },
+
+      identityPreserved:
+        true,
+
+      resultPreserved:
+        true,
+
+      verificationPreserved:
+        true,
+
+      duplicateCreated:
+        false
+
+    };
+
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        String(
+          error.message ||
+          error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-02E',
+
+      mode:
+        'ISOLATED_DOUBLE_VERIFY_PROTECTION'
+
+    };
+
+  } finally {
+
+    /*
+     * -----------------------------------------------------------
+     * 15. CRITICAL PRODUCTION RESTORE
+     * -----------------------------------------------------------
+     */
+
+    const restore =
+      writeShadowPersistentWrapperV26(
+        productionSnapshots
+      );
+
+
+    result.productionRestored =
+      Boolean(
+        restore &&
+        restore.ready === true
+      );
+
+
+    if (ramBackup) {
+
+      window.SHADOW_SNAPSHOTS_V26 =
+        JSON.parse(
+          JSON.stringify(
+            ramBackup
+          )
+        );
+
+    } else {
+
+      delete window.SHADOW_SNAPSHOTS_V26;
+
+    }
+
+
+    if (lastRamBackup) {
+
+      window.LAST_SHADOW_SNAPSHOTS_V26 =
+        JSON.parse(
+          JSON.stringify(
+            lastRamBackup
+          )
+        );
+
+    } else {
+
+      delete window.LAST_SHADOW_SNAPSHOTS_V26;
+
+    }
+
+
+    result.ramRestored =
+      ramBackup
+        ? (
+            Array.isArray(
+              window.SHADOW_SNAPSHOTS_V26
+            ) &&
+            window.SHADOW_SNAPSHOTS_V26.length ===
+              ramBackup.length
+          )
+        : true;
+
+
+    result.lastRamRestored =
+      lastRamBackup
+        ? (
+            Array.isArray(
+              window.LAST_SHADOW_SNAPSHOTS_V26
+            ) &&
+            window.LAST_SHADOW_SNAPSHOTS_V26.length ===
+              lastRamBackup.length
+          )
+        : true;
+
+
+    if (
+      !result.productionRestored ||
+      !result.ramRestored ||
+      !result.lastRamRestored
+    ) {
+
+      result.ready =
+        false;
+
+      result.passed =
+        false;
+
+      result.reason =
+        'FIX_02E_CRITICAL_RESTORE_FAILED';
+
+    }
+
+  }
+
+
+  window.LAST_V26_FIX_02E =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-02E MOBILE REPORT
+   ========================================================================= */
+
+function showFix02EDoubleVerifyProtectionV26() {
+
+  const result =
+    testFix02EDoubleVerifyProtectionV26();
+
+
+  const lines = [
+
+    '🛡️ V2.6 FIX-02E DOUBLE VERIFY TEST',
+
+    '',
+
+    'PASS: ' +
+      (
+        result.passed
+          ? 'YES ✅'
+          : 'NO ❌'
+      ),
+
+    'Reason: ' +
+      (
+        result.reason ||
+        '-'
+      ),
+
+    '',
+
+    'Province: ' +
+      (
+        result.province ||
+        '-'
+      ),
+
+    'Target Draw: ' +
+      (
+        result.targetDrawDate ||
+        '-'
+      )
+
+  ];
+
+
+  if (
+    result.firstPass
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'FIRST VERIFY'
+    );
+
+    lines.push(
+      'Allowed: ' +
+      (
+        result.firstPass.allowed
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+    lines.push(
+      'Executed: ' +
+      (
+        result.firstPass.executed
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+    lines.push(
+      'Verified New: ' +
+      (
+        result.firstPass.verified != null
+          ? result.firstPass.verified
+          : '-'
+      )
+    );
+
+  }
+
+
+  if (
+    result.secondPass
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'SECOND VERIFY'
+    );
+
+    lines.push(
+      'Allowed: ' +
+      (
+        result.secondPass.allowed
+          ? 'YES'
+          : 'NO 🔒'
+      )
+    );
+
+    lines.push(
+      'Executed: ' +
+      (
+        result.secondPass.executed
+          ? 'YES'
+          : 'NO 🔒'
+      )
+    );
+
+    lines.push(
+      'Verified New: ' +
+      result.secondPass.verified
+    );
+
+    lines.push(
+      'Already Verified: ' +
+      result.secondPass.alreadyVerified
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result.secondPass.reason ||
+        '-'
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Identity Preserved: ' +
+    (
+      result.identityPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+  lines.push(
+    'Result Preserved: ' +
+    (
+      result.resultPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+  lines.push(
+    'Verification Preserved: ' +
+    (
+      result.verificationPreserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+  lines.push(
+    'Duplicate Created: ' +
+    (
+      result.duplicateCreated
+        ? 'YES ❌'
+        : 'NO ✅'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Production Restore: ' +
+    (
+      result.productionRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'RAM Restore: ' +
+    (
+      result.ramRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'LAST RAM Restore: ' +
+    (
+      result.lastRamRestored
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-02E MOBILE BUTTON
+   ========================================================================= */
+
+(function addFix02EMobileButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix02e-double-verify-v26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'fix02e-double-verify-v26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ FIX-02E Double Verify Test';
+
+
+    button.style.cssText = [
+      'display:block',
+      'width:calc(100% - 32px)',
+      'max-width:640px',
+      'margin:12px auto',
+      'padding:15px 12px',
+      'border:0',
+      'border-radius:14px',
+      'font-size:17px',
+      'font-weight:800',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function() {
+
+        showFix02EDoubleVerifyProtectionV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
