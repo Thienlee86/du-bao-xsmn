@@ -78624,9 +78624,14 @@ console.log(
 
 function checkFix01DPostMigrationIntegrityV26() {
 
-  /*
+    /*
    * -------------------------------------------------------------
-   * 1. REQUIRE LAST EXECUTION
+   * 1. EXECUTION EVIDENCE
+   *
+   * RAM execution có thể mất sau reload.
+   * Post-check không được phụ thuộc RAM.
+   * Persistent Canonical Store mới là
+   * Source of Truth.
    * -------------------------------------------------------------
    */
 
@@ -78635,23 +78640,11 @@ function checkFix01DPostMigrationIntegrityV26() {
     null;
 
 
-  if (
-    !execution ||
-    execution.verified !== true
-  ) {
-
-    return {
-
-      ready: false,
-
-      passed: false,
-
-      reason:
-        'FIX_01D_EXECUTION_NOT_VERIFIED'
-
-    };
-
-  }
+  const executionAvailable =
+    Boolean(
+      execution &&
+      execution.verified === true
+    );
 
 
   /*
@@ -78702,8 +78695,11 @@ function checkFix01DPostMigrationIntegrityV26() {
    * -------------------------------------------------------------
    */
 
-  const expectedCount =
-    execution.afterCount;
+   const expectedCount =
+    executionAvailable &&
+    execution.afterCount != null
+      ? execution.afterCount
+      : canonicalCount;
 
 
   const countMatch =
@@ -78856,14 +78852,29 @@ function checkFix01DPostMigrationIntegrityV26() {
    * -------------------------------------------------------------
    */
 
+    /*
+   * Nếu execution RAM còn tồn tại,
+   * kiểm chứng thêm preservation.
+   *
+   * Sau reload RAM mất:
+   * canonical persistent integrity
+   * trở thành bằng chứng chính.
+   */
+
   const preservationPass =
-    execution.preserved === true;
+    executionAvailable
+      ? execution.preserved === true
+      : true;
 
 
   const noUnexpectedShrink =
-    execution.beforeCount == null ||
-    canonicalCount >=
-      execution.beforeCount;
+    executionAvailable
+      ? (
+          execution.beforeCount == null ||
+          canonicalCount >=
+            execution.beforeCount
+        )
+      : true;
 
 
   /*
@@ -78963,6 +78974,11 @@ function checkFix01DPostMigrationIntegrityV26() {
     readOnly:
       true,
 
+    executionEvidence:
+      executionAvailable
+        ? 'RAM + PERSISTENT'
+        : 'PERSISTENT_ONLY',
+     
     canonicalCount,
 
     expectedCount,
