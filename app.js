@@ -78844,15 +78844,15 @@ function checkFix01DPostMigrationIntegrityV26() {
    */
 
   const legacyKeys =
-    typeof FIX_01D_LEGACY_KEYS_V26 !==
-        'undefined' &&
-      Array.isArray(
-        FIX_01D_LEGACY_KEYS_V26
-      )
+  typeof SHADOW_LEGACY_KEYS_V26 !==
+      'undefined' &&
+    Array.isArray(
+      SHADOW_LEGACY_KEYS_V26
+    )
 
-      ? FIX_01D_LEGACY_KEYS_V26
+    ? SHADOW_LEGACY_KEYS_V26
 
-      : [];
+    : [];
 
 
   const legacyExistingKeys =
