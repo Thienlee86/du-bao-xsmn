@@ -76597,3 +76597,874 @@ console.log(
   'XSMN V2.6 FIX-01C — Canonical Persistence Writer ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01D
+   SAFE LEGACY SHADOW STORAGE MIGRATION
+
+   Strategy:
+   1. Read canonical.
+   2. Inspect known legacy keys.
+   3. Merge without mutating source stores.
+   4. Dedupe snapshots.
+   5. Write through canonical writer only.
+   6. Read-back verify.
+   7. DO NOT delete legacy storage yet.
+   ========================================================================= */
+
+const SHADOW_LEGACY_KEYS_V26 = [
+
+  'XSMN_SHADOW_SNAPSHOTS_V26',
+
+  'SHADOW_SNAPSHOTS_V26',
+
+  'shadowSnapshotsV26',
+
+  'xsmm_shadow_v26'
+
+];
+
+
+/* =========================================================================
+   1. EXTRACT SNAPSHOTS FROM LEGACY VALUE
+   ========================================================================= */
+
+function extractLegacyShadowSnapshotsV26(
+  parsed
+) {
+
+  if (
+    Array.isArray(
+      parsed
+    )
+  ) {
+
+    return parsed.slice();
+
+  }
+
+
+  if (
+    parsed &&
+    typeof parsed ===
+      'object' &&
+    Array.isArray(
+      parsed.snapshots
+    )
+  ) {
+
+    return parsed.snapshots.slice();
+
+  }
+
+
+  return null;
+
+}
+
+
+/* =========================================================================
+   2. STABLE MIGRATION IDENTITY
+   ========================================================================= */
+
+function shadowMigrationIdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !==
+      'object'
+  ) {
+
+    return null;
+
+  }
+
+
+  /*
+   * Ưu tiên identity mạnh nhất.
+   */
+
+  if (
+    snapshot.snapshotKey
+  ) {
+
+    return (
+      'KEY|' +
+      String(
+        snapshot.snapshotKey
+      )
+    );
+
+  }
+
+
+  if (
+    snapshot.id
+  ) {
+
+    return (
+      'ID|' +
+      String(
+        snapshot.id
+      )
+    );
+
+  }
+
+
+  /*
+   * Fallback cho snapshot rất cũ.
+   *
+   * Không dùng Date.now().
+   */
+
+  return [
+
+    'FALLBACK',
+
+    snapshot.provinceSlug ||
+      snapshot.province ||
+      snapshot.slug ||
+      '',
+
+    snapshot.prize ||
+      'db',
+
+    snapshot.targetDrawKey ||
+      '',
+
+    snapshot.targetDrawDate ||
+      snapshot.latestDrawDate ||
+      '',
+
+    snapshot.model ||
+      '',
+
+    snapshot.window != null
+      ? String(
+          snapshot.window
+        )
+      : '',
+
+    snapshot.createdAt ||
+      snapshot.generatedAt ||
+      ''
+
+  ].join('|');
+
+}
+
+
+/* =========================================================================
+   3. SAFE MIGRATION
+   ========================================================================= */
+
+function migrateLegacyShadowStorageV26() {
+
+  const canonical =
+    readCanonicalShadowStoreV26();
+
+
+  /*
+   * Nếu canonical store đang corrupted,
+   * tuyệt đối không migration/write.
+   */
+
+  if (
+    !canonical ||
+    canonical.ready !== true
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        canonical &&
+        canonical.reason
+          ? canonical.reason
+          : 'CANONICAL_READ_FAILED',
+
+      protected:
+        true
+
+    };
+
+
+    window.LAST_V26_FIX_01D_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const canonicalRows =
+    canonical.snapshots.slice();
+
+
+  const merged =
+    canonicalRows.slice();
+
+
+  const identities =
+    new Set();
+
+
+  merged.forEach(
+    snapshot => {
+
+      const identity =
+        shadowMigrationIdentityV26(
+          snapshot
+        );
+
+
+      if (identity) {
+
+        identities.add(
+          identity
+        );
+
+      }
+
+    }
+  );
+
+
+  const legacyReport =
+    [];
+
+
+  let legacyFound =
+    0;
+
+  let legacyRows =
+    0;
+
+  let imported =
+    0;
+
+  let duplicates =
+    0;
+
+  let invalid =
+    0;
+
+
+  for (
+    const key of
+    SHADOW_LEGACY_KEYS_V26
+  ) {
+
+    let raw =
+      null;
+
+
+    try {
+
+      raw =
+        localStorage.getItem(
+          key
+        );
+
+    } catch (error) {
+
+      legacyReport.push({
+
+        key,
+
+        ready: false,
+
+        reason:
+          'LEGACY_STORAGE_READ_ERROR',
+
+        error:
+          String(
+            error.message ||
+            error
+          )
+
+      });
+
+
+      continue;
+
+    }
+
+
+    if (!raw) {
+
+      legacyReport.push({
+
+        key,
+
+        ready: true,
+
+        exists: false,
+
+        rows: 0,
+
+        imported: 0
+
+      });
+
+
+      continue;
+
+    }
+
+
+    legacyFound++;
+
+
+    let parsed;
+
+
+    try {
+
+      parsed =
+        JSON.parse(
+          raw
+        );
+
+    } catch (error) {
+
+      invalid++;
+
+
+      legacyReport.push({
+
+        key,
+
+        ready: false,
+
+        exists: true,
+
+        reason:
+          'LEGACY_JSON_INVALID'
+
+      });
+
+
+      /*
+       * Không sửa / không xóa key lỗi.
+       */
+
+      continue;
+
+    }
+
+
+    const rows =
+      extractLegacyShadowSnapshotsV26(
+        parsed
+      );
+
+
+    if (
+      !Array.isArray(
+        rows
+      )
+    ) {
+
+      invalid++;
+
+
+      legacyReport.push({
+
+        key,
+
+        ready: false,
+
+        exists: true,
+
+        reason:
+          'LEGACY_SCHEMA_UNKNOWN'
+
+      });
+
+
+      continue;
+
+    }
+
+
+    legacyRows +=
+      rows.length;
+
+
+    let importedFromKey =
+      0;
+
+    let duplicateFromKey =
+      0;
+
+
+    rows.forEach(
+      snapshot => {
+
+        if (
+          !snapshot ||
+          typeof snapshot !==
+            'object'
+        ) {
+
+          invalid++;
+
+          return;
+
+        }
+
+
+        const identity =
+          shadowMigrationIdentityV26(
+            snapshot
+          );
+
+
+        if (!identity) {
+
+          invalid++;
+
+          return;
+
+        }
+
+
+        if (
+          identities.has(
+            identity
+          )
+        ) {
+
+          duplicates++;
+
+          duplicateFromKey++;
+
+          return;
+
+        }
+
+
+        merged.push(
+          snapshot
+        );
+
+
+        identities.add(
+          identity
+        );
+
+
+        imported++;
+
+        importedFromKey++;
+
+      }
+    );
+
+
+    legacyReport.push({
+
+      key,
+
+      ready: true,
+
+      exists: true,
+
+      rows:
+        rows.length,
+
+      imported:
+        importedFromKey,
+
+      duplicates:
+        duplicateFromKey
+
+    });
+
+  }
+
+
+  /*
+   * Không có gì mới:
+   * không cần write.
+   */
+
+  if (
+    imported === 0
+  ) {
+
+    const result = {
+
+      ready:
+        invalid === 0,
+
+      migrated: false,
+
+      reason:
+        invalid > 0
+          ? 'LEGACY_STORE_REQUIRES_REVIEW'
+          : 'NO_NEW_LEGACY_SNAPSHOTS',
+
+      canonicalBefore:
+        canonicalRows.length,
+
+      canonicalAfter:
+        canonicalRows.length,
+
+      legacyFound,
+
+      legacyRows,
+
+      imported: 0,
+
+      duplicates,
+
+      invalid,
+
+      legacyReport,
+
+      destructive:
+        false
+
+    };
+
+
+    window.LAST_V26_FIX_01D_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * WRITE THROUGH FIX-01C ONLY
+   * -------------------------------------------------------------
+   */
+
+  const write =
+    writeCanonicalShadowStoreV26(
+      merged
+    );
+
+
+  if (
+    !write ||
+    write.ready !== true
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: false,
+
+      reason:
+        write &&
+        write.reason
+          ? write.reason
+          : 'CANONICAL_MIGRATION_WRITE_FAILED',
+
+      canonicalBefore:
+        canonicalRows.length,
+
+      attemptedAfter:
+        merged.length,
+
+      imported,
+
+      duplicates,
+
+      invalid,
+
+      legacyReport,
+
+      destructive:
+        false,
+
+      write
+
+    };
+
+
+    window.LAST_V26_FIX_01D_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * READ-BACK VERIFY
+   * -------------------------------------------------------------
+   */
+
+  const verify =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !verify ||
+    verify.ready !== true
+  ) {
+
+    const result = {
+
+      ready: false,
+
+      migrated: true,
+
+      verified: false,
+
+      reason:
+        'MIGRATION_READ_BACK_FAILED',
+
+      imported,
+
+      duplicates,
+
+      invalid,
+
+      legacyReport,
+
+      destructive:
+        false
+
+    };
+
+
+    window.LAST_V26_FIX_01D_MIGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  const verifiedIdentities =
+    new Set(
+      verify.snapshots
+        .map(
+          shadowMigrationIdentityV26
+        )
+        .filter(
+          Boolean
+        )
+    );
+
+
+  const expectedIdentities =
+    merged
+      .map(
+        shadowMigrationIdentityV26
+      )
+      .filter(
+        Boolean
+      );
+
+
+  const allPreserved =
+    expectedIdentities.every(
+      identity =>
+        verifiedIdentities.has(
+          identity
+        )
+    );
+
+
+  const passed =
+    (
+      allPreserved &&
+      verify.snapshots.length >=
+        merged.length
+    );
+
+
+  const result = {
+
+    ready:
+      passed,
+
+    migrated: true,
+
+    verified:
+      passed,
+
+    reason:
+      passed
+        ? 'SAFE_LEGACY_MIGRATION_VERIFIED'
+        : 'MIGRATION_INTEGRITY_CHECK_FAILED',
+
+    canonicalBefore:
+      canonicalRows.length,
+
+    canonicalAfter:
+      verify.snapshots.length,
+
+    legacyFound,
+
+    legacyRows,
+
+    imported,
+
+    duplicates,
+
+    invalid,
+
+    allPreserved,
+
+    legacyReport,
+
+    /*
+     * FIX-01D không được delete legacy.
+     */
+
+    destructive:
+      false,
+
+    legacyRetired:
+      false
+
+  };
+
+
+  window.LAST_V26_FIX_01D_MIGRATION =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. MOBILE TEST
+   ========================================================================= */
+
+function testFix01DLegacyMigrationV26() {
+
+  const result =
+    migrateLegacyShadowStorageV26();
+
+
+  const lines = [
+
+    '🧬 V2.6 FIX-01D',
+    'SAFE LEGACY MIGRATION',
+    '',
+
+    'Ready: ' +
+    (
+      result.ready
+        ? 'YES ✅'
+        : 'NO ❌'
+    ),
+
+    'Migrated: ' +
+    (
+      result.migrated
+        ? 'YES'
+        : 'NO'
+    ),
+
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    ),
+
+    '',
+
+    'Canonical Before: ' +
+    (
+      result.canonicalBefore != null
+        ? result.canonicalBefore
+        : '-'
+    ),
+
+    'Canonical After: ' +
+    (
+      result.canonicalAfter != null
+        ? result.canonicalAfter
+        : '-'
+    ),
+
+    'Legacy Stores Found: ' +
+    (
+      result.legacyFound != null
+        ? result.legacyFound
+        : '-'
+    ),
+
+    'Legacy Rows: ' +
+    (
+      result.legacyRows != null
+        ? result.legacyRows
+        : '-'
+    ),
+
+    'Imported: ' +
+    (
+      result.imported != null
+        ? result.imported
+        : '-'
+    ),
+
+    'Duplicates: ' +
+    (
+      result.duplicates != null
+        ? result.duplicates
+        : '-'
+    ),
+
+    'Invalid: ' +
+    (
+      result.invalid != null
+        ? result.invalid
+        : '-'
+    ),
+
+    '',
+
+    'Legacy Deleted: NO 🔒'
+
+  ];
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'V2.6 FIX-01D Migration:',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+window.V26_FIX_01D_SAFE_LEGACY_MIGRATION =
+  true;
+
+
+console.log(
+  'XSMN V2.6 FIX-01D — Safe Legacy Migration READY'
+);
+
