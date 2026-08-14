@@ -79348,3 +79348,430 @@ console.log(
   'XSMN V2.6 FIX-01D Post-Migration Integrity Check READY'
 );
 
+/* =========================================================================
+   V2.6 — FIX-02A
+   GO-LIVE READ-ONLY DIAGNOSTIC
+
+   Mục tiêu:
+   - Kiểm tra wiring của Automatic Verification.
+   - Kiểm tra B4 Hook + B7 Recovery + B8 Startup + B9 Safe Gate.
+   - KHÔNG gọi verifier thật.
+   - KHÔNG ghi localStorage.
+   - KHÔNG tạo / sửa / xóa snapshot.
+   - KHÔNG thay Production Prediction.
+   ========================================================================= */
+
+function checkFix02AGoLiveDiagnosticV26() {
+
+  const checks = {
+
+    mergeFunction:
+      typeof mergeExtraDraws ===
+      'function',
+
+    b4HookInstalled:
+      window
+        .V26_8CB4_AUTO_VERIFY_HOOK_INSTALLED ===
+      true,
+
+    recoveryFunction:
+      typeof recoverShadowSnapshotsOnStartupV26 ===
+      'function',
+
+    startupVerificationFunction:
+      typeof runStartupAutoVerificationV26 ===
+      'function',
+
+    transitionGuard:
+      typeof guardRealVerificationTransitionV26 ===
+      'function',
+
+    safeVerificationGate:
+      typeof runSafeShadowVerificationV26 ===
+      'function',
+
+    verifier:
+      typeof verifyPendingShadowSnapshotsV26 ===
+      'function',
+
+    shadowDrawSource:
+      typeof getShadowDrawsV26 ===
+      'function'
+  };
+
+
+  const failed =
+    Object.entries(
+      checks
+    )
+    .filter(
+      ([, value]) =>
+        value !== true
+    )
+    .map(
+      ([key]) =>
+        key
+    );
+
+
+  /*
+   * Diagnostic RAM state.
+   *
+   * Chỉ đọc.
+   */
+
+  const recovery =
+    window.LAST_V26_B7_RECOVERY ||
+    null;
+
+
+  const startup =
+    window.LAST_V26_B8_STARTUP_VERIFY ||
+    null;
+
+
+  const autoVerify =
+    window.LAST_V26_B4_AUTO_VERIFY ||
+    null;
+
+
+  /*
+   * Không yêu cầu B4 đã trigger.
+   *
+   * Người dùng có thể vừa reload app
+   * nhưng chưa import/live-update.
+   */
+
+  const wiringReady =
+    failed.length === 0;
+
+
+  /*
+   * Recovery state:
+   *
+   * null không tự động là FAIL,
+   * vì diagnostic này không được
+   * tự chạy recovery để tránh side effect.
+   */
+
+  const recoveryState =
+    recovery
+      ? (
+          recovery.ready === true
+            ? 'READY'
+            : 'NOT_READY'
+        )
+      : 'NO_RUNTIME_EVIDENCE';
+
+
+  /*
+   * Startup state tương tự:
+   * chỉ quan sát evidence hiện có.
+   */
+
+  const startupState =
+    startup
+      ? (
+          startup.ready === true
+            ? 'READY'
+            : (
+                startup.reason ||
+                'NOT_READY'
+              )
+        )
+      : 'NO_RUNTIME_EVIDENCE';
+
+
+  const result = {
+
+    ready:
+      true,
+
+    passed:
+      wiringReady,
+
+    reason:
+      wiringReady
+        ? 'FIX_02A_GO_LIVE_WIRING_PASS'
+        : 'FIX_02A_REQUIRED_COMPONENT_MISSING',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-02A',
+
+    mode:
+      'READ_ONLY',
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    checks,
+
+    failed,
+
+    recoveryState,
+
+    startupState,
+
+    b4RuntimeEvidence:
+      Boolean(
+        autoVerify
+      ),
+
+    recovery,
+
+    startup,
+
+    autoVerify
+
+  };
+
+
+  window.LAST_V26_FIX_02A_DIAGNOSTIC =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showFix02AGoLiveDiagnosticV26() {
+
+  const result =
+    checkFix02AGoLiveDiagnosticV26();
+
+
+  const c =
+    result.checks;
+
+
+  const lines = [
+
+    '🩺 V2.6 FIX-02A GO-LIVE',
+
+    '',
+
+    'Mode: READ ONLY 🔒',
+
+    '',
+
+    'Diagnostic: ' +
+    (
+      result.passed
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    ),
+
+    'Reason: ' +
+    result.reason,
+
+    '',
+
+    'Merge Function: ' +
+    (
+      c.mergeFunction
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B4 Hook: ' +
+    (
+      c.b4HookInstalled
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B7 Recovery: ' +
+    (
+      c.recoveryFunction
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B8 Startup Verify: ' +
+    (
+      c.startupVerificationFunction
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B9 Transition Guard: ' +
+    (
+      c.transitionGuard
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B9 Safe Gate: ' +
+    (
+      c.safeVerificationGate
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'B3 Verifier: ' +
+    (
+      c.verifier
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    'Draw Source: ' +
+    (
+      c.shadowDrawSource
+        ? 'READY ✅'
+        : 'MISSING ❌'
+    ),
+
+    '',
+
+    'Recovery Runtime: ' +
+    result.recoveryState,
+
+    'Startup Runtime: ' +
+    result.startupState,
+
+    'B4 Trigger Evidence: ' +
+    (
+      result.b4RuntimeEvidence
+        ? 'YES'
+        : 'NOT YET'
+    ),
+
+    '',
+
+    'Storage Modified: NO 🔒',
+
+    'Production Modified: NO 🔒'
+
+  ];
+
+
+  if (
+    result.failed.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Missing: ' +
+      result.failed.join(
+        ', '
+      )
+    );
+
+  }
+
+
+  alert(
+    lines.join(
+      '\n'
+    )
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   TEMPORARY MOBILE BUTTON
+   ========================================================================= */
+
+(function addFix02ADiagnosticButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix02ADiagnosticV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix02ADiagnosticV26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🩺 FIX-02A Go-Live Check';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:230px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'box-shadow:0 4px 14px rgba(0,0,0,.20)'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      showFix02AGoLiveDiagnosticV26
+    );
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'XSMN V2.6 FIX-02A Go-Live Diagnostic loaded'
+);
+
