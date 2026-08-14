@@ -81171,3 +81171,108 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03B.1 — RETIRE REMAINING DEVELOPMENT UI
+   ========================================================================= */
+
+(function installV26RemainingUiRetirement() {
+
+  const RETIRE_TEXT_PATTERNS = [
+
+    'Write Persistent Test',
+    'Read Persistent Test',
+    'Test 8C-A2 Persistence',
+    'Test V2.6 Persistent Write',
+
+    'FIX-01D Gate Test',
+    'FIX-01D Run Migration',
+    'FIX-01D Post Check',
+
+    'FIX-02A Go-Live Check',
+    'FIX-02E Double Verify Test'
+
+  ];
+
+
+  function retireRemainingV26Ui() {
+
+    let removed = 0;
+
+
+    document
+      .querySelectorAll('button')
+      .forEach(
+        button => {
+
+          const text =
+            String(
+              button.textContent || ''
+            )
+            .trim();
+
+
+          const matched =
+            RETIRE_TEXT_PATTERNS.some(
+              pattern =>
+                text.includes(
+                  pattern
+                )
+            );
+
+
+          if (!matched) {
+            return;
+          }
+
+
+          button.remove();
+
+          removed++;
+
+        }
+      );
+
+
+    window
+      .V26_FIX03B1_LAST_REMOVED =
+      removed;
+
+
+    return removed;
+
+  }
+
+
+  retireRemainingV26Ui();
+
+
+  const observer =
+    new MutationObserver(
+      retireRemainingV26Ui
+    );
+
+
+  if (document.body) {
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
+
+  }
+
+
+  window
+    .retireRemainingV26Ui =
+    retireRemainingV26Ui;
+
+
+  console.log(
+    'FIX-03B.1 remaining development UI retirement installed'
+  );
+
+})();
+
