@@ -76358,3 +76358,242 @@ console.log(
   'XSMN V2.6 FIX-01B — Canonical Persistence Reader ACTIVE'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01C
+   CANONICAL SHADOW PERSISTENCE WRITER
+
+   Mục tiêu:
+   - ONE canonical writer.
+   - Tất cả legacy writer đi qua canonical writer.
+   - Chỉ dùng canonical storage key.
+   - Giữ Empty Write Guard hiện có.
+   - RAM chỉ sync sau persistent write thành công.
+   - Không thay Production Prediction Engine.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CANONICAL WRITER
+   ========================================================================= */
+
+function writeCanonicalShadowStoreV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      written: false,
+
+      reason:
+        'CANONICAL_SNAPSHOTS_NOT_ARRAY'
+
+    };
+
+  }
+
+
+  /*
+   * Writer thấp nhất hiện tại đã có:
+   * - Wrapper schema
+   * - Empty-write protection
+   * - RAM synchronization
+   */
+
+  const result =
+    writeShadowPersistentWrapperV26(
+      snapshots.slice()
+    );
+
+
+  if (
+    !result ||
+    result.ready !== true
+  ) {
+
+    const failure = {
+
+      ready: false,
+
+      written: false,
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'CANONICAL_WRITE_FAILED',
+
+      write:
+        result ||
+        null
+
+    };
+
+
+    window.LAST_V26_CANONICAL_WRITE =
+      failure;
+
+
+    return failure;
+
+  }
+
+
+  const success = {
+
+    ready: true,
+
+    written:
+      result.blocked !== true,
+
+    blocked:
+      result.blocked === true,
+
+    protected:
+      result.protected === true,
+
+    source:
+      result.source ||
+      'CANONICAL_WRAPPER_WRITER',
+
+    key:
+      SHADOW_CANONICAL_STORE_KEY_V26,
+
+    count:
+      result.count != null
+        ? result.count
+        : snapshots.length,
+
+    write:
+      result
+
+  };
+
+
+  window.LAST_V26_CANONICAL_WRITE =
+    success;
+
+
+  return success;
+
+}
+
+
+/* =========================================================================
+   2. LEGACY BOOLEAN WRITER ADAPTER
+   ========================================================================= */
+
+writeShadowSnapshotsV26 =
+function (
+  snapshots
+) {
+
+  const result =
+    writeCanonicalShadowStoreV26(
+      snapshots
+    );
+
+
+  /*
+   * Legacy callers của function này
+   * đang mong boolean.
+   */
+
+  return Boolean(
+    result &&
+    result.ready
+  );
+
+};
+
+
+/* =========================================================================
+   3. BRIDGE WRITER ADAPTER
+   ========================================================================= */
+
+writeShadowSnapshotStoreBridgeV26 =
+function (
+  rows
+) {
+
+  const result =
+    writeCanonicalShadowStoreV26(
+      rows
+    );
+
+
+  /*
+   * Bridge callers đang mong object
+   * có property ready.
+   */
+
+  if (
+    !result ||
+    !result.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        result &&
+        result.reason
+          ? result.reason
+          : 'CANONICAL_BRIDGE_WRITE_FAILED',
+
+      canonical:
+        result ||
+        null
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    written:
+      result.written,
+
+    blocked:
+      result.blocked,
+
+    protected:
+      result.protected,
+
+    count:
+      result.count,
+
+    source:
+      'FIX_01C_CANONICAL_WRITER',
+
+    canonical:
+      result
+
+  };
+
+};
+
+
+/* =========================================================================
+   4. FIX MARKER
+   ========================================================================= */
+
+window.V26_FIX_01C_CANONICAL_WRITER =
+  true;
+
+
+console.log(
+  'XSMN V2.6 FIX-01C — Canonical Persistence Writer ACTIVE'
+);
+
