@@ -82044,3 +82044,1049 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.1 — FORWARD EVIDENCE AGGREGATOR
+   -------------------------------------------------------------------------
+   PURPOSE:
+   - Read VERIFIED Shadow Forward Evidence.
+   - Aggregate by Province + Prize + Model + Window.
+   - Calculate real forward metrics.
+   - READ ONLY.
+   - NO promotion decision.
+   - NO Production modification.
+   - NO storage write.
+   ========================================================================= */
+
+(function installFix03D51ForwardEvidenceAggregator() {
+
+  if (
+    window
+      .V26_FIX03D51_FORWARD_EVIDENCE_INSTALLED
+  ) {
+    return;
+  }
+
+
+  window
+    .V26_FIX03D51_FORWARD_EVIDENCE_INSTALLED =
+    true;
+
+
+  /* -----------------------------------------------------------------------
+     1. HELPERS
+     ----------------------------------------------------------------------- */
+
+  function evidenceNumberV26(
+    value
+  ) {
+
+    const n =
+      Number(
+        value
+      );
+
+
+    return Number.isFinite(
+      n
+    )
+      ? n
+      : null;
+
+  }
+
+
+  function evidenceTextV26(
+    value
+  ) {
+
+    if (
+      value == null
+    ) {
+      return null;
+    }
+
+
+    const text =
+      String(
+        value
+      ).trim();
+
+
+    return text ||
+      null;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Lifecycle resolver.
+   *
+   * Compatible với snapshot cũ:
+   * root status
+   * hoặc verification.status.
+   * -------------------------------------------------------------
+   */
+
+  function evidenceLifecycleV26(
+    snapshot
+  ) {
+
+    if (
+      !snapshot ||
+      typeof snapshot !==
+        'object'
+    ) {
+      return null;
+    }
+
+
+    const root =
+      evidenceTextV26(
+        snapshot.status
+      );
+
+
+    const verification =
+      snapshot.verification &&
+      evidenceTextV26(
+        snapshot
+          .verification
+          .status
+      );
+
+
+    return String(
+      root ||
+      verification ||
+      ''
+    ).toUpperCase();
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * Stable group identity.
+   *
+   * IMPORTANT:
+   * Evidence phải riêng:
+   *
+   * Province
+   * + Prize
+   * + Model
+   * + Window
+   *
+   * Không gộp các giải khác nhau.
+   * -------------------------------------------------------------
+   */
+
+  function evidenceGroupKeyV26(
+    snapshot
+  ) {
+
+    const province =
+      evidenceTextV26(
+        snapshot.province ||
+        snapshot.provinceSlug ||
+        snapshot.slug
+      );
+
+
+    const prize =
+      evidenceTextV26(
+        snapshot.prize ||
+        snapshot.giaiKey ||
+        snapshot.prizeKey
+      );
+
+
+    const model =
+      evidenceTextV26(
+        snapshot.model ||
+        snapshot.modelId
+      );
+
+
+    const windowSize =
+      evidenceNumberV26(
+        snapshot.window != null
+          ? snapshot.window
+          : snapshot.windowSize
+      );
+
+
+    if (
+      !province ||
+      !prize ||
+      !model ||
+      windowSize == null
+    ) {
+
+      return null;
+
+    }
+
+
+    return [
+      province,
+      prize.toLowerCase(),
+      model,
+      windowSize
+    ].join('|');
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     2. READ VERIFIED FORWARD EVIDENCE
+     ----------------------------------------------------------------------- */
+
+  function readVerifiedForwardEvidenceV26() {
+
+    if (
+      typeof
+        readShadowPersistentWrapperV26 !==
+      'function'
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PERSISTENT_READER_NOT_AVAILABLE',
+
+        snapshots: []
+
+      };
+
+    }
+
+
+    const persistent =
+      readShadowPersistentWrapperV26();
+
+
+    if (
+      !persistent ||
+      persistent.ready !== true ||
+      !persistent.store ||
+      !Array.isArray(
+        persistent.store.snapshots
+      )
+    ) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          persistent &&
+          persistent.reason
+            ? persistent.reason
+            : 'PERSISTENT_STORE_NOT_READY',
+
+        snapshots: []
+
+      };
+
+    }
+
+
+    /*
+     * -------------------------------------------------------------
+     * Chỉ nhận lifecycle VERIFIED.
+     *
+     * Không mutate.
+     * Không verify lại.
+     * Không write.
+     * -------------------------------------------------------------
+     */
+
+    const verified =
+      persistent
+        .store
+        .snapshots
+        .filter(
+          snapshot =>
+            evidenceLifecycleV26(
+              snapshot
+            ) ===
+            'VERIFIED'
+        );
+
+
+    return {
+
+      ready: true,
+
+      source:
+        persistent.source ||
+        'PERSISTENT_WRAPPER',
+
+      totalSnapshots:
+        persistent
+          .store
+          .snapshots
+          .length,
+
+      verifiedSnapshots:
+        verified.length,
+
+      snapshots:
+        verified
+
+    };
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     3. BUILD ONE EVIDENCE GROUP
+     ----------------------------------------------------------------------- */
+
+  function createEvidenceGroupV26(
+    snapshot
+  ) {
+
+    const province =
+      evidenceTextV26(
+        snapshot.province ||
+        snapshot.provinceSlug ||
+        snapshot.slug
+      );
+
+
+    const prize =
+      evidenceTextV26(
+        snapshot.prize ||
+        snapshot.giaiKey ||
+        snapshot.prizeKey
+      );
+
+
+    const model =
+      evidenceTextV26(
+        snapshot.model ||
+        snapshot.modelId
+      );
+
+
+    const windowSize =
+      evidenceNumberV26(
+        snapshot.window != null
+          ? snapshot.window
+          : snapshot.windowSize
+      );
+
+
+    return {
+
+      province,
+
+      prize:
+        prize
+          ? prize.toLowerCase()
+          : null,
+
+      model,
+
+      window:
+        windowSize,
+
+      verified:
+        0,
+
+      ranked:
+        0,
+
+      misses:
+        0,
+
+      top1:
+        0,
+
+      top3:
+        0,
+
+      top5:
+        0,
+
+      top10:
+        0,
+
+      rankSum:
+        0,
+
+      reciprocalRankSum:
+        0,
+
+      firstTargetDate:
+        null,
+
+      lastTargetDate:
+        null,
+
+      snapshotIds:
+        []
+
+    };
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     4. ADD VERIFIED SNAPSHOT TO GROUP
+     ----------------------------------------------------------------------- */
+
+  function addSnapshotToEvidenceGroupV26(
+    group,
+    snapshot
+  ) {
+
+    group.verified++;
+
+
+    const rank =
+      evidenceNumberV26(
+        snapshot.actualRank != null
+          ? snapshot.actualRank
+          : (
+              snapshot.verification &&
+              snapshot
+                .verification
+                .rank != null
+                ? snapshot
+                    .verification
+                    .rank
+                : null
+            )
+      );
+
+
+    /*
+     * Rank null = kết quả thật không xuất hiện
+     * trong ranking được lưu.
+     *
+     * Vẫn là một VERIFIED sample.
+     */
+
+    if (
+      rank != null &&
+      rank >= 1
+    ) {
+
+      group.ranked++;
+
+      group.rankSum +=
+        rank;
+
+      group.reciprocalRankSum +=
+        1 / rank;
+
+
+      if (rank <= 1) {
+        group.top1++;
+      }
+
+
+      if (rank <= 3) {
+        group.top3++;
+      }
+
+
+      if (rank <= 5) {
+        group.top5++;
+      }
+
+
+      if (rank <= 10) {
+        group.top10++;
+      }
+
+    } else {
+
+      group.misses++;
+
+    }
+
+
+    const targetDate =
+      evidenceTextV26(
+        snapshot.targetDrawDate ||
+        snapshot.actualDate
+      );
+
+
+    if (targetDate) {
+
+      if (
+        !group.firstTargetDate ||
+        targetDate <
+          group.firstTargetDate
+      ) {
+
+        group.firstTargetDate =
+          targetDate;
+
+      }
+
+
+      if (
+        !group.lastTargetDate ||
+        targetDate >
+          group.lastTargetDate
+      ) {
+
+        group.lastTargetDate =
+          targetDate;
+
+      }
+
+    }
+
+
+    const snapshotId =
+      evidenceTextV26(
+        snapshot.id ||
+        snapshot.snapshotKey
+      );
+
+
+    if (snapshotId) {
+
+      group.snapshotIds.push(
+        snapshotId
+      );
+
+    }
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     5. FINALIZE METRICS
+     ----------------------------------------------------------------------- */
+
+  function finalizeEvidenceGroupV26(
+    group
+  ) {
+
+    const verified =
+      group.verified;
+
+
+    const ranked =
+      group.ranked;
+
+
+    return {
+
+      province:
+        group.province,
+
+      prize:
+        group.prize,
+
+      model:
+        group.model,
+
+      window:
+        group.window,
+
+      verified,
+
+      ranked,
+
+      misses:
+        group.misses,
+
+      top1:
+        group.top1,
+
+      top3:
+        group.top3,
+
+      top5:
+        group.top5,
+
+      top10:
+        group.top10,
+
+      top1Rate:
+        verified
+          ? (
+              group.top1 /
+              verified
+            ) * 100
+          : 0,
+
+      top3Rate:
+        verified
+          ? (
+              group.top3 /
+              verified
+            ) * 100
+          : 0,
+
+      top5Rate:
+        verified
+          ? (
+              group.top5 /
+              verified
+            ) * 100
+          : 0,
+
+      top10Rate:
+        verified
+          ? (
+              group.top10 /
+              verified
+            ) * 100
+          : 0,
+
+      /*
+       * MRR denominator = ALL VERIFIED.
+       *
+       * Miss => Reciprocal Rank = 0.
+       */
+
+      mrr:
+        verified
+          ? group
+              .reciprocalRankSum /
+            verified
+          : 0,
+
+      /*
+       * Average Rank chỉ có nghĩa
+       * trên các sample có rank.
+       */
+
+      averageRank:
+        ranked
+          ? group.rankSum /
+            ranked
+          : null,
+
+      rankedCoverage:
+        verified
+          ? (
+              ranked /
+              verified
+            ) * 100
+          : 0,
+
+      firstTargetDate:
+        group.firstTargetDate,
+
+      lastTargetDate:
+        group.lastTargetDate,
+
+      snapshotIds:
+        group.snapshotIds.slice()
+
+    };
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     6. AGGREGATE ALL FORWARD EVIDENCE
+     ----------------------------------------------------------------------- */
+
+  function aggregateForwardEvidenceV26() {
+
+    const source =
+      readVerifiedForwardEvidenceV26();
+
+
+    if (
+      !source.ready
+    ) {
+
+      return {
+
+        ready: false,
+
+        passed: false,
+
+        reason:
+          source.reason,
+
+        version:
+          'V2.6',
+
+        fix:
+          'FIX-03D.5.1',
+
+        readOnly:
+          true,
+
+        productionModified:
+          false
+
+      };
+
+    }
+
+
+    const groups =
+      new Map();
+
+
+    let invalidGroupIdentity =
+      0;
+
+
+    source.snapshots.forEach(
+      snapshot => {
+
+        const key =
+          evidenceGroupKeyV26(
+            snapshot
+          );
+
+
+        if (!key) {
+
+          invalidGroupIdentity++;
+
+          return;
+
+        }
+
+
+        if (
+          !groups.has(
+            key
+          )
+        ) {
+
+          groups.set(
+            key,
+            createEvidenceGroupV26(
+              snapshot
+            )
+          );
+
+        }
+
+
+        addSnapshotToEvidenceGroupV26(
+          groups.get(
+            key
+          ),
+          snapshot
+        );
+
+      }
+    );
+
+
+    const evidence =
+      Array.from(
+        groups.values()
+      )
+        .map(
+          finalizeEvidenceGroupV26
+        )
+        .sort(
+          (a, b) => {
+
+            if (
+              a.province !==
+              b.province
+            ) {
+
+              return String(
+                a.province
+              ).localeCompare(
+                String(
+                  b.province
+                )
+              );
+
+            }
+
+
+            if (
+              a.prize !==
+              b.prize
+            ) {
+
+              return String(
+                a.prize
+              ).localeCompare(
+                String(
+                  b.prize
+                )
+              );
+
+            }
+
+
+            return (
+              b.verified -
+              a.verified
+            );
+
+          }
+        );
+
+
+    const accountedVerified =
+      evidence.reduce(
+        (
+          total,
+          item
+        ) =>
+          total +
+          item.verified,
+        0
+      );
+
+
+    const passed =
+      accountedVerified +
+        invalidGroupIdentity ===
+      source.verifiedSnapshots;
+
+
+    const result = {
+
+      ready: true,
+
+      passed,
+
+      reason:
+        passed
+          ? 'FORWARD_EVIDENCE_AGGREGATED'
+          : 'VERIFIED_ACCOUNTING_MISMATCH',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.1',
+
+      mode:
+        'FORWARD_EVIDENCE_AGGREGATOR',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      source:
+        source.source,
+
+      totalSnapshots:
+        source.totalSnapshots,
+
+      verifiedSnapshots:
+        source.verifiedSnapshots,
+
+      accountedVerified,
+
+      invalidGroupIdentity,
+
+      evidenceGroups:
+        evidence.length,
+
+      evidence
+
+    };
+
+
+    window
+      .LAST_V26_FIX03D51_FORWARD_EVIDENCE =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     7. READ-ONLY CONSOLE TEST
+     ----------------------------------------------------------------------- */
+
+  function testForwardEvidenceAggregatorV26() {
+
+    const result =
+      aggregateForwardEvidenceV26();
+
+
+    console.log(
+      '=========================================='
+    );
+
+    console.log(
+      'FIX-03D.5.1 — FORWARD EVIDENCE AGGREGATOR'
+    );
+
+    console.log(
+      '=========================================='
+    );
+
+
+    console.log(
+      'Ready:',
+      result.ready
+    );
+
+
+    console.log(
+      'Passed:',
+      result.passed
+    );
+
+
+    console.log(
+      'Reason:',
+      result.reason
+    );
+
+
+    console.log(
+      'Total Snapshots:',
+      result.totalSnapshots
+    );
+
+
+    console.log(
+      'Verified:',
+      result.verifiedSnapshots
+    );
+
+
+    console.log(
+      'Accounted:',
+      result.accountedVerified
+    );
+
+
+    console.log(
+      'Invalid Identity:',
+      result.invalidGroupIdentity
+    );
+
+
+    console.log(
+      'Evidence Groups:',
+      result.evidenceGroups
+    );
+
+
+    if (
+      Array.isArray(
+        result.evidence
+      )
+    ) {
+
+      console.table(
+        result.evidence.map(
+          item => ({
+
+            Province:
+              item.province,
+
+            Prize:
+              item.prize,
+
+            Model:
+              item.model,
+
+            Window:
+              item.window,
+
+            Verified:
+              item.verified,
+
+            Ranked:
+              item.ranked,
+
+            Miss:
+              item.misses,
+
+            Top1:
+              item.top1Rate
+                .toFixed(2) +
+              '%',
+
+            Top3:
+              item.top3Rate
+                .toFixed(2) +
+              '%',
+
+            Top5:
+              item.top5Rate
+                .toFixed(2) +
+              '%',
+
+            Top10:
+              item.top10Rate
+                .toFixed(2) +
+              '%',
+
+            MRR:
+              item.mrr
+                .toFixed(4),
+
+            AvgRank:
+              item.averageRank != null
+                ? item
+                    .averageRank
+                    .toFixed(2)
+                : '-',
+
+            Coverage:
+              item
+                .rankedCoverage
+                .toFixed(2) +
+              '%'
+
+          }))
+        )
+      );
+
+    }
+
+
+    return result;
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     8. EXPOSE READ-ONLY API
+     ----------------------------------------------------------------------- */
+
+  window
+    .readVerifiedForwardEvidenceV26 =
+    readVerifiedForwardEvidenceV26;
+
+
+  window
+    .aggregateForwardEvidenceV26 =
+    aggregateForwardEvidenceV26;
+
+
+  window
+    .testForwardEvidenceAggregatorV26 =
+    testForwardEvidenceAggregatorV26;
+
+
+  console.log(
+    'FIX-03D.5.1 Forward Evidence Aggregator installed — READ ONLY'
+  );
+
+})();
+
