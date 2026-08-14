@@ -71129,13 +71129,13 @@ function testStartupAutoVerificationV26() {
   }
 
 
-  const verification =
+  const gate =
     startup.verification;
 
 
   if (
-    !verification ||
-    typeof verification !==
+    !gate ||
+    typeof gate !==
       'object'
   ) {
 
@@ -71146,7 +71146,7 @@ function testStartupAutoVerificationV26() {
       passed: false,
 
       reason:
-        'B8_VERIFICATION_RESULT_NOT_FOUND',
+        'B9_SAFE_GATE_RESULT_NOT_FOUND',
 
       startup
 
@@ -71156,21 +71156,83 @@ function testStartupAutoVerificationV26() {
 
 
   /*
-   * Startup được coi là PASS khi:
+   * -------------------------------------------------------------
+   * B9 C5 STARTUP SAFE-GATE DIAGNOSTIC
    *
-   * - B8 thực sự đã chạy.
-   * - B3 verifier hoàn tất.
-   * - Không có lỗi verification.
+   * Startup không còn yêu cầu B3 phải
+   * luôn được execute.
    *
-   * PENDING không phải lỗi.
+   * Có 2 đường PASS hợp lệ:
+   *
+   * 1. WAITING / BLOCKED
+   *    Gate ready
+   *    allowed = false
+   *    executed = false
+   *
+   * 2. ALLOWED
+   *    Gate ready
+   *    allowed = true
+   *    executed = true
+   *    failed = 0
+   * -------------------------------------------------------------
    */
 
+  const waitingPath =
+    (
+      gate.ready === true &&
+      gate.allowed === false &&
+      gate.executed === false
+    );
+
+
+  const allowedPath =
+    (
+      gate.ready === true &&
+      gate.allowed === true &&
+      gate.executed === true &&
+      Number(
+        gate.failed || 0
+      ) === 0
+    );
+
+
   const passed =
-    startup.ran === true &&
-    startup.ready === true &&
-    Number(
-      startup.failed || 0
-    ) === 0;
+    (
+      startup.ran === true &&
+      startup.ready === true &&
+      (
+        waitingPath ||
+        allowedPath
+      )
+    );
+
+
+  /*
+   * verifiedExisting:
+   *
+   * Khi Gate không execute B3,
+   * gate.verified là số VERIFIED
+   * đang tồn tại trong lifecycle.
+   *
+   * verifiedNew chỉ được phép lấy
+   * khi B3 thực sự executed.
+   */
+
+  const verifiedExisting =
+    gate.verified != null
+      ? Number(
+          gate.verified
+        )
+      : 0;
+
+
+  const verifiedNew =
+    gate.executed === true &&
+    gate.verified != null
+      ? Number(
+          gate.verified
+        )
+      : 0;
 
 
   const result = {
@@ -71183,7 +71245,7 @@ function testStartupAutoVerificationV26() {
       'V2.6',
 
     engine:
-      '8C-B8_STARTUP_VERIFICATION_DIAGNOSTIC',
+      'B9_C5_STARTUP_SAFE_GATE_DIAGNOSTIC',
 
     researchOnly:
       true,
@@ -71191,28 +71253,87 @@ function testStartupAutoVerificationV26() {
     autoTriggered:
       startup.ran === true,
 
-    total:
-      startup.total || 0,
+    gateReady:
+      Boolean(
+        gate.ready
+      ),
+
+    allowed:
+      Boolean(
+        gate.allowed
+      ),
+
+    executed:
+      Boolean(
+        gate.executed
+      ),
+
+    waiting:
+      Boolean(
+        gate.waiting
+      ),
+
+    blocked:
+      Boolean(
+        gate.blocked
+      ),
+
+    reason:
+      gate.reason ||
+      null,
+
+    pending:
+      gate.pending != null
+        ? gate.pending
+        : null,
+
+    readyToVerify:
+      gate.readyToVerify != null
+        ? gate.readyToVerify
+        : null,
+
+    waitingCount:
+      gate.waitingCount != null
+        ? gate.waitingCount
+        : null,
+
+    verifiedExisting,
+
+    verifiedNew,
 
     requested:
-      startup.requested || 0,
-
-    verifiedNew:
-      startup.verifiedNew || 0,
+      gate.executed === true &&
+      gate.requested != null
+        ? gate.requested
+        : 0,
 
     stillPending:
-      startup.stillPending || 0,
+      gate.stillPending != null
+        ? gate.stillPending
+        : (
+            gate.pending != null
+              ? gate.pending
+              : 0
+          ),
 
     alreadyVerified:
-      startup.alreadyVerified || 0,
+      gate.executed === true &&
+      gate.alreadyVerified != null
+        ? gate.alreadyVerified
+        : 0,
 
     failed:
-      startup.failed || 0,
+      gate.executed === true &&
+      gate.failed != null
+        ? gate.failed
+        : 0,
 
     saved:
-      Boolean(
-        startup.saved
-      )
+      gate.executed === true
+        ? Boolean(
+            gate.saved
+          )
+        : false
 
   };
 
@@ -71241,13 +71362,16 @@ function showStartupAutoVerificationTestV26() {
 
 
   lines.push(
-    '⚡ V2.6 8C-B8 STARTUP AUTO VERIFY'
+    '⚡ V2.6 B9 STARTUP SAFE AUTO VERIFY'
   );
 
   lines.push('');
 
 
-  if (!result.ready) {
+  if (
+    !result ||
+    !result.ready
+  ) {
 
     lines.push(
       'Ready: NO ❌'
@@ -71255,7 +71379,12 @@ function showStartupAutoVerificationTestV26() {
 
     lines.push(
       'Reason: ' +
-      result.reason
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'NO_RESULT'
+      )
     );
 
 
@@ -71294,39 +71423,146 @@ function showStartupAutoVerificationTestV26() {
   lines.push('');
 
 
+  /*
+   * -------------------------------------------------------------
+   * SAFE GATE STATE
+   * -------------------------------------------------------------
+   */
+
   lines.push(
-    'Total: ' +
-    result.total
+    'Gate Ready: ' +
+    (
+      result.gateReady
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
   );
 
 
   lines.push(
-    'Requested: ' +
-    result.requested
+    'Guard Allowed: ' +
+    (
+      result.allowed
+        ? 'YES ✅'
+        : 'NO 🔒'
+    )
   );
 
+
+  lines.push(
+    'Verifier Executed: ' +
+    (
+      result.executed
+        ? 'YES ✅'
+        : 'NO 🔒'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -------------------------------------------------------------
+   * SNAPSHOT LIFECYCLE
+   * -------------------------------------------------------------
+   */
+
+  lines.push(
+    'Pending: ' +
+    (
+      result.pending != null
+        ? result.pending
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Verified Existing: ' +
+    (
+      result.verifiedExisting != null
+        ? result.verifiedExisting
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Ready To Verify: ' +
+    (
+      result.readyToVerify != null
+        ? result.readyToVerify
+        : '-'
+    )
+  );
+
+
+  lines.push(
+    'Waiting: ' +
+    (
+      result.waitingCount != null
+        ? result.waitingCount
+        : '-'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -------------------------------------------------------------
+   * REAL B3 EXECUTION RESULT
+   * -------------------------------------------------------------
+   */
 
   lines.push(
     'Verified New: ' +
-    result.verifiedNew
+    (
+      result.verifiedNew != null
+        ? result.verifiedNew
+        : 0
+    )
   );
 
 
   lines.push(
     'Still Pending: ' +
-    result.stillPending
+    (
+      result.stillPending != null
+        ? result.stillPending
+        : 0
+    )
   );
 
 
   lines.push(
     'Already Verified: ' +
-    result.alreadyVerified
+    (
+      result.alreadyVerified != null
+        ? result.alreadyVerified
+        : 0
+    )
   );
 
 
   lines.push(
     'Failed: ' +
-    result.failed
+    (
+      result.failed != null
+        ? result.failed
+        : 0
+    )
   );
 
 
@@ -71334,7 +71570,7 @@ function showStartupAutoVerificationTestV26() {
     'Saved: ' +
     (
       result.saved
-        ? 'YES'
+        ? 'YES ✅'
         : 'NO'
     )
   );
