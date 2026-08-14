@@ -77977,3 +77977,631 @@ function showFix01DPreMigrationGateV26() {
 
 })();
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01D EXECUTION
+   SAFE LEGACY MIGRATION EXECUTION GATE
+
+   Flow:
+   1. Run PRE-MIGRATION GATE again.
+   2. Capture canonical state before migration.
+   3. Execute SAFE migration.
+   4. Read canonical store again.
+   5. Verify preservation / count.
+   6. NEVER delete legacy storage.
+   ========================================================================= */
+
+function executeFix01DMigrationV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 1
+   * PRE-MIGRATION GATE
+   * -------------------------------------------------------------
+   */
+
+  const gate =
+    testFix01DPreMigrationGateV26();
+
+
+  if (
+    !gate ||
+    gate.ready !== true ||
+    gate.allowed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      executed: false,
+
+      verified: false,
+
+      reason:
+        gate &&
+        gate.reason
+          ? gate.reason
+          : 'PRE_MIGRATION_GATE_BLOCKED',
+
+      gate
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 2
+   * READ CANONICAL BEFORE
+   * -------------------------------------------------------------
+   */
+
+  const before =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !before ||
+    before.ready !== true ||
+    !Array.isArray(
+      before.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      executed: false,
+
+      verified: false,
+
+      reason:
+        'CANONICAL_BEFORE_NOT_READY'
+
+    };
+
+  }
+
+
+  /*
+   * RAM safety copy.
+   *
+   * Không phải persistent backup.
+   * Chỉ dùng để kiểm tra preservation
+   * trong execution hiện tại.
+   */
+
+  const beforeSnapshots =
+    before.snapshots.slice();
+
+
+  const beforeCount =
+    beforeSnapshots.length;
+
+
+  const beforeIds =
+    beforeSnapshots
+      .map(
+        shadowMigrationIdentityV26
+      )
+      .filter(
+        Boolean
+      );
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 3
+   * EXECUTE SAFE MIGRATION
+   * -------------------------------------------------------------
+   */
+
+  const migration =
+    migrateLegacyShadowStorageV26();
+
+
+  if (
+    !migration ||
+    migration.ready !== true
+  ) {
+
+    const failure = {
+
+      ready: false,
+
+      executed: true,
+
+      verified: false,
+
+      reason:
+        migration &&
+        migration.reason
+          ? migration.reason
+          : 'MIGRATION_FAILED',
+
+      beforeCount,
+
+      migration
+
+    };
+
+
+    window.LAST_V26_FIX_01D_EXECUTION =
+      failure;
+
+
+    return failure;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 4
+   * READ BACK CANONICAL
+   * -------------------------------------------------------------
+   */
+
+  const after =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !after ||
+    after.ready !== true ||
+    !Array.isArray(
+      after.snapshots
+    )
+  ) {
+
+    const failure = {
+
+      ready: false,
+
+      executed: true,
+
+      verified: false,
+
+      reason:
+        'CANONICAL_READ_BACK_FAILED',
+
+      beforeCount,
+
+      migration
+
+    };
+
+
+    window.LAST_V26_FIX_01D_EXECUTION =
+      failure;
+
+
+    return failure;
+
+  }
+
+
+  const afterCount =
+    after.snapshots.length;
+
+
+  const afterIds =
+    new Set(
+      after.snapshots
+        .map(
+          shadowMigrationIdentityV26
+        )
+        .filter(
+          Boolean
+        )
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 5
+   * VERIFY OLD CANONICAL RECORDS SURVIVED
+   * -------------------------------------------------------------
+   */
+
+  const preserved =
+    beforeIds.every(
+      identity =>
+        afterIds.has(
+          identity
+        )
+    );
+
+
+  if (!preserved) {
+
+    const failure = {
+
+      ready: false,
+
+      executed: true,
+
+      verified: false,
+
+      reason:
+        'PRE_EXISTING_CANONICAL_ROWS_LOST',
+
+      beforeCount,
+
+      afterCount,
+
+      migration,
+
+      legacyDeleted:
+        false
+
+    };
+
+
+    window.LAST_V26_FIX_01D_EXECUTION =
+      failure;
+
+
+    return failure;
+
+  }
+
+
+  /*
+   * Canonical count tuyệt đối
+   * không được nhỏ hơn trước migration.
+   */
+
+  if (
+    afterCount <
+    beforeCount
+  ) {
+
+    const failure = {
+
+      ready: false,
+
+      executed: true,
+
+      verified: false,
+
+      reason:
+        'CANONICAL_COUNT_DECREASED',
+
+      beforeCount,
+
+      afterCount,
+
+      migration,
+
+      legacyDeleted:
+        false
+
+    };
+
+
+    window.LAST_V26_FIX_01D_EXECUTION =
+      failure;
+
+
+    return failure;
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * STEP 6
+   * SUCCESS
+   * -------------------------------------------------------------
+   */
+
+  const result = {
+
+    ready: true,
+
+    executed: true,
+
+    verified: true,
+
+    reason:
+      'FIX_01D_EXECUTION_PASS',
+
+    beforeCount,
+
+    afterCount,
+
+    added:
+      afterCount -
+      beforeCount,
+
+    migrationImported:
+      migration.imported != null
+        ? migration.imported
+        : 0,
+
+    migrationDuplicates:
+      migration.duplicates != null
+        ? migration.duplicates
+        : 0,
+
+    migrationInvalid:
+      migration.invalid != null
+        ? migration.invalid
+        : 0,
+
+    preserved,
+
+    /*
+     * CỰC KỲ QUAN TRỌNG:
+     * FIX-01D không retirement.
+     */
+
+    legacyDeleted:
+      false,
+
+    migration
+
+  };
+
+
+  window.LAST_V26_FIX_01D_EXECUTION =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showFix01DExecutionV26() {
+
+  const result =
+    executeFix01DMigrationV26();
+
+
+  const lines = [
+
+    '🚚 V2.6 FIX-01D EXECUTION',
+
+    '',
+
+    'Executed: ' +
+    (
+      result.executed
+        ? 'YES'
+        : 'NO 🔒'
+    ),
+
+    'Verified: ' +
+    (
+      result.verified
+        ? 'YES ✅'
+        : 'NO ❌'
+    ),
+
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    ),
+
+    '',
+
+    'Canonical Before: ' +
+    (
+      result.beforeCount != null
+        ? result.beforeCount
+        : '-'
+    ),
+
+    'Canonical After: ' +
+    (
+      result.afterCount != null
+        ? result.afterCount
+        : '-'
+    ),
+
+    'Added: ' +
+    (
+      result.added != null
+        ? result.added
+        : '-'
+    ),
+
+    '',
+
+    'Imported: ' +
+    (
+      result.migrationImported != null
+        ? result.migrationImported
+        : '-'
+    ),
+
+    'Duplicates: ' +
+    (
+      result.migrationDuplicates != null
+        ? result.migrationDuplicates
+        : '-'
+    ),
+
+    'Invalid: ' +
+    (
+      result.migrationInvalid != null
+        ? result.migrationInvalid
+        : '-'
+    ),
+
+    '',
+
+    'Old Canonical Preserved: ' +
+    (
+      result.preserved
+        ? 'YES ✅'
+        : 'NO ❌'
+    ),
+
+    'Legacy Deleted: NO 🔒'
+
+  ];
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-01D EXECUTION:',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE BUTTON
+   ========================================================================= */
+
+(function installFix01DExecutionButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'v26Fix01DExecutionButton'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'v26Fix01DExecutionButton';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🚚 FIX-01D Run Migration';
+
+
+    button.style.position =
+      'fixed';
+
+    button.style.right =
+      '16px';
+
+    button.style.bottom =
+      '138px';
+
+    button.style.zIndex =
+      '99999';
+
+    button.style.padding =
+      '13px 16px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '14px';
+
+    button.style.fontWeight =
+      '800';
+
+    button.style.cursor =
+      'pointer';
+
+    button.style.boxShadow =
+      '0 6px 20px rgba(0,0,0,.25)';
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * Có confirmation vì từ đây
+         * bắt đầu canonical WRITE thật.
+         */
+
+        const confirmed =
+          confirm(
+            'FIX-01D sẽ migration dữ liệu legacy vào Canonical Store.\n\n' +
+            'Legacy storage KHÔNG bị xóa.\n' +
+            'Canonical hiện tại sẽ được kiểm tra bảo toàn.\n\n' +
+            'Tiếp tục?'
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        showFix01DExecutionV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+window.V26_FIX_01D_EXECUTION =
+  true;
+
+
+console.log(
+  'XSMN V2.6 FIX-01D Execution READY'
+);
+
