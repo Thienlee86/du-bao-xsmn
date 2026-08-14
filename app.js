@@ -78624,15 +78624,14 @@ console.log(
 
 function checkFix01DPostMigrationIntegrityV26() {
 
-    /*
-   * -------------------------------------------------------------
-   * 1. EXECUTION EVIDENCE
+  /*
+   * FIX-01D POST-MIGRATION CHECK
    *
-   * RAM execution có thể mất sau reload.
-   * Post-check không được phụ thuộc RAM.
-   * Persistent Canonical Store mới là
-   * Source of Truth.
-   * -------------------------------------------------------------
+   * Persistent-only capable.
+   * READ ONLY.
+   *
+   * Không yêu cầu execution RAM
+   * tồn tại sau reload.
    */
 
   const execution =
@@ -78649,12 +78648,38 @@ function checkFix01DPostMigrationIntegrityV26() {
 
   /*
    * -------------------------------------------------------------
-   * 2. READ CANONICAL
+   * READ CANONICAL SOURCE OF TRUTH
    * -------------------------------------------------------------
    */
 
-  const canonical =
-    readCanonicalShadowStoreV26();
+  let canonical;
+
+
+  try {
+
+    canonical =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READ_EXCEPTION',
+
+      error:
+        String(
+          error.message ||
+          error
+        )
+
+    };
+
+  }
 
 
   if (
@@ -78674,7 +78699,7 @@ function checkFix01DPostMigrationIntegrityV26() {
       reason:
         'CANONICAL_STORE_NOT_READY',
 
-      execution
+      canonical
 
     };
 
@@ -78691,32 +78716,47 @@ function checkFix01DPostMigrationIntegrityV26() {
 
   /*
    * -------------------------------------------------------------
-   * 3. COUNT CONSISTENCY
+   * COUNT
    * -------------------------------------------------------------
    */
 
-   const expectedCount =
+  const expectedCount =
     executionAvailable &&
     execution.afterCount != null
+
       ? execution.afterCount
+
       : canonicalCount;
 
 
   const countMatch =
-    expectedCount != null &&
     canonicalCount ===
-      expectedCount;
+    expectedCount;
 
 
   /*
    * -------------------------------------------------------------
-   * 4. IDENTITY INTEGRITY
+   * IDENTITY
    * -------------------------------------------------------------
    */
 
   const identities =
     snapshots.map(
-      shadowMigrationIdentityV26
+      snapshot => {
+
+        try {
+
+          return shadowMigrationIdentityV26(
+            snapshot
+          );
+
+        } catch (error) {
+
+          return null;
+
+        }
+
+      }
     );
 
 
@@ -78744,7 +78784,7 @@ function checkFix01DPostMigrationIntegrityV26() {
 
   /*
    * -------------------------------------------------------------
-   * 5. BASIC SNAPSHOT STRUCTURE
+   * SNAPSHOT STRUCTURE
    * -------------------------------------------------------------
    */
 
@@ -78775,20 +78815,6 @@ function checkFix01DPostMigrationIntegrityV26() {
         null;
 
 
-      if (!province) {
-
-        invalidSnapshotCount++;
-
-        return;
-
-      }
-
-
-      /*
-       * Snapshot lifecycle phải có
-       * ít nhất một status resolver.
-       */
-
       const status =
         snapshot.status ||
         (
@@ -78798,7 +78824,10 @@ function checkFix01DPostMigrationIntegrityV26() {
         null;
 
 
-      if (!status) {
+      if (
+        !province ||
+        !status
+      ) {
 
         invalidSnapshotCount++;
 
@@ -78810,21 +78839,23 @@ function checkFix01DPostMigrationIntegrityV26() {
 
   /*
    * -------------------------------------------------------------
-   * 6. LEGACY PRESENCE
-   *
-   * FIX-01D chưa được phép retirement.
+   * LEGACY ROLLBACK SOURCE
    * -------------------------------------------------------------
    */
 
   const legacyKeys =
-    Array.isArray(
-      FIX_01D_LEGACY_KEYS_V26
-    )
+    typeof FIX_01D_LEGACY_KEYS_V26 !==
+        'undefined' &&
+      Array.isArray(
+        FIX_01D_LEGACY_KEYS_V26
+      )
+
       ? FIX_01D_LEGACY_KEYS_V26
+
       : [];
 
 
-  const legacyExisting =
+  const legacyExistingKeys =
     legacyKeys.filter(
       key => {
 
@@ -78846,19 +78877,14 @@ function checkFix01DPostMigrationIntegrityV26() {
     );
 
 
+  const legacyExisting =
+    legacyExistingKeys.length;
+
+
   /*
    * -------------------------------------------------------------
-   * 7. EXECUTION PRESERVATION
+   * PRESERVATION
    * -------------------------------------------------------------
-   */
-
-    /*
-   * Nếu execution RAM còn tồn tại,
-   * kiểm chứng thêm preservation.
-   *
-   * Sau reload RAM mất:
-   * canonical persistent integrity
-   * trở thành bằng chứng chính.
    */
 
   const preservationPass =
@@ -78869,27 +78895,27 @@ function checkFix01DPostMigrationIntegrityV26() {
 
   const noUnexpectedShrink =
     executionAvailable
+
       ? (
           execution.beforeCount == null ||
           canonicalCount >=
             execution.beforeCount
         )
+
       : true;
 
 
   /*
    * -------------------------------------------------------------
-   * 8. FINAL DECISION
+   * FINAL INTEGRITY
    * -------------------------------------------------------------
    */
 
   const passed =
 
+    canonicalCount > 0 &&
+
     countMatch &&
-
-    preservationPass &&
-
-    noUnexpectedShrink &&
 
     invalidIdentityCount === 0 &&
 
@@ -78897,31 +78923,30 @@ function checkFix01DPostMigrationIntegrityV26() {
 
     invalidSnapshotCount === 0 &&
 
-    legacyExisting.length > 0;
+    preservationPass &&
+
+    noUnexpectedShrink &&
+
+    legacyExisting > 0;
 
 
   let reason =
     'POST_MIGRATION_INTEGRITY_PASS';
 
 
-  if (!countMatch) {
+  if (
+    canonicalCount <= 0
+  ) {
+
+    reason =
+      'CANONICAL_EMPTY';
+
+  } else if (
+    !countMatch
+  ) {
 
     reason =
       'CANONICAL_COUNT_MISMATCH';
-
-  } else if (
-    !preservationPass
-  ) {
-
-    reason =
-      'CANONICAL_PRESERVATION_FAILED';
-
-  } else if (
-    !noUnexpectedShrink
-  ) {
-
-    reason =
-      'CANONICAL_UNEXPECTED_SHRINK';
 
   } else if (
     invalidIdentityCount > 0
@@ -78945,7 +78970,21 @@ function checkFix01DPostMigrationIntegrityV26() {
       'INVALID_CANONICAL_SNAPSHOT';
 
   } else if (
-    legacyExisting.length === 0
+    !preservationPass
+  ) {
+
+    reason =
+      'CANONICAL_PRESERVATION_FAILED';
+
+  } else if (
+    !noUnexpectedShrink
+  ) {
+
+    reason =
+      'CANONICAL_UNEXPECTED_SHRINK';
+
+  } else if (
+    legacyExisting === 0
   ) {
 
     reason =
@@ -78978,7 +79017,7 @@ function checkFix01DPostMigrationIntegrityV26() {
       executionAvailable
         ? 'RAM + PERSISTENT'
         : 'PERSISTENT_ONLY',
-     
+
     canonicalCount,
 
     expectedCount,
@@ -78998,13 +79037,12 @@ function checkFix01DPostMigrationIntegrityV26() {
     legacyKeysChecked:
       legacyKeys.length,
 
-    legacyExisting:
-      legacyExisting.length,
+    legacyExisting,
+
+    legacyExistingKeys,
 
     legacyDeleted:
-      legacyExisting.length === 0,
-
-    execution
+      legacyExisting === 0
 
   };
 
