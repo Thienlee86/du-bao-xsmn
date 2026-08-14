@@ -78605,3 +78605,692 @@ console.log(
   'XSMN V2.6 FIX-01D Execution READY'
 );
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01D
+   POST-MIGRATION INTEGRITY CHECK
+
+   READ ONLY.
+
+   Mục tiêu:
+   - Kiểm tra Canonical Store sau migration.
+   - Kiểm tra duplicate identity.
+   - Kiểm tra snapshot structure.
+   - Kiểm tra legacy vẫn còn.
+   - Kiểm tra kết quả execution trước.
+   - KHÔNG write.
+   - KHÔNG migrate.
+   - KHÔNG delete legacy.
+   ========================================================================= */
+
+function checkFix01DPostMigrationIntegrityV26() {
+
+  /*
+   * -------------------------------------------------------------
+   * 1. REQUIRE LAST EXECUTION
+   * -------------------------------------------------------------
+   */
+
+  const execution =
+    window.LAST_V26_FIX_01D_EXECUTION ||
+    null;
+
+
+  if (
+    !execution ||
+    execution.verified !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FIX_01D_EXECUTION_NOT_VERIFIED'
+
+    };
+
+  }
+
+
+  /*
+   * -------------------------------------------------------------
+   * 2. READ CANONICAL
+   * -------------------------------------------------------------
+   */
+
+  const canonical =
+    readCanonicalShadowStoreV26();
+
+
+  if (
+    !canonical ||
+    canonical.ready !== true ||
+    !Array.isArray(
+      canonical.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_STORE_NOT_READY',
+
+      execution
+
+    };
+
+  }
+
+
+  const snapshots =
+    canonical.snapshots;
+
+
+  const canonicalCount =
+    snapshots.length;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 3. COUNT CONSISTENCY
+   * -------------------------------------------------------------
+   */
+
+  const expectedCount =
+    execution.afterCount;
+
+
+  const countMatch =
+    expectedCount != null &&
+    canonicalCount ===
+      expectedCount;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 4. IDENTITY INTEGRITY
+   * -------------------------------------------------------------
+   */
+
+  const identities =
+    snapshots.map(
+      shadowMigrationIdentityV26
+    );
+
+
+  const validIdentities =
+    identities.filter(
+      Boolean
+    );
+
+
+  const identitySet =
+    new Set(
+      validIdentities
+    );
+
+
+  const invalidIdentityCount =
+    identities.length -
+    validIdentities.length;
+
+
+  const duplicateCount =
+    validIdentities.length -
+    identitySet.size;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 5. BASIC SNAPSHOT STRUCTURE
+   * -------------------------------------------------------------
+   */
+
+  let invalidSnapshotCount =
+    0;
+
+
+  snapshots.forEach(
+    snapshot => {
+
+      if (
+        !snapshot ||
+        typeof snapshot !==
+          'object'
+      ) {
+
+        invalidSnapshotCount++;
+
+        return;
+
+      }
+
+
+      const province =
+        snapshot.province ||
+        snapshot.provinceSlug ||
+        snapshot.slug ||
+        null;
+
+
+      if (!province) {
+
+        invalidSnapshotCount++;
+
+        return;
+
+      }
+
+
+      /*
+       * Snapshot lifecycle phải có
+       * ít nhất một status resolver.
+       */
+
+      const status =
+        snapshot.status ||
+        (
+          snapshot.verification &&
+          snapshot.verification.status
+        ) ||
+        null;
+
+
+      if (!status) {
+
+        invalidSnapshotCount++;
+
+      }
+
+    }
+  );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 6. LEGACY PRESENCE
+   *
+   * FIX-01D chưa được phép retirement.
+   * -------------------------------------------------------------
+   */
+
+  const legacyKeys =
+    Array.isArray(
+      FIX_01D_LEGACY_KEYS_V26
+    )
+      ? FIX_01D_LEGACY_KEYS_V26
+      : [];
+
+
+  const legacyExisting =
+    legacyKeys.filter(
+      key => {
+
+        try {
+
+          return (
+            localStorage.getItem(
+              key
+            ) !== null
+          );
+
+        } catch (error) {
+
+          return false;
+
+        }
+
+      }
+    );
+
+
+  /*
+   * -------------------------------------------------------------
+   * 7. EXECUTION PRESERVATION
+   * -------------------------------------------------------------
+   */
+
+  const preservationPass =
+    execution.preserved === true;
+
+
+  const noUnexpectedShrink =
+    execution.beforeCount == null ||
+    canonicalCount >=
+      execution.beforeCount;
+
+
+  /*
+   * -------------------------------------------------------------
+   * 8. FINAL DECISION
+   * -------------------------------------------------------------
+   */
+
+  const passed =
+
+    countMatch &&
+
+    preservationPass &&
+
+    noUnexpectedShrink &&
+
+    invalidIdentityCount === 0 &&
+
+    duplicateCount === 0 &&
+
+    invalidSnapshotCount === 0 &&
+
+    legacyExisting.length > 0;
+
+
+  let reason =
+    'POST_MIGRATION_INTEGRITY_PASS';
+
+
+  if (!countMatch) {
+
+    reason =
+      'CANONICAL_COUNT_MISMATCH';
+
+  } else if (
+    !preservationPass
+  ) {
+
+    reason =
+      'CANONICAL_PRESERVATION_FAILED';
+
+  } else if (
+    !noUnexpectedShrink
+  ) {
+
+    reason =
+      'CANONICAL_UNEXPECTED_SHRINK';
+
+  } else if (
+    invalidIdentityCount > 0
+  ) {
+
+    reason =
+      'INVALID_CANONICAL_IDENTITY';
+
+  } else if (
+    duplicateCount > 0
+  ) {
+
+    reason =
+      'CANONICAL_DUPLICATE_IDENTITY';
+
+  } else if (
+    invalidSnapshotCount > 0
+  ) {
+
+    reason =
+      'INVALID_CANONICAL_SNAPSHOT';
+
+  } else if (
+    legacyExisting.length === 0
+  ) {
+
+    reason =
+      'LEGACY_ROLLBACK_SOURCE_MISSING';
+
+  }
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason,
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-01D',
+
+    mode:
+      'POST_MIGRATION_INTEGRITY',
+
+    readOnly:
+      true,
+
+    canonicalCount,
+
+    expectedCount,
+
+    countMatch,
+
+    invalidIdentityCount,
+
+    duplicateCount,
+
+    invalidSnapshotCount,
+
+    preservationPass,
+
+    noUnexpectedShrink,
+
+    legacyKeysChecked:
+      legacyKeys.length,
+
+    legacyExisting:
+      legacyExisting.length,
+
+    legacyDeleted:
+      legacyExisting.length === 0,
+
+    execution
+
+  };
+
+
+  window.LAST_V26_FIX_01D_POST_CHECK =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   MOBILE REPORT
+   ========================================================================= */
+
+function showFix01DPostMigrationIntegrityV26() {
+
+  const result =
+    checkFix01DPostMigrationIntegrityV26();
+
+
+  const lines = [];
+
+
+  lines.push(
+    '🔍 V2.6 FIX-01D POST CHECK'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Mode: READ ONLY 🔒'
+  );
+
+
+  if (
+    !result ||
+    result.ready !== true
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'Integrity: ERROR ❌'
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'Integrity: ' +
+    (
+      result.passed
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    result.reason
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Canonical Rows: ' +
+    result.canonicalCount
+  );
+
+
+  lines.push(
+    'Expected Rows: ' +
+    result.expectedCount
+  );
+
+
+  lines.push(
+    'Count Match: ' +
+    (
+      result.countMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Invalid Identity: ' +
+    result.invalidIdentityCount
+  );
+
+
+  lines.push(
+    'Duplicate Identity: ' +
+    result.duplicateCount
+  );
+
+
+  lines.push(
+    'Invalid Snapshot: ' +
+    result.invalidSnapshotCount
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Old Canonical Preserved: ' +
+    (
+      result.preservationPass
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Unexpected Shrink: ' +
+    (
+      result.noUnexpectedShrink
+        ? 'NO ✅'
+        : 'YES ❌'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Legacy Keys Checked: ' +
+    result.legacyKeysChecked
+  );
+
+
+  lines.push(
+    'Legacy Existing: ' +
+    result.legacyExisting
+  );
+
+
+  lines.push(
+    'Legacy Deleted: ' +
+    (
+      result.legacyDeleted
+        ? 'YES ❌'
+        : 'NO 🔒'
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-01D POST-MIGRATION CHECK:',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   TEMPORARY MOBILE BUTTON
+   ========================================================================= */
+
+(function installFix01DPostCheckButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'v26Fix01DPostCheckButton'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'v26Fix01DPostCheckButton';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔍 FIX-01D Post Check';
+
+
+    button.style.position =
+      'fixed';
+
+    button.style.right =
+      '16px';
+
+    button.style.bottom =
+      '194px';
+
+    button.style.zIndex =
+      '99999';
+
+    button.style.padding =
+      '13px 16px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '14px';
+
+    button.style.fontWeight =
+      '800';
+
+    button.style.cursor =
+      'pointer';
+
+    button.style.boxShadow =
+      '0 6px 20px rgba(0,0,0,.25)';
+
+
+    button.onclick =
+      function () {
+
+        showFix01DPostMigrationIntegrityV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'XSMN V2.6 FIX-01D Post-Migration Integrity Check READY'
+);
+
