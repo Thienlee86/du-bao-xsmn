@@ -77832,3 +77832,148 @@ function showFix01DPreMigrationGateV26() {
 
 }
 
+/* =========================================================================
+   XSMN V2.6 — FIX-01D
+   MOBILE PRE-MIGRATION GATE BUTTON
+
+   READ ONLY.
+   Không migrate.
+   Không write.
+   Không delete storage.
+   ========================================================================= */
+
+(function installFix01DGateButtonV26() {
+
+  function install() {
+
+    /*
+     * Không tạo trùng nút sau reload / re-init.
+     */
+
+    if (
+      document.getElementById(
+        'v26Fix01DGateButton'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'v26Fix01DGateButton';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ FIX-01D Gate Test';
+
+
+    /*
+     * Floating button cho mobile.
+     */
+
+    button.style.position =
+      'fixed';
+
+    button.style.right =
+      '16px';
+
+    button.style.bottom =
+      '82px';
+
+    button.style.zIndex =
+      '99999';
+
+    button.style.padding =
+      '13px 16px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '14px';
+
+    button.style.fontWeight =
+      '800';
+
+    button.style.cursor =
+      'pointer';
+
+    button.style.boxShadow =
+      '0 6px 20px rgba(0,0,0,.25)';
+
+
+    /*
+     * Chỉ gọi READ-ONLY Gate.
+     */
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            showFix01DPreMigrationGateV26 !==
+          'function'
+        ) {
+
+          alert(
+            'FIX-01D Gate function chưa sẵn sàng.'
+          );
+
+          return;
+
+        }
+
+
+        showFix01DPreMigrationGateV26();
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+
+    console.log(
+      'V2.6 FIX-01D Mobile Gate Button READY'
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
