@@ -80925,3 +80925,249 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03B — SAFE PRODUCTION UI RETIREMENT
+   -------------------------------------------------------------------------
+   Purpose:
+   - Remove V2.6 development / diagnostic buttons from Production UI.
+   - KEEP all underlying V2.6 engine functions intact.
+   - Do NOT modify prediction / shadow / persistence / verification lifecycle.
+   - Safe and reversible.
+   ========================================================================= */
+
+(function installV26ProductionUiRetirement() {
+
+  if (
+    window
+      .V26_FIX03B_PRODUCTION_UI_RETIREMENT_INSTALLED
+  ) {
+    return;
+  }
+
+
+  window
+    .V26_FIX03B_PRODUCTION_UI_RETIREMENT_INSTALLED =
+    true;
+
+
+  const RETIRED_BUTTON_IDS = [
+
+    /* ---------------------------------------------------------
+       OOS / RESEARCH / DECISION DIAGNOSTICS
+       --------------------------------------------------------- */
+
+    'btnOOSTestV26',
+    'btnOOSPerformanceV26',
+    'btnPeriodDiagnosticsV26',
+    'btnShortDiagnosticsV26',
+    'btnResearchPanelV26',
+    'btnSelectionReliabilityV26',
+    'btnCrossOOSTest3V26',
+    'btnCrossStructureDebugV26',
+    'btnShortProvinceDebugV26',
+    'btnProvinceDecisionV26',
+
+
+    /* ---------------------------------------------------------
+       SHADOW DEVELOPMENT UI
+       --------------------------------------------------------- */
+
+    'btnShadowTestV26',
+    'btnShadowDebugV26',
+    'btnShadowSlugTestV26',
+    'btnShadowDeepDebugV26',
+    'btnShadowSnapshotV26',
+    'btnShadowDuplicateV26',
+    'btnShadowResolverV26',
+
+
+    /* ---------------------------------------------------------
+       PIPELINE / SNAPSHOT DIAGNOSTICS
+       --------------------------------------------------------- */
+
+    'btnCrossOOSRunnerDebugV26',
+    'btnSnapshotDeepDebugV26',
+    'btnLightPipelineDebugV26',
+    'btnLiteSnapshotV26',
+    'btnLiteSnapshotDeepDebugV26',
+    'btnProvinceDecisionLookupV26',
+
+
+    /* ---------------------------------------------------------
+       SNAPSHOT STORE DEVELOPMENT UI
+       --------------------------------------------------------- */
+
+    'btn-shadow-bridge-v26',
+    'btn-snapshot-store-bridge-v26',
+    'btnSnapshotInspectorV26',
+    'btnPersistentSnapshotStoreV26',
+    'btnSnapshotStructureV26',
+    'btnSnapshotSchemaTailV26',
+    'btnSnapshotSchemaTailOnlyV26',
+
+    'btn-v26-store-schema',
+    'btn-v26-wrapper-persistence',
+    'btn-v26-save-diagnostic',
+    'btn-empty-store-watch-v26',
+
+
+    /* ---------------------------------------------------------
+       PERSISTENCE / B1 DEVELOPMENT UI
+       --------------------------------------------------------- */
+
+    'btn-v26-8cb1-pending',
+    'btn-v26-b1-direct-read',
+    'btn-v26-a7-empty-guard',
+
+
+    /* ---------------------------------------------------------
+       B2 → B9 TEST / AUDIT UI
+       IMPORTANT:
+       Buttons retired.
+       Engine remains untouched.
+       --------------------------------------------------------- */
+
+    'btn-v26-b2-target-identity',
+    'btn-v26-b3-auto-verification',
+    'btn-v26-b4-auto-verify',
+    'btn-v26-b5-persistence',
+    'btn-v26-b6-audit',
+    'btn-v26-b6a-migration',
+    'btn-v26-b7-startup-recovery',
+    'btn-v26-b8-startup-auto-verify',
+    'btn-v26-b8-preflight',
+    'btn-v26-b8-auto-trigger',
+    'btn-v26-b9-lifecycle-observer',
+    'btn-v26-b9-transition-guard',
+    'btn-v26-b9-safe-verification-gate',
+    'btn-v26-b9-safe-gate-allowed-path'
+
+  ];
+
+
+  function retireDevelopmentButtonsV26() {
+
+    let removed =
+      0;
+
+
+    RETIRED_BUTTON_IDS.forEach(
+      id => {
+
+        const element =
+          document.getElementById(
+            id
+          );
+
+
+        if (!element) {
+          return;
+        }
+
+
+        element.remove();
+
+        removed++;
+
+      }
+    );
+
+
+    window
+      .V26_FIX03B_LAST_REMOVED_COUNT =
+      removed;
+
+
+    return removed;
+
+  }
+
+
+  /*
+   * First cleanup:
+   * remove buttons already present.
+   */
+
+  retireDevelopmentButtonsV26();
+
+
+  /*
+   * Some legacy development blocks install their buttons
+   * after app.js initialization.
+   *
+   * MutationObserver removes ONLY elements whose IDs are
+   * explicitly listed above.
+   *
+   * No production element is selected by class, text,
+   * tag name or broad selector.
+   */
+
+  const observer =
+    new MutationObserver(
+      () => {
+
+        retireDevelopmentButtonsV26();
+
+      }
+    );
+
+
+  const startObserver =
+    () => {
+
+      if (!document.body) {
+        return;
+      }
+
+
+      observer.observe(
+        document.body,
+        {
+          childList: true,
+          subtree: true
+        }
+      );
+
+
+      retireDevelopmentButtonsV26();
+
+    };
+
+
+  if (document.body) {
+
+    startObserver();
+
+  } else {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      startObserver,
+      {
+        once: true
+      }
+    );
+
+  }
+
+
+  /*
+   * Expose READ-ONLY diagnostics for FIX-03C.
+   */
+
+  window
+    .V26_FIX03B_RETIRED_BUTTON_IDS =
+    RETIRED_BUTTON_IDS.slice();
+
+
+  window
+    .retireDevelopmentButtonsV26 =
+    retireDevelopmentButtonsV26;
+
+
+  console.log(
+    'FIX-03B SAFE PRODUCTION UI RETIREMENT installed'
+  );
+
+})();
+
