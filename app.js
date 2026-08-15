@@ -83664,3 +83664,282 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.3 — MOBILE STRUCTURE PROBE
+   TEMPORARY / READ ONLY
+   ========================================================================= */
+
+(function addFix03D53StructureProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D53ProbeV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D53ProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.3 Group Probe';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:200px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let aggregate;
+        let audit;
+
+
+        try {
+
+          aggregate =
+            aggregateForwardEvidenceV26();
+
+          audit =
+            auditPerGroupPromotionReadinessV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.3 STRUCTURE PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const aggregateKeys =
+          aggregate &&
+          typeof aggregate === 'object'
+            ? Object.keys(aggregate)
+            : [];
+
+
+        const groupsIsArray =
+          Array.isArray(
+            aggregate &&
+            aggregate.groups
+          );
+
+
+        const groupEvidenceIsArray =
+          Array.isArray(
+            aggregate &&
+            aggregate.groupEvidence
+          );
+
+
+        const evidenceIsArray =
+          Array.isArray(
+            aggregate &&
+            aggregate.evidence
+          );
+
+
+        let collection = null;
+        let collectionName = 'NONE';
+
+
+        if (groupsIsArray) {
+
+          collection =
+            aggregate.groups;
+
+          collectionName =
+            'groups';
+
+        } else if (groupEvidenceIsArray) {
+
+          collection =
+            aggregate.groupEvidence;
+
+          collectionName =
+            'groupEvidence';
+
+        } else if (evidenceIsArray) {
+
+          collection =
+            aggregate.evidence;
+
+          collectionName =
+            'evidence';
+
+        }
+
+
+        const firstGroup =
+          collection &&
+          collection.length > 0
+            ? collection[0]
+            : null;
+
+
+        const firstGroupKeys =
+          firstGroup &&
+          typeof firstGroup === 'object'
+            ? Object.keys(firstGroup)
+            : [];
+
+
+        const report = [
+
+          'FIX-03D.5.3 STRUCTURE PROBE',
+
+          '',
+
+          'Aggregate Ready: ' +
+            (
+              aggregate &&
+              aggregate.ready
+                ? 'YES'
+                : 'NO'
+            ),
+
+          'Aggregate Passed: ' +
+            (
+              aggregate &&
+              aggregate.passed
+                ? 'YES'
+                : 'NO'
+            ),
+
+          'Evidence Groups Count: ' +
+            (
+              aggregate &&
+              aggregate.evidenceGroups != null
+                ? aggregate.evidenceGroups
+                : '-'
+            ),
+
+          '',
+
+          'Detail Collection: ' +
+            collectionName,
+
+          'Detail Length: ' +
+            (
+              collection
+                ? collection.length
+                : 0
+            ),
+
+          '',
+
+          'Audit Ready: ' +
+            (
+              audit &&
+              audit.ready
+                ? 'YES'
+                : 'NO'
+            ),
+
+          'Audit Passed: ' +
+            (
+              audit &&
+              audit.passed
+                ? 'YES'
+                : 'NO'
+            ),
+
+          'Audit Reason: ' +
+            (
+              audit &&
+              audit.reason
+                ? audit.reason
+                : '-'
+            ),
+
+          '',
+
+          'AGGREGATE KEYS:',
+
+          aggregateKeys.length
+            ? aggregateKeys.join(', ')
+            : 'NONE',
+
+          '',
+
+          'FIRST GROUP KEYS:',
+
+          firstGroupKeys.length
+            ? firstGroupKeys.join(', ')
+            : 'NONE'
+
+        ].join('\n');
+
+
+        alert(
+          report
+        );
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
