@@ -87124,3 +87124,398 @@ function probePromotionMaturityChecksV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.5
+   RESULT STRUCTURE PROBE
+
+   Purpose:
+   - Inspect real output structure of
+     trackPromotionCandidateMaturityV26().
+   - Identify result keys.
+   - Identify array collections.
+   - Identify first item keys.
+
+   SAFETY:
+   - READ ONLY
+   - NO Production modification
+   - NO Storage modification
+   - NO Auto Promotion
+   ========================================================================= */
+
+function probePromotionMaturityResultV26() {
+
+  const lines = [];
+
+  lines.push(
+    'FIX-03D.5.5 RESULT STRUCTURE PROBE'
+  );
+
+  lines.push('');
+
+
+  if (
+    typeof
+      trackPromotionCandidateMaturityV26 !==
+    'function'
+  ) {
+
+    lines.push(
+      'Tracker Function: NOT FOUND ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'MATURITY_TRACKER_NOT_AVAILABLE'
+    };
+
+  }
+
+
+  let result;
+
+
+  try {
+
+    result =
+      trackPromotionCandidateMaturityV26();
+
+  } catch (error) {
+
+    lines.push(
+      'EXECUTION ERROR ❌'
+    );
+
+    lines.push('');
+
+    lines.push(
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      )
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'MATURITY_TRACKER_EXECUTION_ERROR'
+    };
+
+  }
+
+
+  if (
+    !result ||
+    typeof result !== 'object'
+  ) {
+
+    lines.push(
+      'INVALID RESULT ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'INVALID_TRACKER_RESULT'
+    };
+
+  }
+
+
+  const resultKeys =
+    Object.keys(
+      result
+    );
+
+
+  const arrayCollections =
+    resultKeys.filter(
+      key =>
+        Array.isArray(
+          result[key]
+        )
+    );
+
+
+  lines.push(
+    'Tracker Ready: ' +
+    (
+      result.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Tracker Passed: ' +
+    (
+      result.passed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'RESULT KEYS:'
+  );
+
+  lines.push(
+    resultKeys.length
+      ? resultKeys.join(', ')
+      : 'NONE'
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'ARRAY COLLECTIONS:'
+  );
+
+
+  if (!arrayCollections.length) {
+
+    lines.push(
+      'NONE'
+    );
+
+  } else {
+
+    arrayCollections.forEach(
+      key => {
+
+        lines.push(
+          key +
+          ' [' +
+          result[key].length +
+          ']'
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * Inspect the first non-empty array collection.
+   */
+
+  let selectedCollection =
+    null;
+
+  let firstItem =
+    null;
+
+
+  for (
+    let i = 0;
+    i < arrayCollections.length;
+    i += 1
+  ) {
+
+    const key =
+      arrayCollections[i];
+
+    const collection =
+      result[key];
+
+
+    if (
+      collection.length > 0
+    ) {
+
+      selectedCollection =
+        key;
+
+      firstItem =
+        collection[0];
+
+      break;
+
+    }
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'SELECTED COLLECTION:'
+  );
+
+  lines.push(
+    selectedCollection ||
+    'NONE'
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'FIRST ITEM TYPE:'
+  );
+
+  lines.push(
+    firstItem === null
+      ? 'NONE'
+      : Array.isArray(firstItem)
+        ? 'ARRAY'
+        : typeof firstItem
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'FIRST ITEM KEYS:'
+  );
+
+
+  if (
+    firstItem &&
+    typeof firstItem === 'object' &&
+    !Array.isArray(firstItem)
+  ) {
+
+    const firstItemKeys =
+      Object.keys(
+        firstItem
+      );
+
+
+    lines.push(
+      firstItemKeys.length
+        ? firstItemKeys.join(', ')
+        : 'NONE'
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'FIRST ITEM VALUES:'
+    );
+
+
+    firstItemKeys.forEach(
+      key => {
+
+        let value =
+          firstItem[key];
+
+
+        if (
+          value &&
+          typeof value === 'object'
+        ) {
+
+          try {
+
+            value =
+              JSON.stringify(
+                value
+              );
+
+          } catch (error) {
+
+            value =
+              '[OBJECT]';
+
+          }
+
+        }
+
+
+        lines.push(
+          key +
+          ': ' +
+          String(value)
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NONE'
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D.5.5 — RESULT STRUCTURE PROBE'
+  );
+
+  console.log(
+    'RESULT:',
+    result
+  );
+
+  console.log(
+    'RESULT KEYS:',
+    resultKeys
+  );
+
+  console.log(
+    'ARRAY COLLECTIONS:',
+    arrayCollections
+  );
+
+  console.log(
+    'SELECTED COLLECTION:',
+    selectedCollection
+  );
+
+  console.log(
+    'FIRST ITEM:',
+    firstItem
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    resultKeys,
+
+    arrayCollections,
+
+    selectedCollection,
+
+    firstItem
+
+  };
+
+}
+
