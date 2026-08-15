@@ -83469,3 +83469,198 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.2 — MOBILE EXECUTION RUNNER
+   TEMPORARY / READ ONLY
+   ========================================================================= */
+
+(function addFix03D52MobileButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D52MobileV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D52MobileV26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ D.5.2 Promotion Policy';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:145px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            evaluatePromotionPolicyV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.2',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const evidence =
+          result.evidence || {};
+
+
+        const checks =
+          result.checks || {};
+
+
+        const report = [
+
+          'FIX-03D.5.2',
+
+          '',
+
+          'Ready: ' +
+            (result.ready ? 'YES' : 'NO'),
+
+          'Passed: ' +
+            (result.passed ? 'YES' : 'NO'),
+
+          'Eligible: ' +
+            (result.eligible ? 'YES' : 'NO'),
+
+          'Status: ' +
+            (result.status || '-'),
+
+          'Reason: ' +
+            (result.reason || '-'),
+
+          '',
+
+          'Verified: ' +
+            (evidence.verifiedSnapshots ?? '-'),
+
+          'Accounted: ' +
+            (evidence.accountedVerified ?? '-'),
+
+          'Evidence Groups: ' +
+            (evidence.evidenceGroups ?? '-'),
+
+          'Invalid Identity: ' +
+            (evidence.invalidGroupIdentity ?? '-'),
+
+          '',
+
+          'CHECKS',
+
+          'Verified Threshold: ' +
+            (
+              checks.verifiedSnapshots
+                ? 'PASS'
+                : 'WAIT'
+            ),
+
+          'Group Threshold: ' +
+            (
+              checks.evidenceGroups
+                ? 'PASS'
+                : 'WAIT'
+            ),
+
+          'Accounted Ratio: ' +
+            (
+              checks.accountedRatio
+                ? 'PASS'
+                : 'FAIL'
+            ),
+
+          'Identity Integrity: ' +
+            (
+              checks.identityIntegrity
+                ? 'PASS'
+                : 'FAIL'
+            )
+
+        ].join('\n');
+
+
+        alert(
+          report
+        );
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
