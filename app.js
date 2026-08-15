@@ -93791,3 +93791,813 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 3 — SYNTHETIC CANDIDATE VALIDATION
+
+   Mục tiêu:
+   - Kiểm chứng contract APPROVED -> CANDIDATE.
+   - Sử dụng synthetic audit item.
+   - KHÔNG gọi / thay đổi gate Production thật.
+   - KHÔNG sửa Storage.
+   - KHÔNG Auto Promotion.
+   - READ ONLY.
+   ========================================================================= */
+
+
+/* =========================================================================
+   D.5.8 STEP 3A
+   PURE CANDIDATE CONTRACT
+   ========================================================================= */
+
+function buildPromotionCandidateFromApprovedAuditV26(
+  item
+) {
+
+  /*
+   * Fail closed.
+   *
+   * Chỉ APPROVED + gatePassed mới được
+   * chuyển thành candidate.
+   */
+
+  if (
+    !item ||
+    item.approved !== true ||
+    item.gatePassed !== true
+  ) {
+
+    return null;
+
+  }
+
+
+  return {
+
+    lifecycleKey:
+      String(
+        item.lifecycleKey ||
+        ''
+      ),
+
+    province:
+      String(
+        item.province ||
+        ''
+      ),
+
+    prize:
+      String(
+        item.prize ||
+        ''
+      ),
+
+    model:
+      String(
+        item.model ||
+        ''
+      ),
+
+    window:
+      item.window != null
+        ? item.window
+        : null,
+
+    verified:
+      Number(
+        item.verified ||
+        0
+      ),
+
+    rankedCoverage:
+      Number(
+        item.rankedCoverage ||
+        0
+      ),
+
+    top10Rate:
+      Number(
+        item.top10Rate ||
+        0
+      ),
+
+    mrr:
+      Number(
+        item.mrr ||
+        0
+      ),
+
+    maturityScore:
+      Number(
+        item.maturityScore ||
+        0
+      ),
+
+    maturityState:
+      String(
+        item.maturityState ||
+        'UNKNOWN'
+      ),
+
+    eligible:
+      item.eligible === true,
+
+    readinessStatus:
+      String(
+        item.readinessStatus ||
+        'UNKNOWN'
+      ),
+
+    readinessReason:
+      String(
+        item.readinessReason ||
+        ''
+      ),
+
+    gatePassed: true,
+
+    approved: true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      String(
+        item.approvalReason ||
+        'SAFE_PROMOTION_GATE_PASSED'
+      ),
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    source:
+      'FIX-03D.5.7_APPROVAL_AUDIT',
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   D.5.8 STEP 3B
+   SYNTHETIC VALIDATION RUNNER
+   ========================================================================= */
+
+function validateSyntheticPromotionCandidateV26() {
+
+  /*
+   * Synthetic APPROVED audit.
+   *
+   * Đây KHÔNG phải dữ liệu Production.
+   * Không ghi dữ liệu này vào Storage.
+   */
+
+  const syntheticApproved = {
+
+    lifecycleKey:
+      'synthetic-province/db/RECENT/10',
+
+    province:
+      'synthetic-province',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      10,
+
+    rankedCoverage:
+      1,
+
+    top10Rate:
+      1,
+
+    mrr:
+      1,
+
+    maturityScore:
+      100,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_VALIDATION',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'SYNTHETIC_GATE_PASSED'
+
+  };
+
+
+  /*
+   * Synthetic HELD audit.
+   *
+   * Dùng để xác nhận fail-closed.
+   */
+
+  const syntheticHeld = {
+
+    lifecycleKey:
+      'synthetic-held/db/RECENT/10',
+
+    province:
+      'synthetic-held',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      10,
+
+    rankedCoverage:
+      1,
+
+    top10Rate:
+      1,
+
+    mrr:
+      1,
+
+    maturityScore:
+      100,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_VALIDATION',
+
+    gatePassed:
+      false,
+
+    approved:
+      false,
+
+    approvalStatus:
+      'HELD',
+
+    approvalReason:
+      'SYNTHETIC_GATE_BLOCKED'
+
+  };
+
+
+  const approvedCandidate =
+    buildPromotionCandidateFromApprovedAuditV26(
+      syntheticApproved
+    );
+
+
+  const heldCandidate =
+    buildPromotionCandidateFromApprovedAuditV26(
+      syntheticHeld
+    );
+
+
+  /*
+   * Contract checks.
+   */
+
+  const checks = {
+
+    approvedCreatesCandidate:
+      approvedCandidate !== null,
+
+    heldCreatesNoCandidate:
+      heldCandidate === null,
+
+    lifecyclePreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.lifecycleKey ===
+        syntheticApproved.lifecycleKey,
+
+    provincePreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.province ===
+        syntheticApproved.province,
+
+    prizePreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.prize ===
+        syntheticApproved.prize,
+
+    modelPreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.model ===
+        syntheticApproved.model,
+
+    gatePassedPreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.gatePassed ===
+        true,
+
+    approvedPreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.approved ===
+        true,
+
+    statusPendingCommit:
+      approvedCandidate !== null &&
+      approvedCandidate.candidateStatus ===
+        'PENDING_COMMIT',
+
+    readOnlyPreserved:
+      approvedCandidate !== null &&
+      approvedCandidate.readOnly ===
+        true,
+
+    productionUntouched:
+      approvedCandidate !== null &&
+      approvedCandidate.productionModified ===
+        false,
+
+    storageUntouched:
+      approvedCandidate !== null &&
+      approvedCandidate.storageModified ===
+        false,
+
+    autoPromotionDisabled:
+      approvedCandidate !== null &&
+      approvedCandidate.autoPromotion ===
+        false
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'SYNTHETIC_CANDIDATE_CONTRACT_VALID'
+        : 'SYNTHETIC_CANDIDATE_CONTRACT_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_3',
+
+    mode:
+      'SYNTHETIC_CANDIDATE_VALIDATION',
+
+    syntheticApprovedCount:
+      1,
+
+    syntheticHeldCount:
+      1,
+
+    candidateCount:
+      approvedCandidate
+        ? 1
+        : 0,
+
+    heldCandidateCount:
+      heldCandidate
+        ? 1
+        : 0,
+
+    checks,
+
+    failedChecks,
+
+    candidate:
+      approvedCandidate,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   D.5.8 STEP 3C
+   DEBUG PANEL PROBE
+   ========================================================================= */
+
+(function installFix03D58SyntheticValidationProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58SyntheticValidationV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58SyntheticValidationV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🧪 D.5.8 Synthetic Validation';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            validateSyntheticPromotionCandidateV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'SYNTHETIC CANDIDATE VALIDATION',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const checks =
+          result &&
+          result.checks
+            ? result.checks
+            : {};
+
+
+        const failedChecks =
+          result &&
+          Array.isArray(
+            result.failedChecks
+          )
+            ? result.failedChecks
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8'
+        );
+
+        lines.push(
+          'SYNTHETIC CANDIDATE VALIDATION'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Synthetic Approved: ' +
+          result.syntheticApprovedCount
+        );
+
+
+        lines.push(
+          'Synthetic Held: ' +
+          result.syntheticHeldCount
+        );
+
+
+        lines.push(
+          'Candidates Created: ' +
+          result.candidateCount
+        );
+
+
+        lines.push(
+          'HELD Candidates Created: ' +
+          result.heldCandidateCount
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CONTRACT CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          checks
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Đưa trực tiếp vào Debug Panel.
+     * Không tạo floating fallback.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 3 Synthetic Candidate Validation loaded — READ ONLY'
+);
+
