@@ -85317,3 +85317,293 @@ function probePromotionCandidateRegistryV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.4 — STEP 3
+   PROMOTION CANDIDATE REGISTRY RUNNER
+
+   Mobile Execution Runner
+   READ ONLY
+   NO STORAGE WRITE
+   NO PRODUCTION CHANGE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function runPromotionCandidateRegistryV26() {
+
+  let result;
+
+
+  try {
+
+    result =
+      buildPromotionCandidateRegistryV26();
+
+  } catch (error) {
+
+    alert(
+      [
+        'FIX-03D.5.4',
+        '',
+        'EXECUTION ERROR ❌',
+        '',
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        )
+      ].join('\n')
+    );
+
+    return null;
+
+  }
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.4'
+  );
+
+  lines.push(
+    'PROMOTION CANDIDATE REGISTRY'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      result &&
+      result.ready
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Passed: ' +
+    (
+      result &&
+      result.passed
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result &&
+      result.reason
+        ? result.reason
+        : 'UNKNOWN'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Total Groups: ' +
+    (
+      result &&
+      Number.isFinite(
+        Number(
+          result.totalGroups
+        )
+      )
+        ? result.totalGroups
+        : 0
+    )
+  );
+
+
+  lines.push(
+    'Candidate Count: ' +
+    (
+      result &&
+      Number.isFinite(
+        Number(
+          result.candidateCount
+        )
+      )
+        ? result.candidateCount
+        : 0
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Read Only: ' +
+    (
+      result &&
+      result.readOnly === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Production Modified: ' +
+    (
+      result &&
+      result.productionModified === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Storage Modified: ' +
+    (
+      result &&
+      result.storageModified === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Auto Promotion: ' +
+    (
+      result &&
+      result.autoPromotion === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  const candidates =
+    result &&
+    Array.isArray(
+      result.candidates
+    )
+      ? result.candidates
+      : [];
+
+
+  if (
+    candidates.length
+  ) {
+
+    lines.push('');
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'CANDIDATES'
+    );
+
+
+    candidates.forEach(
+      (
+        candidate,
+        index
+      ) => {
+
+        lines.push('');
+
+        lines.push(
+          '#' +
+          (
+            index + 1
+          ) +
+          ' ' +
+          candidate.province +
+          ' / ' +
+          candidate.prize
+        );
+
+
+        lines.push(
+          'Model: ' +
+          candidate.model
+        );
+
+
+        lines.push(
+          'Window: ' +
+          candidate.window
+        );
+
+
+        lines.push(
+          'Verified: ' +
+          candidate.verified
+        );
+
+
+        lines.push(
+          'Ranked Coverage: ' +
+          Number(
+            candidate.rankedCoverage ||
+            0
+          ).toFixed(2)
+        );
+
+
+        lines.push(
+          'Top10 Rate: ' +
+          Number(
+            candidate.top10Rate ||
+            0
+          ).toFixed(2)
+        );
+
+
+        lines.push(
+          'MRR: ' +
+          Number(
+            candidate.mrr ||
+            0
+          ).toFixed(4)
+        );
+
+
+        lines.push(
+          'Candidate Key: ' +
+          candidate.candidateKey
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push('');
+
+    lines.push(
+      'Candidates: NONE'
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.4 PROMOTION CANDIDATE REGISTRY',
+    result
+  );
+
+
+  return result;
+
+}
+
