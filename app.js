@@ -84947,3 +84947,249 @@ function buildPromotionCandidateRegistryV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.4 — STEP 2
+   PROMOTION CANDIDATE REGISTRY STRUCTURE PROBE
+
+   READ ONLY
+   NO STORAGE WRITE
+   NO PRODUCTION CHANGE
+   ========================================================================= */
+
+function probePromotionCandidateRegistryV26() {
+
+  const lines = [];
+
+  lines.push(
+    'FIX-03D.5.4 STRUCTURE PROBE'
+  );
+
+  lines.push('');
+
+
+  if (
+    typeof auditPerGroupPromotionReadinessV26 !==
+    'function'
+  ) {
+
+    lines.push(
+      'D.5.3 Audit Function: NOT FOUND ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'PER_GROUP_AUDIT_NOT_AVAILABLE'
+    };
+
+  }
+
+
+  lines.push(
+    'D.5.3 Audit Function: READY ✅'
+  );
+
+
+  let audit;
+
+
+  try {
+
+    audit =
+      auditPerGroupPromotionReadinessV26();
+
+  } catch (error) {
+
+    lines.push('');
+    lines.push(
+      'EXECUTION ERROR ❌'
+    );
+
+    lines.push(
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      )
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'AUDIT_EXECUTION_ERROR'
+    };
+
+  }
+
+
+  const auditKeys =
+    audit &&
+    typeof audit === 'object'
+      ? Object.keys(audit)
+      : [];
+
+
+  const possibleCollections = [
+    'groups',
+    'results',
+    'details',
+    'evidence',
+    'audits',
+    'groupResults'
+  ];
+
+
+  const collections =
+    possibleCollections
+      .filter(
+        key =>
+          Array.isArray(
+            audit &&
+            audit[key]
+          )
+      )
+      .map(
+        key => ({
+          key,
+          length:
+            audit[key].length
+        })
+      );
+
+
+  lines.push('');
+
+  lines.push(
+    'Audit Ready: ' +
+    (
+      audit &&
+      audit.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Audit Passed: ' +
+    (
+      audit &&
+      audit.passed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'AUDIT KEYS:'
+  );
+
+  lines.push(
+    auditKeys.length
+      ? auditKeys.join(', ')
+      : 'NONE'
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'ARRAY COLLECTIONS:'
+  );
+
+
+  if (
+    collections.length
+  ) {
+
+    collections.forEach(
+      item => {
+
+        lines.push(
+          item.key +
+          ' [' +
+          item.length +
+          ']'
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NONE'
+    );
+
+  }
+
+
+  const firstCollection =
+    collections.length
+      ? audit[
+          collections[0].key
+        ]
+      : null;
+
+
+  const firstItem =
+    firstCollection &&
+    firstCollection.length
+      ? firstCollection[0]
+      : null;
+
+
+  lines.push('');
+
+  lines.push(
+    'FIRST ITEM KEYS:'
+  );
+
+  lines.push(
+    firstItem &&
+    typeof firstItem === 'object'
+      ? Object.keys(
+          firstItem
+        ).join(', ')
+      : 'NONE'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    auditKeys,
+
+    collections,
+
+    firstItemKeys:
+      firstItem &&
+      typeof firstItem === 'object'
+        ? Object.keys(
+            firstItem
+          )
+        : []
+
+  };
+
+}
+
