@@ -89916,3 +89916,604 @@ if (
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.6
+   FINAL RUNNER — SAFE PROMOTION GATE
+   READ-ONLY DEBUG UI
+   ========================================================================= */
+
+(function addFix03D56FinalRunnerV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D56FinalRunnerV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D56FinalRunnerV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🛡️ D.5.6 Promotion Gate';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            evaluateSafePromotionGateV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.6',
+              '',
+              'Gate Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            evaluateSafePromotionGateV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.6',
+              'FINAL RUNNER',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        if (!result) {
+
+          alert(
+            [
+              'FIX-03D.5.6',
+              '',
+              'NO RESULT ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const decisions =
+          Array.isArray(
+            result.decisions
+          )
+            ? result.decisions
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.6'
+        );
+
+        lines.push(
+          'SAFE PROMOTION GATE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          String(
+            result.reason ||
+            ''
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Total Groups: ' +
+          Number(
+            result.totalGroups ||
+            0
+          )
+        );
+
+
+        lines.push(
+          'Approved: ' +
+          Number(
+            result.approvedGroups ||
+            0
+          )
+        );
+
+
+        lines.push(
+          'Held: ' +
+          Number(
+            result.heldGroups ||
+            0
+          )
+        );
+
+
+        lines.push(
+          'Any Gate Open: ' +
+          (
+            result.anyGateOpen === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          'GROUP DECISIONS'
+        );
+
+
+        if (!decisions.length) {
+
+          lines.push('');
+
+          lines.push(
+            'NONE'
+          );
+
+        } else {
+
+          decisions.forEach(
+            (
+              item,
+              index
+            ) => {
+
+              lines.push('');
+
+
+              lines.push(
+                '#' +
+                (index + 1) +
+                ' ' +
+                String(
+                  item.province ||
+                  ''
+                ) +
+                ' / ' +
+                String(
+                  item.prize ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Model: ' +
+                String(
+                  item.model ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Window: ' +
+                String(
+                  item.window != null
+                    ? item.window
+                    : ''
+                )
+              );
+
+
+              lines.push(
+                'Verified: ' +
+                Number(
+                  item.verified ||
+                  0
+                )
+              );
+
+
+              lines.push(
+                'Ranked Coverage: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.rankedCoverage
+                    )
+                  )
+                    ? Number(
+                        item.rankedCoverage
+                      ).toFixed(2)
+                    : '0.00'
+                )
+              );
+
+
+              lines.push(
+                'Top10 Rate: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.top10Rate
+                    )
+                  )
+                    ? Number(
+                        item.top10Rate
+                      ).toFixed(2)
+                    : '0.00'
+                )
+              );
+
+
+              lines.push(
+                'MRR: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.mrr
+                    )
+                  )
+                    ? Number(
+                        item.mrr
+                      ).toFixed(4)
+                    : '0.0000'
+                )
+              );
+
+
+              lines.push(
+                'Maturity Score: ' +
+                Number(
+                  item.maturityScore ||
+                  0
+                ) +
+                '/100'
+              );
+
+
+              lines.push(
+                'Maturity State: ' +
+                String(
+                  item.maturityState ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Eligible: ' +
+                (
+                  item.eligible === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              lines.push(
+                'Readiness Status: ' +
+                String(
+                  item.readinessStatus ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Gate Open: ' +
+                (
+                  item.gateOpen === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              lines.push(
+                'Decision: ' +
+                String(
+                  item.decision ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Gate Reason: ' +
+                String(
+                  item.reason ||
+                  'NONE'
+                )
+              );
+
+
+              const failedChecks =
+                Array.isArray(
+                  item.failedChecks
+                )
+                  ? item.failedChecks
+                  : [];
+
+
+              lines.push(
+                'Failed Checks: ' +
+                (
+                  failedChecks.length
+                    ? failedChecks.join(', ')
+                    : 'NONE'
+                )
+              );
+
+
+              lines.push(
+                'Lifecycle Key: ' +
+                String(
+                  item.lifecycleKey ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Read Only: ' +
+                (
+                  item.readOnly === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              if (
+                index <
+                decisions.length - 1
+              ) {
+
+                lines.push('');
+
+                lines.push(
+                  '--------------------'
+                );
+
+              }
+
+            }
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Install directly into
+     * FIX-03D Debug Panel.
+     *
+     * No floating fallback.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03dDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      console.log(
+        'FIX-03D.5.6 Final Runner installed in Debug Panel'
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03dDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        console.log(
+          'FIX-03D.5.6 Final Runner attached to Debug Panel'
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
