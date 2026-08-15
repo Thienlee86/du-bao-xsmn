@@ -89057,8 +89057,7 @@ function installFix03DDebugPanelV26() {
     );
 
   panel.id =
-    'fix03DDebugPanelV26';
-
+    'fix03DDebugPanelV26'
 
   panel.style.cssText = [
     'position:fixed',
@@ -89930,8 +89929,6 @@ if (
    FINAL RUNNER — SAFE PROMOTION GATE
    READ-ONLY DEBUG UI
    ========================================================================= */
-window.FIX03D56_FINAL_RUNNER_REACHED =
-  true;
 
 (function addFix03D56FinalRunnerV26() {
 
