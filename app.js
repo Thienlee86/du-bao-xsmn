@@ -94601,3 +94601,928 @@ console.log(
   'FIX-03D.5.8 STEP 3 Synthetic Candidate Validation loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 4 — CANDIDATE BOUNDARY INTEGRATION AUDIT
+
+   Mục tiêu:
+   - Audit đường tích hợp thật:
+       D.5.7 Approval Audit
+              ↓
+       D.5.8 Candidate Builder
+   - Xác nhận candidate không vượt quá approved boundary.
+   - Xác nhận HELD không lọt thành candidate.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - READ ONLY.
+   ========================================================================= */
+
+
+/* =========================================================================
+   D.5.8 STEP 4A
+   INTEGRATION AUDIT
+   ========================================================================= */
+
+function auditPromotionCandidateBoundaryV26() {
+
+  /*
+   * Required Production functions.
+   */
+
+  if (
+    typeof
+      auditPromotionEligibilityV26 !==
+        'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'APPROVAL_AUDIT_FUNCTION_NOT_FOUND',
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  if (
+    typeof
+      buildPromotionCandidatesV26 !==
+        'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANDIDATE_BUILDER_FUNCTION_NOT_FOUND',
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  let approvalResult;
+  let candidateResult;
+
+
+  try {
+
+    approvalResult =
+      auditPromotionEligibilityV26();
+
+    candidateResult =
+      buildPromotionCandidatesV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'INTEGRATION_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const audits =
+    approvalResult &&
+    Array.isArray(
+      approvalResult.audits
+    )
+      ? approvalResult.audits
+      : [];
+
+
+  const candidates =
+    candidateResult &&
+    Array.isArray(
+      candidateResult.candidates
+    )
+      ? candidateResult.candidates
+      : [];
+
+
+  /*
+   * Approved boundary.
+   *
+   * Chỉ item approved=true + gatePassed=true
+   * mới thuộc tập được phép trở thành candidate.
+   */
+
+  const approvedAudits =
+    audits.filter(
+      item =>
+        item &&
+        item.approved === true &&
+        item.gatePassed === true
+    );
+
+
+  const heldAudits =
+    audits.filter(
+      item =>
+        !item ||
+        item.approved !== true ||
+        item.gatePassed !== true
+    );
+
+
+  /*
+   * Helper:
+   * dùng lifecycleKey làm identity chính.
+   */
+
+  function getKey(
+    item
+  ) {
+
+    if (
+      !item ||
+      typeof item !==
+        'object'
+    ) {
+
+      return '';
+
+    }
+
+
+    return String(
+      item.lifecycleKey ||
+      ''
+    );
+
+  }
+
+
+  const approvedKeys =
+    new Set(
+      approvedAudits
+        .map(
+          getKey
+        )
+        .filter(
+          Boolean
+        )
+    );
+
+
+  const heldKeys =
+    new Set(
+      heldAudits
+        .map(
+          getKey
+        )
+        .filter(
+          Boolean
+        )
+    );
+
+
+  const candidateKeys =
+    candidates
+      .map(
+        getKey
+      )
+      .filter(
+        Boolean
+      );
+
+
+  /*
+   * Candidate nào không thuộc approved set
+   * => boundary leak.
+   */
+
+  const unauthorizedCandidates =
+    candidates.filter(
+      item => {
+
+        const key =
+          getKey(
+            item
+          );
+
+
+        return (
+          !key ||
+          !approvedKeys.has(
+            key
+          )
+        );
+
+      }
+    );
+
+
+  /*
+   * HELD item xuất hiện trong candidate set
+   * => lỗi nghiêm trọng.
+   */
+
+  const heldLeakCandidates =
+    candidates.filter(
+      item => {
+
+        const key =
+          getKey(
+            item
+          );
+
+
+        return (
+          key &&
+          heldKeys.has(
+            key
+          )
+        );
+
+      }
+    );
+
+
+  /*
+   * Approved item nào chưa tạo candidate.
+   *
+   * Đây cũng là integration mismatch.
+   */
+
+  const candidateKeySet =
+    new Set(
+      candidateKeys
+    );
+
+
+  const missingApprovedCandidates =
+    approvedAudits.filter(
+      item => {
+
+        const key =
+          getKey(
+            item
+          );
+
+
+        return (
+          !key ||
+          !candidateKeySet.has(
+            key
+          )
+        );
+
+      }
+    );
+
+
+  /*
+   * Duplicate candidate identity.
+   */
+
+  const duplicateCandidateKeys = [];
+
+  const seenCandidateKeys =
+    new Set();
+
+
+  candidateKeys.forEach(
+    key => {
+
+      if (
+        seenCandidateKeys.has(
+          key
+        )
+      ) {
+
+        if (
+          !duplicateCandidateKeys.includes(
+            key
+          )
+        ) {
+
+          duplicateCandidateKeys.push(
+            key
+          );
+
+        }
+
+        return;
+
+      }
+
+
+      seenCandidateKeys.add(
+        key
+      );
+
+    }
+  );
+
+
+  /*
+   * Boundary checks.
+   */
+
+  const checks = {
+
+    approvalResultReady:
+      approvalResult &&
+      approvalResult.ready === true,
+
+    candidateResultReady:
+      candidateResult &&
+      candidateResult.ready === true,
+
+    candidateCountMatchesApproved:
+      candidates.length ===
+      approvedAudits.length,
+
+    noUnauthorizedCandidates:
+      unauthorizedCandidates.length === 0,
+
+    noHeldLeak:
+      heldLeakCandidates.length === 0,
+
+    noMissingApprovedCandidates:
+      missingApprovedCandidates.length === 0,
+
+    noDuplicateCandidateKeys:
+      duplicateCandidateKeys.length === 0,
+
+    approvalReadOnly:
+      approvalResult &&
+      approvalResult.readOnly === true,
+
+    candidateReadOnly:
+      candidateResult &&
+      candidateResult.readOnly === true,
+
+    approvalProductionUntouched:
+      approvalResult &&
+      approvalResult.productionModified ===
+        false,
+
+    candidateProductionUntouched:
+      candidateResult &&
+      candidateResult.productionModified ===
+        false,
+
+    approvalStorageUntouched:
+      approvalResult &&
+      approvalResult.storageModified ===
+        false,
+
+    candidateStorageUntouched:
+      candidateResult &&
+      candidateResult.storageModified ===
+        false,
+
+    approvalAutoPromotionDisabled:
+      approvalResult &&
+      approvalResult.autoPromotion ===
+        false,
+
+    candidateAutoPromotionDisabled:
+      candidateResult &&
+      candidateResult.autoPromotion ===
+        false
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_BOUNDARY_INTEGRATION_VALID'
+        : 'CANDIDATE_BOUNDARY_INTEGRATION_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_4',
+
+    mode:
+      'CANDIDATE_BOUNDARY_INTEGRATION_AUDIT',
+
+    totalAudits:
+      audits.length,
+
+    approvedAudits:
+      approvedAudits.length,
+
+    heldAudits:
+      heldAudits.length,
+
+    candidateCount:
+      candidates.length,
+
+    unauthorizedCandidates:
+      unauthorizedCandidates.length,
+
+    heldLeakCandidates:
+      heldLeakCandidates.length,
+
+    missingApprovedCandidates:
+      missingApprovedCandidates.length,
+
+    duplicateCandidateKeys:
+      duplicateCandidateKeys.length,
+
+    checks,
+
+    failedChecks,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   D.5.8 STEP 4B
+   DEBUG PANEL PROBE
+   ========================================================================= */
+
+(function installFix03D58BoundaryAuditProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58BoundaryAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58BoundaryAuditV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.8 Boundary Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            auditPromotionCandidateBoundaryV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'CANDIDATE BOUNDARY INTEGRATION AUDIT',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const checks =
+          result &&
+          result.checks
+            ? result.checks
+            : {};
+
+
+        const failedChecks =
+          result &&
+          Array.isArray(
+            result.failedChecks
+          )
+            ? result.failedChecks
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8'
+        );
+
+        lines.push(
+          'CANDIDATE BOUNDARY INTEGRATION AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        if (
+          result.error
+        ) {
+
+          lines.push(
+            'Error: ' +
+            result.error
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Total Audits: ' +
+          (
+            result.totalAudits ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Approved Audits: ' +
+          (
+            result.approvedAudits ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Held Audits: ' +
+          (
+            result.heldAudits ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Candidate Count: ' +
+          (
+            result.candidateCount ??
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Unauthorized Candidates: ' +
+          (
+            result.unauthorizedCandidates ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'HELD Leak Candidates: ' +
+          (
+            result.heldLeakCandidates ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Missing Approved Candidates: ' +
+          (
+            result.missingApprovedCandidates ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Duplicate Candidate Keys: ' +
+          (
+            result.duplicateCandidateKeys ??
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'INTEGRATION CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          checks
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Attach ONLY to Debug Panel.
+     * Không tạo floating fallback.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 4 Candidate Boundary Integration Audit loaded — READ ONLY'
+);
+
