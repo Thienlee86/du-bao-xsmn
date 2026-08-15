@@ -85193,3 +85193,127 @@ function probePromotionCandidateRegistryV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.4 — STEP 2B
+   PROMOTION CANDIDATE REGISTRY PROBE BUTTON
+
+   Mobile Test Runner
+   READ ONLY
+   ========================================================================= */
+
+(function installFix03D54ProbeButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D54ProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D54ProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🗂️ D.5.4 Registry Probe';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:250px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof probePromotionCandidateRegistryV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.4 STRUCTURE PROBE',
+              '',
+              'PROBE FUNCTION NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          probePromotionCandidateRegistryV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.4 STRUCTURE PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
