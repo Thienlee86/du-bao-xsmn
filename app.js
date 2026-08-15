@@ -97938,3 +97938,387 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 6.2 — FAILED BOUNDARY CHECK PROBE
+   READ ONLY
+   ========================================================================= */
+
+(function installFix03D58FailedBoundaryProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58FailedBoundaryProbeV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+    button.id =
+      'btnFix03D58FailedBoundaryProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.8 Failed Boundary Probe';
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        const audit = {
+
+          lifecycleKey:
+            'synthetic-boundary-probe/db/RECENT/10',
+
+          province:
+            'synthetic-boundary-probe',
+
+          prize:
+            'db',
+
+          model:
+            'RECENT',
+
+          window: 10,
+
+          verified: 12,
+
+          rankedCoverage: 0.91,
+
+          top10Rate: 0.82,
+
+          mrr: 0.73,
+
+          maturityScore: 95,
+
+          maturityState:
+            'MATURE',
+
+          eligible: true,
+
+          readinessStatus:
+            'READY',
+
+          readinessReason:
+            'SYNTHETIC_BOUNDARY_PROBE',
+
+          gatePassed: true,
+
+          approved: true,
+
+          approvalStatus:
+            'APPROVED',
+
+          approvalReason:
+            'SYNTHETIC_GATE_PASSED'
+
+        };
+
+
+        let candidate;
+        let validation;
+
+
+        try {
+
+          candidate =
+            buildPromotionCandidateFromApprovedAuditV26(
+              audit
+            );
+
+
+          validation =
+            validatePromotionCandidateForCommitV26(
+              candidate
+            );
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 6.2',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+        }
+
+
+        const checks =
+          validation &&
+          validation.checks &&
+          typeof validation.checks ===
+            'object'
+            ? validation.checks
+            : {};
+
+
+        const failed =
+          Object.keys(checks)
+            .filter(
+              key =>
+                checks[key] !== true
+            );
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 6.2'
+        );
+
+        lines.push(
+          'FAILED BOUNDARY CHECK PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Candidate: ' +
+          (
+            candidate
+              ? 'FOUND'
+              : 'NONE'
+          )
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            validation &&
+            validation.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'FAILED CHECK COUNT: ' +
+          failed.length
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'FAILED CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        if (!failed.length) {
+
+          lines.push('NONE');
+
+        } else {
+
+          failed.forEach(
+            (
+              key,
+              index
+            ) => {
+
+              lines.push(
+                (index + 1) +
+                '. ' +
+                key +
+                ' = ' +
+                String(
+                  checks[key]
+                )
+              );
+
+            }
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        lines.push(
+          'VALIDATION REASON: ' +
+          String(
+            validation &&
+            validation.reason != null
+              ? validation.reason
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Candidate approved: ' +
+          String(
+            candidate &&
+            candidate.approved
+          )
+        );
+
+        lines.push(
+          'Candidate gatePassed: ' +
+          String(
+            candidate &&
+            candidate.gatePassed
+          )
+        );
+
+        lines.push(
+          'Candidate status: ' +
+          String(
+            candidate &&
+            candidate.status
+          )
+        );
+
+        lines.push(
+          'Candidate approvalStatus: ' +
+          String(
+            candidate &&
+            candidate.approvalStatus
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+        lines.push(
+          'Storage Modified: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(button);
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+
+    function attach() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(button);
+
+        return;
+
+      }
+
+
+      if (attempts < 20) {
+
+        setTimeout(
+          attach,
+          500
+        );
+
+      }
+
+    }
+
+
+    attach();
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
