@@ -86673,3 +86673,454 @@ function probePromotionMaturityChecksV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.5
+   PROMOTION CANDIDATE LIFECYCLE & MATURITY TRACKER
+   FINAL MOBILE RUNNER
+
+   SAFETY:
+   - READ ONLY
+   - NO Production modification
+   - NO Storage modification
+   - NO Auto Promotion
+   ========================================================================= */
+
+(function installFix03D55FinalRunnerV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D55FinalRunnerV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D55FinalRunnerV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🧬 D.5.5 Maturity Tracker';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:420px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            trackPromotionCandidateMaturityV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              '',
+              'Tracker Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            trackPromotionCandidateMaturityV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              'FINAL RUNNER',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        if (!result) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              '',
+              'NO RESULT ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.5'
+        );
+
+        lines.push(
+          'PROMOTION LIFECYCLE & MATURITY TRACKER'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Reason: ' +
+          String(
+            result.reason ||
+            ''
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Total Groups: ' +
+          Number(
+            result.totalGroups ||
+            0
+          )
+        );
+
+        lines.push(
+          'Waiting: ' +
+          Number(
+            result.waitingGroups ||
+            0
+          )
+        );
+
+        lines.push(
+          'Maturing: ' +
+          Number(
+            result.maturingGroups ||
+            0
+          )
+        );
+
+        lines.push(
+          'Near Ready: ' +
+          Number(
+            result.nearReadyGroups ||
+            0
+          )
+        );
+
+        lines.push(
+          'Eligible: ' +
+          Number(
+            result.eligibleGroups ||
+            0
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        const lifecycle =
+          Array.isArray(
+            result.lifecycle
+          )
+            ? result.lifecycle
+            : [];
+
+
+        lines.push('');
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          'GROUP MATURITY'
+        );
+
+
+        if (!lifecycle.length) {
+
+          lines.push('');
+          lines.push(
+            'NONE'
+          );
+
+        } else {
+
+          lifecycle.forEach(
+            (
+              item,
+              index
+            ) => {
+
+              lines.push('');
+
+              lines.push(
+                '#' +
+                (index + 1) +
+                ' ' +
+                String(
+                  item.province ||
+                  ''
+                ) +
+                ' / ' +
+                String(
+                  item.prize ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Model: ' +
+                String(
+                  item.model ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Window: ' +
+                String(
+                  item.window != null
+                    ? item.window
+                    : ''
+                )
+              );
+
+
+              lines.push(
+                'Verified: ' +
+                Number(
+                  item.verified ||
+                  0
+                )
+              );
+
+
+              lines.push(
+                'Maturity Score: ' +
+                Number(
+                  item.maturityScore ||
+                  0
+                ) +
+                '/100'
+              );
+
+
+              lines.push(
+                'Maturity State: ' +
+                String(
+                  item.maturityState ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Eligible: ' +
+                (
+                  item.eligible === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              lines.push(
+                'Readiness: ' +
+                String(
+                  item.readinessStatus ||
+                  'UNKNOWN'
+                )
+              );
+
+            }
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+
+        console.log(
+          '=========================================='
+        );
+
+        console.log(
+          'FIX-03D.5.5 — FINAL RUNNER'
+        );
+
+        console.log(
+          result
+        );
+
+        console.table(
+          lifecycle.map(
+            item => ({
+              Province:
+                item.province,
+
+              Prize:
+                item.prize,
+
+              Model:
+                item.model,
+
+              Window:
+                item.window,
+
+              Verified:
+                item.verified,
+
+              MaturityScore:
+                item.maturityScore,
+
+              MaturityState:
+                item.maturityState,
+
+              Eligible:
+                item.eligible,
+
+              Readiness:
+                item.readinessStatus
+            })
+          )
+        );
+
+
+        return result;
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
