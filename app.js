@@ -89004,3 +89004,171 @@ function probeSafePromotionGateStructureV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.DEBUG
+   MOBILE DEBUG PANEL
+   STEP 1 — PANEL SHELL
+========================================================================= */
+
+function installFix03DDebugPanelV26() {
+
+  if (
+    document.getElementById(
+      'fix03DDebugPanelV26'
+    )
+  ) {
+    return;
+  }
+
+
+  const toggle =
+    document.createElement(
+      'button'
+    );
+
+  toggle.id =
+    'btnFix03DDebugToggleV26';
+
+  toggle.type =
+    'button';
+
+  toggle.textContent =
+    '🧪 DEBUG V2.6';
+
+
+  toggle.style.cssText = [
+    'position:fixed',
+    'right:12px',
+    'bottom:82px',
+    'z-index:100001',
+    'padding:12px 16px',
+    'border:0',
+    'border-radius:18px',
+    'font-weight:800',
+    'font-size:14px',
+    'box-shadow:0 4px 14px rgba(0,0,0,.25)',
+    'cursor:pointer'
+  ].join(';');
+
+
+  const panel =
+    document.createElement(
+      'div'
+    );
+
+  panel.id =
+    'fix03DDebugPanelV26';
+
+
+  panel.style.cssText = [
+    'position:fixed',
+    'right:12px',
+    'bottom:140px',
+    'width:min(320px,calc(100vw - 24px))',
+    'max-height:60vh',
+    'overflow-y:auto',
+    'z-index:100000',
+    'padding:14px',
+    'border-radius:20px',
+    'background:#ffffff',
+    'box-shadow:0 8px 30px rgba(0,0,0,.35)',
+    'display:none'
+  ].join(';');
+
+
+  const title =
+    document.createElement(
+      'div'
+    );
+
+  title.textContent =
+    '🧪 FIX-03D DEBUG V2.6';
+
+
+  title.style.cssText = [
+    'font-weight:900',
+    'font-size:16px',
+    'margin-bottom:10px',
+    'color:#111'
+  ].join(';');
+
+
+  const info =
+    document.createElement(
+      'div'
+    );
+
+  info.textContent =
+    'Debug tools will be moved here.';
+
+
+  info.style.cssText = [
+    'font-size:13px',
+    'line-height:1.5',
+    'color:#555'
+  ].join(';');
+
+
+  panel.appendChild(
+    title
+  );
+
+  panel.appendChild(
+    info
+  );
+
+
+  toggle.onclick =
+    function () {
+
+      const opened =
+        panel.style.display !==
+        'none';
+
+
+      panel.style.display =
+        opened
+          ? 'none'
+          : 'block';
+
+
+      toggle.textContent =
+        opened
+          ? '🧪 DEBUG V2.6'
+          : '✕ CLOSE DEBUG';
+
+    };
+
+
+  document.body.appendChild(
+    panel
+  );
+
+  document.body.appendChild(
+    toggle
+  );
+
+}
+
+
+/* =========================================================================
+   FIX-03D.DEBUG
+   AUTO INSTALL
+========================================================================= */
+
+if (
+  document.readyState ===
+  'loading'
+) {
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    installFix03DDebugPanelV26
+  );
+
+} else {
+
+  installFix03DDebugPanelV26();
+
+}
+
