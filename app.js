@@ -86988,11 +86988,59 @@ function probePromotionMaturityChecksV26() {
               );
 
 
-              lines.push(
+                            lines.push(
                 'Verified: ' +
                 Number(
                   item.verified ||
                   0
+                )
+              );
+
+
+              lines.push(
+                'Ranked Coverage: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.rankedCoverage
+                    )
+                  )
+                    ? Number(
+                        item.rankedCoverage
+                      ).toFixed(2)
+                    : '0.00'
+                )
+              );
+
+
+              lines.push(
+                'Top10 Rate: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.top10Rate
+                    )
+                  )
+                    ? Number(
+                        item.top10Rate
+                      ).toFixed(2)
+                    : '0.00'
+                )
+              );
+
+
+              lines.push(
+                'MRR: ' +
+                (
+                  Number.isFinite(
+                    Number(
+                      item.mrr
+                    )
+                  )
+                    ? Number(
+                        item.mrr
+                      ).toFixed(4)
+                    : '0.0000'
                 )
               );
 
@@ -87027,17 +87075,58 @@ function probePromotionMaturityChecksV26() {
 
 
               lines.push(
-                'Readiness: ' +
+                'Readiness Status: ' +
                 String(
                   item.readinessStatus ||
                   'UNKNOWN'
                 )
               );
 
+
+              lines.push(
+                'Readiness Reason: ' +
+                String(
+                  item.readinessReason ||
+                  'NONE'
+                )
+              );
+
+
+              lines.push(
+                'Lifecycle Key: ' +
+                String(
+                  item.lifecycleKey ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Read Only: ' +
+                (
+                  item.readOnly === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              if (
+                index <
+                lifecycle.length - 1
+              ) {
+
+                lines.push('');
+
+                lines.push(
+                  '--------------------'
+                );
+
+              }
             }
           );
-
         }
+      
 
 
         alert(
