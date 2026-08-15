@@ -87519,3 +87519,129 @@ function probePromotionMaturityResultV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.5
+   RESULT STRUCTURE PROBE — MOBILE BUTTON
+
+   TEMPORARY DEBUG UI
+   READ ONLY
+   ========================================================================= */
+
+(function installFix03D55ResultProbeButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D55ResultProbeV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D55ResultProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.5 Result Probe';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:480px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            probePromotionMaturityResultV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              '',
+              'Result Probe Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          probePromotionMaturityResultV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.5 RESULT PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
