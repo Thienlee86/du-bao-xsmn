@@ -90515,3 +90515,407 @@ if (
   }
 
 })();
+
+/* =========================================================================
+   FIX-03D.5.7
+   PROMOTION ELIGIBILITY / APPROVAL AUDIT
+
+   Mục tiêu:
+   - Audit quyết định của D.5.6 Safe Promotion Gate.
+   - Giải thích vì sao từng group APPROVED / HELD.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - Read Only.
+   ========================================================================= */
+
+function auditPromotionEligibilityV26() {
+
+  /*
+   * D.5.6 phải tồn tại.
+   */
+
+  if (
+    typeof evaluateSafePromotionGateV26 !==
+    'function'
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+
+      reason:
+        'PROMOTION_GATE_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.7',
+
+      mode:
+        'PROMOTION_ELIGIBILITY_AUDIT',
+
+      totalGroups: 0,
+      approvedGroups: 0,
+      heldGroups: 0,
+
+      audits: [],
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+    };
+
+  }
+
+
+  let gate;
+
+
+  try {
+
+    gate =
+      evaluateSafePromotionGateV26();
+
+  } catch (error) {
+
+    return {
+      ready: false,
+      passed: false,
+
+      reason:
+        'PROMOTION_GATE_EXECUTION_FAILED',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.7',
+
+      mode:
+        'PROMOTION_ELIGIBILITY_AUDIT',
+
+      totalGroups: 0,
+      approvedGroups: 0,
+      heldGroups: 0,
+
+      audits: [],
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+    };
+
+  }
+
+
+  const decisions =
+    gate &&
+    Array.isArray(
+      gate.decisions
+    )
+      ? gate.decisions
+      : [];
+
+
+  const audits =
+    decisions.map(
+      item => {
+
+        const reasons = [];
+
+
+        const verified =
+          Number(
+            item &&
+            item.verified != null
+              ? item.verified
+              : 0
+          );
+
+
+        const rankedCoverage =
+          Number(
+            item &&
+            item.rankedCoverage != null
+              ? item.rankedCoverage
+              : 0
+          );
+
+
+        const top10Rate =
+          Number(
+            item &&
+            item.top10Rate != null
+              ? item.top10Rate
+              : 0
+          );
+
+
+        const mrr =
+          Number(
+            item &&
+            item.mrr != null
+              ? item.mrr
+              : 0
+          );
+
+
+        const maturityScore =
+          Number(
+            item &&
+            item.maturityScore != null
+              ? item.maturityScore
+              : 0
+          );
+
+
+        const maturityState =
+          String(
+            item &&
+            item.maturityState
+              ? item.maturityState
+              : 'UNKNOWN'
+          );
+
+
+        const eligible =
+          item &&
+          item.eligible === true;
+
+
+        /*
+         * Không tự đặt threshold mới.
+         *
+         * Chỉ ghi nhận trạng thái thật
+         * do lifecycle + gate trả về.
+         */
+
+        if (!eligible) {
+
+          reasons.push(
+            'NOT_ELIGIBLE'
+          );
+
+        }
+
+
+        if (
+          maturityState ===
+          'WAITING'
+        ) {
+
+          reasons.push(
+            'MATURITY_WAITING'
+          );
+
+        }
+
+
+        if (
+          maturityState ===
+          'MATURING'
+        ) {
+
+          reasons.push(
+            'MATURITY_IN_PROGRESS'
+          );
+
+        }
+
+
+        if (
+          item &&
+          item.passed !== true
+        ) {
+
+          reasons.push(
+            'PROMOTION_GATE_HELD'
+          );
+
+        }
+
+
+        const readinessStatus =
+          String(
+            item &&
+            item.readinessStatus
+              ? item.readinessStatus
+              : 'UNKNOWN'
+          );
+
+
+        const readinessReason =
+          String(
+            item &&
+            item.readinessReason
+              ? item.readinessReason
+              : 'NONE'
+          );
+
+
+        if (
+          readinessStatus !==
+          'READY'
+        ) {
+
+          reasons.push(
+            'READINESS_' +
+            readinessStatus
+          );
+
+        }
+
+
+        /*
+         * De-duplicate reasons.
+         */
+
+        const uniqueReasons =
+          Array.from(
+            new Set(
+              reasons
+            )
+          );
+
+
+        return {
+
+          lifecycleKey:
+            String(
+              item &&
+              item.lifecycleKey
+                ? item.lifecycleKey
+                : ''
+            ),
+
+          province:
+            String(
+              item &&
+              item.province
+                ? item.province
+                : ''
+            ),
+
+          prize:
+            String(
+              item &&
+              item.prize
+                ? item.prize
+                : ''
+            ),
+
+          model:
+            String(
+              item &&
+              item.model
+                ? item.model
+                : ''
+            ),
+
+          window:
+            item &&
+            item.window != null
+              ? item.window
+              : null,
+
+          verified,
+
+          rankedCoverage,
+
+          top10Rate,
+
+          mrr,
+
+          maturityScore,
+
+          maturityState,
+
+          eligible,
+
+          readinessStatus,
+
+          readinessReason,
+
+          gatePassed:
+            item &&
+            item.passed === true,
+
+          auditReasons:
+            uniqueReasons,
+
+          readOnly: true
+
+        };
+
+      }
+    );
+
+
+  const approvedGroups =
+    audits.filter(
+      item =>
+        item.gatePassed === true
+    ).length;
+
+
+  const heldGroups =
+    audits.length -
+    approvedGroups;
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      audits.length
+        ? 'PROMOTION_ELIGIBILITY_AUDITED'
+        : 'NO_PROMOTION_DECISIONS',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.7',
+
+    mode:
+      'PROMOTION_ELIGIBILITY_AUDIT',
+
+    source:
+      'FIX-03D.5.6',
+
+    totalGroups:
+      audits.length,
+
+    approvedGroups,
+
+    heldGroups,
+
+    audits,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
