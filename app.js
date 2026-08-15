@@ -86547,3 +86547,129 @@ function probePromotionMaturityChecksV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.5
+   MOBILE MATURITY STRUCTURE PROBE BUTTON
+   TEMPORARY DEBUG UI
+   ========================================================================= */
+
+(function installFix03D55ProbeButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D55ProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D55ProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.5 Maturity Probe';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:360px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            probePromotionMaturityChecksV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              '',
+              'Probe Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          probePromotionMaturityChecksV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.5',
+              '',
+              'PROBE EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
