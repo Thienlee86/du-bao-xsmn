@@ -84629,3 +84629,321 @@ console.log(
   'FIX-03D.5.3 temporary mobile audit button installed'
 );
 
+/* =========================================================================
+   FIX-03D.5.4
+   PROMOTION CANDIDATE REGISTRY
+
+   Purpose:
+   - Build a read-only registry from D.5.3 per-group readiness.
+   - Only groups explicitly eligible for promotion may enter the registry.
+   - No Production modification.
+   - No storage modification.
+   - No automatic promotion.
+   ========================================================================= */
+
+function buildPromotionCandidateRegistryV26() {
+
+  if (
+    typeof auditPerGroupPromotionReadinessV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.4',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      candidates:
+        []
+
+    };
+
+  }
+
+
+  let audit;
+
+
+  try {
+
+    audit =
+      auditPerGroupPromotionReadinessV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.4',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      candidates:
+        []
+
+    };
+
+  }
+
+
+  if (
+    !audit ||
+    audit.ready !== true ||
+    audit.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_NOT_READY',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.4',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      candidates:
+        []
+
+    };
+
+  }
+
+
+  const sourceGroups =
+    Array.isArray(
+      audit.groups
+    )
+      ? audit.groups
+      : Array.isArray(
+          audit.results
+        )
+        ? audit.results
+        : Array.isArray(
+            audit.details
+          )
+          ? audit.details
+          : [];
+
+
+  const candidates =
+    sourceGroups
+      .filter(
+        group =>
+          group &&
+          group.eligible === true
+      )
+      .map(
+        (
+          group,
+          index
+        ) => {
+
+          const province =
+            group.province ||
+            '';
+
+          const prize =
+            group.prize ||
+            '';
+
+          const model =
+            group.model ||
+            '';
+
+          const windowValue =
+            group.window != null
+              ? group.window
+              : null;
+
+
+          const candidateKey =
+            [
+              province,
+              prize,
+              model,
+              windowValue
+            ].join(
+              '|'
+            );
+
+
+          return {
+
+            candidateId:
+              'PROMO-' +
+              String(
+                index + 1
+              ).padStart(
+                3,
+                '0'
+              ),
+
+            candidateKey,
+
+            province,
+
+            prize,
+
+            model,
+
+            window:
+              windowValue,
+
+            verified:
+              Number(
+                group.verified ||
+                0
+              ),
+
+            rankedCoverage:
+              Number(
+                group.rankedCoverage ||
+                0
+              ),
+
+            top10Rate:
+              Number(
+                group.top10Rate ||
+                0
+              ),
+
+            mrr:
+              Number(
+                group.mrr ||
+                0
+              ),
+
+            eligible:
+              true,
+
+            status:
+              group.status ||
+              'ELIGIBLE',
+
+            source:
+              'FIX-03D.5.3',
+
+            readOnly:
+              true
+
+          };
+
+        }
+      );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      candidates.length > 0
+        ? 'PROMOTION_CANDIDATES_REGISTERED'
+        : 'NO_ELIGIBLE_PROMOTION_CANDIDATES',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.4',
+
+    mode:
+      'PROMOTION_CANDIDATE_REGISTRY',
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    autoPromotion:
+      false,
+
+    source:
+      'FIX-03D.5.3',
+
+    totalGroups:
+      sourceGroups.length,
+
+    candidateCount:
+      candidates.length,
+
+    candidates
+
+  };
+
+}
+
