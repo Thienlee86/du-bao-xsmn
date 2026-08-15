@@ -83715,7 +83715,6 @@ function showFix02EDoubleVerifyProtectionV26() {
       function () {
 
         let aggregate;
-        let audit;
 
 
         try {
@@ -83723,8 +83722,6 @@ function showFix02EDoubleVerifyProtectionV26() {
           aggregate =
             aggregateForwardEvidenceV26();
 
-          audit =
-            auditPerGroupPromotionReadinessV26();
 
         } catch (error) {
 
@@ -83865,31 +83862,6 @@ function showFix02EDoubleVerifyProtectionV26() {
 
           '',
 
-          'Audit Ready: ' +
-            (
-              audit &&
-              audit.ready
-                ? 'YES'
-                : 'NO'
-            ),
-
-          'Audit Passed: ' +
-            (
-              audit &&
-              audit.passed
-                ? 'YES'
-                : 'NO'
-            ),
-
-          'Audit Reason: ' +
-            (
-              audit &&
-              audit.reason
-                ? audit.reason
-                : '-'
-            ),
-
-          '',
 
           'AGGREGATE KEYS:',
 
