@@ -89517,3 +89517,402 @@ if (
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.6
+   DECISION ITEM STRUCTURE PROBE
+
+   Mục tiêu:
+   - Đọc cấu trúc thật của decisions[0].
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - Debug / Read Only.
+   ========================================================================= */
+
+(function installFix03D56DecisionProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D56DecisionProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D56DecisionProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.6 Decision Probe';
+
+
+    /*
+     * Tạo trực tiếp theo dạng panel button.
+     * Không dùng position:fixed.
+     */
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * D.5.6 Gate function phải tồn tại.
+         */
+
+        if (
+          typeof
+            evaluatePromotionGateV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.6',
+              'DECISION ITEM STRUCTURE PROBE',
+              '',
+              'Gate Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            evaluatePromotionGateV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.6',
+              'DECISION ITEM STRUCTURE PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const decisions =
+          result &&
+          Array.isArray(
+            result.decisions
+          )
+            ? result.decisions
+            : [];
+
+
+        const first =
+          decisions.length
+            ? decisions[0]
+            : null;
+
+
+        const keys =
+          first &&
+          typeof first ===
+            'object'
+            ? Object.keys(
+                first
+              )
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.6'
+        );
+
+        lines.push(
+          'DECISION ITEM STRUCTURE PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Result: ' +
+          (
+            result
+              ? 'FOUND'
+              : 'NOT FOUND'
+          )
+        );
+
+
+        lines.push(
+          'Decisions: ' +
+          decisions.length
+        );
+
+
+        lines.push(
+          'First Item: ' +
+          (
+            first
+              ? 'FOUND'
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          'FIRST ITEM KEYS'
+        );
+
+        lines.push(
+          '--------------------'
+        );
+
+
+        if (!keys.length) {
+
+          lines.push(
+            'NONE'
+          );
+
+        } else {
+
+          keys.forEach(
+            (
+              key,
+              index
+            ) => {
+
+              lines.push(
+                (index + 1) +
+                '. ' +
+                key
+              );
+
+            }
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          '--------------------'
+        );
+
+        lines.push(
+          'FIRST ITEM VALUES'
+        );
+
+        lines.push(
+          '--------------------'
+        );
+
+
+        if (!first) {
+
+          lines.push(
+            'NONE'
+          );
+
+        } else {
+
+          keys.forEach(
+            key => {
+
+              let value =
+                first[key];
+
+
+              if (
+                value !== null &&
+                typeof value ===
+                  'object'
+              ) {
+
+                try {
+
+                  value =
+                    JSON.stringify(
+                      value
+                    );
+
+                } catch (error) {
+
+                  value =
+                    '[OBJECT]';
+
+                }
+
+              }
+
+
+              lines.push(
+                key +
+                ': ' +
+                String(
+                  value
+                )
+              );
+
+            }
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Đưa thẳng vào Debug Panel.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      console.log(
+        'FIX-03D.5.6 Decision Probe installed in Debug Panel'
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Safety fallback:
+     * nếu panel chưa có thì chờ,
+     * không tạo floating button.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
