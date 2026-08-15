@@ -90919,3 +90919,480 @@ function auditPromotionEligibilityV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.7
+   AUDIT RESULT STRUCTURE PROBE
+
+   Mục tiêu:
+   - Kiểm tra output thật của auditPromotionEligibilityV26().
+   - Xác nhận audits[] và cấu trúc audit item.
+   - Read Only.
+   - Không sửa Production / Storage.
+   ========================================================================= */
+
+(function installFix03D57AuditProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D57AuditProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D57AuditProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.7 Eligibility Audit Probe';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            auditPromotionEligibilityV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'AUDIT RESULT STRUCTURE PROBE',
+              '',
+              'Audit Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            auditPromotionEligibilityV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'AUDIT RESULT STRUCTURE PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const audits =
+          result &&
+          Array.isArray(
+            result.audits
+          )
+            ? result.audits
+            : [];
+
+
+        const first =
+          audits.length
+            ? audits[0]
+            : null;
+
+
+        const resultKeys =
+          result &&
+          typeof result ===
+            'object'
+            ? Object.keys(
+                result
+              )
+            : [];
+
+
+        const firstKeys =
+          first &&
+          typeof first ===
+            'object'
+            ? Object.keys(
+                first
+              )
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.7'
+        );
+
+        lines.push(
+          'AUDIT RESULT STRUCTURE PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Reason: ' +
+          String(
+            result &&
+            result.reason
+              ? result.reason
+              : ''
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Total Groups: ' +
+          Number(
+            result &&
+            result.totalGroups
+              ? result.totalGroups
+              : 0
+          )
+        );
+
+        lines.push(
+          'Approved: ' +
+          Number(
+            result &&
+            result.approvedGroups
+              ? result.approvedGroups
+              : 0
+          )
+        );
+
+        lines.push(
+          'Held: ' +
+          Number(
+            result &&
+            result.heldGroups
+              ? result.heldGroups
+              : 0
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'RESULT KEYS:'
+        );
+
+        lines.push(
+          resultKeys.length
+            ? resultKeys.join(', ')
+            : 'NONE'
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'AUDITS LENGTH: ' +
+          audits.length
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'FIRST AUDIT ITEM: ' +
+          (
+            first
+              ? 'FOUND'
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'FIRST ITEM KEYS:'
+        );
+
+        lines.push(
+          firstKeys.length
+            ? firstKeys.join(', ')
+            : 'NONE'
+        );
+
+
+        if (first) {
+
+          lines.push('');
+
+          lines.push(
+            'FIRST ITEM SUMMARY:'
+          );
+
+
+          lines.push(
+            'Group: ' +
+            String(
+              first.province ||
+              ''
+            ) +
+            ' / ' +
+            String(
+              first.prize ||
+              ''
+            )
+          );
+
+
+          lines.push(
+            'Maturity: ' +
+            String(
+              first.maturityState ||
+              'UNKNOWN'
+            )
+          );
+
+
+          lines.push(
+            'Eligible: ' +
+            (
+              first.eligible === true
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          lines.push(
+            'Gate Passed: ' +
+            (
+              first.gatePassed === true
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          lines.push(
+            'Audit Reasons: ' +
+            (
+              Array.isArray(
+                first.auditReasons
+              ) &&
+              first.auditReasons.length
+                ? first.auditReasons.join(
+                    ', '
+                  )
+                : 'NONE'
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result &&
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result &&
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result &&
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result &&
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Attach directly to FIX-03D Debug Panel.
+     * Không tạo floating fallback.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
