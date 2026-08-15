@@ -83195,3 +83195,277 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.2
+   PROMOTION POLICY EVALUATOR
+
+   READ ONLY
+   - Không thay Production Engine
+   - Không ghi localStorage
+   - Không promote model
+   - Chỉ đánh giá Forward Evidence từ D.5.1
+   ========================================================================= */
+
+(function installPromotionPolicyEvaluatorV26() {
+
+  const POLICY = Object.freeze({
+
+    minVerifiedSnapshots: 6,
+
+    minEvidenceGroups: 3,
+
+    minAccountedRatio: 1.0,
+
+    maxInvalidIdentity: 0
+
+  });
+
+
+  function evaluatePromotionPolicyV26() {
+
+    if (
+      typeof aggregateForwardEvidenceV26 !==
+      'function'
+    ) {
+
+      return {
+
+        ready: false,
+        passed: false,
+        eligible: false,
+
+        status:
+          'NOT_READY',
+
+        reason:
+          'FORWARD_EVIDENCE_AGGREGATOR_NOT_READY',
+
+        policy:
+          POLICY
+
+      };
+
+    }
+
+
+    let evidence;
+
+
+    try {
+
+      evidence =
+        aggregateForwardEvidenceV26();
+
+    } catch (error) {
+
+      return {
+
+        ready: false,
+        passed: false,
+        eligible: false,
+
+        status:
+          'ERROR',
+
+        reason:
+          'FORWARD_EVIDENCE_AGGREGATION_ERROR',
+
+        error:
+          String(
+            error &&
+            error.message
+              ? error.message
+              : error
+          ),
+
+        policy:
+          POLICY
+
+      };
+
+    }
+
+
+    if (
+      !evidence ||
+      evidence.ready !== true ||
+      evidence.passed !== true
+    ) {
+
+      return {
+
+        ready: false,
+        passed: false,
+        eligible: false,
+
+        status:
+          'NOT_READY',
+
+        reason:
+          'FORWARD_EVIDENCE_NOT_READY',
+
+        evidence:
+          evidence || null,
+
+        policy:
+          POLICY
+
+      };
+
+    }
+
+
+    const verified =
+      Number(
+        evidence.verifiedSnapshots || 0
+      );
+
+
+    const accounted =
+      Number(
+        evidence.accountedVerified || 0
+      );
+
+
+    const groups =
+      Number(
+        evidence.evidenceGroups || 0
+      );
+
+
+    const invalidIdentity =
+      Number(
+        evidence.invalidGroupIdentity || 0
+      );
+
+
+    const accountedRatio =
+      verified > 0
+        ? accounted / verified
+        : 0;
+
+
+    const checks = {
+
+      verifiedSnapshots:
+        verified >=
+        POLICY.minVerifiedSnapshots,
+
+      evidenceGroups:
+        groups >=
+        POLICY.minEvidenceGroups,
+
+      accountedRatio:
+        accountedRatio >=
+        POLICY.minAccountedRatio,
+
+      identityIntegrity:
+        invalidIdentity <=
+        POLICY.maxInvalidIdentity
+
+    };
+
+
+    const integrityPassed =
+      checks.accountedRatio &&
+      checks.identityIntegrity;
+
+
+    const quantityPassed =
+      checks.verifiedSnapshots &&
+      checks.evidenceGroups;
+
+
+    let status;
+    let reason;
+    let eligible = false;
+
+
+    if (!integrityPassed) {
+
+      status =
+        'BLOCKED';
+
+      reason =
+        'FORWARD_EVIDENCE_INTEGRITY_FAILED';
+
+    } else if (!quantityPassed) {
+
+      status =
+        'INSUFFICIENT_EVIDENCE';
+
+      reason =
+        'FORWARD_EVIDENCE_BELOW_PROMOTION_THRESHOLD';
+
+    } else {
+
+      status =
+        'ELIGIBLE';
+
+      reason =
+        'PROMOTION_EVIDENCE_THRESHOLD_MET';
+
+      eligible = true;
+
+    }
+
+
+    return {
+
+      ready: true,
+
+      passed: true,
+
+      eligible,
+
+      status,
+
+      reason,
+
+      evidence: {
+
+        totalSnapshots:
+          Number(
+            evidence.totalSnapshots || 0
+          ),
+
+        verifiedSnapshots:
+          verified,
+
+        accountedVerified:
+          accounted,
+
+        evidenceGroups:
+          groups,
+
+        invalidGroupIdentity:
+          invalidIdentity,
+
+        accountedRatio
+
+      },
+
+      checks,
+
+      policy:
+        POLICY
+
+    };
+
+  }
+
+
+  window.XSMN_V26_PROMOTION_POLICY =
+    POLICY;
+
+
+  window.evaluatePromotionPolicyV26 =
+    evaluatePromotionPolicyV26;
+
+
+  console.log(
+    'FIX-03D.5.2 Promotion Policy Evaluator loaded — READ ONLY'
+  );
+
+})();
+
