@@ -89099,13 +89099,22 @@ function installFix03DDebugPanelV26() {
     );
 
   info.textContent =
-    'Debug tools will be moved here.';
+  'Debug tools will be moved here.' +
+  '\n' +
+  'D.5.6 BLOCK REACHED: ' +
+  (
+    window.FIX03D56_FINAL_RUNNER_REACHED ===
+      true
+      ? 'YES ✅'
+      : 'NO ❌'
+  );
 
 
   info.style.cssText = [
     'font-size:13px',
     'line-height:1.5',
     'color:#555'
+     'white-space:pre-line',
   ].join(';');
 
 
@@ -89921,9 +89930,8 @@ if (
    FINAL RUNNER — SAFE PROMOTION GATE
    READ-ONLY DEBUG UI
    ========================================================================= */
-console.log(
-  '🛡️ FIX-03D.5.6 FINAL RUNNER BLOCK REACHED'
-);
+window.FIX03D56_FINAL_RUNNER_REACHED =
+  true;
 
 (function addFix03D56FinalRunnerV26() {
 
