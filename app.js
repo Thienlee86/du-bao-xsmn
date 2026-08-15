@@ -89252,15 +89252,24 @@ if (
 /* =========================================================================
    FIX-03D DEBUG V2.6
    STEP 2B — MOVE D.5.2 INTO DEBUG PANEL
+   RETRY SAFE VERSION
    ========================================================================= */
 
 (function moveFix03D52IntoDebugPanelV26() {
 
+  let attempts = 0;
+
+  const maxAttempts = 20;
+
+
   function moveButton() {
+
+    attempts++;
+
 
     const panel =
       document.getElementById(
-        'fix03dDebugPanelV26'
+        'fix03DDebugPanelV26'
       );
 
     const button =
@@ -89269,60 +89278,73 @@ if (
       );
 
 
-    if (!panel || !button) {
+    if (
+      panel &&
+      button
+    ) {
 
-      return false;
+      button.style.position =
+        'static';
+
+      button.style.right =
+        'auto';
+
+      button.style.bottom =
+        'auto';
+
+      button.style.width =
+        '100%';
+
+      button.style.display =
+        'block';
+
+      button.style.margin =
+        '8px 0';
+
+
+      panel.appendChild(
+        button
+      );
+
+
+      console.log(
+        'FIX-03D DEBUG STEP 2B — D.5.2 MOVED'
+      );
+
+      return;
 
     }
 
 
-    /*
-     * Remove old fixed positioning.
-     * Keep original onclick unchanged.
-     */
+    if (
+      attempts <
+      maxAttempts
+    ) {
 
-    button.style.position =
-      'static';
+      setTimeout(
+        moveButton,
+        500
+      );
 
-    button.style.right =
-      'auto';
+    } else {
 
-    button.style.bottom =
-      'auto';
+      console.warn(
+        'FIX-03D DEBUG STEP 2B — D.5.2 MOVE FAILED',
+        {
+          panelFound:
+            Boolean(panel),
 
-    button.style.width =
-      '100%';
+          buttonFound:
+            Boolean(button)
+        }
+      );
 
-    button.style.display =
-      'block';
-
-    button.style.margin =
-      '8px 0';
-
-
-    panel.appendChild(
-      button
-    );
-
-
-    return true;
+    }
 
   }
 
 
-  if (
-    moveButton()
-  ) {
-
-    return;
-
-  }
-
-
-  setTimeout(
-    moveButton,
-    1000
-  );
+  moveButton();
 
 })();
 
