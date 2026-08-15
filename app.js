@@ -93296,3 +93296,498 @@ console.log(
   'FIX-03D.5.8 STEP 1 Promotion Candidate Builder loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 2 — PROMOTION CANDIDATE STRUCTURE PROBE
+
+   Mục tiêu:
+   - Kiểm tra output thật của buildPromotionCandidatesV26().
+   - Xác nhận HELD không trở thành candidate.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - READ ONLY.
+   ========================================================================= */
+
+(function installFix03D58CandidateProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58CandidateProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58CandidateProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.8 Candidate Probe';
+
+
+    /*
+     * Tạo trực tiếp theo dạng Debug Panel button.
+     * Không tạo floating button.
+     */
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * STEP 1 builder phải tồn tại.
+         */
+
+        if (
+          typeof
+            buildPromotionCandidatesV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'PROMOTION CANDIDATE STRUCTURE PROBE',
+              '',
+              'Builder Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            buildPromotionCandidatesV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'PROMOTION CANDIDATE STRUCTURE PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const candidates =
+          result &&
+          Array.isArray(
+            result.candidates
+          )
+            ? result.candidates
+            : [];
+
+
+        const first =
+          candidates.length
+            ? candidates[0]
+            : null;
+
+
+        const keys =
+          first &&
+          typeof first === 'object'
+            ? Object.keys(
+                first
+              )
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8'
+        );
+
+        lines.push(
+          'PROMOTION CANDIDATE STRUCTURE PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Total Audits: ' +
+          (
+            result &&
+            result.totalAudits != null
+              ? result.totalAudits
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Approved Audits: ' +
+          (
+            result &&
+            result.approvedAudits != null
+              ? result.approvedAudits
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Held Audits: ' +
+          (
+            result &&
+            result.heldAudits != null
+              ? result.heldAudits
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Candidate Count: ' +
+          (
+            result &&
+            result.candidateCount != null
+              ? result.candidateCount
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result &&
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result &&
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result &&
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result &&
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANDIDATE STRUCTURE'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        if (!first) {
+
+          lines.push(
+            'First Candidate: NONE'
+          );
+
+          lines.push(
+            'Expected when all groups are HELD.'
+          );
+
+        } else {
+
+          lines.push(
+            'First Candidate: FOUND'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'KEYS:'
+          );
+
+
+          keys.forEach(
+            (
+              key,
+              index
+            ) => {
+
+              lines.push(
+                (index + 1) +
+                '. ' +
+                key
+              );
+
+            }
+          );
+
+
+          lines.push('');
+
+          lines.push(
+            'VALUES:'
+          );
+
+
+          keys.forEach(
+            key => {
+
+              let value =
+                first[key];
+
+
+              if (
+                value !== null &&
+                typeof value ===
+                  'object'
+              ) {
+
+                try {
+
+                  value =
+                    JSON.stringify(
+                      value
+                    );
+
+                } catch (error) {
+
+                  value =
+                    '[OBJECT]';
+
+                }
+
+              }
+
+
+              lines.push(
+                key +
+                ': ' +
+                String(
+                  value
+                )
+              );
+
+            }
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Đưa trực tiếp vào FIX-03D Debug Panel.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Panel có thể được tạo sau.
+     * Chờ tối đa 10 giây.
+     *
+     * QUAN TRỌNG:
+     * Không tạo floating fallback.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
