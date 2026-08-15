@@ -96528,3 +96528,1031 @@ console.log(
   'FIX-03D.5.8 STEP 5 Candidate Integrity & Immutability Audit loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 6 — CANDIDATE COMMIT BOUNDARY / DRY-RUN AUDIT
+
+   Mục tiêu:
+   - Kiểm tra candidate trước ranh giới commit.
+   - Chỉ APPROVED candidate hợp lệ mới được phép đi tiếp.
+   - HELD / malformed candidate phải bị chặn.
+   - Kiểm tra duplicate lifecycleKey.
+   - DRY RUN ONLY.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   ========================================================================= */
+
+
+/* =========================================================================
+   STEP 6A
+   VALIDATE ONE CANDIDATE FOR COMMIT
+   ========================================================================= */
+
+function validatePromotionCandidateForCommitV26(
+  candidate
+) {
+
+  const checks = {
+
+    candidateExists:
+      Boolean(
+        candidate &&
+        typeof candidate ===
+          'object'
+      ),
+
+    lifecycleKeyPresent:
+      Boolean(
+        candidate &&
+        typeof candidate.lifecycleKey ===
+          'string' &&
+        candidate.lifecycleKey.trim()
+      ),
+
+    provincePresent:
+      Boolean(
+        candidate &&
+        typeof candidate.province ===
+          'string' &&
+        candidate.province.trim()
+      ),
+
+    prizePresent:
+      Boolean(
+        candidate &&
+        typeof candidate.prize ===
+          'string' &&
+        candidate.prize.trim()
+      ),
+
+    modelPresent:
+      Boolean(
+        candidate &&
+        typeof candidate.model ===
+          'string' &&
+        candidate.model.trim()
+      ),
+
+    windowValid:
+      Boolean(
+        candidate &&
+        Number.isFinite(
+          Number(
+            candidate.window
+          )
+        ) &&
+        Number(
+          candidate.window
+        ) > 0
+      ),
+
+    gatePassed:
+      Boolean(
+        candidate &&
+        candidate.gatePassed ===
+          true
+      ),
+
+    approved:
+      Boolean(
+        candidate &&
+        candidate.approved ===
+          true
+      ),
+
+    pendingCommit:
+      Boolean(
+        candidate &&
+        candidate.status ===
+          'PENDING_COMMIT'
+      )
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      failedChecks.length === 0,
+
+    reason:
+      failedChecks.length === 0
+        ? 'CANDIDATE_COMMIT_BOUNDARY_VALID'
+        : 'CANDIDATE_COMMIT_BOUNDARY_REJECTED',
+
+    checks,
+
+    failedChecks,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 6B
+   COMMIT BOUNDARY DRY-RUN AUDIT
+   ========================================================================= */
+
+function auditPromotionCandidateCommitBoundaryV26() {
+
+  if (
+    typeof
+      buildPromotionCandidateFromApprovedAuditV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANDIDATE_CONTRACT_FUNCTION_NOT_FOUND',
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * Synthetic APPROVED audit.
+   * Phải tạo candidate và được boundary ACCEPT.
+   * ---------------------------------------------------------
+   */
+
+  const approvedAudit = {
+
+    lifecycleKey:
+      'synthetic-commit-approved/db/RECENT/10',
+
+    province:
+      'synthetic-commit-approved',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_COMMIT_TEST',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'SYNTHETIC_GATE_PASSED'
+
+  };
+
+
+  const approvedCandidate =
+    buildPromotionCandidateFromApprovedAuditV26(
+      approvedAudit
+    );
+
+
+  const approvedValidation =
+    validatePromotionCandidateForCommitV26(
+      approvedCandidate
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * Synthetic HELD object.
+   *
+   * Không dùng builder approved cho object này.
+   * Boundary phải REJECT.
+   * ---------------------------------------------------------
+   */
+
+  const heldCandidate = {
+
+    lifecycleKey:
+      'synthetic-commit-held/db/RECENT/10',
+
+    province:
+      'synthetic-commit-held',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'WAITING',
+
+    gatePassed:
+      false,
+
+    approved:
+      false,
+
+    status:
+      'PENDING_COMMIT'
+
+  };
+
+
+  const heldValidation =
+    validatePromotionCandidateForCommitV26(
+      heldCandidate
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * Malformed candidate.
+   * Boundary phải REJECT.
+   * ---------------------------------------------------------
+   */
+
+  const malformedCandidate = {
+
+    lifecycleKey:
+      '',
+
+    province:
+      '',
+
+    prize:
+      'db',
+
+    model:
+      '',
+
+    window:
+      0,
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    status:
+      'PENDING_COMMIT'
+
+  };
+
+
+  const malformedValidation =
+    validatePromotionCandidateForCommitV26(
+      malformedCandidate
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * Duplicate simulation.
+   *
+   * Không Storage.
+   * Chỉ dùng local array.
+   * ---------------------------------------------------------
+   */
+
+  const syntheticQueue = [];
+
+
+  function dryRunQueueCandidate(
+    candidate
+  ) {
+
+    const validation =
+      validatePromotionCandidateForCommitV26(
+        candidate
+      );
+
+
+    if (
+      !validation.passed
+    ) {
+
+      return {
+
+        accepted: false,
+
+        reason:
+          'BOUNDARY_REJECTED'
+
+      };
+
+    }
+
+
+    const duplicate =
+      syntheticQueue.some(
+        item =>
+          item.lifecycleKey ===
+          candidate.lifecycleKey
+      );
+
+
+    if (duplicate) {
+
+      return {
+
+        accepted: false,
+
+        reason:
+          'DUPLICATE_LIFECYCLE_KEY'
+
+      };
+
+    }
+
+
+    /*
+     * Local simulation only.
+     * Không ghi Storage.
+     */
+
+    syntheticQueue.push(
+      {
+        ...candidate
+      }
+    );
+
+
+    return {
+
+      accepted: true,
+
+      reason:
+        'DRY_RUN_ACCEPTED'
+
+    };
+
+  }
+
+
+  const firstQueueAttempt =
+    dryRunQueueCandidate(
+      approvedCandidate
+    );
+
+
+  const duplicateQueueAttempt =
+    dryRunQueueCandidate(
+      approvedCandidate
+    );
+
+
+  const heldQueueAttempt =
+    dryRunQueueCandidate(
+      heldCandidate
+    );
+
+
+  const malformedQueueAttempt =
+    dryRunQueueCandidate(
+      malformedCandidate
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * Source immutability.
+   * ---------------------------------------------------------
+   */
+
+  const approvedSourceStillValid =
+    approvedAudit.province ===
+      'synthetic-commit-approved' &&
+    approvedAudit.gatePassed ===
+      true &&
+    approvedAudit.approved ===
+      true;
+
+
+  /*
+   * ---------------------------------------------------------
+   * FINAL CONTRACT CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const checks = {
+
+    approvedCandidateCreated:
+      Boolean(
+        approvedCandidate
+      ),
+
+    approvedBoundaryAccepted:
+      approvedValidation.passed ===
+        true,
+
+    heldBoundaryRejected:
+      heldValidation.passed ===
+        false,
+
+    malformedBoundaryRejected:
+      malformedValidation.passed ===
+        false,
+
+    firstQueueAccepted:
+      firstQueueAttempt.accepted ===
+        true,
+
+    duplicateQueueRejected:
+      duplicateQueueAttempt.accepted ===
+        false &&
+      duplicateQueueAttempt.reason ===
+        'DUPLICATE_LIFECYCLE_KEY',
+
+    heldQueueRejected:
+      heldQueueAttempt.accepted ===
+        false,
+
+    malformedQueueRejected:
+      malformedQueueAttempt.accepted ===
+        false,
+
+    queueContainsExactlyOne:
+      syntheticQueue.length ===
+        1,
+
+    approvedSourceUnchanged:
+      approvedSourceStillValid,
+
+    dryRunOnly:
+      true
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_COMMIT_BOUNDARY_DRY_RUN_VALID'
+        : 'CANDIDATE_COMMIT_BOUNDARY_DRY_RUN_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_6',
+
+    mode:
+      'CANDIDATE_COMMIT_BOUNDARY_DRY_RUN',
+
+    approvedBoundary:
+      approvedValidation.passed,
+
+    heldBoundary:
+      heldValidation.passed,
+
+    malformedBoundary:
+      malformedValidation.passed,
+
+    firstQueueAttempt,
+
+    duplicateQueueAttempt,
+
+    heldQueueAttempt,
+
+    malformedQueueAttempt,
+
+    syntheticQueueLength:
+      syntheticQueue.length,
+
+    checks,
+
+    failedChecks,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 6C
+   DEBUG PANEL BUTTON
+   ========================================================================= */
+
+(function installFix03D58CommitBoundaryAuditV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58CommitBoundaryAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58CommitBoundaryAuditV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔒 D.5.8 Commit Boundary';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            auditPromotionCandidateCommitBoundaryV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'CANDIDATE COMMIT BOUNDARY',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const checks =
+          result &&
+          result.checks
+            ? result.checks
+            : {};
+
+
+        const failedChecks =
+          result &&
+          Array.isArray(
+            result.failedChecks
+          )
+            ? result.failedChecks
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8'
+        );
+
+        lines.push(
+          'CANDIDATE COMMIT BOUNDARY / DRY-RUN AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Approved Boundary: ' +
+          (
+            result.approvedBoundary ===
+              true
+              ? 'ACCEPT'
+              : 'REJECT'
+          )
+        );
+
+        lines.push(
+          'HELD Boundary: ' +
+          (
+            result.heldBoundary ===
+              false
+              ? 'REJECT'
+              : 'ACCEPT'
+          )
+        );
+
+        lines.push(
+          'Malformed Boundary: ' +
+          (
+            result.malformedBoundary ===
+              false
+              ? 'REJECT'
+              : 'ACCEPT'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'First Queue: ' +
+          (
+            result.firstQueueAttempt
+              ? result
+                  .firstQueueAttempt
+                  .reason
+              : '-'
+          )
+        );
+
+        lines.push(
+          'Duplicate Queue: ' +
+          (
+            result.duplicateQueueAttempt
+              ? result
+                  .duplicateQueueAttempt
+                  .reason
+              : '-'
+          )
+        );
+
+        lines.push(
+          'HELD Queue: ' +
+          (
+            result.heldQueueAttempt
+              ? result
+                  .heldQueueAttempt
+                  .reason
+              : '-'
+          )
+        );
+
+        lines.push(
+          'Malformed Queue: ' +
+          (
+            result.malformedQueueAttempt
+              ? result
+                  .malformedQueueAttempt
+                  .reason
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Synthetic Queue Length: ' +
+          (
+            result.syntheticQueueLength ??
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'BOUNDARY CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          checks
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Chỉ gắn vào FIX-03D Debug Panel.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 6 Candidate Commit Boundary Dry-Run Audit loaded — READ ONLY'
+);
+
