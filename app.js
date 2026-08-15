@@ -83113,7 +83113,7 @@ function showFix02EDoubleVerifyProtectionV26() {
       );
 
     button.id =
-      'btnFix03D51MobileV26';
+      'MobileV26';
 
     button.type =
       'button';
@@ -89171,4 +89171,81 @@ if (
   installFix03DDebugPanelV26();
 
 }
+
+/* =========================================================================
+   FIX-03D DEBUG V2.6
+   STEP 2A — MOVE D.5.1 INTO DEBUG PANEL
+   ========================================================================= */
+
+(function moveFix03D51IntoDebugPanelV26() {
+
+  function moveButton() {
+
+    const panel =
+      document.getElementById(
+        'fix03dDebugPanelV26'
+      );
+
+    const button =
+      document.getElementById(
+        'btnFix03D51MobileV26'
+      );
+
+
+    if (!panel || !button) {
+
+      return false;
+
+    }
+
+
+    /*
+     * Remove old fixed positioning.
+     * Keep original onclick unchanged.
+     */
+
+    button.style.position =
+      'static';
+
+    button.style.right =
+      'auto';
+
+    button.style.bottom =
+      'auto';
+
+    button.style.width =
+      '100%';
+
+    button.style.display =
+      'block';
+
+    button.style.margin =
+      '8px 0';
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    moveButton()
+  ) {
+
+    return;
+
+  }
+
+
+  setTimeout(
+    moveButton,
+    1000
+  );
+
+})();
 
