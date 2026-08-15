@@ -84261,3 +84261,258 @@ console.log(
   'FIX-03D.5.3 Per-Group Promotion Readiness Audit loaded'
 );
 
+/* =========================================================================
+   FIX-03D.5.3
+   MOBILE RUNNER
+   ========================================================================= */
+
+function runFix03D53PerGroupAuditV26() {
+
+  try {
+
+    const result =
+      auditPerGroupPromotionReadinessV26();
+
+
+    const groups =
+      result &&
+      Array.isArray(result.groups)
+        ? result.groups
+        : [];
+
+
+    const lines = [];
+
+
+    lines.push(
+      'FIX-03D.5.3'
+    );
+
+    lines.push(
+      'PER-GROUP PROMOTION READINESS'
+    );
+
+    lines.push('');
+
+
+    lines.push(
+      'Ready: ' +
+      (
+        result &&
+        result.ready
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+    lines.push(
+      'Passed: ' +
+      (
+        result &&
+        result.passed
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+    lines.push(
+      'Any Eligible: ' +
+      (
+        result &&
+        result.eligible
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : '-'
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'Total Groups: ' +
+      (
+        result &&
+        Number.isFinite(
+          result.totalGroups
+        )
+          ? result.totalGroups
+          : groups.length
+      )
+    );
+
+    lines.push(
+      'Eligible Groups: ' +
+      (
+        result &&
+        Number.isFinite(
+          result.eligibleGroups
+        )
+          ? result.eligibleGroups
+          : 0
+      )
+    );
+
+    lines.push(
+      'Waiting Groups: ' +
+      (
+        result &&
+        Number.isFinite(
+          result.waitingGroups
+        )
+          ? result.waitingGroups
+          : 0
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      '--------------------'
+    );
+
+    lines.push(
+      'GROUP DETAILS'
+    );
+
+
+    groups.forEach(
+      (group, index) => {
+
+        lines.push('');
+
+        lines.push(
+          '#' + (index + 1) +
+          ' ' +
+          String(
+            group.province || '-'
+          ) +
+          ' / ' +
+          String(
+            group.prize || '-'
+          )
+        );
+
+        lines.push(
+          'Model: ' +
+          String(
+            group.model || '-'
+          )
+        );
+
+        lines.push(
+          'Window: ' +
+          String(
+            group.window ?? '-'
+          )
+        );
+
+        lines.push(
+          'Verified: ' +
+          String(
+            group.verified ?? 0
+          )
+        );
+
+        lines.push(
+          'Ranked Coverage: ' +
+          Number(
+            group.rankedCoverage || 0
+          ).toFixed(2)
+        );
+
+        lines.push(
+          'Top10 Rate: ' +
+          Number(
+            group.top10Rate || 0
+          ).toFixed(2)
+        );
+
+        lines.push(
+          'MRR: ' +
+          Number(
+            group.mrr || 0
+          ).toFixed(4)
+        );
+
+        lines.push(
+          'Eligible: ' +
+          (
+            group.eligible
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Status: ' +
+          String(
+            group.status || '-'
+          )
+        );
+
+        lines.push(
+          'Reason: ' +
+          String(
+            group.reason || '-'
+          )
+        );
+
+      }
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    console.log(
+      'FIX-03D.5.3 RESULT',
+      result
+    );
+
+
+    return result;
+
+  } catch (error) {
+
+    console.error(
+      'FIX-03D.5.3 RUNNER ERROR',
+      error
+    );
+
+
+    alert(
+      'FIX-03D.5.3\n\n' +
+      'EXECUTION ERROR ❌\n\n' +
+      (
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+      )
+    );
+
+
+    return null;
+
+  }
+
+}
+
+
+console.log(
+  'FIX-03D.5.3 Mobile Runner loaded'
+);
+
