@@ -83915,3 +83915,349 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.3
+   PER-GROUP PROMOTION READINESS AUDIT
+
+   Purpose:
+   - Evaluate forward evidence independently per evidence group.
+   - Group identity:
+       province + prize + model + window
+   - READ ONLY.
+   - Does NOT modify Production Engine.
+   - Does NOT modify snapshots/storage.
+   - Does NOT promote any model.
+   ========================================================================= */
+
+function auditPerGroupPromotionReadinessV26() {
+
+  const aggregate =
+    aggregateForwardEvidenceV26();
+
+
+  if (
+    !aggregate ||
+    !aggregate.ready ||
+    !aggregate.passed
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      eligible: false,
+
+      reason:
+        'FORWARD_EVIDENCE_NOT_READY',
+
+      groups: []
+
+    };
+
+  }
+
+
+  const evidence =
+    Array.isArray(
+      aggregate.evidence
+    )
+      ? aggregate.evidence
+      : [];
+
+
+  if (!evidence.length) {
+
+    return {
+
+      ready: true,
+
+      passed: true,
+
+      eligible: false,
+
+      reason:
+        'NO_EVIDENCE_GROUPS',
+
+      totalGroups: 0,
+
+      eligibleGroups: 0,
+
+      waitingGroups: 0,
+
+      groups: []
+
+    };
+
+  }
+
+
+  /*
+   * Initial forward-evidence thresholds.
+   *
+   * Conservative by design.
+   * These thresholds are audit policy only.
+   * They do NOT trigger Production promotion.
+   */
+
+  const policy = {
+
+    minVerified: 5,
+
+    minRankedCoverage: 0.80,
+
+    minTop10Rate: 0.20,
+
+    minMRR: 0.05
+
+  };
+
+
+  const groups =
+    evidence.map(
+      item => {
+
+        const verified =
+          Number(
+            item.verified || 0
+          );
+
+
+        const ranked =
+          Number(
+            item.ranked || 0
+          );
+
+
+        const rankedCoverage =
+          Number(
+            item.rankedCoverage || 0
+          );
+
+
+        const top10Rate =
+          Number(
+            item.top10Rate || 0
+          );
+
+
+        const mrr =
+          Number(
+            item.mrr || 0
+          );
+
+
+        const checks = {
+
+          verified:
+            verified >=
+            policy.minVerified,
+
+          rankedCoverage:
+            rankedCoverage >=
+            policy.minRankedCoverage,
+
+          top10Rate:
+            top10Rate >=
+            policy.minTop10Rate,
+
+          mrr:
+            mrr >=
+            policy.minMRR
+
+        };
+
+
+        const eligible =
+          checks.verified &&
+          checks.rankedCoverage &&
+          checks.top10Rate &&
+          checks.mrr;
+
+
+        let status;
+        let reason;
+
+
+        if (!checks.verified) {
+
+          status =
+            'INSUFFICIENT_EVIDENCE';
+
+          reason =
+            'VERIFIED_BELOW_THRESHOLD';
+
+        } else if (
+          !checks.rankedCoverage
+        ) {
+
+          status =
+            'NOT_READY';
+
+          reason =
+            'RANKED_COVERAGE_BELOW_THRESHOLD';
+
+        } else if (
+          !checks.top10Rate
+        ) {
+
+          status =
+            'NOT_READY';
+
+          reason =
+            'TOP10_RATE_BELOW_THRESHOLD';
+
+        } else if (
+          !checks.mrr
+        ) {
+
+          status =
+            'NOT_READY';
+
+          reason =
+            'MRR_BELOW_THRESHOLD';
+
+        } else {
+
+          status =
+            'PROMOTION_READY';
+
+          reason =
+            'FORWARD_EVIDENCE_ACCEPTED';
+
+        }
+
+
+        return {
+
+          province:
+            item.province,
+
+          prize:
+            item.prize,
+
+          model:
+            item.model,
+
+          window:
+            item.window,
+
+          verified,
+
+          ranked,
+
+          misses:
+            Number(
+              item.misses || 0
+            ),
+
+          top1Rate:
+            Number(
+              item.top1Rate || 0
+            ),
+
+          top3Rate:
+            Number(
+              item.top3Rate || 0
+            ),
+
+          top5Rate:
+            Number(
+              item.top5Rate || 0
+            ),
+
+          top10Rate,
+
+          mrr,
+
+          averageRank:
+            Number(
+              item.averageRank || 0
+            ),
+
+          rankedCoverage,
+
+          firstTargetDate:
+            item.firstTargetDate ||
+            null,
+
+          lastTargetDate:
+            item.lastTargetDate ||
+            null,
+
+          checks,
+
+          eligible,
+
+          status,
+
+          reason
+
+        };
+
+      }
+    );
+
+
+  const eligibleGroups =
+    groups.filter(
+      item =>
+        item.eligible
+    ).length;
+
+
+  const waitingGroups =
+    groups.length -
+    eligibleGroups;
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    eligible:
+      eligibleGroups > 0,
+
+    reason:
+      eligibleGroups > 0
+        ? 'PROMOTION_READY_GROUPS_FOUND'
+        : 'NO_GROUP_READY_FOR_PROMOTION',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.3',
+
+    mode:
+      'READ_ONLY',
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    policy,
+
+    totalGroups:
+      groups.length,
+
+    eligibleGroups,
+
+    waitingGroups,
+
+    groups
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.3 Per-Group Promotion Readiness Audit loaded'
+);
+
