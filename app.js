@@ -89587,7 +89587,7 @@ if (
 
         if (
           typeof
-            evaluatePromotionGateV26 !==
+           evaluateSafePromotionGateV26 !==
           'function'
         ) {
 
@@ -89611,7 +89611,7 @@ if (
         try {
 
           result =
-            evaluatePromotionGateV26();
+            evaluateSafePromotionGateV26();
 
         } catch (error) {
 
