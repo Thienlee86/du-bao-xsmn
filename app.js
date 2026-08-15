@@ -88509,3 +88509,391 @@ console.log(
   'FIX-03D.5.6 Safe Promotion Gate loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.6
+   SAFE PROMOTION GATE — STRUCTURE PROBE
+
+   READ ONLY
+   ========================================================================= */
+
+function probeSafePromotionGateStructureV26() {
+
+  const lines = [];
+
+  lines.push(
+    'FIX-03D.5.6 STRUCTURE PROBE'
+  );
+
+  lines.push('');
+
+
+  if (
+    typeof
+      evaluateSafePromotionGateV26 !==
+    'function'
+  ) {
+
+    lines.push(
+      'Gate Function: NOT FOUND ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'PROMOTION_GATE_NOT_AVAILABLE'
+    };
+
+  }
+
+
+  let result;
+
+
+  try {
+
+    result =
+      evaluateSafePromotionGateV26();
+
+  } catch (error) {
+
+    lines.push(
+      'EXECUTION ERROR ❌'
+    );
+
+    lines.push('');
+
+    lines.push(
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      )
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'PROMOTION_GATE_EXECUTION_ERROR'
+    };
+
+  }
+
+
+  if (
+    !result ||
+    typeof result !== 'object'
+  ) {
+
+    lines.push(
+      'INVALID RESULT ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'INVALID_PROMOTION_GATE_RESULT'
+    };
+
+  }
+
+
+  const resultKeys =
+    Object.keys(
+      result
+    );
+
+
+  const arrayCollections =
+    resultKeys.filter(
+      key =>
+        Array.isArray(
+          result[key]
+        )
+    );
+
+
+  lines.push(
+    'Gate Ready: ' +
+    (
+      result.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Gate Passed: ' +
+    (
+      result.passed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Reason: ' +
+    String(
+      result.reason ||
+      ''
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Total Groups: ' +
+    Number(
+      result.totalGroups ||
+      0
+    )
+  );
+
+  lines.push(
+    'Approved: ' +
+    Number(
+      result.approvedGroups ||
+      0
+    )
+  );
+
+  lines.push(
+    'Held: ' +
+    Number(
+      result.heldGroups ||
+      0
+    )
+  );
+
+  lines.push(
+    'Any Gate Open: ' +
+    (
+      result.anyGateOpen === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'RESULT KEYS:'
+  );
+
+  lines.push(
+    resultKeys.length
+      ? resultKeys.join(', ')
+      : 'NONE'
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'ARRAY COLLECTIONS:'
+  );
+
+
+  if (!arrayCollections.length) {
+
+    lines.push(
+      'NONE'
+    );
+
+  } else {
+
+    arrayCollections.forEach(
+      key => {
+
+        lines.push(
+          key +
+          ' [' +
+          result[key].length +
+          ']'
+        );
+
+      }
+    );
+
+  }
+
+
+  const decisions =
+    Array.isArray(
+      result.decisions
+    )
+      ? result.decisions
+      : [];
+
+
+  lines.push('');
+
+  lines.push(
+    'DECISIONS LENGTH: ' +
+    decisions.length
+  );
+
+
+  if (decisions.length) {
+
+    const first =
+      decisions[0];
+
+
+    lines.push('');
+
+    lines.push(
+      'FIRST DECISION KEYS:'
+    );
+
+    lines.push(
+      Object.keys(
+        first
+      ).join(', ')
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'FIRST DECISION:'
+    );
+
+    lines.push(
+      String(
+        first.province ||
+        ''
+      ) +
+      '/' +
+      String(
+        first.prize ||
+        ''
+      )
+    );
+
+    lines.push(
+      'Gate Open: ' +
+      (
+        first.gateOpen === true
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+    lines.push(
+      'Decision: ' +
+      String(
+        first.decision ||
+        ''
+      )
+    );
+
+    lines.push(
+      'Reason: ' +
+      String(
+        first.reason ||
+        ''
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'SAFETY'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    (
+      result.readOnly === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Production Modified: ' +
+    (
+      result.productionModified === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Storage Modified: ' +
+    (
+      result.storageModified === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Auto Promotion: ' +
+    (
+      result.autoPromotion === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D.5.6 — STRUCTURE PROBE'
+  );
+
+  console.log(
+    'RESULT:',
+    result
+  );
+
+  console.log(
+    'DECISIONS:',
+    decisions
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    result,
+
+    decisions
+
+  };
+
+}
+
