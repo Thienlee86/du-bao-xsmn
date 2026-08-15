@@ -88897,3 +88897,110 @@ function probeSafePromotionGateStructureV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.6
+   SAFE PROMOTION GATE — MOBILE PROBE BUTTON
+   ========================================================================= */
+
+(function installFix03D56ProbeButtonV26() {
+
+  if (
+    document.getElementById(
+      'btnFix03D56ProbeV26'
+    )
+  ) {
+
+    return;
+
+  }
+
+
+  const button =
+    document.createElement(
+      'button'
+    );
+
+
+  button.id =
+    'btnFix03D56ProbeV26';
+
+  button.type =
+    'button';
+
+  button.textContent =
+    '🚦 D.5.6 Gate Probe';
+
+
+  button.style.cssText = [
+    'position:fixed',
+    'right:12px',
+    'bottom:520px',
+    'z-index:99999',
+    'padding:12px 16px',
+    'border:0',
+    'border-radius:18px',
+    'font-weight:800',
+    'font-size:14px'
+  ].join(';');
+
+
+  button.onclick =
+    function () {
+
+      if (
+        typeof
+          probeSafePromotionGateStructureV26 !==
+        'function'
+      ) {
+
+        alert(
+          [
+            'FIX-03D.5.6',
+            '',
+            'Structure Probe: NOT FOUND ❌'
+          ].join('\n')
+        );
+
+        return;
+
+      }
+
+
+      try {
+
+        probeSafePromotionGateStructureV26();
+
+      } catch (error) {
+
+        alert(
+          [
+            'FIX-03D.5.6',
+            'STRUCTURE PROBE',
+            '',
+            'EXECUTION ERROR ❌',
+            '',
+            String(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )
+          ].join('\n')
+        );
+
+      }
+
+    };
+
+
+  document.body.appendChild(
+    button
+  );
+
+
+  console.log(
+    'FIX-03D.5.6 probe button installed'
+  );
+
+})();
+
