@@ -83090,3 +83090,108 @@ function showFix02EDoubleVerifyProtectionV26() {
 })();
 
 
+/* =========================================================================
+   FIX-03D.5.1 — MOBILE EXECUTION BUTTON
+   TEMPORARY / READ ONLY
+   ========================================================================= */
+
+(function addFix03D51MobileButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D51MobileV26'
+      )
+    ) {
+      return;
+    }
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+    button.id =
+      'btnFix03D51MobileV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '📊 D.5.1 Forward Evidence';
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:90px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+    button.onclick =
+      function () {
+
+        const result =
+          aggregateForwardEvidenceV26();
+
+        const report = [
+          'FIX-03D.5.1',
+          '',
+          'Ready: ' +
+            (result.ready ? 'YES' : 'NO'),
+          'Passed: ' +
+            (result.passed ? 'YES' : 'NO'),
+          'Reason: ' +
+            (result.reason || '-'),
+          '',
+          'Total Snapshots: ' +
+            (result.totalSnapshots ?? '-'),
+          'Verified: ' +
+            (result.verifiedSnapshots ?? '-'),
+          'Accounted: ' +
+            (result.accountedVerified ?? '-'),
+          'Invalid Identity: ' +
+            (result.invalidGroupIdentity ?? '-'),
+          'Evidence Groups: ' +
+            (result.evidenceGroups ?? '-')
+        ].join('\n');
+
+        alert(
+          report
+        );
+
+      };
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
