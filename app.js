@@ -85607,3 +85607,130 @@ function runPromotionCandidateRegistryV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.4 — STEP 4
+   PROMOTION CANDIDATE REGISTRY
+   MOBILE EXECUTION BUTTON
+
+   READ ONLY
+   NO STORAGE WRITE
+   NO PRODUCTION CHANGE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+(function installFix03D54RunnerButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D54RunnerV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D54RunnerV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '📋 D.5.4 Candidate Registry';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:300px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof runPromotionCandidateRegistryV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.4',
+              '',
+              'RUNNER FUNCTION NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          runPromotionCandidateRegistryV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.4',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
