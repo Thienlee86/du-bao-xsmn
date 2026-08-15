@@ -83090,3 +83090,308 @@ function showFix02EDoubleVerifyProtectionV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.1 — TEMPORARY MOBILE EXECUTION REPORT
+   ========================================================================= */
+
+(function installFix03D51MobileExecutionV26() {
+
+  if (
+    window
+      .V26_FIX03D51_MOBILE_EXECUTION_INSTALLED
+  ) {
+    return;
+  }
+
+  window
+    .V26_FIX03D51_MOBILE_EXECUTION_INSTALLED =
+    true;
+
+
+  function showFix03D51ReportV26() {
+
+    if (
+      typeof
+        aggregateForwardEvidenceV26 !==
+      'function'
+    ) {
+
+      alert(
+        '❌ FIX-03D.5.1 Aggregator chưa sẵn sàng'
+      );
+
+      return null;
+    }
+
+
+    const result =
+      aggregateForwardEvidenceV26();
+
+
+    const lines = [
+
+      '📊 FIX-03D.5.1 FORWARD EVIDENCE',
+
+      '',
+
+      'Ready: ' +
+        (
+          result.ready
+            ? 'YES ✅'
+            : 'NO ❌'
+        ),
+
+      'Passed: ' +
+        (
+          result.passed
+            ? 'YES ✅'
+            : 'NO ❌'
+        ),
+
+      'Reason: ' +
+        (
+          result.reason ||
+          '-'
+        ),
+
+      '',
+
+      'Total Snapshots: ' +
+        (
+          result.totalSnapshots ??
+          '-'
+        ),
+
+      'Verified: ' +
+        (
+          result.verifiedSnapshots ??
+          '-'
+        ),
+
+      'Accounted: ' +
+        (
+          result.accountedVerified ??
+          '-'
+        ),
+
+      'Invalid Identity: ' +
+        (
+          result.invalidGroupIdentity ??
+          '-'
+        ),
+
+      'Evidence Groups: ' +
+        (
+          result.evidenceGroups ??
+          '-'
+        )
+
+    ];
+
+
+    if (
+      Array.isArray(
+        result.evidence
+      ) &&
+      result.evidence.length
+    ) {
+
+      lines.push(
+        '',
+        '--- EVIDENCE ---'
+      );
+
+
+      result.evidence.forEach(
+        (
+          item,
+          index
+        ) => {
+
+          lines.push(
+            '',
+            '#' + (index + 1) +
+              ' ' +
+              String(
+                item.province ||
+                '-'
+              ) +
+              ' / ' +
+              String(
+                item.prize ||
+                '-'
+              ),
+
+            'Model: ' +
+              String(
+                item.model ||
+                '-'
+              ),
+
+            'Window: ' +
+              String(
+                item.window ??
+                '-'
+              ),
+
+            'Verified: ' +
+              item.verified,
+
+            'Ranked: ' +
+              item.ranked,
+
+            'Miss: ' +
+              item.misses,
+
+            'Top1: ' +
+              item.top1Rate
+                .toFixed(2) +
+              '%',
+
+            'Top3: ' +
+              item.top3Rate
+                .toFixed(2) +
+              '%',
+
+            'Top5: ' +
+              item.top5Rate
+                .toFixed(2) +
+              '%',
+
+            'Top10: ' +
+              item.top10Rate
+                .toFixed(2) +
+              '%',
+
+            'MRR: ' +
+              item.mrr
+                .toFixed(4),
+
+            'AvgRank: ' +
+              (
+                item.averageRank != null
+                  ? item.averageRank
+                      .toFixed(2)
+                  : '-'
+              )
+
+          );
+
+        }
+      );
+
+    }
+
+
+    const report =
+      lines.join(
+        '\n'
+      );
+
+
+    window
+      .LAST_V26_FIX03D51_MOBILE_REPORT =
+      report;
+
+
+    alert(
+      report
+    );
+
+
+    return result;
+
+  }
+
+
+  window
+    .showFix03D51ReportV26 =
+    showFix03D51ReportV26;
+
+
+  function installButton() {
+
+    if (
+      document.getElementById(
+        'btnFix03D51ExecutionV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D51ExecutionV26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '📊 D.5.1 Forward Evidence';
+
+
+    button.style.cssText = [
+      'display:block',
+      'width:calc(100% - 32px)',
+      'max-width:640px',
+      'margin:16px auto',
+      'padding:15px 12px',
+      'border:0',
+      'border-radius:14px',
+      'font-size:17px',
+      'font-weight:800',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      showFix03D51ReportV26;
+
+
+    settings.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      installButton,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    installButton();
+
+  }
+
+})();
+
