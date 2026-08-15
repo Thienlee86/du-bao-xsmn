@@ -84516,3 +84516,116 @@ console.log(
   'FIX-03D.5.3 Mobile Runner loaded'
 );
 
+/* =========================================================================
+   FIX-03D.5.3
+   TEMP MOBILE TEST BUTTON
+   READ ONLY
+   ========================================================================= */
+
+(function installFix03D53MobileButtonV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d53-mobile-audit-btn'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'fix03d53-mobile-audit-btn';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧭 D.5.3 Group Audit';
+
+
+    button.style.position =
+      'fixed';
+
+    button.style.right =
+      '20px';
+
+    button.style.bottom =
+      '250px';
+
+    button.style.zIndex =
+      '99999';
+
+    button.style.padding =
+      '14px 20px';
+
+    button.style.border =
+      '0';
+
+    button.style.borderRadius =
+      '18px';
+
+    button.style.fontSize =
+      '16px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        runFix03D53PerGroupAuditV26();
+
+      }
+    );
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.3 temporary mobile audit button installed'
+);
+
