@@ -97556,3 +97556,385 @@ console.log(
   'FIX-03D.5.8 STEP 6 Candidate Commit Boundary Dry-Run Audit loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 6.1 — APPROVED CANDIDATE BOUNDARY PROBE
+   READ ONLY
+   ========================================================================= */
+
+(function installFix03D58ApprovedBoundaryProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58ApprovedBoundaryProbeV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+    button.id =
+      'btnFix03D58ApprovedBoundaryProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.8 Approved Boundary Probe';
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        const audit = {
+
+          lifecycleKey:
+            'synthetic-boundary-probe/db/RECENT/10',
+
+          province:
+            'synthetic-boundary-probe',
+
+          prize:
+            'db',
+
+          model:
+            'RECENT',
+
+          window:
+            10,
+
+          verified:
+            12,
+
+          rankedCoverage:
+            0.91,
+
+          top10Rate:
+            0.82,
+
+          mrr:
+            0.73,
+
+          maturityScore:
+            95,
+
+          maturityState:
+            'MATURE',
+
+          eligible:
+            true,
+
+          readinessStatus:
+            'READY',
+
+          readinessReason:
+            'SYNTHETIC_BOUNDARY_PROBE',
+
+          gatePassed:
+            true,
+
+          approved:
+            true,
+
+          approvalStatus:
+            'APPROVED',
+
+          approvalReason:
+            'SYNTHETIC_GATE_PASSED'
+
+        };
+
+
+        let candidate;
+
+
+        try {
+
+          candidate =
+            buildPromotionCandidateFromApprovedAuditV26(
+              audit
+            );
+
+        } catch (error) {
+
+          alert(
+            'BUILDER ERROR\n\n' +
+            String(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )
+          );
+
+          return;
+        }
+
+
+        let validation;
+
+
+        try {
+
+          validation =
+            validatePromotionCandidateForCommitV26(
+              candidate
+            );
+
+        } catch (error) {
+
+          alert(
+            'VALIDATION ERROR\n\n' +
+            String(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )
+          );
+
+          return;
+        }
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 6.1'
+        );
+
+        lines.push(
+          'APPROVED CANDIDATE BOUNDARY PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Candidate: ' +
+          (
+            candidate
+              ? 'FOUND'
+              : 'NONE'
+          )
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            validation &&
+            validation.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANDIDATE KEYS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          candidate || {}
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              String(
+                candidate[key]
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'BOUNDARY CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          validation &&
+          validation.checks
+            ? validation.checks
+            : {}
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                validation
+                  .checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'FAILED CHECKS: ' +
+          (
+            validation &&
+            Array.isArray(
+              validation.failedChecks
+            ) &&
+            validation.failedChecks.length
+              ? validation
+                  .failedChecks
+                  .join(', ')
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'READ ONLY: YES'
+        );
+
+        lines.push(
+          'STORAGE MODIFIED: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+
+    function attach() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (attempts < 20) {
+
+        setTimeout(
+          attach,
+          500
+        );
+
+      }
+
+    }
+
+
+    attach();
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
