@@ -89249,3 +89249,80 @@ if (
 
 })();
 
+/* =========================================================================
+   FIX-03D DEBUG V2.6
+   STEP 2B — MOVE D.5.2 INTO DEBUG PANEL
+   ========================================================================= */
+
+(function moveFix03D52IntoDebugPanelV26() {
+
+  function moveButton() {
+
+    const panel =
+      document.getElementById(
+        'fix03dDebugPanelV26'
+      );
+
+    const button =
+      document.getElementById(
+        'btnFix03D52MobileV26'
+      );
+
+
+    if (!panel || !button) {
+
+      return false;
+
+    }
+
+
+    /*
+     * Remove old fixed positioning.
+     * Keep original onclick unchanged.
+     */
+
+    button.style.position =
+      'static';
+
+    button.style.right =
+      'auto';
+
+    button.style.bottom =
+      'auto';
+
+    button.style.width =
+      '100%';
+
+    button.style.display =
+      'block';
+
+    button.style.margin =
+      '8px 0';
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    moveButton()
+  ) {
+
+    return;
+
+  }
+
+
+  setTimeout(
+    moveButton,
+    1000
+  );
+
+})();
+
