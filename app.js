@@ -92891,3 +92891,408 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 1 — PROMOTION CANDIDATE BUILDER
+
+   Mục tiêu:
+   - Nhận kết quả từ D.5.7 Approval Audit.
+   - Chỉ tạo candidate từ group APPROVED.
+   - HELD tuyệt đối không trở thành candidate.
+   - READ ONLY.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   ========================================================================= */
+
+function buildPromotionCandidatesV26() {
+
+  /*
+   * D.5.7 corrected approval audit
+   * phải tồn tại trước.
+   */
+
+  if (
+    typeof
+      auditPromotionEligibilityApprovalV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'D57_APPROVAL_AUDIT_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.8',
+
+      step:
+        'STEP_1',
+
+      mode:
+        'PROMOTION_CANDIDATE_BUILDER',
+
+      totalAudits: 0,
+
+      approvedAudits: 0,
+
+      heldAudits: 0,
+
+      candidateCount: 0,
+
+      candidates: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  let auditResult;
+
+
+  try {
+
+    auditResult =
+      auditPromotionEligibilityApprovalV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'D57_APPROVAL_AUDIT_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.8',
+
+      step:
+        'STEP_1',
+
+      mode:
+        'PROMOTION_CANDIDATE_BUILDER',
+
+      totalAudits: 0,
+
+      approvedAudits: 0,
+
+      heldAudits: 0,
+
+      candidateCount: 0,
+
+      candidates: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  if (
+    !auditResult ||
+    auditResult.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'D57_APPROVAL_AUDIT_NOT_READY',
+
+      source:
+        auditResult || null,
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.8',
+
+      step:
+        'STEP_1',
+
+      mode:
+        'PROMOTION_CANDIDATE_BUILDER',
+
+      totalAudits: 0,
+
+      approvedAudits: 0,
+
+      heldAudits: 0,
+
+      candidateCount: 0,
+
+      candidates: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const audits =
+    Array.isArray(
+      auditResult.audits
+    )
+      ? auditResult.audits
+      : [];
+
+
+  /*
+   * CRITICAL BOUNDARY:
+   *
+   * Candidate chỉ được sinh khi:
+   *
+   * approved === true
+   * AND
+   * gatePassed === true
+   *
+   * Không sử dụng passed của audit result
+   * làm điều kiện promotion.
+   */
+
+  const approvedAudits =
+    audits.filter(
+      item =>
+        item &&
+        item.approved === true &&
+        item.gatePassed === true
+    );
+
+
+  const heldAudits =
+    audits.filter(
+      item =>
+        !item ||
+        item.approved !== true ||
+        item.gatePassed !== true
+    );
+
+
+  const candidates =
+    approvedAudits.map(
+      item => {
+
+        return {
+
+          lifecycleKey:
+            String(
+              item.lifecycleKey ||
+              ''
+            ),
+
+          province:
+            String(
+              item.province ||
+              ''
+            ),
+
+          prize:
+            String(
+              item.prize ||
+              ''
+            ),
+
+          model:
+            String(
+              item.model ||
+              ''
+            ),
+
+          window:
+            item.window != null
+              ? item.window
+              : null,
+
+          verified:
+            Number(
+              item.verified ||
+              0
+            ),
+
+          rankedCoverage:
+            Number(
+              item.rankedCoverage ||
+              0
+            ),
+
+          top10Rate:
+            Number(
+              item.top10Rate ||
+              0
+            ),
+
+          mrr:
+            Number(
+              item.mrr ||
+              0
+            ),
+
+          maturityScore:
+            Number(
+              item.maturityScore ||
+              0
+            ),
+
+          maturityState:
+            String(
+              item.maturityState ||
+              'UNKNOWN'
+            ),
+
+          eligible:
+            item.eligible === true,
+
+          readinessStatus:
+            String(
+              item.readinessStatus ||
+              'UNKNOWN'
+            ),
+
+          readinessReason:
+            String(
+              item.readinessReason ||
+              ''
+            ),
+
+          gatePassed: true,
+
+          approved: true,
+
+          approvalStatus:
+            'APPROVED',
+
+          approvalReason:
+            String(
+              item.approvalReason ||
+              'SAFE_PROMOTION_GATE_PASSED'
+            ),
+
+          /*
+           * Candidate mới chỉ được dựng.
+           * Chưa được commit/promote.
+           */
+
+          candidateStatus:
+            'PENDING_COMMIT',
+
+          source:
+            'FIX-03D.5.7_APPROVAL_AUDIT',
+
+          readOnly: true,
+
+          productionModified: false,
+
+          storageModified: false,
+
+          autoPromotion: false
+
+        };
+
+      }
+    );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      candidates.length
+        ? 'PROMOTION_CANDIDATES_BUILT'
+        : 'NO_APPROVED_PROMOTION_CANDIDATES',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_1',
+
+    mode:
+      'PROMOTION_CANDIDATE_BUILDER',
+
+    source:
+      'FIX-03D.5.7_APPROVAL_AUDIT',
+
+    totalAudits:
+      audits.length,
+
+    approvedAudits:
+      approvedAudits.length,
+
+    heldAudits:
+      heldAudits.length,
+
+    candidateCount:
+      candidates.length,
+
+    candidates,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 1 Promotion Candidate Builder loaded — READ ONLY'
+);
+
