@@ -87734,3 +87734,258 @@ function probePromotionMaturityResultV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.5
+   COMPACT VERIFY + MOBILE BUTTON
+
+   PURPOSE:
+   - Verify lifecycle details without long-alert truncation.
+   - READ ONLY.
+   - NO Production modification.
+   - NO Storage modification.
+   - NO Auto Promotion.
+   ========================================================================= */
+
+(function installFix03D55CompactVerifyV26() {
+
+  function runCompactVerify() {
+
+    if (
+      typeof
+        trackPromotionCandidateMaturityV26 !==
+      'function'
+    ) {
+
+      alert(
+        'D.5.5 COMPACT VERIFY\n\n' +
+        'Tracker: NOT FOUND ❌'
+      );
+
+      return;
+
+    }
+
+
+    let result;
+
+
+    try {
+
+      result =
+        trackPromotionCandidateMaturityV26();
+
+    } catch (error) {
+
+      alert(
+        'D.5.5 COMPACT VERIFY\n\n' +
+        'ERROR ❌\n' +
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        )
+      );
+
+      return;
+
+    }
+
+
+    const lifecycle =
+      result &&
+      Array.isArray(
+        result.lifecycle
+      )
+        ? result.lifecycle
+        : [];
+
+
+    const lines = [
+      'D.5.5 COMPACT VERIFY',
+      '',
+      'Ready: ' +
+        (
+          result &&
+          result.ready === true
+            ? 'YES'
+            : 'NO'
+        ),
+      'Passed: ' +
+        (
+          result &&
+          result.passed === true
+            ? 'YES'
+            : 'NO'
+        ),
+      'Groups: ' +
+        lifecycle.length
+    ];
+
+
+    lifecycle.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        lines.push('');
+
+        lines.push(
+          '#' +
+          (index + 1) +
+          ' ' +
+          String(
+            item.province ||
+            ''
+          ) +
+          '/' +
+          String(
+            item.prize ||
+            ''
+          )
+        );
+
+        lines.push(
+          'V:' +
+          Number(
+            item.verified ||
+            0
+          ) +
+          ' C:' +
+          Number(
+            item.rankedCoverage ||
+            0
+          ).toFixed(2)
+        );
+
+        lines.push(
+          'T10:' +
+          Number(
+            item.top10Rate ||
+            0
+          ).toFixed(2) +
+          ' MRR:' +
+          Number(
+            item.mrr ||
+            0
+          ).toFixed(4)
+        );
+
+        lines.push(
+          'Score:' +
+          Number(
+            item.maturityScore ||
+            0
+          ) +
+          '/100'
+        );
+
+        lines.push(
+          'State:' +
+          String(
+            item.maturityState ||
+            'UNKNOWN'
+          )
+        );
+
+        lines.push(
+          'Eligible:' +
+          (
+            item.eligible === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Status:' +
+          String(
+            item.readinessStatus ||
+            'UNKNOWN'
+          )
+        );
+
+      }
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+  }
+
+
+  function installButton() {
+
+    if (
+      document.getElementById(
+        'btnFix03D55CompactVerifyV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D55CompactVerifyV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '✅ D.5.5 Compact Verify';
+
+
+    button.style.cssText = [
+      'position:fixed',
+      'right:12px',
+      'bottom:540px',
+      'z-index:99999',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      runCompactVerify;
+
+
+    document.body.appendChild(
+      button
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      installButton,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    installButton();
+
+  }
+
+})();
+
