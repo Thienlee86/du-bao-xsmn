@@ -85734,3 +85734,478 @@ function runPromotionCandidateRegistryV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.5
+   PROMOTION CANDIDATE LIFECYCLE & MATURITY TRACKER
+
+   Purpose:
+   - Track maturity of every D.5.3 evidence group.
+   - Preserve groups that are not yet promotion candidates.
+   - Classify lifecycle state without modifying Production.
+   - Read-only research / promotion-governance layer.
+
+   Lifecycle:
+     WAITING
+       -> MATURING
+       -> NEAR_READY
+       -> ELIGIBLE
+
+   SAFETY:
+   - NO Production modification.
+   - NO Storage modification.
+   - NO Auto Promotion.
+   ========================================================================= */
+
+function trackPromotionCandidateMaturityV26() {
+
+  if (
+    typeof auditPerGroupPromotionReadinessV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.5',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      totalGroups:
+        0,
+
+      lifecycle:
+        []
+
+    };
+
+  }
+
+
+  let audit;
+
+
+  try {
+
+    audit =
+      auditPerGroupPromotionReadinessV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.5',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      totalGroups:
+        0,
+
+      lifecycle:
+        []
+
+    };
+
+  }
+
+
+  if (
+    !audit ||
+    audit.ready !== true ||
+    audit.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'PER_GROUP_AUDIT_NOT_READY',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.5',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      totalGroups:
+        0,
+
+      lifecycle:
+        []
+
+    };
+
+  }
+
+
+  const groups =
+    Array.isArray(
+      audit.groups
+    )
+      ? audit.groups
+      : [];
+
+
+  /*
+   * These maturity bands are descriptive only.
+   *
+   * They DO NOT replace the promotion policy in D.5.2 / D.5.3.
+   * D.5.3 remains the authority for actual eligibility.
+   */
+
+  function classifyMaturity(
+    group
+  ) {
+
+    if (
+      group &&
+      group.eligible === true
+    ) {
+
+      return {
+        state:
+          'ELIGIBLE',
+
+        maturityScore:
+          100
+      };
+
+    }
+
+
+    const checks =
+      group &&
+      group.checks &&
+      typeof group.checks === 'object'
+        ? group.checks
+        : {};
+
+
+    const checkValues =
+      Object.values(
+        checks
+      );
+
+
+    const passedChecks =
+      checkValues.filter(
+        value =>
+          value === true ||
+          value === 'PASS'
+      ).length;
+
+
+    const totalChecks =
+      checkValues.length;
+
+
+    const checkRatio =
+      totalChecks > 0
+        ? passedChecks /
+          totalChecks
+        : 0;
+
+
+    const verified =
+      Number(
+        group &&
+        group.verified
+          ? group.verified
+          : 0
+      );
+
+
+    /*
+     * Evidence component is intentionally capped.
+     * It is a maturity indicator only,
+     * NOT an eligibility threshold.
+     */
+
+    const evidenceComponent =
+      Math.min(
+        verified / 10,
+        1
+      );
+
+
+    const maturityScore =
+      Math.round(
+        (
+          evidenceComponent *
+          60
+        ) +
+        (
+          checkRatio *
+          40
+        )
+      );
+
+
+    let state =
+      'WAITING';
+
+
+    if (
+      maturityScore >= 80
+    ) {
+
+      state =
+        'NEAR_READY';
+
+    } else if (
+      maturityScore >= 40
+    ) {
+
+      state =
+        'MATURING';
+
+    }
+
+
+    return {
+      state,
+      maturityScore
+    };
+
+  }
+
+
+  const lifecycle =
+    groups.map(
+      group => {
+
+        const maturity =
+          classifyMaturity(
+            group
+          );
+
+
+        return {
+
+          lifecycleKey:
+            [
+              group.province || '',
+              group.prize || '',
+              group.model || '',
+              group.window != null
+                ? group.window
+                : ''
+            ].join('|'),
+
+          province:
+            group.province ||
+            '',
+
+          prize:
+            group.prize ||
+            '',
+
+          model:
+            group.model ||
+            '',
+
+          window:
+            group.window != null
+              ? group.window
+              : null,
+
+          verified:
+            Number(
+              group.verified ||
+              0
+            ),
+
+          rankedCoverage:
+            Number(
+              group.rankedCoverage ||
+              0
+            ),
+
+          top10Rate:
+            Number(
+              group.top10Rate ||
+              0
+            ),
+
+          mrr:
+            Number(
+              group.mrr ||
+              0
+            ),
+
+          eligible:
+            group.eligible ===
+            true,
+
+          readinessStatus:
+            group.status ||
+            'UNKNOWN',
+
+          readinessReason:
+            group.reason ||
+            '',
+
+          maturityState:
+            maturity.state,
+
+          maturityScore:
+            maturity.maturityScore,
+
+          source:
+            'FIX-03D.5.3',
+
+          readOnly:
+            true
+
+        };
+
+      }
+    );
+
+
+  const counts = {
+
+    waiting:
+      lifecycle.filter(
+        item =>
+          item.maturityState ===
+          'WAITING'
+      ).length,
+
+    maturing:
+      lifecycle.filter(
+        item =>
+          item.maturityState ===
+          'MATURING'
+      ).length,
+
+    nearReady:
+      lifecycle.filter(
+        item =>
+          item.maturityState ===
+          'NEAR_READY'
+      ).length,
+
+    eligible:
+      lifecycle.filter(
+        item =>
+          item.maturityState ===
+          'ELIGIBLE'
+      ).length
+
+  };
+
+
+  return {
+
+    ready: true,
+    passed: true,
+
+    reason:
+      'PROMOTION_MATURITY_TRACKED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.5',
+
+    mode:
+      'PROMOTION_LIFECYCLE_TRACKER',
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    autoPromotion:
+      false,
+
+    source:
+      'FIX-03D.5.3',
+
+    totalGroups:
+      lifecycle.length,
+
+    waitingGroups:
+      counts.waiting,
+
+    maturingGroups:
+      counts.maturing,
+
+    nearReadyGroups:
+      counts.nearReady,
+
+    eligibleGroups:
+      counts.eligible,
+
+    lifecycle
+
+  };
+
+}
+
