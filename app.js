@@ -92370,3 +92370,524 @@ console.log(
   'FIX-03D.5.7 Promotion Eligibility / Approval Audit loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.7
+   APPROVAL AUDIT RUNNER
+
+   Mục tiêu:
+   - Chạy bản Semantics Correction.
+   - Hiển thị Approved / Held theo gateOpen.
+   - Gắn trực tiếp vào FIX-03D Debug Panel.
+   - Không tạo floating button.
+   - Read Only.
+   ========================================================================= */
+
+(function installFix03D57ApprovalAuditRunnerV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D57ApprovalAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D57ApprovalAuditV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.7 Approval Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * IMPORTANT:
+         * Gọi bản Semantics Correction,
+         * KHÔNG gọi auditPromotionEligibilityV26().
+         */
+
+        if (
+          typeof
+            auditPromotionEligibilityApprovalV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'APPROVAL AUDIT',
+              '',
+              'Corrected Audit Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            auditPromotionEligibilityApprovalV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'APPROVAL AUDIT',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        if (!result) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'APPROVAL AUDIT',
+              '',
+              'NO RESULT ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const audits =
+          Array.isArray(
+            result.audits
+          )
+            ? result.audits
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.7'
+        );
+
+        lines.push(
+          'PROMOTION ELIGIBILITY / APPROVAL AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          String(
+            result.reason ||
+            ''
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Total Groups: ' +
+          Number(
+            result.totalGroups ||
+            0
+          )
+        );
+
+
+        lines.push(
+          'Approved: ' +
+          Number(
+            result.approvedGroups ||
+            0
+          )
+        );
+
+
+        lines.push(
+          'Held: ' +
+          Number(
+            result.heldGroups ||
+            0
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'APPROVAL DECISIONS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        if (!audits.length) {
+
+          lines.push('');
+
+          lines.push(
+            'NONE'
+          );
+
+        } else {
+
+          audits.forEach(
+            (
+              item,
+              index
+            ) => {
+
+              lines.push('');
+
+
+              lines.push(
+                '#' +
+                (index + 1) +
+                ' ' +
+                String(
+                  item.province ||
+                  ''
+                ) +
+                ' / ' +
+                String(
+                  item.prize ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Model: ' +
+                String(
+                  item.model ||
+                  ''
+                )
+              );
+
+
+              lines.push(
+                'Window: ' +
+                String(
+                  item.window != null
+                    ? item.window
+                    : ''
+                )
+              );
+
+
+              lines.push(
+                'Verified: ' +
+                Number(
+                  item.verified ||
+                  0
+                )
+              );
+
+
+              lines.push(
+                'Maturity: ' +
+                String(
+                  item.maturityState ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Eligible: ' +
+                (
+                  item.eligible === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              lines.push(
+                'Gate Passed: ' +
+                (
+                  item.gatePassed === true
+                    ? 'YES'
+                    : 'NO'
+                )
+              );
+
+
+              lines.push(
+                'Approval Status: ' +
+                String(
+                  item.approvalStatus ||
+                  'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'Approval Reason: ' +
+                String(
+                  item.approvalReason ||
+                  'NONE'
+                )
+              );
+
+
+              lines.push(
+                'Failed Checks: ' +
+                (
+                  Array.isArray(
+                    item.auditReasons
+                  ) &&
+                  item.auditReasons.length
+                    ? item.auditReasons.join(
+                        ', '
+                      )
+                    : 'NONE'
+                )
+              );
+
+
+              if (
+                index <
+                audits.length - 1
+              ) {
+
+                lines.push('');
+
+                lines.push(
+                  '--------------------'
+                );
+
+              }
+
+            }
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Attach trực tiếp vào Debug Panel.
+     *
+     * CHÚ Ý:
+     * fix03DDebugPanelV26
+     *       ^^ D HOA
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Panel có thể được tạo sau runner.
+     * Chờ tối đa 20 lần x 500ms.
+     * KHÔNG tạo floating fallback.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
