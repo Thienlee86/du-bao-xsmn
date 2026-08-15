@@ -91991,3 +91991,382 @@ function auditPromotionEligibilityV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.7
+   PROMOTION ELIGIBILITY / APPROVAL AUDIT
+   SEMANTICS CORRECTION
+
+   Canonical approval semantics:
+   - gateOpen === true  => APPROVED
+   - gateOpen !== true  => HELD
+
+   IMPORTANT:
+   - passed is execution/audit success only.
+   - passed MUST NOT be interpreted as promotion approval.
+   - READ ONLY.
+   - NO Production modification.
+   - NO Storage modification.
+   - NO Auto Promotion.
+   ========================================================================= */
+
+function auditPromotionEligibilityApprovalV26() {
+
+  if (
+    typeof evaluateSafePromotionGateV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'SAFE_PROMOTION_GATE_NOT_AVAILABLE',
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.7',
+
+      mode:
+        'PROMOTION_ELIGIBILITY_APPROVAL_AUDIT',
+
+      totalGroups: 0,
+
+      approvedGroups: 0,
+
+      heldGroups: 0,
+
+      audits: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  let gate;
+
+
+  try {
+
+    gate =
+      evaluateSafePromotionGateV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'SAFE_PROMOTION_GATE_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.7',
+
+      mode:
+        'PROMOTION_ELIGIBILITY_APPROVAL_AUDIT',
+
+      totalGroups: 0,
+
+      approvedGroups: 0,
+
+      heldGroups: 0,
+
+      audits: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  if (
+    !gate ||
+    gate.ready !== true ||
+    gate.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'SAFE_PROMOTION_GATE_NOT_READY',
+
+      source:
+        gate || null,
+
+      version:
+        'V2.6',
+
+      fix:
+        'FIX-03D.5.7',
+
+      mode:
+        'PROMOTION_ELIGIBILITY_APPROVAL_AUDIT',
+
+      totalGroups: 0,
+
+      approvedGroups: 0,
+
+      heldGroups: 0,
+
+      audits: [],
+
+      readOnly: true,
+
+      productionModified: false,
+
+      storageModified: false,
+
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const decisions =
+    Array.isArray(
+      gate.decisions
+    )
+      ? gate.decisions
+      : [];
+
+
+  const audits =
+    decisions.map(
+      item => {
+
+        /*
+         * CRITICAL SEMANTICS:
+         *
+         * Approval comes ONLY from gateOpen.
+         *
+         * item.passed === true merely means
+         * the decision item was evaluated
+         * successfully.
+         */
+
+        const approved =
+          item.gateOpen === true;
+
+
+        return {
+
+          lifecycleKey:
+            String(
+              item.lifecycleKey ||
+              ''
+            ),
+
+          province:
+            String(
+              item.province ||
+              ''
+            ),
+
+          prize:
+            String(
+              item.prize ||
+              ''
+            ),
+
+          model:
+            String(
+              item.model ||
+              ''
+            ),
+
+          window:
+            item.window != null
+              ? item.window
+              : null,
+
+          verified:
+            Number(
+              item.verified ||
+              0
+            ),
+
+          rankedCoverage:
+            Number(
+              item.rankedCoverage ||
+              0
+            ),
+
+          top10Rate:
+            Number(
+              item.top10Rate ||
+              0
+            ),
+
+          mrr:
+            Number(
+              item.mrr ||
+              0
+            ),
+
+          maturityScore:
+            Number(
+              item.maturityScore ||
+              0
+            ),
+
+          maturityState:
+            String(
+              item.maturityState ||
+              'UNKNOWN'
+            ),
+
+          eligible:
+            item.eligible === true,
+
+          readinessStatus:
+            String(
+              item.readinessStatus ||
+              'UNKNOWN'
+            ),
+
+          readinessReason:
+            String(
+              item.readinessReason ||
+              ''
+            ),
+
+          gatePassed:
+            item.gateOpen === true,
+
+          approved,
+
+          approvalStatus:
+            approved
+              ? 'APPROVED'
+              : 'HELD',
+
+          approvalReason:
+            approved
+              ? 'SAFE_PROMOTION_GATE_PASSED'
+              : String(
+                  item.reason ||
+                  'SAFE_PROMOTION_GATE_BLOCKED'
+                ),
+
+          auditReasons:
+            Array.isArray(
+              item.failedChecks
+            )
+              ? item.failedChecks.slice()
+              : [],
+
+          readOnly: true,
+
+          productionModified: false,
+
+          storageModified: false,
+
+          autoPromotion: false
+
+        };
+
+      }
+    );
+
+
+  const approved =
+    audits.filter(
+      item =>
+        item.approved === true
+    );
+
+
+  const held =
+    audits.filter(
+      item =>
+        item.approved !== true
+    );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      'PROMOTION_ELIGIBILITY_AUDITED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.7',
+
+    mode:
+      'PROMOTION_ELIGIBILITY_APPROVAL_AUDIT',
+
+    source:
+      'FIX-03D.5.6_SAFE_PROMOTION_GATE',
+
+    totalGroups:
+      audits.length,
+
+    approvedGroups:
+      approved.length,
+
+    heldGroups:
+      held.length,
+
+    audits,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.7 Promotion Eligibility / Approval Audit loaded — READ ONLY'
+);
+
