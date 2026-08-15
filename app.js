@@ -95526,3 +95526,1005 @@ console.log(
   'FIX-03D.5.8 STEP 4 Candidate Boundary Integration Audit loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 5 — CANDIDATE INTEGRITY & IMMUTABILITY AUDIT
+
+   Mục tiêu:
+   - Kiểm tra Candidate Builder deterministic.
+   - Kiểm tra candidate không share object reference với source audit.
+   - Kiểm tra mutation candidate không làm thay đổi source audit.
+   - Kiểm tra identity / metrics được preserve.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - READ ONLY.
+   ========================================================================= */
+
+
+/* =========================================================================
+   D.5.8 STEP 5A
+   INTEGRITY / IMMUTABILITY AUDIT
+   ========================================================================= */
+
+function auditPromotionCandidateIntegrityV26() {
+
+  if (
+    typeof buildPromotionCandidatesV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANDIDATE_BUILDER_FUNCTION_NOT_FOUND',
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  if (
+    typeof
+      buildPromotionCandidateFromApprovedAuditV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANDIDATE_CONTRACT_FUNCTION_NOT_FOUND',
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 1
+   * Production deterministic check.
+   * ---------------------------------------------------------
+   */
+
+  let productionRunA;
+  let productionRunB;
+
+
+  try {
+
+    productionRunA =
+      buildPromotionCandidatesV26();
+
+    productionRunB =
+      buildPromotionCandidatesV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'PRODUCTION_BUILDER_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const candidatesA =
+    productionRunA &&
+    Array.isArray(
+      productionRunA.candidates
+    )
+      ? productionRunA.candidates
+      : [];
+
+
+  const candidatesB =
+    productionRunB &&
+    Array.isArray(
+      productionRunB.candidates
+    )
+      ? productionRunB.candidates
+      : [];
+
+
+  function candidateSignature(
+    item
+  ) {
+
+    if (!item) {
+
+      return '';
+
+    }
+
+
+    return [
+      item.lifecycleKey || '',
+      item.province || '',
+      item.prize || '',
+      item.model || '',
+      item.window ?? '',
+      item.verified ?? '',
+      item.rankedCoverage ?? '',
+      item.top10Rate ?? '',
+      item.mrr ?? '',
+      item.maturityScore ?? '',
+      item.maturityState || ''
+    ].join('|');
+
+  }
+
+
+  const signaturesA =
+    candidatesA.map(
+      candidateSignature
+    );
+
+
+  const signaturesB =
+    candidatesB.map(
+      candidateSignature
+    );
+
+
+  const productionDeterministic =
+    JSON.stringify(
+      signaturesA
+    ) ===
+    JSON.stringify(
+      signaturesB
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 2
+   * Synthetic approved audit.
+   * ---------------------------------------------------------
+   */
+
+  const sourceAudit = {
+
+    lifecycleKey:
+      'synthetic-integrity/db/RECENT/10',
+
+    province:
+      'synthetic-integrity',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_INTEGRITY_TEST',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'SYNTHETIC_GATE_PASSED'
+
+  };
+
+
+  const sourceSnapshot =
+    JSON.stringify(
+      sourceAudit
+    );
+
+
+  let candidate;
+
+
+  try {
+
+    candidate =
+      buildPromotionCandidateFromApprovedAuditV26(
+        sourceAudit
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'SYNTHETIC_CANDIDATE_BUILD_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnly: true,
+      productionModified: false,
+      storageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * Candidate phải là object mới.
+   */
+
+  const independentReference =
+    candidate !== null &&
+    candidate !== sourceAudit;
+
+
+  /*
+   * Identity / metrics preservation.
+   */
+
+  const identityPreserved =
+    candidate !== null &&
+    candidate.lifecycleKey ===
+      sourceAudit.lifecycleKey &&
+    candidate.province ===
+      sourceAudit.province &&
+    candidate.prize ===
+      sourceAudit.prize &&
+    candidate.model ===
+      sourceAudit.model &&
+    candidate.window ===
+      sourceAudit.window;
+
+
+  const metricsPreserved =
+    candidate !== null &&
+    candidate.verified ===
+      sourceAudit.verified &&
+    candidate.rankedCoverage ===
+      sourceAudit.rankedCoverage &&
+    candidate.top10Rate ===
+      sourceAudit.top10Rate &&
+    candidate.mrr ===
+      sourceAudit.mrr &&
+    candidate.maturityScore ===
+      sourceAudit.maturityScore &&
+    candidate.maturityState ===
+      sourceAudit.maturityState;
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 3
+   * Mutation isolation.
+   *
+   * Chỉ mutate synthetic candidate local.
+   * Không liên quan Production / Storage.
+   * ---------------------------------------------------------
+   */
+
+  if (candidate) {
+
+    candidate.province =
+      'mutated-candidate';
+
+    candidate.verified =
+      999;
+
+    candidate.maturityScore =
+      -1;
+
+  }
+
+
+  const sourceUnchanged =
+    JSON.stringify(
+      sourceAudit
+    ) ===
+    sourceSnapshot;
+
+
+  const mutationIsolated =
+    sourceAudit.province ===
+      'synthetic-integrity' &&
+    sourceAudit.verified ===
+      12 &&
+    sourceAudit.maturityScore ===
+      95;
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 4
+   * Rebuild after local candidate mutation.
+   *
+   * Builder phải tái tạo candidate đúng từ source.
+   * ---------------------------------------------------------
+   */
+
+  const rebuiltCandidate =
+    buildPromotionCandidateFromApprovedAuditV26(
+      sourceAudit
+    );
+
+
+  const rebuildRestoresSourceValues =
+    rebuiltCandidate !== null &&
+    rebuiltCandidate.province ===
+      'synthetic-integrity' &&
+    rebuiltCandidate.verified ===
+      12 &&
+    rebuiltCandidate.maturityScore ===
+      95;
+
+
+  const rebuildIndependent =
+    rebuiltCandidate !== null &&
+    rebuiltCandidate !== candidate &&
+    rebuiltCandidate !== sourceAudit;
+
+
+  /*
+   * ---------------------------------------------------------
+   * FINAL CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const checks = {
+
+    productionRunAReady:
+      productionRunA &&
+      productionRunA.ready === true,
+
+    productionRunBReady:
+      productionRunB &&
+      productionRunB.ready === true,
+
+    productionCountStable:
+      candidatesA.length ===
+      candidatesB.length,
+
+    productionDeterministic,
+
+    syntheticCandidateCreated:
+      candidate !== null,
+
+    independentReference,
+
+    identityPreserved,
+
+    metricsPreserved,
+
+    sourceUnchanged,
+
+    mutationIsolated,
+
+    rebuildRestoresSourceValues,
+
+    rebuildIndependent,
+
+    productionRunAReadOnly:
+      productionRunA &&
+      productionRunA.readOnly === true,
+
+    productionRunBReadOnly:
+      productionRunB &&
+      productionRunB.readOnly === true,
+
+    productionRunAStorageUntouched:
+      productionRunA &&
+      productionRunA.storageModified ===
+        false,
+
+    productionRunBStorageUntouched:
+      productionRunB &&
+      productionRunB.storageModified ===
+        false,
+
+    productionRunAAutoPromotionDisabled:
+      productionRunA &&
+      productionRunA.autoPromotion ===
+        false,
+
+    productionRunBAutoPromotionDisabled:
+      productionRunB &&
+      productionRunB.autoPromotion ===
+        false
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_INTEGRITY_IMMUTABILITY_VALID'
+        : 'CANDIDATE_INTEGRITY_IMMUTABILITY_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_5',
+
+    mode:
+      'CANDIDATE_INTEGRITY_IMMUTABILITY_AUDIT',
+
+    productionRunACount:
+      candidatesA.length,
+
+    productionRunBCount:
+      candidatesB.length,
+
+    productionDeterministic,
+
+    syntheticCandidateCreated:
+      candidate !== null,
+
+    independentReference,
+
+    identityPreserved,
+
+    metricsPreserved,
+
+    sourceUnchanged,
+
+    mutationIsolated,
+
+    rebuildRestoresSourceValues,
+
+    rebuildIndependent,
+
+    checks,
+
+    failedChecks,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   D.5.8 STEP 5B
+   DEBUG PANEL BUTTON
+   ========================================================================= */
+
+(function installFix03D58IntegrityAuditV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58IntegrityAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58IntegrityAuditV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔐 D.5.8 Integrity Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            auditPromotionCandidateIntegrityV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8',
+              'CANDIDATE INTEGRITY & IMMUTABILITY AUDIT',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const checks =
+          result &&
+          result.checks
+            ? result.checks
+            : {};
+
+
+        const failedChecks =
+          result &&
+          Array.isArray(
+            result.failedChecks
+          )
+            ? result.failedChecks
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8'
+        );
+
+        lines.push(
+          'CANDIDATE INTEGRITY & IMMUTABILITY AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        if (result.error) {
+
+          lines.push(
+            'Error: ' +
+            result.error
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          'Production Run A: ' +
+          (
+            result.productionRunACount ??
+            '-'
+          )
+        );
+
+        lines.push(
+          'Production Run B: ' +
+          (
+            result.productionRunBCount ??
+            '-'
+          )
+        );
+
+        lines.push(
+          'Deterministic: ' +
+          (
+            result.productionDeterministic ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Synthetic Candidate: ' +
+          (
+            result.syntheticCandidateCreated ===
+              true
+              ? 'CREATED'
+              : 'NOT CREATED'
+          )
+        );
+
+        lines.push(
+          'Independent Reference: ' +
+          (
+            result.independentReference === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Identity Preserved: ' +
+          (
+            result.identityPreserved === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Metrics Preserved: ' +
+          (
+            result.metricsPreserved === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Source Unchanged: ' +
+          (
+            result.sourceUnchanged === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Mutation Isolated: ' +
+          (
+            result.mutationIsolated === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Rebuild Restores Values: ' +
+          (
+            result.rebuildRestoresSourceValues ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Rebuild Independent: ' +
+          (
+            result.rebuildIndependent === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'INTEGRITY CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          checks
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Attach only to FIX-03D Debug Panel.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 5 Candidate Integrity & Immutability Audit loaded — READ ONLY'
+);
+
