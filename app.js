@@ -87989,3 +87989,523 @@ function probePromotionMaturityResultV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.6
+   PROMOTION GATE / SAFE PROMOTION DECISION ENGINE
+
+   Purpose:
+   - Consume D.5.5 lifecycle / maturity result.
+   - Evaluate every lifecycle group independently.
+   - Decide whether a group may ENTER the promotion gate.
+   - NEVER modify Production.
+   - NEVER modify Storage.
+   - NEVER auto-promote.
+
+   Dependency:
+   - trackPromotionCandidateMaturityV26()
+
+   SAFETY:
+   - READ ONLY
+   - NO Production modification
+   - NO Storage modification
+   - NO Auto Promotion
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SAFE PROMOTION GATE POLICY
+   ========================================================================= */
+
+const XSMN_V26_SAFE_PROMOTION_GATE_POLICY =
+  Object.freeze({
+
+    requiredMaturityState:
+      'ELIGIBLE',
+
+    requireEligibleFlag:
+      true,
+
+    minimumVerified:
+      6,
+
+    minimumMaturityScore:
+      80,
+
+    minimumRankedCoverage:
+      0.60,
+
+    minimumTop10Rate:
+      0.20,
+
+    minimumMRR:
+      0.05
+
+  });
+
+
+/* =========================================================================
+   2. NORMALIZE FINITE NUMBER
+   ========================================================================= */
+
+function normalizePromotionGateNumberV26(
+  value,
+  fallback = 0
+) {
+
+  const number =
+    Number(value);
+
+
+  return Number.isFinite(number)
+    ? number
+    : fallback;
+
+}
+
+
+/* =========================================================================
+   3. EVALUATE ONE LIFECYCLE GROUP
+   ========================================================================= */
+
+function evaluatePromotionGateGroupV26(
+  item,
+  policy =
+    XSMN_V26_SAFE_PROMOTION_GATE_POLICY
+) {
+
+  if (
+    !item ||
+    typeof item !== 'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      gateOpen: false,
+
+      decision:
+        'REJECT',
+
+      reason:
+        'INVALID_LIFECYCLE_GROUP'
+
+    };
+
+  }
+
+
+  const verified =
+    normalizePromotionGateNumberV26(
+      item.verified
+    );
+
+
+  const maturityScore =
+    normalizePromotionGateNumberV26(
+      item.maturityScore
+    );
+
+
+  const rankedCoverage =
+    normalizePromotionGateNumberV26(
+      item.rankedCoverage
+    );
+
+
+  const top10Rate =
+    normalizePromotionGateNumberV26(
+      item.top10Rate
+    );
+
+
+  const mrr =
+    normalizePromotionGateNumberV26(
+      item.mrr
+    );
+
+
+  const maturityState =
+    String(
+      item.maturityState ||
+      'UNKNOWN'
+    ).toUpperCase();
+
+
+  const eligible =
+    item.eligible === true;
+
+
+  const checks = {
+
+    eligible:
+      policy.requireEligibleFlag !== true ||
+      eligible === true,
+
+    maturityState:
+      maturityState ===
+      String(
+        policy.requiredMaturityState
+      ).toUpperCase(),
+
+    verified:
+      verified >=
+      policy.minimumVerified,
+
+    maturityScore:
+      maturityScore >=
+      policy.minimumMaturityScore,
+
+    rankedCoverage:
+      rankedCoverage >=
+      policy.minimumRankedCoverage,
+
+    top10Rate:
+      top10Rate >=
+      policy.minimumTop10Rate,
+
+    mrr:
+      mrr >=
+      policy.minimumMRR
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const gateOpen =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    lifecycleKey:
+      String(
+        item.lifecycleKey ||
+        ''
+      ),
+
+    province:
+      String(
+        item.province ||
+        ''
+      ),
+
+    prize:
+      String(
+        item.prize ||
+        ''
+      ),
+
+    model:
+      String(
+        item.model ||
+        ''
+      ),
+
+    window:
+      item.window != null
+        ? item.window
+        : null,
+
+    verified,
+
+    rankedCoverage,
+
+    top10Rate,
+
+    mrr,
+
+    maturityScore,
+
+    maturityState,
+
+    eligible,
+
+    readinessStatus:
+      String(
+        item.readinessStatus ||
+        'UNKNOWN'
+      ),
+
+    readinessReason:
+      String(
+        item.readinessReason ||
+        ''
+      ),
+
+    checks,
+
+    failedChecks,
+
+    gateOpen,
+
+    decision:
+      gateOpen
+        ? 'PROMOTION_CANDIDATE_APPROVED'
+        : 'HOLD',
+
+    reason:
+      gateOpen
+        ? 'SAFE_PROMOTION_GATE_PASSED'
+        : 'SAFE_PROMOTION_GATE_BLOCKED',
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. SAFE PROMOTION DECISION ENGINE
+   ========================================================================= */
+
+function evaluateSafePromotionGateV26() {
+
+  if (
+    typeof
+      trackPromotionCandidateMaturityV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'MATURITY_TRACKER_NOT_AVAILABLE',
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      decisions: []
+
+    };
+
+  }
+
+
+  let maturity;
+
+
+  try {
+
+    maturity =
+      trackPromotionCandidateMaturityV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'MATURITY_TRACKER_EXECUTION_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      decisions: []
+
+    };
+
+  }
+
+
+  if (
+    !maturity ||
+    maturity.ready !== true ||
+    maturity.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'MATURITY_TRACKER_NOT_READY',
+
+      source:
+        maturity || null,
+
+      readOnly:
+        true,
+
+      productionModified:
+        false,
+
+      storageModified:
+        false,
+
+      autoPromotion:
+        false,
+
+      decisions: []
+
+    };
+
+  }
+
+
+  const lifecycle =
+    Array.isArray(
+      maturity.lifecycle
+    )
+      ? maturity.lifecycle
+      : [];
+
+
+  const decisions =
+    lifecycle.map(
+      item =>
+        evaluatePromotionGateGroupV26(
+          item
+        )
+    );
+
+
+  const approved =
+    decisions.filter(
+      item =>
+        item.gateOpen === true
+    );
+
+
+  const held =
+    decisions.filter(
+      item =>
+        item.gateOpen !== true
+    );
+
+
+  /*
+   * IMPORTANT:
+   *
+   * approved.length > 0 DOES NOT mean Production
+   * is automatically changed.
+   *
+   * It only means a candidate passed this
+   * read-only safety gate.
+   */
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      approved.length > 0
+        ? 'PROMOTION_GATE_CANDIDATES_AVAILABLE'
+        : 'NO_GROUP_PASSED_PROMOTION_GATE',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.6',
+
+    mode:
+      'SAFE_PROMOTION_GATE',
+
+    policy:
+      XSMN_V26_SAFE_PROMOTION_GATE_POLICY,
+
+    source:
+      'D.5.5_PROMOTION_MATURITY_TRACKER',
+
+    totalGroups:
+      decisions.length,
+
+    approvedGroups:
+      approved.length,
+
+    heldGroups:
+      held.length,
+
+    anyGateOpen:
+      approved.length > 0,
+
+    decisions,
+
+    approved,
+
+    held,
+
+    readOnly:
+      true,
+
+    productionModified:
+      false,
+
+    storageModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.6 Safe Promotion Gate loaded — READ ONLY'
+);
+
