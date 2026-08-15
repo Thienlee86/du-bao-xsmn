@@ -89348,3 +89348,172 @@ if (
 
 })();
 
+/* =========================================================================
+   FIX-03D DEBUG V2.6
+   STEP 2C — MOVE REMAINING D.5.x BUTTONS
+   RETRY SAFE VERSION
+   ========================================================================= */
+
+(function moveRemainingFix03DButtonsV26() {
+
+  const buttonIds = [
+
+    'btnFix03D53ProbeV26',
+
+    'fix03d53-mobile-audit-btn',
+
+    'btnFix03D54ProbeV26',
+
+    'btnFix03D54RunnerV26',
+
+    'btnFix03D55ProbeV26',
+
+    'btnFix03D55FinalRunnerV26',
+
+    'btnFix03D55ResultProbeV26',
+
+    'btnFix03D55CompactVerifyV26',
+
+    'btnFix03D56ProbeV26'
+
+  ];
+
+
+  let attempts = 0;
+
+  const maxAttempts = 20;
+
+
+  function moveButtons() {
+
+    attempts++;
+
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          moveButtons,
+          500
+        );
+
+      }
+
+      return;
+
+    }
+
+
+    let remaining = 0;
+
+
+    buttonIds.forEach(
+      id => {
+
+        const button =
+          document.getElementById(
+            id
+          );
+
+
+        if (!button) {
+
+          remaining++;
+
+          return;
+
+        }
+
+
+        /*
+         * Already moved.
+         */
+
+        if (
+          button.parentElement ===
+          panel
+        ) {
+
+          return;
+
+        }
+
+
+        /*
+         * Remove old floating position.
+         * Keep original onclick unchanged.
+         */
+
+        button.style.position =
+          'static';
+
+        button.style.right =
+          'auto';
+
+        button.style.bottom =
+          'auto';
+
+        button.style.left =
+          'auto';
+
+        button.style.top =
+          'auto';
+
+        button.style.width =
+          '100%';
+
+        button.style.display =
+          'block';
+
+        button.style.margin =
+          '8px 0';
+
+
+        panel.appendChild(
+          button
+        );
+
+      }
+    );
+
+
+    if (
+      remaining > 0 &&
+      attempts < maxAttempts
+    ) {
+
+      setTimeout(
+        moveButtons,
+        500
+      );
+
+      return;
+
+    }
+
+
+    console.log(
+      'FIX-03D DEBUG STEP 2C',
+      {
+        attempts,
+        remaining
+      }
+    );
+
+  }
+
+
+  moveButtons();
+
+})();
+
