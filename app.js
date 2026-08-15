@@ -83054,7 +83054,6 @@ function showFix02EDoubleVerifyProtectionV26() {
               '%'
 
           }))
-        )
       );
 
     }
