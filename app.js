@@ -89098,23 +89098,14 @@ function installFix03DDebugPanelV26() {
     );
 
   info.textContent =
-  'Debug tools will be moved here.' +
-  '\n' +
-  'D.5.6 BLOCK REACHED: ' +
-  (
-    window.FIX03D56_FINAL_RUNNER_REACHED ===
-      true
-      ? 'YES ✅'
-      : 'NO ❌'
-  );
+  'Debug tools will be moved here.';
 
 
-  info.style.cssText = [
-    'font-size:13px',
-    'line-height:1.5',
-    'color:#555'
-     'white-space:pre-line',
-  ].join(';');
+info.style.cssText = [
+  'font-size:13px',
+  'line-height:1.5',
+  'color:#555'
+].join(';');
 
 
   panel.appendChild(
