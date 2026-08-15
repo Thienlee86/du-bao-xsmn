@@ -91396,3 +91396,598 @@ function auditPromotionEligibilityV26() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.7
+   DECISION SEMANTICS PROBE
+
+   Mục tiêu:
+   - Đọc semantics thật của decisions[] từ D.5.6.
+   - Xác định field nào biểu thị APPROVED / HELD.
+   - Không sửa Production.
+   - Không sửa Storage.
+   - Không Auto Promotion.
+   - Read Only.
+   ========================================================================= */
+
+(function installFix03D57DecisionSemanticsProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D57DecisionSemanticsProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D57DecisionSemanticsProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔎 D.5.7 Decision Semantics';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            evaluateSafePromotionGateV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'DECISION SEMANTICS PROBE',
+              '',
+              'Gate Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            evaluateSafePromotionGateV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.7',
+              'DECISION SEMANTICS PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const decisions =
+          result &&
+          Array.isArray(
+            result.decisions
+          )
+            ? result.decisions
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.7'
+        );
+
+        lines.push(
+          'DECISION SEMANTICS PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Gate Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Gate Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Gate Reason: ' +
+          String(
+            result &&
+            result.reason
+              ? result.reason
+              : ''
+          )
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Total Groups: ' +
+          Number(
+            result &&
+            result.totalGroups != null
+              ? result.totalGroups
+              : decisions.length
+          )
+        );
+
+
+        lines.push(
+          'Approved Groups: ' +
+          Number(
+            result &&
+            result.approvedGroups != null
+              ? result.approvedGroups
+              : 0
+          )
+        );
+
+
+        lines.push(
+          'Held Groups: ' +
+          Number(
+            result &&
+            result.heldGroups != null
+              ? result.heldGroups
+              : 0
+          )
+        );
+
+
+        lines.push(
+          'Any Gate Open: ' +
+          (
+            result &&
+            result.anyGateOpen === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'DECISION SEMANTICS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        if (!decisions.length) {
+
+          lines.push('');
+
+          lines.push(
+            'NO DECISIONS'
+          );
+
+        } else {
+
+          decisions.forEach(
+            (
+              item,
+              index
+            ) => {
+
+              lines.push('');
+
+
+              lines.push(
+                '#' +
+                (index + 1) +
+                ' ' +
+                String(
+                  item &&
+                  item.province
+                    ? item.province
+                    : ''
+                ) +
+                ' / ' +
+                String(
+                  item &&
+                  item.prize
+                    ? item.prize
+                    : ''
+                )
+              );
+
+
+              /*
+               * Quan trọng:
+               * in toàn bộ keys của từng decision.
+               */
+
+              const keys =
+                item &&
+                typeof item ===
+                  'object'
+                  ? Object.keys(
+                      item
+                    )
+                  : [];
+
+
+              lines.push(
+                'KEYS: ' +
+                (
+                  keys.length
+                    ? keys.join(', ')
+                    : 'NONE'
+                )
+              );
+
+
+              lines.push(
+                'passed: ' +
+                String(
+                  item &&
+                  item.passed
+                )
+              );
+
+
+              lines.push(
+                'eligible: ' +
+                String(
+                  item &&
+                  item.eligible
+                )
+              );
+
+
+              lines.push(
+                'maturityState: ' +
+                String(
+                  item &&
+                  item.maturityState
+                    ? item.maturityState
+                    : 'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'readinessStatus: ' +
+                String(
+                  item &&
+                  item.readinessStatus
+                    ? item.readinessStatus
+                    : 'UNKNOWN'
+                )
+              );
+
+
+              lines.push(
+                'readinessReason: ' +
+                String(
+                  item &&
+                  item.readinessReason
+                    ? item.readinessReason
+                    : 'NONE'
+                )
+              );
+
+
+              /*
+               * Các field có khả năng mang
+               * semantics APPROVED / HELD.
+               *
+               * Chỉ đọc — không suy diễn.
+               */
+
+              [
+                'approved',
+                'held',
+                'decision',
+                'status',
+                'gateOpen',
+                'gatePassed',
+                'promotionApproved',
+                'promotionEligible',
+                'approvalStatus',
+                'holdReason',
+                'reason'
+              ].forEach(
+                key => {
+
+                  if (
+                    Object.prototype
+                      .hasOwnProperty.call(
+                        item,
+                        key
+                      )
+                  ) {
+
+                    let value =
+                      item[key];
+
+
+                    if (
+                      value !== null &&
+                      typeof value ===
+                        'object'
+                    ) {
+
+                      try {
+
+                        value =
+                          JSON.stringify(
+                            value
+                          );
+
+                      } catch (error) {
+
+                        value =
+                          '[OBJECT]';
+
+                      }
+
+                    }
+
+
+                    lines.push(
+                      key +
+                      ': ' +
+                      String(
+                        value
+                      )
+                    );
+
+                  }
+
+                }
+              );
+
+
+              if (
+                index <
+                decisions.length - 1
+              ) {
+
+                lines.push('');
+
+                lines.push(
+                  '--------------------'
+                );
+
+              }
+
+            }
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'SAFETY'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            result &&
+            result.readOnly === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            result &&
+            result.productionModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Storage Modified: ' +
+          (
+            result &&
+            result.storageModified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result &&
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Attach directly to Debug Panel.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Panel có thể load sau.
+     * Chờ tối đa 10 giây.
+     * Không tạo floating fallback.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
