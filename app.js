@@ -86209,3 +86209,341 @@ function trackPromotionCandidateMaturityV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.5 — STEP 2
+   MATURITY CHECKS STRUCTURE PROBE
+
+   Purpose:
+   - Inspect real D.5.3 group.checks structure.
+   - READ ONLY.
+   - NO Production modification.
+   - NO Storage modification.
+   ========================================================================= */
+
+function probePromotionMaturityChecksV26() {
+
+  const lines = [];
+
+  lines.push(
+    'FIX-03D.5.5 MATURITY STRUCTURE PROBE'
+  );
+
+  lines.push('');
+
+
+  if (
+    typeof auditPerGroupPromotionReadinessV26 !==
+    'function'
+  ) {
+
+    lines.push(
+      'D.5.3 Audit Function: NOT FOUND ❌'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'PER_GROUP_AUDIT_NOT_AVAILABLE'
+    };
+
+  }
+
+
+  let audit;
+
+
+  try {
+
+    audit =
+      auditPerGroupPromotionReadinessV26();
+
+  } catch (error) {
+
+    lines.push(
+      'EXECUTION ERROR ❌'
+    );
+
+    lines.push('');
+
+    lines.push(
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      )
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: false,
+      reason:
+        'AUDIT_EXECUTION_ERROR'
+    };
+
+  }
+
+
+  const groups =
+    audit &&
+    Array.isArray(
+      audit.groups
+    )
+      ? audit.groups
+      : [];
+
+
+  lines.push(
+    'Audit Ready: ' +
+    (
+      audit &&
+      audit.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Audit Passed: ' +
+    (
+      audit &&
+      audit.passed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Groups: ' +
+    groups.length
+  );
+
+
+  if (!groups.length) {
+
+    lines.push('');
+    lines.push(
+      'NO GROUPS FOUND'
+    );
+
+    alert(
+      lines.join('\n')
+    );
+
+    return {
+      ready: true,
+      passed: true,
+      groups: 0
+    };
+
+  }
+
+
+  const first =
+    groups[0];
+
+
+  const checks =
+    first &&
+    first.checks &&
+    typeof first.checks ===
+      'object'
+      ? first.checks
+      : null;
+
+
+  lines.push('');
+  lines.push(
+    'FIRST GROUP:'
+  );
+
+  lines.push(
+    String(
+      first.province || ''
+    ) +
+    ' / ' +
+    String(
+      first.prize || ''
+    )
+  );
+
+  lines.push(
+    'Model: ' +
+    String(
+      first.model || ''
+    )
+  );
+
+  lines.push(
+    'Window: ' +
+    String(
+      first.window != null
+        ? first.window
+        : ''
+    )
+  );
+
+  lines.push(
+    'Verified: ' +
+    String(
+      first.verified || 0
+    )
+  );
+
+
+  lines.push('');
+  lines.push(
+    'CHECKS TYPE:'
+  );
+
+  lines.push(
+    checks
+      ? 'OBJECT'
+      : 'NONE'
+  );
+
+
+  lines.push('');
+  lines.push(
+    'CHECK KEYS:'
+  );
+
+  lines.push(
+    checks
+      ? Object.keys(
+          checks
+        ).join(', ')
+      : 'NONE'
+  );
+
+
+  lines.push('');
+  lines.push(
+    'CHECK VALUES:'
+  );
+
+
+  if (checks) {
+
+    Object.keys(
+      checks
+    ).forEach(
+      key => {
+
+        let value =
+          checks[key];
+
+
+        if (
+          value &&
+          typeof value ===
+            'object'
+        ) {
+
+          try {
+
+            value =
+              JSON.stringify(
+                value
+              );
+
+          } catch (error) {
+
+            value =
+              '[OBJECT]';
+
+          }
+
+        }
+
+
+        lines.push(
+          key +
+          ': ' +
+          String(value)
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NONE'
+    );
+
+  }
+
+
+  lines.push('');
+  lines.push(
+    'Eligibility: ' +
+    (
+      first.eligible === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+  lines.push(
+    'Status: ' +
+    String(
+      first.status ||
+      'UNKNOWN'
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    String(
+      first.reason ||
+      ''
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    groupCount:
+      groups.length,
+
+    firstGroup: {
+      province:
+        first.province,
+      prize:
+        first.prize,
+      model:
+        first.model,
+      window:
+        first.window,
+      verified:
+        first.verified,
+      eligible:
+        first.eligible,
+      status:
+        first.status,
+      reason:
+        first.reason,
+      checks
+    }
+
+  };
+
+}
+
