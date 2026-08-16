@@ -111650,3 +111650,624 @@ console.log(
   'FIX-03D.5.8 STEP 7.9A Transaction Journal / Recovery Replay Audit Engine loaded — NO AUTO RUN'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.9B — CANONICAL COMMIT TRANSACTION JOURNAL /
+               RECOVERY REPLAY AUDIT MANUAL RUNNER
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ABSOLUTE ROLLBACK OWNED BY STEP 7.9A
+
+   IMPORTANT:
+   - RUNNER ONLY.
+   - NO AUTO RUN.
+   - NO BUTTON IN STEP 7.9B.
+   - D MUST REMAIN UPPERCASE.
+   ========================================================================= */
+
+function runCanonicalTransactionJournalReplayAuditV26() {
+
+  /*
+   * -----------------------------------------------------------
+   * A. VERIFY STEP 7.9A ENGINE
+   * -----------------------------------------------------------
+   */
+
+  if (
+    typeof
+      auditCanonicalTransactionJournalReplayV26 !==
+    'function'
+  ) {
+
+    const missingResult = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_9A_ENGINE_NOT_FOUND',
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+
+    console.error(
+      'FIX-03D.5.8 STEP 7.9A Engine NOT FOUND',
+      missingResult
+    );
+
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.9',
+        '',
+        'TRANSACTION JOURNAL / RECOVERY REPLAY AUDIT',
+        '',
+        'STEP 7.9A Engine: NOT FOUND ❌',
+        '',
+        'Audit was NOT executed.',
+        'Storage Write: NO',
+        'Auto Promotion: NO'
+      ].join('\n')
+    );
+
+
+    return missingResult;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * B. MANUAL EXECUTION
+   * -----------------------------------------------------------
+   */
+
+  let result = null;
+
+
+  try {
+
+    result =
+      auditCanonicalTransactionJournalReplayV26();
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'JOURNAL_REPLAY_RUNNER_EXCEPTION',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * C. BUILD REPORT
+   * -----------------------------------------------------------
+   */
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.8 STEP 7.9'
+  );
+
+
+  lines.push(
+    'CANONICAL TRANSACTION JOURNAL'
+  );
+
+
+  lines.push(
+    'RECOVERY REPLAY AUDIT'
+  );
+
+
+  lines.push(
+    '========================================'
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * D. FINAL VERDICT
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    'Passed: ' +
+    (
+      result &&
+      result.passed === true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result &&
+      result.reason
+        ? result.reason
+        : 'UNKNOWN'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * E. JOURNAL IDENTITY
+   * -----------------------------------------------------------
+   */
+
+  const journal =
+    result &&
+    result.journal
+      ? result.journal
+      : {};
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'TRANSACTION JOURNAL'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Lifecycle Key: ' +
+    String(
+      journal.lifecycleKey ||
+      'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Transaction ID: ' +
+    String(
+      journal.transactionId ||
+      'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Journal State: ' +
+    String(
+      journal.state ||
+      'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Interrupted: ' +
+    (
+      journal.interrupted === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Recovery Required: ' +
+    (
+      journal.recoveryRequired === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * F. FIRST REPLAY
+   * -----------------------------------------------------------
+   */
+
+  const firstRecovery =
+    result &&
+    result.firstRecovery
+      ? result.firstRecovery
+      : {};
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'FIRST RECOVERY REPLAY'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      firstRecovery.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Recovered: ' +
+    (
+      firstRecovery.recovered === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Changed: ' +
+    (
+      firstRecovery.changed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    String(
+      firstRecovery.reason ||
+      'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * G. SECOND REPLAY / IDEMPOTENCY
+   * -----------------------------------------------------------
+   */
+
+  const secondRecovery =
+    result &&
+    result.secondRecovery
+      ? result.secondRecovery
+      : {};
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'SECOND RECOVERY REPLAY'
+  );
+
+
+  lines.push(
+    'IDEMPOTENCY'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      secondRecovery.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Recovered: ' +
+    (
+      secondRecovery.recovered === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Changed: ' +
+    (
+      secondRecovery.changed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    String(
+      secondRecovery.reason ||
+      'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * H. CONTRACT CHECKS
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'CONTRACT CHECKS'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  const checks =
+    result &&
+    result.checks &&
+    typeof result.checks ===
+      'object'
+      ? result.checks
+      : {};
+
+
+  Object.keys(
+    checks
+  ).forEach(
+    key => {
+
+      lines.push(
+        key +
+        ': ' +
+        (
+          checks[key] === true
+            ? 'PASS'
+            : 'FAIL'
+        )
+      );
+
+    }
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * I. FAILED CHECKS
+   * -----------------------------------------------------------
+   */
+
+  const failedChecks =
+    result &&
+    Array.isArray(
+      result.failedChecks
+    )
+      ? result.failedChecks
+      : [];
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Failed Checks: ' +
+    (
+      failedChecks.length > 0
+        ? failedChecks.join(', ')
+        : 'NONE'
+    )
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * J. ERROR
+   * -----------------------------------------------------------
+   */
+
+  if (
+    result &&
+    (
+      result.auditError ||
+      result.error
+    )
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      'Audit Error: ' +
+      String(
+        result.auditError ||
+        result.error
+      )
+    );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * K. ABSOLUTE ROLLBACK
+   * -----------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'ABSOLUTE ROLLBACK'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Canonical Restored: ' +
+    (
+      result &&
+      result.canonicalRestored === true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Rollback Write: ' +
+    (
+      result &&
+      result.rollbackWrite === true
+        ? 'CONFIRMED'
+        : 'NOT CONFIRMED'
+    )
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * L. PRODUCTION SAFETY
+   * -----------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'PRODUCTION SAFETY'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Production Prediction Modified: NO'
+  );
+
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  lines.push(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * M. DISPLAY + CONSOLE
+   * -----------------------------------------------------------
+   */
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.9 RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.9B Transaction Journal / Recovery Replay Runner loaded — MANUAL RUN ONLY'
+);
+
