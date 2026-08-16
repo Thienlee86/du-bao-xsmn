@@ -98861,3 +98861,1327 @@ console.log(
   'FIX-03D.5.8 STEP 7.1 Persistence Storage Contract Probe loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.2 — CANDIDATE PERSISTENCE WRITE SAFETY
+   ISOLATED COMMIT PROBE
+
+   Mục tiêu:
+   - Test write/read-back trên TEMP storage key riêng.
+   - Không gọi Production Writer.
+   - Không ghi synthetic candidate vào canonical store.
+   - Kiểm tra duplicate lifecycleKey.
+   - Cleanup TEMP storage sau test.
+   - Xác nhận Production snapshot store không thay đổi.
+   - Không Auto Promotion.
+   ========================================================================= */
+
+
+/* =========================================================================
+   STEP 7.2A
+   ISOLATED STORAGE PROBE
+   ========================================================================= */
+
+function probeIsolatedCandidatePersistenceV26() {
+
+  const TEMP_KEY =
+    'XSMN_V26_FIX03D58_STEP72_TEMP';
+
+
+  /*
+   * Safety cleanup ngay đầu probe.
+   *
+   * Nếu lần chạy trước bị ngắt giữa chừng,
+   * temp key cũ cũng không được tái sử dụng.
+   */
+
+  try {
+
+    localStorage.removeItem(
+      TEMP_KEY
+    );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'TEMP_STORAGE_INITIAL_CLEANUP_FAILED',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * Production reader phải tồn tại.
+   *
+   * Chỉ READ production store.
+   */
+
+  if (
+    typeof
+      readCanonicalShadowStoreV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANONICAL_READER_NOT_FOUND',
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * Candidate contract function từ STEP 3.
+   */
+
+  if (
+    typeof
+      buildPromotionCandidateFromApprovedAuditV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANDIDATE_CONTRACT_FUNCTION_NOT_FOUND',
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * Commit boundary validator từ STEP 6.
+   */
+
+  if (
+    typeof
+      validatePromotionCandidateForCommitV26 !==
+      'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'COMMIT_BOUNDARY_VALIDATOR_NOT_FOUND',
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 1
+   * Snapshot Production BEFORE.
+   * ---------------------------------------------------------
+   */
+
+  let productionBefore;
+
+
+  try {
+
+    productionBefore =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'PRODUCTION_READ_BEFORE_FAILED',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const productionBeforeRows =
+    productionBefore &&
+    Array.isArray(
+      productionBefore.snapshots
+    )
+      ? productionBefore.snapshots
+      : [];
+
+
+  /*
+   * Signature dùng để xác nhận production
+   * không đổi sau isolated test.
+   */
+
+  let productionBeforeSignature;
+
+
+  try {
+
+    productionBeforeSignature =
+      JSON.stringify(
+        productionBeforeRows
+      );
+
+  } catch (error) {
+
+    productionBeforeSignature =
+      null;
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 2
+   * Tạo synthetic APPROVED candidate.
+   * ---------------------------------------------------------
+   */
+
+  const syntheticAudit = {
+
+    lifecycleKey:
+      'synthetic-step72/db/RECENT/10',
+
+    province:
+      'synthetic-step72',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'STEP_7_2_ISOLATED_TEST',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'STEP_7_2_SYNTHETIC_APPROVAL'
+
+  };
+
+
+  let candidate;
+
+
+  try {
+
+    candidate =
+      buildPromotionCandidateFromApprovedAuditV26(
+        syntheticAudit
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'SYNTHETIC_CANDIDATE_BUILD_FAILED',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  const boundary =
+    validatePromotionCandidateForCommitV26(
+      candidate
+    );
+
+
+  /*
+   * Fail closed.
+   *
+   * Nếu candidate không qua STEP 6 boundary
+   * thì tuyệt đối không test write.
+   */
+
+  if (
+    !candidate ||
+    !boundary ||
+    boundary.passed !== true
+  ) {
+
+    return {
+
+      ready: true,
+      passed: false,
+
+      reason:
+        'SYNTHETIC_CANDIDATE_BOUNDARY_REJECTED',
+
+      candidateCreated:
+        Boolean(
+          candidate
+        ),
+
+      boundaryPassed:
+        Boolean(
+          boundary &&
+          boundary.passed === true
+        ),
+
+      productionBeforeCount:
+        productionBeforeRows.length,
+
+      readOnlyProduction: true,
+      productionModified: false,
+      productionStorageModified: false,
+      autoPromotion: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 3
+   * TEMP STORE HELPERS.
+   *
+   * Chỉ được dùng TEMP_KEY.
+   * Không dùng canonical production key.
+   * ---------------------------------------------------------
+   */
+
+  function readTempStore() {
+
+    const raw =
+      localStorage.getItem(
+        TEMP_KEY
+      );
+
+
+    if (!raw) {
+
+      return [];
+
+    }
+
+
+    const parsed =
+      JSON.parse(
+        raw
+      );
+
+
+    if (
+      !Array.isArray(
+        parsed
+      )
+    ) {
+
+      throw new Error(
+        'TEMP_STORE_NOT_ARRAY'
+      );
+
+    }
+
+
+    return parsed;
+
+  }
+
+
+  function writeTempStore(
+    rows
+  ) {
+
+    if (
+      !Array.isArray(
+        rows
+      )
+    ) {
+
+      return false;
+
+    }
+
+
+    localStorage.setItem(
+      TEMP_KEY,
+      JSON.stringify(
+        rows
+      )
+    );
+
+
+    return true;
+
+  }
+
+
+  function isolatedCommit(
+    item
+  ) {
+
+    const validation =
+      validatePromotionCandidateForCommitV26(
+        item
+      );
+
+
+    if (
+      !validation ||
+      validation.passed !== true
+    ) {
+
+      return {
+
+        accepted: false,
+
+        reason:
+          'BOUNDARY_REJECTED'
+
+      };
+
+    }
+
+
+    const rows =
+      readTempStore();
+
+
+    const duplicate =
+      rows.some(
+        row =>
+          row &&
+          row.lifecycleKey ===
+            item.lifecycleKey
+      );
+
+
+    if (duplicate) {
+
+      return {
+
+        accepted: false,
+
+        reason:
+          'DUPLICATE_LIFECYCLE_KEY'
+
+      };
+
+    }
+
+
+    /*
+     * Clone trước khi ghi temp store.
+     */
+
+    const storedCandidate =
+      JSON.parse(
+        JSON.stringify(
+          item
+        )
+      );
+
+
+    rows.push(
+      storedCandidate
+    );
+
+
+    const written =
+      writeTempStore(
+        rows
+      );
+
+
+    return {
+
+      accepted:
+        written === true,
+
+      reason:
+        written
+          ? 'ISOLATED_WRITE_ACCEPTED'
+          : 'ISOLATED_WRITE_FAILED'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 4
+   * ISOLATED WRITE.
+   * ---------------------------------------------------------
+   */
+
+  let firstWrite;
+  let duplicateWrite;
+
+  let readBackRows = [];
+
+  let tempCleanupPassed = false;
+
+  let probeError = null;
+
+
+  try {
+
+    firstWrite =
+      isolatedCommit(
+        candidate
+      );
+
+
+    readBackRows =
+      readTempStore();
+
+
+    duplicateWrite =
+      isolatedCommit(
+        candidate
+      );
+
+
+  } catch (error) {
+
+    probeError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+  }
+
+
+  /*
+   * Read-back validation.
+   */
+
+  const readBackCandidate =
+    readBackRows.length
+      ? readBackRows[0]
+      : null;
+
+
+  const readBackMatches =
+    Boolean(
+      readBackRows.length === 1 &&
+      readBackCandidate &&
+      readBackCandidate.lifecycleKey ===
+        candidate.lifecycleKey &&
+      readBackCandidate.province ===
+        candidate.province &&
+      readBackCandidate.prize ===
+        candidate.prize &&
+      readBackCandidate.model ===
+        candidate.model &&
+      readBackCandidate.candidateStatus ===
+        'PENDING_COMMIT' &&
+      readBackCandidate.approved ===
+        true &&
+      readBackCandidate.gatePassed ===
+        true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 5
+   * CLEANUP TEMP STORE.
+   * ---------------------------------------------------------
+   */
+
+  try {
+
+    localStorage.removeItem(
+      TEMP_KEY
+    );
+
+
+    tempCleanupPassed =
+      localStorage.getItem(
+        TEMP_KEY
+      ) === null;
+
+
+  } catch (error) {
+
+    tempCleanupPassed =
+      false;
+
+
+    if (!probeError) {
+
+      probeError =
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        );
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * PART 6
+   * Production AFTER.
+   *
+   * Chỉ READ.
+   * ---------------------------------------------------------
+   */
+
+  let productionAfter;
+
+
+  try {
+
+    productionAfter =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    productionAfter =
+      null;
+
+
+    if (!probeError) {
+
+      probeError =
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        );
+
+    }
+
+  }
+
+
+  const productionAfterRows =
+    productionAfter &&
+    Array.isArray(
+      productionAfter.snapshots
+    )
+      ? productionAfter.snapshots
+      : [];
+
+
+  let productionAfterSignature;
+
+
+  try {
+
+    productionAfterSignature =
+      JSON.stringify(
+        productionAfterRows
+      );
+
+  } catch (error) {
+
+    productionAfterSignature =
+      null;
+
+  }
+
+
+  const productionUnchanged =
+    productionBeforeSignature !== null &&
+    productionAfterSignature !== null &&
+    productionBeforeSignature ===
+      productionAfterSignature;
+
+
+  /*
+   * ---------------------------------------------------------
+   * FINAL CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const checks = {
+
+    candidateCreated:
+      Boolean(
+        candidate
+      ),
+
+    boundaryAccepted:
+      boundary.passed === true,
+
+    isolatedWriteAccepted:
+      Boolean(
+        firstWrite &&
+        firstWrite.accepted === true &&
+        firstWrite.reason ===
+          'ISOLATED_WRITE_ACCEPTED'
+      ),
+
+    readBackExactlyOne:
+      readBackRows.length === 1,
+
+    readBackMatchesCandidate:
+      readBackMatches,
+
+    duplicateRejected:
+      Boolean(
+        duplicateWrite &&
+        duplicateWrite.accepted === false &&
+        duplicateWrite.reason ===
+          'DUPLICATE_LIFECYCLE_KEY'
+      ),
+
+    tempCleanupPassed:
+      tempCleanupPassed,
+
+    productionCountUnchanged:
+      productionBeforeRows.length ===
+        productionAfterRows.length,
+
+    productionContentUnchanged:
+      productionUnchanged,
+
+    noProbeError:
+      probeError === null
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'ISOLATED_PERSISTENCE_WRITE_SAFETY_VALID'
+        : 'ISOLATED_PERSISTENCE_WRITE_SAFETY_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_2',
+
+    mode:
+      'ISOLATED_PERSISTENCE_WRITE_SAFETY',
+
+    candidateCreated:
+      Boolean(
+        candidate
+      ),
+
+    boundaryPassed:
+      boundary.passed === true,
+
+    isolatedWrite:
+      firstWrite || null,
+
+    duplicateWrite:
+      duplicateWrite || null,
+
+    readBackCount:
+      readBackRows.length,
+
+    readBackMatches,
+
+    tempCleanupPassed,
+
+    productionBeforeCount:
+      productionBeforeRows.length,
+
+    productionAfterCount:
+      productionAfterRows.length,
+
+    productionUnchanged,
+
+    probeError,
+
+    checks,
+
+    failedChecks,
+
+    /*
+     * TEMP storage được thay đổi trong test,
+     * nhưng Production Storage KHÔNG được thay đổi.
+     */
+
+    temporaryStorageModified: true,
+
+    temporaryStorageCleaned:
+      tempCleanupPassed,
+
+    readOnlyProduction: true,
+
+    productionModified: false,
+
+    productionStorageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 7.2B
+   DEBUG PANEL BUTTON
+   ========================================================================= */
+
+(function installFix03D58PersistenceWriteSafetyProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58PersistenceWriteSafetyV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58PersistenceWriteSafetyV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔒 D.5.8 Persistence Write Safety';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            probeIsolatedCandidatePersistenceV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.2',
+              'PERSISTENCE WRITE SAFETY',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.2'
+        );
+
+        lines.push(
+          'PERSISTENCE WRITE SAFETY'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Candidate Created: ' +
+          (
+            result.candidateCreated
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            result.boundaryPassed
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Isolated Write: ' +
+          (
+            result.isolatedWrite
+              ? result.isolatedWrite.reason
+              : 'NONE'
+          )
+        );
+
+
+        lines.push(
+          'Read Back Count: ' +
+          (
+            result.readBackCount ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Read Back Match: ' +
+          (
+            result.readBackMatches
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Duplicate Write: ' +
+          (
+            result.duplicateWrite
+              ? result.duplicateWrite.reason
+              : 'NONE'
+          )
+        );
+
+
+        lines.push(
+          'Temp Cleanup: ' +
+          (
+            result.tempCleanupPassed
+              ? 'PASS'
+              : 'FAIL'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Production Before: ' +
+          (
+            result.productionBeforeCount ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Production After: ' +
+          (
+            result.productionAfterCount ??
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Production Unchanged: ' +
+          (
+            result.productionUnchanged
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        if (result.probeError) {
+
+          lines.push(
+            'Probe Error: ' +
+            result.probeError
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          'Temporary Storage Modified: ' +
+          (
+            result.temporaryStorageModified
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Temporary Storage Cleaned: ' +
+          (
+            result.temporaryStorageCleaned
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Storage Modified: ' +
+          (
+            result.productionStorageModified
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result.autoPromotion
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'SAFETY CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          result.checks || {}
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                result.checks[key] === true
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            result.failedChecks &&
+            result.failedChecks.length
+              ? result.failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * Chỉ attach vào Debug Panel.
+     * Không floating fallback.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts < maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.2 Persistence Write Safety loaded — ISOLATED TEMP STORAGE ONLY'
+);
+
