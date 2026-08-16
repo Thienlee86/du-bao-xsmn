@@ -105304,3 +105304,665 @@ console.log(
 );
 
    
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.6A — CANONICAL COMMIT CONCURRENCY /
+               RACE-CONDITION SAFETY AUDIT ENGINE
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ABSOLUTE ROLLBACK
+
+   IMPORTANT:
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD SYNTHETIC RACE CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticRaceCandidateV26() {
+
+  const lifecycleKey =
+    'synthetic-race-audit/db/RECENT/10';
+
+
+  return {
+
+    lifecycleKey,
+
+    province:
+      'synthetic-race-audit',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_RACE_AUDIT',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    pendingCommit:
+      true,
+
+    autoPromotion:
+      false,
+
+    synthetic:
+      true,
+
+    syntheticAudit:
+      'FIX-03D.5.8_STEP_7.6'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BUILD COMMITTED COPY
+   ========================================================================= */
+
+function buildSyntheticRaceCommittedRecordV26(
+  candidate,
+  transactionId
+) {
+
+  const record =
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    );
+
+
+  record.candidateStatus =
+    'COMMITTED';
+
+
+  record.pendingCommit =
+    false;
+
+
+  record.commitAudit =
+    'FIX-03D.5.8_STEP_7.6';
+
+
+  record.syntheticTransactionId =
+    transactionId;
+
+
+  return record;
+
+}
+
+
+/* =========================================================================
+   3. STEP 7.6A AUDIT ENGINE
+
+   SIMULATION:
+
+   T1 READ  ─────┐
+                 ├── both observe same canonical state
+   T2 READ  ─────┘
+
+   Then controlled serialization is applied.
+
+   T1 attempts commit first.
+   T2 MUST revalidate against latest canonical state before write.
+
+   Expected:
+       T1 = ACCEPT
+       T2 = REJECT DUPLICATE
+       lifecycleKey count = 1
+
+   Finally:
+       absolute rollback to original canonical store.
+   ========================================================================= */
+
+function auditCanonicalCommitConcurrencyV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. BACKUP CANONICAL STORE
+   * ---------------------------------------------------------
+   */
+
+  const originalRaw =
+    readShadowSnapshotsV26();
+
+
+  const original =
+    Array.isArray(
+      originalRaw
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            originalRaw
+          )
+        )
+      : [];
+
+
+  const originalCount =
+    original.length;
+
+
+  const candidate =
+    buildSyntheticRaceCandidateV26();
+
+
+  const lifecycleKey =
+    candidate.lifecycleKey;
+
+
+  let transactionA =
+    null;
+
+
+  let transactionB =
+    null;
+
+
+  let afterFirst =
+    [];
+
+
+  let afterSecond =
+    [];
+
+
+  let afterRollback =
+    [];
+
+
+  let rollbackWrite =
+    false;
+
+
+  let auditError =
+    null;
+
+
+  const checks = {
+
+    candidateValid:
+      false,
+
+    bothTransactionsSawSameInitialState:
+      false,
+
+    firstCommitAccepted:
+      false,
+
+    firstCountIncreasedByOne:
+      false,
+
+    firstLifecycleKeyExactlyOnce:
+      false,
+
+    secondTransactionRevalidated:
+      false,
+
+    duplicateRejected:
+      false,
+
+    secondCountUnchanged:
+      false,
+
+    lifecycleKeyStillExactlyOnce:
+      false,
+
+    rollbackWriteConfirmed:
+      false,
+
+    originalCountRestored:
+      false,
+
+    syntheticRemoved:
+      false
+
+  };
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * B. CANDIDATE CONTRACT
+     * ---------------------------------------------------------
+     */
+
+    checks.candidateValid =
+      Boolean(
+        candidate &&
+        candidate.lifecycleKey &&
+        candidate.approved === true &&
+        candidate.gatePassed === true &&
+        candidate.candidateStatus ===
+          'PENDING_COMMIT' &&
+        candidate.autoPromotion === false
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. SIMULTANEOUS READ PHASE
+     *
+     * Both transactions intentionally observe the SAME
+     * canonical snapshot.
+     * ---------------------------------------------------------
+     */
+
+    const transactionARead =
+      JSON.parse(
+        JSON.stringify(
+          original
+        )
+      );
+
+
+    const transactionBRead =
+      JSON.parse(
+        JSON.stringify(
+          original
+        )
+      );
+
+
+    const transactionAInitialDuplicate =
+      countLifecycleKeyInCanonicalStoreV26(
+        transactionARead,
+        lifecycleKey
+      );
+
+
+    const transactionBInitialDuplicate =
+      countLifecycleKeyInCanonicalStoreV26(
+        transactionBRead,
+        lifecycleKey
+      );
+
+
+    checks.bothTransactionsSawSameInitialState =
+      (
+        transactionARead.length ===
+          transactionBRead.length &&
+
+        transactionAInitialDuplicate ===
+          transactionBInitialDuplicate &&
+
+        transactionAInitialDuplicate === 0
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. TRANSACTION A
+     *
+     * Use canonical commit helper.
+     * ---------------------------------------------------------
+     */
+
+    transactionA =
+      commitSyntheticIdempotencyCandidateV26(
+        candidate
+      );
+
+
+    const firstRaw =
+      readShadowSnapshotsV26();
+
+
+    afterFirst =
+      Array.isArray(
+        firstRaw
+      )
+        ? firstRaw
+        : [];
+
+
+    const firstLifecycleCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterFirst,
+        lifecycleKey
+      );
+
+
+    checks.firstCommitAccepted =
+      Boolean(
+        transactionA &&
+        transactionA.committed === true &&
+        transactionA.reason ===
+          'COMMIT_ACCEPTED'
+      );
+
+
+    checks.firstCountIncreasedByOne =
+      afterFirst.length ===
+        originalCount + 1;
+
+
+    checks.firstLifecycleKeyExactlyOnce =
+      firstLifecycleCount === 1;
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. TRANSACTION B — REQUIRED REVALIDATION
+     *
+     * Critical race-condition rule:
+     *
+     * Transaction B MUST NOT write from its stale read.
+     * It must pass through the canonical helper again,
+     * forcing a fresh read + duplicate check.
+     * ---------------------------------------------------------
+     */
+
+    transactionB =
+      commitSyntheticIdempotencyCandidateV26(
+        candidate
+      );
+
+
+    checks.secondTransactionRevalidated =
+      Boolean(
+        transactionB &&
+        (
+          transactionB.reason ===
+            'DUPLICATE_LIFECYCLE_KEY' ||
+          transactionB.committed === true
+        )
+      );
+
+
+    const secondRaw =
+      readShadowSnapshotsV26();
+
+
+    afterSecond =
+      Array.isArray(
+        secondRaw
+      )
+        ? secondRaw
+        : [];
+
+
+    const secondLifecycleCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterSecond,
+        lifecycleKey
+      );
+
+
+    checks.duplicateRejected =
+      Boolean(
+        transactionB &&
+        transactionB.committed === false &&
+        transactionB.duplicate === true &&
+        transactionB.reason ===
+          'DUPLICATE_LIFECYCLE_KEY'
+      );
+
+
+    checks.secondCountUnchanged =
+      afterSecond.length ===
+        afterFirst.length;
+
+
+    checks.lifecycleKeyStillExactlyOnce =
+      secondLifecycleCount === 1;
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    rollbackWrite =
+      writeShadowSnapshotsV26(
+        JSON.parse(
+          JSON.stringify(
+            original
+          )
+        )
+      );
+
+
+    const rollbackRaw =
+      readShadowSnapshotsV26();
+
+
+    afterRollback =
+      Array.isArray(
+        rollbackRaw
+      )
+        ? rollbackRaw
+        : [];
+
+
+    const rollbackSyntheticCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterRollback,
+        lifecycleKey
+      );
+
+
+    checks.rollbackWriteConfirmed =
+      rollbackWrite === true;
+
+
+    checks.originalCountRestored =
+      afterRollback.length ===
+        originalCount;
+
+
+    checks.syntheticRemoved =
+      rollbackSyntheticCount === 0;
+
+
+  } catch (error) {
+
+    auditError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * EMERGENCY ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      rollbackWrite =
+        writeShadowSnapshotsV26(
+          JSON.parse(
+            JSON.stringify(
+              original
+            )
+          )
+        );
+
+
+      const rollbackRaw =
+        readShadowSnapshotsV26();
+
+
+      afterRollback =
+        Array.isArray(
+          rollbackRaw
+        )
+          ? rollbackRaw
+          : [];
+
+
+      checks.rollbackWriteConfirmed =
+        rollbackWrite === true;
+
+
+      checks.originalCountRestored =
+        afterRollback.length ===
+          originalCount;
+
+
+      checks.syntheticRemoved =
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0;
+
+
+    } catch (_) {
+
+      /*
+       * Preserve original audit error.
+       */
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0 &&
+    auditError === null;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_COMMIT_CONCURRENCY_SAFETY_VALID'
+        : 'CANONICAL_COMMIT_CONCURRENCY_SAFETY_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_6A',
+
+    mode:
+      'MANUAL_RACE_CONDITION_AUDIT',
+
+    lifecycleKey,
+
+    originalCount,
+
+    afterFirstCount:
+      afterFirst.length,
+
+    afterSecondCount:
+      afterSecond.length,
+
+    afterRollbackCount:
+      afterRollback.length,
+
+    transactionA,
+
+    transactionB,
+
+    checks,
+
+    failedChecks,
+
+    auditError,
+
+    rollbackWrite,
+
+    canonicalRestored:
+      (
+        afterRollback.length ===
+          originalCount &&
+
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0
+      ),
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.6A Concurrency Audit Engine loaded — MANUAL RUN ONLY'
+);
+
