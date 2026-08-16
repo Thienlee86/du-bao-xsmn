@@ -122320,3 +122320,1071 @@ console.log(
   'FIX-03D.5.9 STEP 8.1B Manual Button + Mobile Reporter loaded — MANUAL RUN ONLY / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2A — CANONICAL ELIGIBILITY CONTRACT AUDIT ENGINE
+
+   PURPOSE:
+   Define and audit the minimum structural contract required for a
+   canonical snapshot to be considered ELIGIBLE FOR FURTHER REVIEW.
+
+   IMPORTANT:
+   ELIGIBLE != PROMOTED
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   FIX-03D.5.9
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BASIC VALUE HELPERS
+   ========================================================================= */
+
+function hasFix03D59Step82ValueV26(
+  value
+) {
+
+  return !(
+    value == null ||
+    String(value).trim() === ''
+  );
+
+}
+
+
+function isFix03D59Step82ArrayV26(
+  value
+) {
+
+  return (
+    Array.isArray(value) &&
+    value.length > 0
+  );
+
+}
+
+
+/* =========================================================================
+   2. RESOLVE STORED SNAPSHOT IDENTITY
+
+   Prefer existing getStoredSnapshotKeyV26() because that is already the
+   application's canonical identity logic.
+
+   FAIL CLOSED:
+   If identity cannot be established, eligibility must be false.
+   ========================================================================= */
+
+function resolveFix03D59Step82IdentityV26(
+  snapshot
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !== 'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'INVALID_CANONICAL_RECORD',
+
+      identity:
+        null
+
+    };
+
+  }
+
+
+  let identity = null;
+
+
+  if (
+    typeof getStoredSnapshotKeyV26 ===
+    'function'
+  ) {
+
+    try {
+
+      identity =
+        getStoredSnapshotKeyV26(
+          snapshot
+        );
+
+    } catch (error) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'CANONICAL_IDENTITY_RESOLUTION_FAILED',
+
+        identity:
+          null,
+
+        error:
+          error &&
+          error.message
+            ? error.message
+            : String(error)
+
+      };
+
+    }
+
+  } else {
+
+    /*
+     * Conservative fallback.
+     *
+     * We accept ONLY an already persisted snapshotKey.
+     * We DO NOT invent/reconstruct identity here.
+     */
+
+    identity =
+      hasFix03D59Step82ValueV26(
+        snapshot.snapshotKey
+      )
+        ? String(
+            snapshot.snapshotKey
+          )
+        : null;
+
+  }
+
+
+  if (!identity) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_IDENTITY_NOT_ESTABLISHED',
+
+      identity:
+        null
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    reason:
+      'CANONICAL_IDENTITY_ESTABLISHED',
+
+    identity:
+      String(identity)
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. AUDIT ONE CANONICAL RECORD
+
+   CONTRACT LEVEL:
+   Minimum structural eligibility for FURTHER REVIEW.
+
+   This DOES NOT certify prediction quality.
+   This DOES NOT promote anything.
+   ========================================================================= */
+
+function auditFix03D59Step82CanonicalRecordV26(
+  snapshot,
+  index
+) {
+
+  if (
+    !snapshot ||
+    typeof snapshot !== 'object' ||
+    Array.isArray(snapshot)
+  ) {
+
+    return {
+
+      index,
+
+      ready: true,
+
+      eligible: false,
+
+      reason:
+        'INVALID_CANONICAL_RECORD',
+
+      failedChecks: [
+        'recordObject'
+      ]
+
+    };
+
+  }
+
+
+  const identity =
+    resolveFix03D59Step82IdentityV26(
+      snapshot
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * CONTRACT CHECKS
+   * ---------------------------------------------------------
+   *
+   * These checks are grounded in the stored V2.6 snapshot structure.
+   *
+   * IMPORTANT:
+   * verification.status is observed, NOT used as a hard eligibility
+   * requirement in STEP 8.2.
+   * ---------------------------------------------------------
+   */
+
+  const checks = {
+
+    recordObject:
+      true,
+
+    identityEstablished:
+      identity.ready === true,
+
+    idPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.id
+      ),
+
+    provincePresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.province
+      ),
+
+    prizePresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.prize
+      ),
+
+    modelPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.model
+      ),
+
+    windowPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.window
+      ),
+
+    latestDrawKeyPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.latestDrawKey
+      ),
+
+    latestDrawDatePresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.latestDrawDate
+      ),
+
+    generatedAtPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.generatedAt
+      ),
+
+    savedAtPresent:
+      hasFix03D59Step82ValueV26(
+        snapshot.savedAt
+      ),
+
+    engineValid:
+      snapshot.engine ===
+      'SHADOW_TRACKING',
+
+    researchOnlyValid:
+      snapshot.researchOnly ===
+      true,
+
+    top1Present:
+      isFix03D59Step82ArrayV26(
+        snapshot.top1
+      ),
+
+    top3Present:
+      isFix03D59Step82ArrayV26(
+        snapshot.top3
+      ),
+
+    top5Present:
+      isFix03D59Step82ArrayV26(
+        snapshot.top5
+      ),
+
+    top10Present:
+      isFix03D59Step82ArrayV26(
+        snapshot.top10
+      ),
+
+    verificationObjectPresent:
+      Boolean(
+        snapshot.verification &&
+        typeof snapshot.verification ===
+          'object' &&
+        !Array.isArray(
+          snapshot.verification
+        )
+      ),
+
+    verificationStatusPresent:
+      Boolean(
+        snapshot.verification &&
+        hasFix03D59Step82ValueV26(
+          snapshot.verification.status
+        )
+      )
+
+  };
+
+
+  const requiredChecks = [
+
+    'recordObject',
+
+    'identityEstablished',
+
+    'idPresent',
+
+    'provincePresent',
+
+    'prizePresent',
+
+    'modelPresent',
+
+    'windowPresent',
+
+    'latestDrawKeyPresent',
+
+    'latestDrawDatePresent',
+
+    'generatedAtPresent',
+
+    'savedAtPresent',
+
+    'engineValid',
+
+    'researchOnlyValid',
+
+    'top1Present',
+
+    'top3Present',
+
+    'top5Present',
+
+    'top10Present',
+
+    'verificationObjectPresent',
+
+    'verificationStatusPresent'
+
+  ];
+
+
+  const failedChecks =
+    requiredChecks.filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const eligible =
+    failedChecks.length === 0;
+
+
+  return {
+
+    index,
+
+    ready:
+      true,
+
+    eligible,
+
+    reason:
+      eligible
+        ? 'CANONICAL_RECORD_ELIGIBLE_FOR_REVIEW'
+        : 'CANONICAL_RECORD_NOT_ELIGIBLE',
+
+    identity:
+      identity.identity,
+
+    snapshotId:
+      snapshot.id != null
+        ? snapshot.id
+        : null,
+
+    province:
+      snapshot.province != null
+        ? snapshot.province
+        : null,
+
+    prize:
+      snapshot.prize != null
+        ? snapshot.prize
+        : null,
+
+    verificationStatus:
+      (
+        snapshot.verification &&
+        snapshot.verification.status != null
+      )
+        ? snapshot.verification.status
+        : null,
+
+    checks,
+
+    failedChecks,
+
+    /*
+     * Explicit boundary declaration.
+     */
+
+    productionCandidate:
+      false,
+
+    promoted:
+      false
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. DUPLICATE IDENTITY AUDIT
+
+   A canonical eligibility contract must not silently treat duplicate
+   identities as independent eligible candidates.
+
+   READ ONLY:
+   duplicates are reported, never removed.
+   ========================================================================= */
+
+function auditFix03D59Step82DuplicateIdentityV26(
+  recordAudits
+) {
+
+  const counts = {};
+
+
+  recordAudits.forEach(
+    item => {
+
+      if (
+        !item ||
+        !item.identity
+      ) {
+
+        return;
+
+      }
+
+
+      counts[item.identity] =
+        (
+          counts[item.identity] ||
+          0
+        ) + 1;
+
+    }
+  );
+
+
+  const duplicateIdentities =
+    Object.keys(
+      counts
+    ).filter(
+      key =>
+        counts[key] > 1
+    );
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      duplicateIdentities.length ===
+      0,
+
+    reason:
+      duplicateIdentities.length === 0
+        ? 'CANONICAL_IDENTITIES_UNIQUE'
+        : 'CANONICAL_DUPLICATE_IDENTITIES_FOUND',
+
+    duplicateCount:
+      duplicateIdentities.length,
+
+    duplicateIdentities
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. READ-ONLY SAFETY POLICY
+   ========================================================================= */
+
+function verifyFix03D59Step82SafetyPolicyV26() {
+
+  const policy = {
+
+    manualRunOnly:
+      true,
+
+    readOnly:
+      true,
+
+    failClosed:
+      true,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    savePredictionCalled:
+      false,
+
+    saveJSONCalled:
+      false,
+
+    canonicalWriterCalled:
+      false,
+
+    syntheticRecordCreated:
+      false,
+
+    probeCreated:
+      false,
+
+    transactionCreated:
+      false,
+
+    recoveryExecuted:
+      false,
+
+    journalReplayExecuted:
+      false,
+
+    autoPromotion:
+      false,
+
+    productionCandidateCreated:
+      false,
+
+    productionPredictionModified:
+      false
+
+  };
+
+
+  const passed =
+    policy.manualRunOnly &&
+    policy.readOnly &&
+    policy.failClosed &&
+    !policy.canonicalWrite &&
+    !policy.productionWrite &&
+    !policy.savePredictionCalled &&
+    !policy.saveJSONCalled &&
+    !policy.canonicalWriterCalled &&
+    !policy.syntheticRecordCreated &&
+    !policy.probeCreated &&
+    !policy.transactionCreated &&
+    !policy.recoveryExecuted &&
+    !policy.journalReplayExecuted &&
+    !policy.autoPromotion &&
+    !policy.productionCandidateCreated &&
+    !policy.productionPredictionModified;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_ELIGIBILITY_SAFETY_VALID'
+        : 'CANONICAL_ELIGIBILITY_SAFETY_INVALID',
+
+    policy
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. STEP 8.2A ENGINE
+   ========================================================================= */
+
+function runFix03D59Step82EligibilityAuditV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. REQUIRE CANONICAL READER
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ CANONICAL
+   * ---------------------------------------------------------
+   */
+
+  let raw;
+
+
+  try {
+
+    raw =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(raw)
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_STATE_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. SNAPSHOT EXACT BEFORE STATE
+   * ---------------------------------------------------------
+   */
+
+  const beforeCount =
+    raw.length;
+
+
+  const beforeFingerprint =
+    JSON.stringify(
+      raw
+    );
+
+
+  /*
+   * Deep-copy before audit.
+   */
+
+  let copy;
+
+
+  try {
+
+    copy =
+      JSON.parse(
+        JSON.stringify(
+          raw
+        )
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_COPY_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. AUDIT EACH RECORD
+   * ---------------------------------------------------------
+   */
+
+  const records =
+    copy.map(
+      (
+        snapshot,
+        index
+      ) =>
+        auditFix03D59Step82CanonicalRecordV26(
+          snapshot,
+          index
+        )
+    );
+
+
+  const eligibleRecords =
+    records.filter(
+      item =>
+        item.eligible === true
+    );
+
+
+  const ineligibleRecords =
+    records.filter(
+      item =>
+        item.eligible !== true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. DUPLICATE IDENTITY CHECK
+   * ---------------------------------------------------------
+   */
+
+  const identityAudit =
+    auditFix03D59Step82DuplicateIdentityV26(
+      records
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. READ CANONICAL AGAIN
+   * ---------------------------------------------------------
+   */
+
+  let after;
+
+
+  try {
+
+    after =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_POST_AUDIT_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(after)
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_POST_AUDIT_STATE_INVALID'
+
+    };
+
+  }
+
+
+  const afterCount =
+    after.length;
+
+
+  const afterFingerprint =
+    JSON.stringify(
+      after
+    );
+
+
+  const canonicalUnchanged =
+    (
+      beforeCount ===
+        afterCount &&
+      beforeFingerprint ===
+        afterFingerprint
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. SAFETY
+   * ---------------------------------------------------------
+   */
+
+  const safety =
+    verifyFix03D59Step82SafetyPolicyV26();
+
+
+  /*
+   * ---------------------------------------------------------
+   * H. CONTRACT VERDICT
+   *
+   * IMPORTANT:
+   *
+   * The audit itself may PASS even when some records are
+   * NOT ELIGIBLE.
+   *
+   * Why?
+   * Because STEP 8.2 is validating that the eligibility
+   * contract classifies records deterministically and safely.
+   *
+   * It is NOT forcing every historical canonical row to be
+   * eligible.
+   * ---------------------------------------------------------
+   */
+
+  const contractOperational =
+    records.every(
+      item =>
+        item &&
+        item.ready === true &&
+        typeof item.eligible ===
+          'boolean'
+    );
+
+
+  const passed =
+    Boolean(
+      contractOperational &&
+      identityAudit.ready &&
+      canonicalUnchanged &&
+      safety.ready &&
+      safety.passed
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_ELIGIBILITY_CONTRACT_VALID'
+        : 'CANONICAL_ELIGIBILITY_CONTRACT_FAILED',
+
+    fix:
+      'FIX-03D.5.9',
+
+    step:
+      '8.2A',
+
+    mode:
+      'MANUAL_READ_ONLY_FAIL_CLOSED',
+
+    summary: {
+
+      canonicalCount:
+        records.length,
+
+      eligibleCount:
+        eligibleRecords.length,
+
+      ineligibleCount:
+        ineligibleRecords.length,
+
+      classifiedCount:
+        records.length,
+
+      contractOperational,
+
+      canonicalUnchanged
+
+    },
+
+    identityAudit,
+
+    records,
+
+    ineligible: ineligibleRecords.map(
+      item => ({
+
+        index:
+          item.index,
+
+        snapshotId:
+          item.snapshotId,
+
+        province:
+          item.province,
+
+        prize:
+          item.prize,
+
+        reason:
+          item.reason,
+
+        failedChecks:
+          item.failedChecks
+
+      })
+    ),
+
+    safety,
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionCandidateCreated:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * RAM ONLY.
+   *
+   * Audit result is intentionally NOT persisted.
+   */
+
+  window
+    .LAST_FIX03D59_STEP82A_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   7. ENGINE LOAD MARKER
+
+   Loading this block DOES NOT run the audit.
+   ========================================================================= */
+
+window
+  .FIX03D59_STEP82A_ENGINE_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2A Canonical Eligibility Contract Audit Engine loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
+);
+
