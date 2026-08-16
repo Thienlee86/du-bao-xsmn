@@ -104462,3 +104462,734 @@ function auditCanonicalCommitIdempotencyV26() {
       ready:
 
        
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.5B — CANONICAL COMMIT IDEMPOTENCY /
+               DUPLICATE PROTECTION AUDIT RUNNER
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   Debug Panel ID = fix03DDebugPanelV26
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+(function installFix03D58IdempotencyAuditRunnerV26() {
+
+  function install() {
+
+    const buttonId =
+      'btnFix03D58IdempotencyAuditV26';
+
+
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        buttonId
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      buttonId;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔁 D.5.8 Idempotency Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. MANUAL CLICK
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * Verify STEP 7.5A engine.
+         */
+
+        if (
+          typeof
+            auditCanonicalCommitIdempotencyV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.5',
+              '',
+              'IDEMPOTENCY AUDIT',
+              '',
+              'STEP 7.5A Engine: NOT FOUND ❌',
+              '',
+              'Audit aborted.',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * D. CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          confirm(
+            [
+              'FIX-03D.5.8 STEP 7.5',
+              '',
+              'CANONICAL COMMIT IDEMPOTENCY',
+              'DUPLICATE PROTECTION AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Backup canonical store',
+              '2. Tạo 1 synthetic APPROVED candidate',
+              '3. Commit candidate lần thứ nhất',
+              '4. Commit lại cùng lifecycleKey',
+              '5. Verify duplicate bị từ chối',
+              '6. Verify chỉ có 1 canonical record',
+              '7. Rollback về dữ liệu ban đầu',
+              '8. Verify rollback',
+              '',
+              'Production Prediction Modified: NO',
+              'Auto Promotion: NO',
+              '',
+              'Tiếp tục chạy audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * E. RUN AUDIT
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            auditCanonicalCommitIdempotencyV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.5',
+              '',
+              'IDEMPOTENCY AUDIT ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              ),
+              '',
+              'Review required.'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * F. BUILD REPORT
+         * -----------------------------------------------------
+         */
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.5'
+        );
+
+        lines.push(
+          'CANONICAL COMMIT IDEMPOTENCY'
+        );
+
+        lines.push(
+          'DUPLICATE PROTECTION AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : 'UNKNOWN'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CANONICAL COUNTS
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANONICAL COUNTS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Original Count: ' +
+          (
+            result &&
+            result.originalCount != null
+              ? result.originalCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After First Commit: ' +
+          (
+            result &&
+            result.firstCount != null
+              ? result.firstCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After Duplicate Attempt: ' +
+          (
+            result &&
+            result.secondCount != null
+              ? result.secondCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After Rollback: ' +
+          (
+            result &&
+            result.rollbackCount != null
+              ? result.rollbackCount
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * FIRST COMMIT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'FIRST COMMIT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Committed: ' +
+          (
+            result &&
+            result.firstCommit &&
+            result.firstCommit.committed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.firstCommit &&
+            result.firstCommit.reason
+              ? result.firstCommit.reason
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'LifecycleKey Count: ' +
+          (
+            result &&
+            result.firstSyntheticCount != null
+              ? result.firstSyntheticCount
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * DUPLICATE ATTEMPT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'DUPLICATE ATTEMPT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Committed: ' +
+          (
+            result &&
+            result.secondCommit &&
+            result.secondCommit.committed === true
+              ? 'YES ❌'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Duplicate Detected: ' +
+          (
+            result &&
+            result.secondCommit &&
+            result.secondCommit.duplicate === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.secondCommit &&
+            result.secondCommit.reason
+              ? result.secondCommit.reason
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'LifecycleKey Count: ' +
+          (
+            result &&
+            result.secondSyntheticCount != null
+              ? result.secondSyntheticCount
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * ROLLBACK
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'ROLLBACK'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Rollback Write: ' +
+          (
+            result &&
+            result.rollbackWrite === true
+              ? 'CONFIRMED'
+              : 'FAILED'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Restored: ' +
+          (
+            result &&
+            result.canonicalRestored === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Synthetic Remaining: ' +
+          (
+            result &&
+            result.rollbackSyntheticCount != null
+              ? result.rollbackSyntheticCount
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * IDEMPOTENCY VERDICT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'IDEMPOTENCY VERDICT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push('');
+
+
+        if (
+          result &&
+          result.passed === true
+        ) {
+
+          lines.push(
+            'Passed: YES ✅'
+          );
+
+          lines.push(
+            'Reason: CANONICAL_COMMIT_IDEMPOTENCY_VALID'
+          );
+
+          lines.push('');
+
+          lines.push(
+            'First Commit: ACCEPTED'
+          );
+
+          lines.push(
+            'Duplicate Commit: REJECTED'
+          );
+
+          lines.push(
+            'Duplicate Record Created: NO'
+          );
+
+          lines.push(
+            'Canonical Restored: YES'
+          );
+
+        } else {
+
+          lines.push(
+            'Passed: NO ❌'
+          );
+
+          lines.push(
+            'Reason: ' +
+            (
+              result &&
+              result.reason
+                ? result.reason
+                : 'IDEMPOTENCY_AUDIT_FAILED'
+            )
+          );
+
+
+          const failedChecks =
+            (
+              result &&
+              Array.isArray(
+                result.failedChecks
+              )
+            )
+              ? result.failedChecks
+              : [];
+
+
+          lines.push(
+            'Failed Checks: ' +
+            (
+              failedChecks.length
+                ? failedChecks.join(', ')
+                : 'UNKNOWN'
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+
+        /*
+         * -----------------------------------------------------
+         * G. DISPLAY
+         * -----------------------------------------------------
+         */
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * H. ATTACH TO DEBUG PANEL
+     *
+     * IMPORTANT:
+     * D IS UPPERCASE
+     * fix03DDebugPanelV26
+     * ---------------------------------------------------------
+     */
+
+    function attach() {
+
+      const panel =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (!panel) {
+
+        return false;
+
+      }
+
+
+      if (
+        !document.getElementById(
+          buttonId
+        )
+      ) {
+
+        panel.appendChild(
+          button
+        );
+
+      }
+
+
+      return true;
+
+    }
+
+
+    if (attach()) {
+
+      return;
+
+    }
+
+
+    /*
+     * Panel may be created after this block.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    const timer =
+      setInterval(
+        function () {
+
+          attempts++;
+
+
+          if (
+            attach() ||
+            attempts >= maxAttempts
+          ) {
+
+            clearInterval(
+              timer
+            );
+
+          }
+
+        },
+        500
+      );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * I. INSTALL
+   * -----------------------------------------------------------
+   */
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.5B Idempotency Audit Runner loaded — MANUAL RUN ONLY'
+);
+
+   
