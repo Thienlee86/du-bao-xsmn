@@ -115814,3 +115814,1344 @@ console.log(
   'FIX-03D.5.8 STEP 7.10C Post-Reload Durability Verification loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.10D — ABSOLUTE PROBE CLEANUP
+                + FINAL READ-ONLY VERIFICATION
+
+   MANUAL RUN ONLY
+
+   CLEANUP SCOPE:
+   - ONLY STEP 7.10 DURABILITY PROBE
+
+   NEVER TOUCH:
+   - CANONICAL SHADOW STORE
+   - PRODUCTION PREDICTION
+   - PROMOTION STATE
+   - OTHER AUDIT DATA
+
+   AFTER CLEANUP:
+   - FINAL VERIFICATION IS READ ONLY
+
+   NO AUTO RECOVERY
+   NO AUTO PROMOTION
+
+   IMPORTANT:
+   FIX-03D.5.8
+       ^
+       D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. VERIFY PROBE IS REALLY STEP 7.10 BEFORE REMOVAL
+   ========================================================================= */
+
+function validateFix03D58Step710ProbeForCleanupV26(
+  probe
+) {
+
+  if (
+    !probe ||
+    typeof probe !== 'object'
+  ) {
+
+    return {
+
+      valid: false,
+
+      reason:
+        'CLEANUP_PROBE_INVALID'
+
+    };
+
+  }
+
+
+  const schemaValid =
+    probe.schema ===
+      'FIX03D58_STEP710_DURABILITY_PROBE';
+
+
+  const fixValid =
+    probe.fix ===
+      'FIX-03D.5.8';
+
+
+  const stepValid =
+    probe.step ===
+      '7.10';
+
+
+  const probeIdValid =
+    typeof probe.probeId ===
+      'string' &&
+    probe.probeId.length > 0;
+
+
+  const phaseValid =
+    probe.phase ===
+      'PRE_RELOAD_ARMED';
+
+
+  const valid =
+    schemaValid &&
+    fixValid &&
+    stepValid &&
+    probeIdValid &&
+    phaseValid;
+
+
+  return {
+
+    valid,
+
+    reason:
+      valid
+        ? 'STEP710_PROBE_CLEANUP_TARGET_VALID'
+        : 'STEP710_PROBE_CLEANUP_TARGET_REJECTED',
+
+    schemaValid,
+
+    fixValid,
+
+    stepValid,
+
+    probeIdValid,
+
+    phaseValid
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. ABSOLUTE PROBE CLEANUP
+
+   IMPORTANT:
+   This function may remove ONLY:
+
+   XSMN_V26_FIX03D58_STEP710_DURABILITY_PROBE
+
+   It does NOT write canonical storage.
+   ========================================================================= */
+
+function cleanupFix03D58Step710ProbeV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. DEPENDENCY GUARDS
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readFix03D58Step710DurabilityProbeV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      cleaned: false,
+
+      reason:
+        'DURABILITY_PROBE_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  if (
+    typeof removeFix03D58Step710DurabilityProbeV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      cleaned: false,
+
+      reason:
+        'DURABILITY_PROBE_REMOVER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ TARGET BEFORE CLEANUP
+   * ---------------------------------------------------------
+   */
+
+  const before =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !before.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      cleaned: false,
+
+      reason:
+        before.reason,
+
+      before
+
+    };
+
+  }
+
+
+  /*
+   * Already clean is safe and idempotent.
+   */
+
+  if (
+    !before.exists
+  ) {
+
+    return {
+
+      ready: true,
+
+      cleaned: true,
+
+      alreadyClean: true,
+
+      reason:
+        'STEP710_PROBE_ALREADY_CLEAN',
+
+      beforeExists:
+        false,
+
+      afterExists:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. STRICT TARGET VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const validation =
+    validateFix03D58Step710ProbeForCleanupV26(
+      before.probe
+    );
+
+
+  if (
+    !validation.valid
+  ) {
+
+    return {
+
+      ready: true,
+
+      cleaned: false,
+
+      reason:
+        'CLEANUP_ABORTED_UNEXPECTED_PROBE',
+
+      beforeExists:
+        true,
+
+      probeId:
+        before.probe &&
+        before.probe.probeId
+          ? before.probe.probeId
+          : null,
+
+      validation
+
+    };
+
+  }
+
+
+  const probeId =
+    before.probe.probeId;
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. REMOVE ONLY ISOLATED STEP 7.10 PROBE
+   * ---------------------------------------------------------
+   */
+
+  const removed =
+    removeFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !removed.ready ||
+    !removed.removed
+  ) {
+
+    return {
+
+      ready: false,
+
+      cleaned: false,
+
+      reason:
+        removed.reason,
+
+      probeId,
+
+      remove:
+        removed
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. READ BACK
+   * ---------------------------------------------------------
+   */
+
+  const after =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !after.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      cleaned: false,
+
+      reason:
+        'POST_CLEANUP_PROBE_READ_FAILED',
+
+      probeId,
+
+      after
+
+    };
+
+  }
+
+
+  const cleaned =
+    !after.exists;
+
+
+  return {
+
+    ready: true,
+
+    cleaned,
+
+    alreadyClean: false,
+
+    reason:
+      cleaned
+        ? 'STEP710_PROBE_CLEANUP_CONFIRMED'
+        : 'STEP710_PROBE_CLEANUP_FAILED',
+
+    probeId,
+
+    beforeExists:
+      true,
+
+    afterExists:
+      after.exists,
+
+    targetValidation:
+      validation
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. FINAL READ-ONLY VERIFICATION
+
+   IMPORTANT:
+   This function performs NO writes.
+   ========================================================================= */
+
+function verifyFix03D58Step710FinalStateV26(
+  expectedCanonicalBaseline
+) {
+
+  /*
+   * ---------------------------------------------------------
+   * A. DEPENDENCY GUARDS
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readFix03D58Step710DurabilityProbeV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FINAL_PROBE_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FINAL_CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. VERIFY PROBE ABSENT
+   * ---------------------------------------------------------
+   */
+
+  const probeRead =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !probeRead.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        probeRead.reason
+
+    };
+
+  }
+
+
+  const probeAbsent =
+    !probeRead.exists;
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. READ CURRENT CANONICAL
+   * ---------------------------------------------------------
+   */
+
+  let canonicalNow;
+
+
+  try {
+
+    canonicalNow =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FINAL_CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      canonicalNow
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'FINAL_CANONICAL_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. COMPARE AGAINST PRE-CLEANUP BASELINE
+   * ---------------------------------------------------------
+   */
+
+  const baselineValid =
+    Array.isArray(
+      expectedCanonicalBaseline
+    );
+
+
+  const expectedCount =
+    baselineValid
+      ? expectedCanonicalBaseline.length
+      : null;
+
+
+  const currentCount =
+    canonicalNow.length;
+
+
+  const countMatch =
+    baselineValid &&
+    currentCount ===
+      expectedCount;
+
+
+  const exactMatch =
+    baselineValid &&
+    JSON.stringify(
+      canonicalNow
+    ) ===
+    JSON.stringify(
+      expectedCanonicalBaseline
+    );
+
+
+  const passed =
+    probeAbsent &&
+    baselineValid &&
+    countMatch &&
+    exactMatch;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'STEP710_FINAL_STATE_VERIFIED'
+        : 'STEP710_FINAL_STATE_VERIFICATION_FAILED',
+
+    probe: {
+
+      exists:
+        probeRead.exists,
+
+      absent:
+        probeAbsent
+
+    },
+
+    canonical: {
+
+      expectedCount,
+
+      currentCount,
+
+      countMatch,
+
+      exactMatch,
+
+      unchanged:
+        countMatch &&
+        exactMatch
+
+    },
+
+    safety: {
+
+      readOnlyVerification:
+        true,
+
+      probeWrite:
+        false,
+
+      canonicalWrite:
+        false,
+
+      recoveryExecuted:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. STEP 7.10D MANUAL AUDIT RUNNER
+
+   Sequence:
+
+   1. Read canonical baseline
+   2. Validate + remove ONLY audit probe
+   3. Read-only final verification
+   ========================================================================= */
+
+function runFix03D58Step710FinalCleanupAuditV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. CANONICAL READER GUARD
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. CAPTURE CANONICAL BEFORE CLEANUP
+   *
+   * Cleanup must NEVER alter this state.
+   * ---------------------------------------------------------
+   */
+
+  let canonicalBefore;
+
+
+  try {
+
+    canonicalBefore =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PRE_CLEANUP_CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      canonicalBefore
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'PRE_CLEANUP_CANONICAL_INVALID'
+
+    };
+
+  }
+
+
+  const baseline =
+    JSON.parse(
+      JSON.stringify(
+        canonicalBefore
+      )
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. CLEANUP ISOLATED PROBE
+   * ---------------------------------------------------------
+   */
+
+  const cleanup =
+    cleanupFix03D58Step710ProbeV26();
+
+
+  if (
+    !cleanup.ready ||
+    !cleanup.cleaned
+  ) {
+
+    return {
+
+      ready:
+        cleanup.ready,
+
+      passed: false,
+
+      reason:
+        cleanup.reason,
+
+      cleanup
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. FINAL READ-ONLY VERIFICATION
+   * ---------------------------------------------------------
+   */
+
+  const verification =
+    verifyFix03D58Step710FinalStateV26(
+      baseline
+    );
+
+
+  const passed =
+    Boolean(
+      verification.ready &&
+      verification.passed
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_JOURNAL_DURABILITY_RELOAD_AUDIT_VALID'
+        : 'CANONICAL_JOURNAL_DURABILITY_RELOAD_AUDIT_FAILED',
+
+    cleanup,
+
+    verification,
+
+    safety: {
+
+      manualRunOnly:
+        true,
+
+      auditProbeCleanupOnly:
+        true,
+
+      finalVerificationReadOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      recoveryExecuted:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+
+  window
+    .LAST_FIX03D58_STEP710D_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   5. DEBUG BUTTON
+   ========================================================================= */
+
+(function installFix03D58Step710DButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step710DFinalV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧹 D.5.8 Finalize Reload Durability Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.10D',
+              '',
+              'ABSOLUTE PROBE CLEANUP',
+              '+ FINAL READ-ONLY VERIFICATION',
+              '',
+              'Cleanup target:',
+              'ONLY STEP 7.10 durability probe',
+              '',
+              'Canonical Write: NO',
+              'Recovery: NO',
+              'Auto Promotion: NO',
+              'Production Prediction Modified: NO',
+              '',
+              'Sau cleanup, verification là READ ONLY.',
+              '',
+              'Tiếp tục?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * RUN
+         * -----------------------------------------------------
+         */
+
+        const result =
+          runFix03D58Step710FinalCleanupAuditV26();
+
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.10D'
+        );
+
+        lines.push(
+          'ABSOLUTE PROBE CLEANUP'
+        );
+
+        lines.push(
+          '+ FINAL READ-ONLY VERIFICATION'
+        );
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'FINAL VERDICT'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        /*
+         * -----------------------------------------------------
+         * CLEANUP REPORT
+         * -----------------------------------------------------
+         */
+
+        if (
+          result.cleanup
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'PROBE CLEANUP'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Cleaned: ' +
+            (
+              result.cleanup.cleaned
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Already Clean: ' +
+            (
+              result.cleanup.alreadyClean
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          if (
+            result.cleanup.probeId
+          ) {
+
+            lines.push(
+              'Removed Probe ID: ' +
+              result.cleanup.probeId
+            );
+
+          }
+
+
+          lines.push(
+            'Probe Exists After Cleanup: ' +
+            (
+              result.cleanup.afterExists
+                ? 'YES ❌'
+                : 'NO ✅'
+            )
+          );
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * FINAL VERIFICATION
+         * -----------------------------------------------------
+         */
+
+        if (
+          result.verification
+        ) {
+
+          const verification =
+            result.verification;
+
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'FINAL READ-ONLY VERIFICATION'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Ready: ' +
+            (
+              verification.ready
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          lines.push(
+            'Passed: ' +
+            (
+              verification.passed
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Reason: ' +
+            (
+              verification.reason ||
+              '-'
+            )
+          );
+
+
+          if (
+            verification.probe
+          ) {
+
+            lines.push(
+              'Probe Absent: ' +
+              (
+                verification.probe.absent
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+          }
+
+
+          if (
+            verification.canonical
+          ) {
+
+            lines.push('');
+
+            lines.push(
+              'Expected Count: ' +
+              verification.canonical
+                .expectedCount
+            );
+
+
+            lines.push(
+              'Current Count: ' +
+              verification.canonical
+                .currentCount
+            );
+
+
+            lines.push(
+              'Count Match: ' +
+              (
+                verification.canonical
+                  .countMatch
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+
+            lines.push(
+              'Exact Match: ' +
+              (
+                verification.canonical
+                  .exactMatch
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+
+            lines.push(
+              'Canonical Unchanged: ' +
+              (
+                verification.canonical
+                  .unchanged
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+          }
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * SAFETY
+         * -----------------------------------------------------
+         */
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'SAFETY'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+        lines.push(
+          'Mode: MANUAL RUN ONLY'
+        );
+
+        lines.push(
+          'Cleanup Scope: STEP 7.10 PROBE ONLY'
+        );
+
+        lines.push(
+          'Final Verification: READ ONLY'
+        );
+
+        lines.push(
+          'Canonical Write: NO'
+        );
+
+        lines.push(
+          'Recovery Executed: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.10D Final Cleanup button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Retry ATTACH only.
+   *
+   * IMPORTANT:
+   * Cleanup is NEVER executed automatically.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.10D Absolute Probe Cleanup + Final Verification loaded — MANUAL RUN ONLY'
+);
+
