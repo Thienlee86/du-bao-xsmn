@@ -108147,262 +108147,301 @@ function runCanonicalCommitCrashRecoveryAuditV26() {
 
 console.log(
   'FIX-03D.5.8 STEP 7.7B Crash-Recovery Audit Runner loaded — MANUAL RUN ONLY'
+
 );
+
 
 /* =========================================================================
    FIX-03D.5.8
-   STEP 7.7C — CANONICAL COMMIT CRASH-RECOVERY /
-               INTERRUPTED TRANSACTION AUDIT BUTTON
+   STEP 7.7C — CRASH-RECOVERY AUDIT DEBUG BUTTON
+   FIXED INSTALLATION
 
-   MANUAL RUN ONLY
-   NO AUTO PROMOTION
-   D MUST BE UPPERCASE
+   PURPOSE:
+   - Add ONE manual debug button.
+   - Call STEP 7.7B runner only when clicked.
+   - No auto audit.
+   - No auto promotion.
+   - No production prediction modification.
+
+   IMPORTANT:
+   Debug Panel ID = fix03DDebugPanelV26
+   D MUST BE UPPERCASE.
    ========================================================================= */
 
-(function installFix03D58Step77CrashRecoveryButtonV26() {
+(function installFix03D58CrashRecoveryAuditButtonV26() {
 
-  const buttonId =
-    'fix03D58Step77CrashRecoveryButtonV26';
+  function install() {
 
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
 
-  /*
-   * -----------------------------------------------------------
-   * A. AVOID DUPLICATE INSTALLATION
-   * -----------------------------------------------------------
-   */
-
-  if (
-    document.getElementById(
-      buttonId
-    )
-  ) {
-
-    return;
-
-  }
+    const buttonId =
+      'btnFix03D58CrashRecoveryAuditV26';
 
 
-  /*
-   * -----------------------------------------------------------
-   * B. CREATE BUTTON
-   * -----------------------------------------------------------
-   */
-
-  const button =
-    document.createElement(
-      'button'
-    );
-
-
-  button.id =
-    buttonId;
-
-
-  button.type =
-    'button';
-
-
-  button.textContent =
-    '🧪 STEP 7.7 — Crash Recovery Audit';
-
-
-  /*
-   * Keep same lightweight debug-button style.
-   */
-
-  button.style.display =
-    'block';
-
-  button.style.width =
-    '100%';
-
-  button.style.marginTop =
-    '8px';
-
-  button.style.padding =
-    '10px 12px';
-
-  button.style.cursor =
-    'pointer';
-
-
-  /*
-   * -----------------------------------------------------------
-   * C. MANUAL CLICK ONLY
-   * -----------------------------------------------------------
-   */
-
-  button.onclick =
-    function () {
-
-      if (
-        typeof
-          runCanonicalCommitCrashRecoveryAuditV26 !==
-        'function'
-      ) {
-
-        alert(
-          [
-            'FIX-03D.5.8 STEP 7.7',
-            '',
-            'Runner 7.7B: NOT FOUND ❌',
-            '',
-            'Audit was NOT executed.',
-            'Storage Modified: NO',
-            'Auto Promotion: NO'
-          ].join('\n')
-        );
-
-
-        return;
-
-      }
-
-
-      /*
-       * Explicit manual confirmation before
-       * crash-recovery simulation touches
-       * canonical shadow storage.
-       */
-
-      const confirmed =
-        confirm(
-          [
-            'FIX-03D.5.8 STEP 7.7',
-            '',
-            'CANONICAL COMMIT CRASH-RECOVERY AUDIT',
-            '',
-            'Audit này sẽ:',
-            '',
-            '1. Backup canonical shadow store',
-            '2. Tạo 1 synthetic interrupted transaction',
-            '3. Ghi trạng thái interrupted tạm thời',
-            '4. Chạy recovery lần 1',
-            '5. Chạy recovery lần 2 để kiểm tra idempotency',
-            '6. Rollback tuyệt đối về dữ liệu ban đầu',
-            '',
-            'Auto Promotion: NO',
-            'Production Prediction Modified: NO',
-            '',
-            'Chỉ tiếp tục nếu bạn muốn chạy audit.'
-          ].join('\n')
-        );
-
-
-      if (!confirmed) {
-
-        console.log(
-          'FIX-03D.5.8 STEP 7.7 audit cancelled by user'
-        );
-
-        return;
-
-      }
-
-
-      runCanonicalCommitCrashRecoveryAuditV26();
-
-    };
-
-
-  /*
-   * -----------------------------------------------------------
-   * D. ATTACH TO DEBUG PANEL
-   *
-   * IMPORTANT:
-   * D IS UPPERCASE
-   * fix03DDebugPanelV26
-   * -----------------------------------------------------------
-   */
-
-  function attach() {
-
-    const panel =
+    if (
       document.getElementById(
-        'fix03DDebugPanelV26'
-      );
+        buttonId
+      )
+    ) {
 
-
-    if (!panel) {
-
-      return false;
+      return;
 
     }
 
 
-    if (
-      !document.getElementById(
-        buttonId
-      )
-    ) {
+    /*
+     * ---------------------------------------------------------
+     * B. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      buttonId;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 D.5.8 Crash Recovery Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CLICK HANDLER
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            runCanonicalCommitCrashRecoveryAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.7',
+              '',
+              'CRASH-RECOVERY AUDIT',
+              '',
+              'STEP 7.7B Runner: NOT FOUND ❌',
+              '',
+              'Audit was NOT executed.',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        const confirmed =
+          confirm(
+            [
+              'FIX-03D.5.8 STEP 7.7',
+              '',
+              'CANONICAL COMMIT',
+              'CRASH-RECOVERY / INTERRUPTED TRANSACTION AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Backup canonical store',
+              '2. Tạo synthetic interrupted transaction',
+              '3. Ghi interrupted state',
+              '4. Chạy recovery lần 1',
+              '5. Verify interrupted record removed',
+              '6. Chạy recovery lần 2',
+              '7. Verify recovery idempotency',
+              '8. Rollback canonical store',
+              '9. Verify rollback',
+              '',
+              'MANUAL RUN ONLY',
+              'Auto Promotion: NO',
+              '',
+              'Tiếp tục chạy audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        runCanonicalCommitCrashRecoveryAuditV26();
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. ATTACH TO EXISTING DEBUG PANEL
+     *
+     * IMPORTANT:
+     *
+     * fix03DDebugPanelV26
+     *       ^^
+     *       D HOA
+     * ---------------------------------------------------------
+     */
+
+    function attachToPanel() {
+
+      const panel =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (!panel) {
+
+        return false;
+
+      }
+
+
+      if (
+        document.getElementById(
+          buttonId
+        )
+      ) {
+
+        return true;
+
+      }
+
 
       panel.appendChild(
         button
       );
 
+
+      console.log(
+        'FIX-03D.5.8 STEP 7.7C Crash-Recovery Audit button attached'
+      );
+
+
+      return true;
+
     }
 
 
-    return true;
+    /*
+     * Try immediately.
+     */
+
+    if (
+      attachToPanel()
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Debug Panel may appear later.
+     *
+     * Retry only.
+     * NO audit execution here.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    const timer =
+      setInterval(
+        function () {
+
+          attempts++;
+
+
+          if (
+            attachToPanel() ||
+            attempts >=
+              maxAttempts
+          ) {
+
+            clearInterval(
+              timer
+            );
+
+          }
+
+        },
+        500
+      );
 
   }
 
 
   /*
    * -----------------------------------------------------------
-   * E. ATTACH NOW IF PANEL EXISTS
+   * E. INSTALL ONLY AFTER DOM IS READY
+   *
+   * SAME PROVEN PATTERN AS STEP 7.6C.
    * -----------------------------------------------------------
    */
 
-  if (attach()) {
+  if (
+    document.readyState ===
+      'loading'
+  ) {
 
-    console.log(
-      'FIX-03D.5.8 STEP 7.7C Crash-Recovery Audit Button installed'
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
     );
 
-    return;
+  } else {
+
+    install();
 
   }
-
-
-  /*
-   * -----------------------------------------------------------
-   * F. PANEL MAY BE CREATED LATER
-   * -----------------------------------------------------------
-   */
-
-  let attempts = 0;
-
-  const maxAttempts = 20;
-
-
-  const timer =
-    setInterval(
-      function () {
-
-        attempts++;
-
-
-        if (
-          attach() ||
-          attempts >=
-            maxAttempts
-        ) {
-
-          clearInterval(
-            timer
-          );
-
-        }
-
-      },
-      500
-    );
-
-
-  console.log(
-    'FIX-03D.5.8 STEP 7.7C waiting for fix03DDebugPanelV26'
-  );
 
 })();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.7C Crash-Recovery Audit Button loaded — MANUAL RUN ONLY'
+);
+
+
 
