@@ -101871,7 +101871,7 @@ console.log(
 
     const panel =
       document.getElementById(
-        'fix03dDebugPanelV26'
+        'fix03DDebugPanelV26'
       );
 
 
@@ -101905,7 +101905,7 @@ console.log(
 
       const target =
         document.getElementById(
-          'fix03dDebugPanelV26'
+          'fix03DDebugPanelV26'
         );
 
 
