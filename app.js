@@ -126170,3 +126170,662 @@ console.log(
   'FIX-03D.5.9 STEP 8.2E Compact Ineligible Reporter loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2F — ULTRA COMPACT FAILED-CHECKS SUMMARY
+
+   PURPOSE:
+   - Show all INELIGIBLE canonical records in compact mobile form.
+   - Show only identity + exact failedChecks.
+   - Verify whether all ineligible records share the same contract pattern.
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+function reportFix03D59Step82FCompactFailedChecksV26() {
+
+  const source =
+    window
+      .LAST_FIX03D59_STEP82C_RESULT;
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.9 STEP 8.2F'
+  );
+
+  lines.push(
+    'FAILED-CHECKS SUMMARY'
+  );
+
+  lines.push('');
+
+
+  /*
+   * ---------------------------------------------------------
+   * FAIL CLOSED
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !source ||
+    typeof source !== 'object'
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: STEP_82C_RESULT_NOT_AVAILABLE'
+    );
+
+    lines.push('');
+
+    lines.push(
+      'Nothing executed automatically.'
+    );
+
+    lines.push(
+      'Canonical Write: NO'
+    );
+
+    lines.push(
+      'Production Write: NO'
+    );
+
+    lines.push(
+      'Auto Promotion: NO'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  if (
+    source.ready !== true ||
+    !Array.isArray(
+      source.ineligible
+    )
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: STEP_82C_RESULT_INVALID'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_INVALID'
+
+    };
+
+  }
+
+
+  const ineligible =
+    source.ineligible;
+
+
+  /*
+   * ---------------------------------------------------------
+   * HEADER
+   * ---------------------------------------------------------
+   */
+
+  lines.push(
+    'Ready: YES'
+  );
+
+  lines.push(
+    'Source 8.2C: ' +
+    (
+      source.passed === true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'Ineligible: ' +
+    ineligible.length
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * ULTRA-COMPACT RECORDS
+   * ---------------------------------------------------------
+   */
+
+  ineligible.forEach(
+    function (item) {
+
+      const failedChecks =
+        Array.isArray(
+          item.failedChecks
+        )
+          ? item.failedChecks
+          : [];
+
+
+      lines.push('');
+
+
+      lines.push(
+        '#' +
+        String(
+          item.index
+        ) +
+        ' ' +
+        (
+          item.province ||
+          '-'
+        ) +
+        '/' +
+        (
+          item.prize ||
+          '-'
+        )
+      );
+
+
+      if (
+        failedChecks.length === 0
+      ) {
+
+        lines.push(
+          'FAIL: NONE_REPORTED'
+        );
+
+        return;
+
+      }
+
+
+      lines.push(
+        'FAIL:'
+      );
+
+
+      failedChecks.forEach(
+        function (check) {
+
+          lines.push(
+            '- ' +
+            check
+          );
+
+        }
+      );
+
+    }
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * PATTERN ANALYSIS
+   * READ ONLY — DERIVED IN RAM ONLY
+   * ---------------------------------------------------------
+   */
+
+  const signatures =
+    ineligible.map(
+      function (item) {
+
+        const checks =
+          Array.isArray(
+            item.failedChecks
+          )
+            ? item.failedChecks.slice()
+            : [];
+
+
+        return checks
+          .sort()
+          .join('|');
+
+      }
+    );
+
+
+  const sameFailurePattern =
+    signatures.length <= 1 ||
+    signatures.every(
+      function (signature) {
+
+        return (
+          signature ===
+          signatures[0]
+        );
+
+      }
+    );
+
+
+  lines.push('');
+
+
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'PATTERN'
+  );
+
+  lines.push(
+    'Same Failure Pattern: ' +
+    (
+      sameFailurePattern
+        ? 'YES ✅'
+        : 'NO ⚠️'
+    )
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'READ ONLY'
+  );
+
+  lines.push(
+    'Canonical Write: NO'
+  );
+
+  lines.push(
+    'Production Write: NO'
+  );
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      source.passed === true,
+
+    reason:
+      'FAILED_CHECKS_SUMMARY_READY',
+
+    ineligibleCount:
+      ineligible.length,
+
+    sameFailurePattern,
+
+    records:
+      ineligible.map(
+        function (item) {
+
+          return {
+
+            index:
+              item.index,
+
+            province:
+              item.province || null,
+
+            prize:
+              item.prize || null,
+
+            failedChecks:
+              Array.isArray(
+                item.failedChecks
+              )
+                ? item.failedChecks.slice()
+                : []
+
+          };
+
+        }
+      ),
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * RAM ONLY.
+   */
+
+  window
+    .LAST_FIX03D59_STEP82F_RESULT =
+    result;
+
+
+  console.log(
+    'FIX-03D.5.9 STEP 8.2F RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   STEP 8.2F — MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step82FButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step82FFailedChecksV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧾 D.5.9 Failed-Checks Summary';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * NEVER auto-run prerequisite audits.
+         */
+
+        if (
+          !window
+            .LAST_FIX03D59_STEP82C_RESULT
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2F',
+              '',
+              '8.2C RAM Result: NOT AVAILABLE ⚠️',
+              '',
+              'Run first:',
+              '1. Canonical Eligibility Contract',
+              '2. Eligibility Classification Diagnostic',
+              '',
+              'Then run this button.',
+              '',
+              'Nothing executed automatically.'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        if (
+          typeof
+            reportFix03D59Step82FCompactFailedChecksV26 !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.2F Reporter NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.2F',
+              '',
+              'FAILED-CHECKS SUMMARY',
+              '',
+              'MANUAL RUN ONLY',
+              'READ ONLY',
+              'FAIL CLOSED',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Show summary?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        try {
+
+          reportFix03D59Step82FCompactFailedChecksV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2F',
+              '',
+              'REPORT ERROR ❌',
+              '',
+              error &&
+              error.message
+                ? error.message
+                : String(error),
+              '',
+              'No write performed.'
+            ].join('\n')
+          );
+
+
+          console.error(
+            'FIX-03D.5.9 STEP 8.2F error',
+            error
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * BUTTON ATTACHMENT ONLY.
+   * AUDIT IS NEVER AUTO-RUN.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+window
+  .FIX03D59_STEP82F_REPORTER_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2F Failed-Checks Summary loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
+);
+
