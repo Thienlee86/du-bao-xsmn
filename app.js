@@ -120416,3 +120416,1174 @@ console.log(
   'FIX-03D.5.8 STEP 7.12B Final Certification Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.1A — CANONICAL → PRODUCTION READ BOUNDARY AUDIT ENGINE
+
+   PURPOSE:
+   Establish and verify a strictly READ-ONLY boundary between:
+
+       CANONICAL SHADOW STORE
+                 ↓
+          READ BOUNDARY
+                 ↓
+       PRODUCTION PREDICTIONS
+
+   THIS STEP DOES NOT PROMOTE ANYTHING.
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   FIX-03D.5.9
+       ^
+       D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SAFE CANONICAL READ
+   ========================================================================= */
+
+function readFix03D59Step81CanonicalBoundaryStateV26() {
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  let snapshots;
+
+
+  try {
+
+    snapshots =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_STATE_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * Deep-copy into RAM.
+   *
+   * The audit must never operate directly
+   * on the canonical array reference.
+   */
+
+  let copy;
+
+
+  try {
+
+    copy =
+      JSON.parse(
+        JSON.stringify(
+          snapshots
+        )
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_COPY_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    reason:
+      'CANONICAL_BOUNDARY_READ_OK',
+
+    count:
+      snapshots.length,
+
+    fingerprint:
+      JSON.stringify(
+        snapshots
+      ),
+
+    copy
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. SAFE PRODUCTION PREDICTION READ
+
+   IMPORTANT:
+   READ ONLY.
+
+   Production currently lives in:
+   - PREDICTIONS runtime state
+   - LS_KEYS.predictions / xskt_predictions
+
+   This function writes to neither.
+   ========================================================================= */
+
+function readFix03D59Step81ProductionBoundaryStateV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. RUNTIME STATE
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof PREDICTIONS ===
+      'undefined' ||
+    !Array.isArray(
+      PREDICTIONS
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PRODUCTION_PREDICTIONS_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. RESOLVE PRODUCTION STORAGE KEY
+   * ---------------------------------------------------------
+   */
+
+  const storageKey =
+    (
+      typeof LS_KEYS !==
+        'undefined' &&
+      LS_KEYS &&
+      typeof LS_KEYS.predictions ===
+        'string'
+    )
+      ? LS_KEYS.predictions
+      : 'xskt_predictions';
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. READ STORAGE DIRECTLY
+   *
+   * localStorage.getItem() only.
+   * NO setItem().
+   * ---------------------------------------------------------
+   */
+
+  let storageRaw;
+
+
+  try {
+
+    storageRaw =
+      localStorage.getItem(
+        storageKey
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PRODUCTION_STORAGE_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  let storagePredictions = [];
+
+
+  if (storageRaw) {
+
+    try {
+
+      storagePredictions =
+        JSON.parse(
+          storageRaw
+        );
+
+    } catch (error) {
+
+      return {
+
+        ready: false,
+
+        reason:
+          'PRODUCTION_STORAGE_JSON_INVALID',
+
+        error:
+          error &&
+          error.message
+            ? error.message
+            : String(error)
+
+      };
+
+    }
+
+  }
+
+
+  if (
+    !Array.isArray(
+      storagePredictions
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PRODUCTION_STORAGE_STATE_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. COPY RUNTIME STATE
+   * ---------------------------------------------------------
+   */
+
+  let runtimeCopy;
+
+
+  try {
+
+    runtimeCopy =
+      JSON.parse(
+        JSON.stringify(
+          PREDICTIONS
+        )
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'PRODUCTION_RUNTIME_COPY_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  const runtimeFingerprint =
+    JSON.stringify(
+      PREDICTIONS
+    );
+
+
+  const storageFingerprint =
+    JSON.stringify(
+      storagePredictions
+    );
+
+
+  return {
+
+    ready: true,
+
+    reason:
+      'PRODUCTION_BOUNDARY_READ_OK',
+
+    storageKey,
+
+    runtimeCount:
+      PREDICTIONS.length,
+
+    storageCount:
+      storagePredictions.length,
+
+    runtimeFingerprint,
+
+    storageFingerprint,
+
+    runtimeStorageMatch:
+      runtimeFingerprint ===
+      storageFingerprint,
+
+    copy:
+      runtimeCopy
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. VERIFY READ BOUNDARY DEPENDENCIES
+
+   Mutating functions may exist in the application.
+   Their existence is NOT a failure.
+
+   STEP 8.1A simply guarantees they are not invoked.
+   ========================================================================= */
+
+function inspectFix03D59Step81BoundaryDependenciesV26() {
+
+  const checks = {
+
+    canonicalReader:
+      typeof readShadowSnapshotsV26 ===
+      'function',
+
+    productionRuntime:
+      typeof PREDICTIONS !==
+        'undefined' &&
+      Array.isArray(
+        PREDICTIONS
+      ),
+
+    localStorageReader:
+      typeof localStorage !==
+        'undefined' &&
+      typeof localStorage.getItem ===
+        'function'
+
+  };
+
+
+  const ready =
+    checks.canonicalReader &&
+    checks.productionRuntime &&
+    checks.localStorageReader;
+
+
+  return {
+
+    ready,
+
+    passed:
+      ready,
+
+    reason:
+      ready
+        ? 'READ_BOUNDARY_DEPENDENCIES_READY'
+        : 'READ_BOUNDARY_DEPENDENCY_MISSING',
+
+    checks
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. CANONICAL → PRODUCTION READ PROJECTION
+
+   IMPORTANT:
+   This is NOT promotion.
+
+   It creates a RAM-only descriptive projection of canonical records.
+   Nothing is inserted into PREDICTIONS.
+   Nothing is persisted.
+   ========================================================================= */
+
+function projectFix03D59Step81CanonicalReadOnlyV26(
+  canonicalCopy
+) {
+
+  if (
+    !Array.isArray(
+      canonicalCopy
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_COPY_INVALID'
+
+    };
+
+  }
+
+
+  let projection;
+
+
+  try {
+
+    projection =
+      canonicalCopy.map(
+        (
+          snapshot,
+          index
+        ) => ({
+
+          /*
+           * Boundary metadata only.
+           *
+           * We intentionally DO NOT construct
+           * a production prediction record here.
+           */
+
+          source:
+            'CANONICAL_SHADOW',
+
+          sourceIndex:
+            index,
+
+          snapshotId:
+            snapshot &&
+            snapshot.id != null
+              ? snapshot.id
+              : null,
+
+          snapshotKey:
+            snapshot &&
+            snapshot.snapshotKey != null
+              ? snapshot.snapshotKey
+              : null,
+
+          lifecycleKey:
+            snapshot &&
+            snapshot.lifecycleKey != null
+              ? snapshot.lifecycleKey
+              : null,
+
+          province:
+            snapshot &&
+            snapshot.province != null
+              ? snapshot.province
+              : null,
+
+          readable:
+            true,
+
+          eligible:
+            null,
+
+          productionCandidate:
+            false,
+
+          promoted:
+            false
+
+        })
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'READ_ONLY_PROJECTION_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    passed: true,
+
+    reason:
+      'CANONICAL_READ_ONLY_PROJECTION_VALID',
+
+    count:
+      projection.length,
+
+    projection
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. VERIFY BOTH STORES REMAIN UNCHANGED
+
+   Sequence:
+   - compare canonical before / after
+   - compare production runtime before / after
+   - compare production storage before / after
+   ========================================================================= */
+
+function verifyFix03D59Step81BoundaryStabilityV26(
+  canonicalBefore,
+  productionBefore
+) {
+
+  const canonicalAfter =
+    readFix03D59Step81CanonicalBoundaryStateV26();
+
+
+  const productionAfter =
+    readFix03D59Step81ProductionBoundaryStateV26();
+
+
+  if (
+    !canonicalAfter.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        canonicalAfter.reason
+
+    };
+
+  }
+
+
+  if (
+    !productionAfter.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        productionAfter.reason
+
+    };
+
+  }
+
+
+  const canonicalCountMatch =
+    canonicalBefore.count ===
+    canonicalAfter.count;
+
+
+  const canonicalExactMatch =
+    canonicalBefore.fingerprint ===
+    canonicalAfter.fingerprint;
+
+
+  const productionRuntimeCountMatch =
+    productionBefore.runtimeCount ===
+    productionAfter.runtimeCount;
+
+
+  const productionRuntimeExactMatch =
+    productionBefore.runtimeFingerprint ===
+    productionAfter.runtimeFingerprint;
+
+
+  const productionStorageCountMatch =
+    productionBefore.storageCount ===
+    productionAfter.storageCount;
+
+
+  const productionStorageExactMatch =
+    productionBefore.storageFingerprint ===
+    productionAfter.storageFingerprint;
+
+
+  /*
+   * Runtime/storage synchronization is reported separately.
+   *
+   * Existing mismatch, if any, must NOT cause this audit
+   * to modify either side.
+   */
+
+  const productionRuntimeStorageMatchBefore =
+    productionBefore.runtimeStorageMatch;
+
+
+  const productionRuntimeStorageMatchAfter =
+    productionAfter.runtimeStorageMatch;
+
+
+  const passed =
+    canonicalCountMatch &&
+    canonicalExactMatch &&
+    productionRuntimeCountMatch &&
+    productionRuntimeExactMatch &&
+    productionStorageCountMatch &&
+    productionStorageExactMatch;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_PRODUCTION_READ_BOUNDARY_STABLE'
+        : 'CANONICAL_PRODUCTION_BOUNDARY_CHANGED',
+
+    canonical: {
+
+      beforeCount:
+        canonicalBefore.count,
+
+      afterCount:
+        canonicalAfter.count,
+
+      countMatch:
+        canonicalCountMatch,
+
+      exactMatch:
+        canonicalExactMatch,
+
+      unchanged:
+        canonicalCountMatch &&
+        canonicalExactMatch
+
+    },
+
+    production: {
+
+      runtimeBeforeCount:
+        productionBefore.runtimeCount,
+
+      runtimeAfterCount:
+        productionAfter.runtimeCount,
+
+      runtimeCountMatch:
+        productionRuntimeCountMatch,
+
+      runtimeExactMatch:
+        productionRuntimeExactMatch,
+
+      storageBeforeCount:
+        productionBefore.storageCount,
+
+      storageAfterCount:
+        productionAfter.storageCount,
+
+      storageCountMatch:
+        productionStorageCountMatch,
+
+      storageExactMatch:
+        productionStorageExactMatch,
+
+      runtimeStorageMatchBefore:
+        productionRuntimeStorageMatchBefore,
+
+      runtimeStorageMatchAfter:
+        productionRuntimeStorageMatchAfter,
+
+      unchanged:
+        productionRuntimeCountMatch &&
+        productionRuntimeExactMatch &&
+        productionStorageCountMatch &&
+        productionStorageExactMatch
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. READ BOUNDARY SAFETY POLICY
+   ========================================================================= */
+
+function verifyFix03D59Step81SafetyPolicyV26() {
+
+  const policy = {
+
+    manualRunOnly:
+      true,
+
+    readOnly:
+      true,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    savePredictionCalled:
+      false,
+
+    saveJSONCalled:
+      false,
+
+    canonicalWriterCalled:
+      false,
+
+    syntheticRecordCreated:
+      false,
+
+    probeCreated:
+      false,
+
+    probeRemoved:
+      false,
+
+    transactionCreated:
+      false,
+
+    recoveryExecuted:
+      false,
+
+    journalReplayExecuted:
+      false,
+
+    autoPromotion:
+      false,
+
+    productionPredictionModified:
+      false
+
+  };
+
+
+  const passed =
+    policy.manualRunOnly &&
+    policy.readOnly &&
+    !policy.canonicalWrite &&
+    !policy.productionWrite &&
+    !policy.savePredictionCalled &&
+    !policy.saveJSONCalled &&
+    !policy.canonicalWriterCalled &&
+    !policy.syntheticRecordCreated &&
+    !policy.probeCreated &&
+    !policy.probeRemoved &&
+    !policy.transactionCreated &&
+    !policy.recoveryExecuted &&
+    !policy.journalReplayExecuted &&
+    !policy.autoPromotion &&
+    !policy.productionPredictionModified;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_PRODUCTION_READ_POLICY_VALID'
+        : 'CANONICAL_PRODUCTION_READ_POLICY_INVALID',
+
+    policy
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. STEP 8.1A AUDIT ENGINE
+   ========================================================================= */
+
+function runFix03D59Step81ReadBoundaryAuditV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. DEPENDENCY CHECK
+   * ---------------------------------------------------------
+   */
+
+  const dependencies =
+    inspectFix03D59Step81BoundaryDependenciesV26();
+
+
+  if (
+    !dependencies.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        dependencies.reason,
+
+      dependencies
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. CAPTURE CANONICAL BEFORE
+   * ---------------------------------------------------------
+   */
+
+  const canonicalBefore =
+    readFix03D59Step81CanonicalBoundaryStateV26();
+
+
+  if (
+    !canonicalBefore.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        canonicalBefore.reason,
+
+      canonicalBefore
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. CAPTURE PRODUCTION BEFORE
+   * ---------------------------------------------------------
+   */
+
+  const productionBefore =
+    readFix03D59Step81ProductionBoundaryStateV26();
+
+
+  if (
+    !productionBefore.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        productionBefore.reason,
+
+      productionBefore
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. RAM-ONLY CANONICAL PROJECTION
+   *
+   * NO production record is created.
+   * ---------------------------------------------------------
+   */
+
+  const projection =
+    projectFix03D59Step81CanonicalReadOnlyV26(
+      canonicalBefore.copy
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. VERIFY NOTHING CHANGED
+   * ---------------------------------------------------------
+   */
+
+  const stability =
+    verifyFix03D59Step81BoundaryStabilityV26(
+      canonicalBefore,
+      productionBefore
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. SAFETY POLICY
+   * ---------------------------------------------------------
+   */
+
+  const safety =
+    verifyFix03D59Step81SafetyPolicyV26();
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const passed =
+    Boolean(
+      projection.ready &&
+      projection.passed &&
+      stability.ready &&
+      stability.passed &&
+      safety.ready &&
+      safety.passed
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_PRODUCTION_READ_BOUNDARY_VALID'
+        : 'CANONICAL_PRODUCTION_READ_BOUNDARY_FAILED',
+
+    fix:
+      'FIX-03D.5.9',
+
+    step:
+      '8.1A',
+
+    mode:
+      'MANUAL_READ_ONLY_BOUNDARY_AUDIT',
+
+    dependencies,
+
+    projection: {
+
+      ready:
+        projection.ready,
+
+      passed:
+        projection.passed,
+
+      reason:
+        projection.reason,
+
+      count:
+        projection.count != null
+          ? projection.count
+          : null
+
+    },
+
+    stability,
+
+    safety,
+
+    baseline: {
+
+      canonicalCount:
+        canonicalBefore.count,
+
+      productionRuntimeCount:
+        productionBefore.runtimeCount,
+
+      productionStorageCount:
+        productionBefore.storageCount,
+
+      productionRuntimeStorageMatch:
+        productionBefore.runtimeStorageMatch
+
+    },
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      savePredictionCalled:
+        false,
+
+      saveJSONCalled:
+        false,
+
+      canonicalWriterCalled:
+        false,
+
+      syntheticRecordCreated:
+        false,
+
+      probeCreated:
+        false,
+
+      probeRemoved:
+        false,
+
+      transactionCreated:
+        false,
+
+      recoveryExecuted:
+        false,
+
+      journalReplayExecuted:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * RAM ONLY.
+   *
+   * This result is NOT persisted.
+   */
+
+  window
+    .LAST_FIX03D59_STEP81A_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   8. ENGINE LOAD MARKER
+
+   Loading this block does NOT execute the audit.
+   ========================================================================= */
+
+window
+  .FIX03D59_STEP81A_ENGINE_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.1A Canonical → Production Read Boundary Audit Engine loaded — MANUAL RUN ONLY / READ ONLY'
+);
+
