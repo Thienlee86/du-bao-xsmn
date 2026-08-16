@@ -105966,3 +105966,444 @@ console.log(
   'FIX-03D.5.8 STEP 7.6A Concurrency Audit Engine loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.6B — CANONICAL COMMIT CONCURRENCY AUDIT
+   MANUAL RUNNER
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   ABSOLUTE ROLLBACK
+   ========================================================================= */
+
+function runCanonicalCommitConcurrencyAuditV26() {
+
+  if (
+    typeof auditCanonicalCommitConcurrencyV26 !==
+      'function'
+  ) {
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.6',
+        '',
+        'CONCURRENCY AUDIT ENGINE',
+        '',
+        'Ready: NO',
+        'Passed: NO',
+        'Reason:',
+        'STEP_7_6A_ENGINE_NOT_READY'
+      ].join('\n')
+    );
+
+    return null;
+
+  }
+
+
+  let result = null;
+
+
+  try {
+
+    result =
+      auditCanonicalCommitConcurrencyV26();
+
+  } catch (error) {
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.6',
+        '',
+        'CONCURRENCY / RACE-CONDITION AUDIT',
+        '',
+        'Ready: NO',
+        'Passed: NO',
+        'Reason:',
+        'CONCURRENCY_AUDIT_EXCEPTION',
+        '',
+        'Error:',
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        )
+      ].join('\n')
+    );
+
+    return null;
+
+  }
+
+
+  if (!result) {
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.6',
+        '',
+        'CONCURRENCY / RACE-CONDITION AUDIT',
+        '',
+        'Ready: NO',
+        'Passed: NO',
+        'Reason:',
+        'EMPTY_AUDIT_RESULT'
+      ].join('\n')
+    );
+
+    return null;
+
+  }
+
+
+  const transactionA =
+    result.transactionA || {};
+
+
+  const transactionB =
+    result.transactionB || {};
+
+
+  const failedChecks =
+    Array.isArray(
+      result.failedChecks
+    )
+      ? result.failedChecks
+      : [];
+
+
+  const checks =
+    result.checks || {};
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.8 STEP 7.6'
+  );
+
+  lines.push(
+    'CANONICAL COMMIT CONCURRENCY / RACE-CONDITION AUDIT'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      result.ready === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Passed: ' +
+    (
+      result.passed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason:'
+  );
+
+
+  lines.push(
+    String(
+      result.reason || '-'
+    )
+  );
+
+
+  lines.push('');
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'TRANSACTION INTERLEAVING'
+  );
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Original Count: ' +
+    String(
+      result.originalCount
+    )
+  );
+
+
+  lines.push(
+    'After First Commit: ' +
+    String(
+      result.afterFirstCount
+    )
+  );
+
+
+  lines.push(
+    'After Second Attempt: ' +
+    String(
+      result.afterSecondCount
+    )
+  );
+
+
+  lines.push(
+    'After Rollback: ' +
+    String(
+      result.afterRollbackCount
+    )
+  );
+
+
+  lines.push('');
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'TRANSACTION A'
+  );
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Committed: ' +
+    (
+      transactionA.committed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    String(
+      transactionA.reason || '-'
+    )
+  );
+
+
+  lines.push('');
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'TRANSACTION B'
+  );
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Committed: ' +
+    (
+      transactionB.committed === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Duplicate: ' +
+    (
+      transactionB.duplicate === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    String(
+      transactionB.reason || '-'
+    )
+  );
+
+
+  lines.push('');
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'CONCURRENCY CHECKS'
+  );
+
+  lines.push(
+    '===================='
+  );
+
+
+  Object.keys(
+    checks
+  ).forEach(
+    key => {
+
+      lines.push(
+        key +
+        ': ' +
+        (
+          checks[key] === true
+            ? 'PASS'
+            : 'FAIL'
+        )
+      );
+
+    }
+  );
+
+
+  lines.push('');
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'ROLLBACK SAFETY'
+  );
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'Canonical Restored: ' +
+    (
+      result.canonicalRestored === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Rollback Write: ' +
+    (
+      result.rollbackWrite === true
+        ? 'CONFIRMED'
+        : 'FAILED'
+    )
+  );
+
+
+  lines.push(
+    'Production Prediction Modified: ' +
+    (
+      result.productionPredictionModified === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Auto Promotion: ' +
+    (
+      result.autoPromotion === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  if (
+    failedChecks.length > 0
+  ) {
+
+    lines.push('');
+    lines.push(
+      '===================='
+    );
+
+    lines.push(
+      'FAILED CHECKS'
+    );
+
+    lines.push(
+      '===================='
+    );
+
+
+    failedChecks.forEach(
+      (
+        check,
+        index
+      ) => {
+
+        lines.push(
+          String(
+            index + 1
+          ) +
+          '. ' +
+          check
+        );
+
+      }
+    );
+
+  }
+
+
+  if (
+    result.auditError
+  ) {
+
+    lines.push('');
+    lines.push(
+      'Audit Error:'
+    );
+
+    lines.push(
+      String(
+        result.auditError
+      )
+    );
+
+  }
+
+
+  lines.push('');
+  lines.push(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.6 RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
