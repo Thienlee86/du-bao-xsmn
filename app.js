@@ -96624,7 +96624,7 @@ function validatePromotionCandidateForCommitV26(
     pendingCommit:
       Boolean(
         candidate &&
-        candidate.status ===
+        candidate.candidateStatus ===
           'PENDING_COMMIT'
       )
 
