@@ -112456,3 +112456,585 @@ console.log(
   'FIX-03D.5.8 STEP 7.9C Journal Replay Debug Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.9D — POST-AUDIT READ-ONLY VERIFICATION ENGINE
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO AUTO PROMOTION
+   NO STORAGE WRITE
+   NO RECOVERY REPLAY
+   NO ROLLBACK EXECUTION
+
+   IMPORTANT:
+   FIX-03D.5.8
+       ^
+       D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. READ-ONLY POST-AUDIT VERIFIER
+   ========================================================================= */
+
+function verifyCanonicalJournalReplayPostAuditV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * SAFETY FLAGS
+   * ---------------------------------------------------------
+   */
+
+  const safety = {
+
+    manualRunOnly: true,
+
+    readOnly: true,
+
+    storageWrite: false,
+
+    recoveryReplayExecuted: false,
+
+    rollbackExecuted: false,
+
+    autoPromotion: false,
+
+    productionPredictionModified: false
+
+  };
+
+
+  /*
+   * ---------------------------------------------------------
+   * A. VERIFY REQUIRED READERS
+   * ---------------------------------------------------------
+   */
+
+  const hasCanonicalReader =
+    typeof readShadowSnapshotsV26 ===
+    'function';
+
+
+  if (!hasCanonicalReader) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE',
+
+      safety
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ CANONICAL STORE
+   *
+   * READ ONLY.
+   * ---------------------------------------------------------
+   */
+
+  let canonical;
+
+
+  try {
+
+    canonical =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error),
+
+      safety
+
+    };
+
+  }
+
+
+  const snapshots =
+    Array.isArray(canonical)
+      ? canonical
+      : [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. SEARCH FOR SYNTHETIC 7.9 RECORD
+   *
+   * STEP 7.9 uses:
+   *
+   * synthetic-journal-replay-audit/
+   * db/RECENT/10
+   *
+   * We intentionally use prefix matching so the verifier
+   * remains read-only and does not depend on a transaction ID.
+   * ---------------------------------------------------------
+   */
+
+  const syntheticPrefix =
+    'synthetic-journal-replay-audit/';
+
+
+  const syntheticRecords =
+    snapshots.filter(
+      function (item) {
+
+        if (
+          !item ||
+          typeof item !==
+            'object'
+        ) {
+
+          return false;
+
+        }
+
+
+        const lifecycleKey =
+          String(
+            item.lifecycleKey ||
+            ''
+          );
+
+
+        return lifecycleKey.startsWith(
+          syntheticPrefix
+        );
+
+      }
+    );
+
+
+  const syntheticRemaining =
+    syntheticRecords.length;
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. READ LAST STEP 7.9 AUDIT RESULT IF AVAILABLE
+   *
+   * READ ONLY.
+   *
+   * 7.9 may expose its latest audit result on window.
+   * We do NOT require it for canonical safety verification.
+   * ---------------------------------------------------------
+   */
+
+  const possibleResultKeys = [
+
+    'LAST_FIX03D58_STEP79_AUDIT',
+
+    'LAST_FIX03D58_JOURNAL_REPLAY_AUDIT',
+
+    'LAST_CANONICAL_TRANSACTION_JOURNAL_REPLAY_AUDIT_V26'
+
+  ];
+
+
+  let lastAuditResult =
+    null;
+
+
+  let lastAuditResultKey =
+    null;
+
+
+  for (
+    const key of
+      possibleResultKeys
+  ) {
+
+    if (
+      window[key] &&
+      typeof window[key] ===
+        'object'
+    ) {
+
+      lastAuditResult =
+        window[key];
+
+      lastAuditResultKey =
+        key;
+
+      break;
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. OPTIONAL RESULT INSPECTION
+   *
+   * This section only reads whatever 7.9 exposed.
+   * ---------------------------------------------------------
+   */
+
+  const auditResultAvailable =
+    Boolean(
+      lastAuditResult
+    );
+
+
+  const auditPassed =
+    auditResultAvailable
+      ? (
+          lastAuditResult.passed ===
+            true
+        )
+      : null;
+
+
+  const auditReason =
+    auditResultAvailable
+      ? (
+          lastAuditResult.reason ||
+          null
+        )
+      : null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. CANONICAL RESTORATION VERDICT
+   *
+   * The strongest independent post-audit condition available
+   * to this verifier is:
+   *
+   * ZERO synthetic STEP 7.9 records remain in canonical store.
+   *
+   * No write is performed.
+   * ---------------------------------------------------------
+   */
+
+  const syntheticRemoved =
+    syntheticRemaining === 0;
+
+
+  const canonicalRestored =
+    syntheticRemoved;
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. OPTIONAL SECOND-REPLAY / IDEMPOTENCY EVIDENCE
+   *
+   * Only consume evidence if STEP 7.9 exposed it.
+   * Never execute replay here.
+   * ---------------------------------------------------------
+   */
+
+  let secondReplayVerified =
+    null;
+
+
+  if (auditResultAvailable) {
+
+    const secondReplay =
+      lastAuditResult.secondReplay ||
+      lastAuditResult.secondRecoveryReplay ||
+      null;
+
+
+    if (
+      secondReplay &&
+      typeof secondReplay ===
+        'object'
+    ) {
+
+      const recovered =
+        secondReplay.recovered ===
+          true;
+
+
+      const unchanged =
+        secondReplay.changed ===
+          false;
+
+
+      secondReplayVerified =
+        recovered &&
+        unchanged;
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * H. FINAL VERDICT
+   *
+   * Required:
+   *   canonical store readable
+   *   no STEP 7.9 synthetic record remains
+   *
+   * Optional audit evidence must not contradict PASS.
+   * ---------------------------------------------------------
+   */
+
+  const optionalAuditValid =
+    auditPassed === null ||
+    auditPassed === true;
+
+
+  const optionalReplayValid =
+    secondReplayVerified === null ||
+    secondReplayVerified === true;
+
+
+  const passed =
+    canonicalRestored &&
+    optionalAuditValid &&
+    optionalReplayValid;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'POST_AUDIT_READ_ONLY_VERIFICATION_VALID'
+        : 'POST_AUDIT_READ_ONLY_VERIFICATION_FAILED',
+
+
+    canonical: {
+
+      snapshotCount:
+        snapshots.length,
+
+      syntheticRemaining,
+
+      syntheticRemoved,
+
+      canonicalRestored
+
+    },
+
+
+    previousAudit: {
+
+      available:
+        auditResultAvailable,
+
+      sourceKey:
+        lastAuditResultKey,
+
+      passed:
+        auditPassed,
+
+      reason:
+        auditReason,
+
+      secondReplayVerified
+
+    },
+
+
+    safety
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. MANUAL RUNNER
+   ========================================================================= */
+
+function runCanonicalJournalReplayPostAuditVerificationV26() {
+
+  const result =
+    verifyCanonicalJournalReplayPostAuditV26();
+
+
+  /*
+   * Expose result for manual inspection only.
+   * This is runtime memory, NOT persistence storage.
+   */
+
+  window
+    .LAST_FIX03D58_STEP79D_VERIFICATION =
+    result;
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.9D'
+  );
+
+  console.log(
+    'POST-AUDIT READ-ONLY VERIFICATION'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.log(
+    'Ready:',
+    result.ready
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Passed:',
+    result.passed
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Reason:',
+    result.reason
+  );
+
+
+  if (
+    result.canonical
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Canonical Snapshot Count:',
+      result.canonical
+        .snapshotCount
+    );
+
+    console.log(
+      'Synthetic Records Remaining:',
+      result.canonical
+        .syntheticRemaining
+    );
+
+    console.log(
+      'Synthetic Candidate Removed:',
+      result.canonical
+        .syntheticRemoved
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Canonical Restored:',
+      result.canonical
+        .canonicalRestored
+        ? 'YES'
+        : 'NO'
+    );
+
+  }
+
+
+  if (
+    result.previousAudit
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Previous Audit Result Available:',
+      result.previousAudit
+        .available
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Second Replay Evidence:',
+      result.previousAudit
+        .secondReplayVerified ===
+        null
+        ? 'NOT EXPOSED'
+        : (
+            result.previousAudit
+              .secondReplayVerified
+              ? 'PASS'
+              : 'FAIL'
+          )
+    );
+
+  }
+
+
+  console.log(
+    ''
+  );
+
+  console.log(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+  console.log(
+    'Read Only: YES'
+  );
+
+  console.log(
+    'Storage Write: NO'
+  );
+
+  console.log(
+    'Recovery Replay Executed: NO'
+  );
+
+  console.log(
+    'Rollback Executed: NO'
+  );
+
+  console.log(
+    'Auto Promotion: NO'
+  );
+
+  console.log(
+    'Production Prediction Modified: NO'
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.9D Post-Audit Read-Only Verification Engine loaded — MANUAL RUN ONLY'
+);
+
