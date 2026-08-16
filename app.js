@@ -125533,3 +125533,640 @@ console.log(
   'FIX-03D.5.9 STEP 8.2D Diagnostic Manual Button loaded — MANUAL RUN ONLY / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2E — COMPACT INELIGIBLE DIAGNOSTIC REPORTER
+
+   PURPOSE:
+   - Show ONLY INELIGIBLE records from STEP 8.2C.
+   - Show exact reason and failedChecks.
+   - Keep mobile output short.
+   - Diagnostic only.
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+function reportFix03D59Step82ECompactIneligibleV26() {
+
+  const source =
+    window
+      .LAST_FIX03D59_STEP82C_RESULT;
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.9 STEP 8.2E'
+  );
+
+  lines.push(
+    'INELIGIBLE DIAGNOSTIC'
+  );
+
+  lines.push('');
+
+
+  /*
+   * ---------------------------------------------------------
+   * FAIL CLOSED
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !source ||
+    typeof source !== 'object'
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: STEP_82C_RESULT_NOT_AVAILABLE'
+    );
+
+    lines.push('');
+
+    lines.push(
+      'Run STEP 8.2A first,'
+    );
+
+    lines.push(
+      'then STEP 8.2C.'
+    );
+
+    lines.push('');
+
+    lines.push(
+      'Nothing executed automatically.'
+    );
+
+    lines.push(
+      'Canonical Write: NO'
+    );
+
+    lines.push(
+      'Production Write: NO'
+    );
+
+    lines.push(
+      'Auto Promotion: NO'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  if (
+    source.ready !== true ||
+    !Array.isArray(
+      source.ineligible
+    )
+  ) {
+
+    lines.push(
+      'Ready: NO ❌'
+    );
+
+    lines.push(
+      'Reason: STEP_82C_RESULT_INVALID'
+    );
+
+    lines.push('');
+
+    lines.push(
+      'Canonical Write: NO'
+    );
+
+    lines.push(
+      'Production Write: NO'
+    );
+
+    lines.push(
+      'Auto Promotion: NO'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * HEADER
+   * ---------------------------------------------------------
+   */
+
+  const ineligible =
+    source.ineligible;
+
+
+  lines.push(
+    'Ready: YES'
+  );
+
+  lines.push(
+    'Source 8.2C: ' +
+    (
+      source.passed === true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+  lines.push(
+    'Ineligible: ' +
+    ineligible.length
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * COMPACT RECORD REPORT
+   * ---------------------------------------------------------
+   */
+
+  if (
+    ineligible.length === 0
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'No ineligible records. ✅'
+    );
+
+  } else {
+
+    ineligible.forEach(
+      function (item, position) {
+
+        const failedChecks =
+          Array.isArray(
+            item.failedChecks
+          )
+            ? item.failedChecks
+            : [];
+
+
+        lines.push('');
+
+        lines.push(
+          '--------------------'
+        );
+
+
+        lines.push(
+          '#' +
+          String(
+            position + 1
+          ) +
+          ' / Canonical #' +
+          String(
+            item.index
+          )
+        );
+
+
+        lines.push(
+          'Province: ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Prize: ' +
+          (
+            item.prize ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            item.reason ||
+            'UNKNOWN'
+          )
+        );
+
+
+        lines.push(
+          'Failed: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(', ')
+              : 'NONE_REPORTED'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * SAFETY FOOTER
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    '===================='
+  );
+
+  lines.push(
+    'READ ONLY'
+  );
+
+  lines.push(
+    'Canonical Write: NO'
+  );
+
+  lines.push(
+    'Production Write: NO'
+  );
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.9 STEP 8.2E COMPACT INELIGIBLE',
+    ineligible
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      source.passed === true,
+
+    reason:
+      'COMPACT_INELIGIBLE_DIAGNOSTIC_READY',
+
+    count:
+      ineligible.length,
+
+    records:
+      ineligible,
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 8.2E — MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step82EButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step82EIneligibleV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 D.5.9 Ineligible Diagnostic';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * MANUAL CLICK ONLY
+     */
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            reportFix03D59Step82ECompactIneligibleV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2E',
+              '',
+              'Reporter: NOT FOUND ❌',
+              '',
+              'Nothing executed.'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * RAM GUARD.
+         *
+         * NEVER auto-run 8.2A or 8.2C.
+         */
+
+        if (
+          !window
+            .LAST_FIX03D59_STEP82C_RESULT
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2E',
+              '',
+              '8.2C RAM Result: NOT AVAILABLE ⚠️',
+              '',
+              'Run in this order:',
+              '',
+              '1. Canonical Eligibility Contract',
+              '2. Eligibility Classification Diagnostic',
+              '3. Ineligible Diagnostic',
+              '',
+              'Nothing executed automatically.',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.2E',
+              '',
+              'COMPACT INELIGIBLE DIAGNOSTIC',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              'Fail Closed: YES',
+              '',
+              'Reads 8.2C RAM result only',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Show ineligible records?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        try {
+
+          reportFix03D59Step82ECompactIneligibleV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2E',
+              '',
+              'REPORT ERROR ❌',
+              '',
+              error &&
+              error.message
+                ? error.message
+                : String(error),
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          console.error(
+            'FIX-03D.5.9 STEP 8.2E error',
+            error
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.9 STEP 8.2E button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * ATTACH BUTTON ONLY.
+   *
+   * Diagnostic itself is NEVER auto-run.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+window
+  .FIX03D59_STEP82E_REPORTER_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2E Compact Ineligible Reporter loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
+);
+
