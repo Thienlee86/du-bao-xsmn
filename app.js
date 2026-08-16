@@ -117155,3 +117155,808 @@ console.log(
   'FIX-03D.5.8 STEP 7.10D Absolute Probe Cleanup + Final Verification loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.10D.1 — FULL RESULT REPORTER
+
+   PURPOSE:
+   - READ EXISTING STEP 7.10D RESULT ONLY
+   - DISPLAY FULL FINAL VERIFICATION
+   - DISPLAY FULL SAFETY VERDICT
+
+   STRICT SAFETY:
+   - READ ONLY
+   - NO STORAGE WRITE
+   - NO PROBE CLEANUP
+   - NO CANONICAL WRITE
+   - NO RECOVERY
+   - NO AUTO PROMOTION
+   - NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   FIX-03D.5.8
+       ^
+       D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD FULL REPORT FROM EXISTING RESULT ONLY
+   ========================================================================= */
+
+function buildFix03D58Step710D1FullReportV26() {
+
+  const result =
+    window
+      .LAST_FIX03D58_STEP710D_RESULT ||
+    null;
+
+
+  if (!result) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'STEP710D_EXISTING_RESULT_NOT_FOUND',
+
+      text: [
+        'FIX-03D.5.8 STEP 7.10D.1',
+        'FULL RESULT REPORTER',
+        '',
+        'Ready: NO ❌',
+        '',
+        'Reason:',
+        'STEP710D_EXISTING_RESULT_NOT_FOUND',
+        '',
+        'No audit was executed.',
+        'No storage was modified.',
+        '',
+        'Run STEP 7.10D only if the original',
+        '7.10D result has genuinely been lost.'
+      ].join('\n')
+
+    };
+
+  }
+
+
+  const verification =
+    result.verification ||
+    null;
+
+
+  const cleanup =
+    result.cleanup ||
+    null;
+
+
+  const safety =
+    result.safety ||
+    null;
+
+
+  const lines =
+    [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * HEADER
+   * ---------------------------------------------------------
+   */
+
+  lines.push(
+    'FIX-03D.5.8 STEP 7.10D.1'
+  );
+
+  lines.push(
+    'FULL RESULT REPORTER'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'MODE: READ ONLY'
+  );
+
+  lines.push(
+    'SOURCE: EXISTING 7.10D RESULT'
+  );
+
+  lines.push('');
+
+
+  /*
+   * ---------------------------------------------------------
+   * ORIGINAL 7.10D VERDICT
+   * ---------------------------------------------------------
+   */
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push(
+    'STEP 7.10D VERDICT'
+  );
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    (
+      result.ready
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Passed: ' +
+    (
+      result.passed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * CLEANUP EVIDENCE
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push(
+    'PROBE CLEANUP EVIDENCE'
+  );
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push('');
+
+
+  if (cleanup) {
+
+    lines.push(
+      'Cleanup Ready: ' +
+      (
+        cleanup.ready
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+
+    lines.push(
+      'Cleaned: ' +
+      (
+        cleanup.cleaned
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Already Clean: ' +
+      (
+        cleanup.alreadyClean
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+
+    if (
+      cleanup.probeId
+    ) {
+
+      lines.push(
+        'Removed Probe ID:'
+      );
+
+      lines.push(
+        cleanup.probeId
+      );
+
+    }
+
+
+    lines.push(
+      'Probe Exists After Cleanup: ' +
+      (
+        cleanup.afterExists
+          ? 'YES ❌'
+          : 'NO ✅'
+      )
+    );
+
+  } else {
+
+    lines.push(
+      'Cleanup Evidence: NOT AVAILABLE ❌'
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * FINAL READ-ONLY VERIFICATION
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push(
+    'FINAL READ-ONLY VERIFICATION'
+  );
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push('');
+
+
+  if (verification) {
+
+    lines.push(
+      'Ready: ' +
+      (
+        verification.ready
+          ? 'YES'
+          : 'NO'
+      )
+    );
+
+
+    lines.push(
+      'Passed: ' +
+      (
+        verification.passed
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Reason: ' +
+      (
+        verification.reason ||
+        '-'
+      )
+    );
+
+
+    /*
+     * Probe state
+     */
+
+    if (
+      verification.probe
+    ) {
+
+      lines.push('');
+
+
+      lines.push(
+        'Probe Exists: ' +
+        (
+          verification.probe.exists
+            ? 'YES ❌'
+            : 'NO'
+        )
+      );
+
+
+      lines.push(
+        'Probe Absent: ' +
+        (
+          verification.probe.absent
+            ? 'YES ✅'
+            : 'NO ❌'
+        )
+      );
+
+    }
+
+
+    /*
+     * Canonical state
+     */
+
+    if (
+      verification.canonical
+    ) {
+
+      const canonical =
+        verification.canonical;
+
+
+      lines.push('');
+
+      lines.push(
+        '----------------------'
+      );
+
+      lines.push(
+        'CANONICAL INTEGRITY'
+      );
+
+      lines.push(
+        '----------------------'
+      );
+
+      lines.push('');
+
+
+      lines.push(
+        'Expected Count: ' +
+        String(
+          canonical.expectedCount
+        )
+      );
+
+
+      lines.push(
+        'Current Count: ' +
+        String(
+          canonical.currentCount
+        )
+      );
+
+
+      lines.push(
+        'Count Match: ' +
+        (
+          canonical.countMatch
+            ? 'YES ✅'
+            : 'NO ❌'
+        )
+      );
+
+
+      lines.push(
+        'Exact Match: ' +
+        (
+          canonical.exactMatch
+            ? 'YES ✅'
+            : 'NO ❌'
+        )
+      );
+
+
+      lines.push(
+        'Canonical Unchanged: ' +
+        (
+          canonical.unchanged
+            ? 'YES ✅'
+            : 'NO ❌'
+        )
+      );
+
+    } else {
+
+      lines.push('');
+
+      lines.push(
+        'Canonical Verification: NOT AVAILABLE ❌'
+      );
+
+    }
+
+  } else {
+
+    lines.push(
+      'Verification Evidence: NOT AVAILABLE ❌'
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * SAFETY EVIDENCE FROM ORIGINAL RESULT
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push(
+    'SAFETY'
+  );
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Reporter Mode: READ ONLY'
+  );
+
+
+  lines.push(
+    'Reporter Storage Write: NO'
+  );
+
+
+  lines.push(
+    'Reporter Cleanup Executed: NO'
+  );
+
+
+  lines.push(
+    'Reporter Recovery Executed: NO'
+  );
+
+
+  lines.push(
+    'Reporter Auto Promotion: NO'
+  );
+
+
+  if (safety) {
+
+    lines.push('');
+
+
+    lines.push(
+      'Original Manual Run Only: ' +
+      (
+        safety.manualRunOnly
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Original Probe Cleanup Only: ' +
+      (
+        safety.auditProbeCleanupOnly
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Original Final Verification Read Only: ' +
+      (
+        safety.finalVerificationReadOnly
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    lines.push(
+      'Canonical Write: ' +
+      (
+        safety.canonicalWrite
+          ? 'YES ❌'
+          : 'NO ✅'
+      )
+    );
+
+
+    lines.push(
+      'Recovery Executed: ' +
+      (
+        safety.recoveryExecuted
+          ? 'YES ❌'
+          : 'NO ✅'
+      )
+    );
+
+
+    lines.push(
+      'Auto Promotion: ' +
+      (
+        safety.autoPromotion
+          ? 'YES ❌'
+          : 'NO ✅'
+      )
+    );
+
+
+    lines.push(
+      'Production Prediction Modified: ' +
+      (
+        safety.productionPredictionModified
+          ? 'YES ❌'
+          : 'NO ✅'
+      )
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * REPORTER VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const reporterPassed =
+    Boolean(
+      result.ready &&
+      result.passed &&
+      verification &&
+      verification.ready &&
+      verification.passed &&
+      verification.probe &&
+      verification.probe.absent &&
+      verification.canonical &&
+      verification.canonical.countMatch &&
+      verification.canonical.exactMatch &&
+      verification.canonical.unchanged
+    );
+
+
+  lines.push('');
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push(
+    'REPORTER VERDICT'
+  );
+
+  lines.push(
+    '======================'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Passed: ' +
+    (
+      reporterPassed
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      reporterPassed
+        ? 'STEP710D_FULL_RESULT_VERIFIED'
+        : 'STEP710D_FULL_RESULT_NOT_VERIFIED'
+    )
+  );
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      reporterPassed,
+
+    reason:
+      reporterPassed
+        ? 'STEP710D_FULL_RESULT_VERIFIED'
+        : 'STEP710D_FULL_RESULT_NOT_VERIFIED',
+
+    text:
+      lines.join('\n'),
+
+    sourceResult:
+      result
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. MANUAL REPORTER
+
+   IMPORTANT:
+   DISPLAY ONLY.
+   NEVER RE-RUN STEP 7.10D.
+   ========================================================================= */
+
+function showFix03D58Step710D1FullReportV26() {
+
+  const report =
+    buildFix03D58Step710D1FullReportV26();
+
+
+  window
+    .LAST_FIX03D58_STEP710D1_REPORT =
+    report;
+
+
+  alert(
+    report.text
+  );
+
+
+  return report;
+
+}
+
+
+/* =========================================================================
+   3. DEBUG BUTTON
+   ========================================================================= */
+
+(function installFix03D58Step710D1ReporterButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step710D1ReporterV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '📋 D.5.8 Show 7.10D Full Result';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        showFix03D58Step710D1FullReportV26();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.10D.1 Reporter button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Retry BUTTON ATTACHMENT only.
+   * Reporter itself is NEVER auto-run.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.10D.1 Full Result Reporter loaded — READ ONLY'
+);
+
