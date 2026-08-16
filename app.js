@@ -126829,3 +126829,289 @@ console.log(
   'FIX-03D.5.9 STEP 8.2F Failed-Checks Summary loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
 );
 
+/* =========================================================================
+   FIX-03D.5.9 STEP 8.2F.1
+   MOBILE ULTRA-COMPACT REPORTER OVERRIDE
+
+   MANUAL RUN ONLY
+   READ ONLY
+   FAIL CLOSED
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function reportFix03D59Step82FCompactFailedChecksV26() {
+
+  const source =
+    window.LAST_FIX03D59_STEP82C_RESULT;
+
+  if (
+    !source ||
+    source.ready !== true ||
+    !Array.isArray(source.ineligible)
+  ) {
+
+    alert(
+      [
+        '8.2F COMPACT',
+        '',
+        'Ready: NO ❌',
+        '8.2C Result: NOT AVAILABLE',
+        '',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_82C_RESULT_NOT_AVAILABLE'
+    };
+
+  }
+
+
+  const ineligible =
+    source.ineligible;
+
+
+  function shortCode(check) {
+
+    const map = {
+
+      latestDrawKeyPresent: 'L',
+
+      generatedAtPresent: 'G',
+
+      savedAtPresent: 'S',
+
+      engineValid: 'E'
+
+    };
+
+
+    return (
+      map[check] ||
+      '?'
+    );
+
+  }
+
+
+  const signatures =
+    ineligible.map(
+      function (item) {
+
+        const checks =
+          Array.isArray(item.failedChecks)
+            ? item.failedChecks
+            : [];
+
+
+        return checks
+          .slice()
+          .sort()
+          .join('|');
+
+      }
+    );
+
+
+  const samePattern =
+    signatures.length <= 1 ||
+    signatures.every(
+      function (signature) {
+
+        return (
+          signature ===
+          signatures[0]
+        );
+
+      }
+    );
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.2F',
+
+    'MOBILE COMPACT',
+
+    '',
+
+    'Ready: YES',
+
+    'Source: ' +
+      (
+        source.passed === true
+          ? 'PASS ✅'
+          : 'FAIL ❌'
+      ),
+
+    'Ineligible: ' +
+      ineligible.length,
+
+    ''
+
+  ];
+
+
+  ineligible.forEach(
+    function (item) {
+
+      const checks =
+        Array.isArray(item.failedChecks)
+          ? item.failedChecks
+          : [];
+
+
+      const codes =
+        checks.map(shortCode);
+
+
+      lines.push(
+
+        '#' +
+        String(item.index) +
+        ' ' +
+        (item.province || '-') +
+        '/' +
+        (item.prize || '-') +
+        ': ' +
+        (
+          codes.length
+            ? codes.join(',')
+            : 'NONE'
+        )
+
+      );
+
+    }
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Same Pattern: ' +
+    (
+      samePattern
+        ? 'YES ✅'
+        : 'NO ⚠️'
+    )
+  );
+
+  lines.push('');
+
+  lines.push(
+    'L=latestDrawKey'
+  );
+
+  lines.push(
+    'G=generatedAt'
+  );
+
+  lines.push(
+    'S=savedAt'
+  );
+
+  lines.push(
+    'E=engineValid'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'READ ONLY'
+  );
+
+  lines.push(
+    'NO WRITE'
+  );
+
+  lines.push(
+    'NO PROMOTION'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      source.passed === true,
+
+    reason:
+      'MOBILE_COMPACT_FAILED_CHECKS_READY',
+
+    ineligibleCount:
+      ineligible.length,
+
+    sameFailurePattern:
+      samePattern,
+
+    records:
+      ineligible.map(
+        function (item) {
+
+          return {
+
+            index:
+              item.index,
+
+            province:
+              item.province || null,
+
+            prize:
+              item.prize || null,
+
+            failedChecks:
+              Array.isArray(item.failedChecks)
+                ? item.failedChecks.slice()
+                : []
+
+          };
+
+        }
+      ),
+
+    execution: {
+
+      manualRunOnly: true,
+
+      readOnly: true,
+
+      failClosed: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      autoPromotion: false
+
+    }
+
+  };
+
+
+  window
+    .LAST_FIX03D59_STEP82F_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2F.1 Mobile Compact Reporter loaded'
+);
+
