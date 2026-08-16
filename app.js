@@ -106716,3 +106716,836 @@ console.log(
   'FIX-03D.5.8 STEP 7.6C Concurrency Audit Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.7A — CANONICAL COMMIT CRASH-RECOVERY /
+               INTERRUPTED TRANSACTION AUDIT ENGINE
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ABSOLUTE ROLLBACK
+
+   PURPOSE:
+   - Simulate an interrupted canonical transaction.
+   - Detect incomplete transaction state.
+   - Recover canonical storage safely.
+   - Verify recovery is idempotent.
+   - Restore original canonical storage absolutely.
+
+   IMPORTANT:
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD SYNTHETIC CRASH-RECOVERY CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticCrashRecoveryCandidateV26() {
+
+  const lifecycleKey =
+    'synthetic-crash-recovery-audit/db/RECENT/10';
+
+
+  return {
+
+    lifecycleKey,
+
+    province:
+      'synthetic-crash-recovery-audit',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.92,
+
+    top10Rate:
+      0.83,
+
+    mrr:
+      0.74,
+
+    maturityScore:
+      96,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_CRASH_RECOVERY_AUDIT',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    pendingCommit:
+      true,
+
+    autoPromotion:
+      false,
+
+    synthetic:
+      true,
+
+    syntheticAudit:
+      'FIX-03D.5.8_STEP_7.7'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BUILD INTERRUPTED TRANSACTION RECORD
+   ========================================================================= */
+
+function buildSyntheticInterruptedRecordV26(
+  candidate
+) {
+
+  const record =
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    );
+
+
+  /*
+   * Simulated state:
+   *
+   * Transaction started,
+   * but commit was interrupted before finalization.
+   */
+
+  record.candidateStatus =
+    'COMMITTING';
+
+
+  record.pendingCommit =
+    true;
+
+
+  record.commitCompleted =
+    false;
+
+
+  record.interruptedTransaction =
+    true;
+
+
+  record.commitAudit =
+    'FIX-03D.5.8_STEP_7.7';
+
+
+  return record;
+
+}
+
+
+/* =========================================================================
+   3. COUNT INTERRUPTED RECORDS
+   ========================================================================= */
+
+function countInterruptedLifecycleKeyV26(
+  snapshots,
+  lifecycleKey
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return 0;
+
+  }
+
+
+  return snapshots.filter(
+    item =>
+      item &&
+      item.lifecycleKey ===
+        lifecycleKey &&
+      (
+        item.interruptedTransaction ===
+          true ||
+        item.candidateStatus ===
+          'COMMITTING'
+      )
+  ).length;
+
+}
+
+
+/* =========================================================================
+   4. RECOVER INTERRUPTED TRANSACTION
+   ========================================================================= */
+
+function recoverInterruptedCanonicalTransactionV26(
+  lifecycleKey
+) {
+
+  const currentRaw =
+    readShadowSnapshotsV26();
+
+
+  const current =
+    Array.isArray(
+      currentRaw
+    )
+      ? currentRaw
+      : [];
+
+
+  const beforeCount =
+    current.length;
+
+
+  const interruptedCount =
+    countInterruptedLifecycleKeyV26(
+      current,
+      lifecycleKey
+    );
+
+
+  /*
+   * Nothing to recover.
+   *
+   * This is intentionally successful so recovery
+   * remains IDEMPOTENT.
+   */
+
+  if (
+    interruptedCount === 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      recovered: true,
+
+      changed: false,
+
+      reason:
+        'NO_INTERRUPTED_TRANSACTION',
+
+      beforeCount,
+
+      afterCount:
+        beforeCount,
+
+      interruptedBefore:
+        0,
+
+      interruptedAfter:
+        0
+
+    };
+
+  }
+
+
+  /*
+   * Remove ONLY the interrupted synthetic transaction.
+   *
+   * Existing canonical records remain untouched.
+   */
+
+  const recovered =
+    current.filter(
+      item =>
+        !(
+          item &&
+          item.lifecycleKey ===
+            lifecycleKey &&
+          (
+            item.interruptedTransaction ===
+              true ||
+            item.candidateStatus ===
+              'COMMITTING'
+          )
+        )
+    );
+
+
+  const written =
+    writeShadowSnapshotsV26(
+      recovered
+    );
+
+
+  if (!written) {
+
+    return {
+
+      ready: true,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'RECOVERY_WRITE_FAILED',
+
+      beforeCount,
+
+      afterCount:
+        current.length,
+
+      interruptedBefore:
+        interruptedCount,
+
+      interruptedAfter:
+        interruptedCount
+
+    };
+
+  }
+
+
+  const readBackRaw =
+    readShadowSnapshotsV26();
+
+
+  const readBack =
+    Array.isArray(
+      readBackRaw
+    )
+      ? readBackRaw
+      : [];
+
+
+  const interruptedAfter =
+    countInterruptedLifecycleKeyV26(
+      readBack,
+      lifecycleKey
+    );
+
+
+  return {
+
+    ready: true,
+
+    recovered:
+      interruptedAfter === 0,
+
+    changed: true,
+
+    reason:
+      interruptedAfter === 0
+        ? 'INTERRUPTED_TRANSACTION_RECOVERED'
+        : 'INTERRUPTED_TRANSACTION_REMAINS',
+
+    beforeCount,
+
+    afterCount:
+      readBack.length,
+
+    interruptedBefore:
+      interruptedCount,
+
+    interruptedAfter
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. STEP 7.7A AUDIT ENGINE
+   ========================================================================= */
+
+function auditCanonicalCommitCrashRecoveryV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. BACKUP CANONICAL STORE
+   * ---------------------------------------------------------
+   */
+
+  const originalRaw =
+    readShadowSnapshotsV26();
+
+
+  const original =
+    Array.isArray(
+      originalRaw
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            originalRaw
+          )
+        )
+      : [];
+
+
+  const originalCount =
+    original.length;
+
+
+  const candidate =
+    buildSyntheticCrashRecoveryCandidateV26();
+
+
+  const lifecycleKey =
+    candidate.lifecycleKey;
+
+
+  let interruptedWrite =
+    false;
+
+
+  let afterInterruption =
+    [];
+
+
+  let firstRecovery =
+    null;
+
+
+  let afterFirstRecovery =
+    [];
+
+
+  let secondRecovery =
+    null;
+
+
+  let afterSecondRecovery =
+    [];
+
+
+  let rollbackWrite =
+    false;
+
+
+  let afterRollback =
+    [];
+
+
+  let auditError =
+    null;
+
+
+  const checks = {
+
+    candidateValid:
+      false,
+
+    lifecycleKeyInitiallyAbsent:
+      false,
+
+    interruptedWriteConfirmed:
+      false,
+
+    interruptedStateDetected:
+      false,
+
+    interruptedCountExactlyOne:
+      false,
+
+    firstRecoverySucceeded:
+      false,
+
+    interruptedRecordRemoved:
+      false,
+
+    originalCountRecovered:
+      false,
+
+    secondRecoverySucceeded:
+      false,
+
+    recoveryIdempotent:
+      false,
+
+    rollbackWriteConfirmed:
+      false,
+
+    originalCountRestored:
+      false,
+
+    syntheticRemoved:
+      false
+
+  };
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * B. CANDIDATE CONTRACT
+     * ---------------------------------------------------------
+     */
+
+    checks.candidateValid =
+      Boolean(
+        candidate &&
+        candidate.lifecycleKey &&
+        candidate.approved === true &&
+        candidate.gatePassed === true &&
+        candidate.candidateStatus ===
+          'PENDING_COMMIT' &&
+        candidate.autoPromotion === false
+      );
+
+
+    const initialLifecycleCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        original,
+        lifecycleKey
+      );
+
+
+    checks.lifecycleKeyInitiallyAbsent =
+      initialLifecycleCount === 0;
+
+
+    if (
+      initialLifecycleCount !== 0
+    ) {
+
+      throw new Error(
+        'SYNTHETIC_LIFECYCLE_KEY_ALREADY_EXISTS'
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. SIMULATE INTERRUPTED WRITE
+     *
+     * We intentionally persist an incomplete transaction
+     * marker to emulate interruption between write start
+     * and commit finalization.
+     * ---------------------------------------------------------
+     */
+
+    const interruptedRecord =
+      buildSyntheticInterruptedRecordV26(
+        candidate
+      );
+
+
+    const interruptedStore =
+      original.concat([
+        interruptedRecord
+      ]);
+
+
+    interruptedWrite =
+      writeShadowSnapshotsV26(
+        interruptedStore
+      );
+
+
+    const interruptedRaw =
+      readShadowSnapshotsV26();
+
+
+    afterInterruption =
+      Array.isArray(
+        interruptedRaw
+      )
+        ? interruptedRaw
+        : [];
+
+
+    const interruptedCount =
+      countInterruptedLifecycleKeyV26(
+        afterInterruption,
+        lifecycleKey
+      );
+
+
+    checks.interruptedWriteConfirmed =
+      interruptedWrite === true;
+
+
+    checks.interruptedStateDetected =
+      interruptedCount > 0;
+
+
+    checks.interruptedCountExactlyOne =
+      interruptedCount === 1;
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. FIRST RECOVERY
+     * ---------------------------------------------------------
+     */
+
+    firstRecovery =
+      recoverInterruptedCanonicalTransactionV26(
+        lifecycleKey
+      );
+
+
+    const firstRecoveryRaw =
+      readShadowSnapshotsV26();
+
+
+    afterFirstRecovery =
+      Array.isArray(
+        firstRecoveryRaw
+      )
+        ? firstRecoveryRaw
+        : [];
+
+
+    const afterFirstInterruptedCount =
+      countInterruptedLifecycleKeyV26(
+        afterFirstRecovery,
+        lifecycleKey
+      );
+
+
+    checks.firstRecoverySucceeded =
+      Boolean(
+        firstRecovery &&
+        firstRecovery.recovered === true
+      );
+
+
+    checks.interruptedRecordRemoved =
+      afterFirstInterruptedCount === 0;
+
+
+    checks.originalCountRecovered =
+      afterFirstRecovery.length ===
+        originalCount;
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. SECOND RECOVERY — IDEMPOTENCY
+     *
+     * Running recovery again MUST NOT change canonical state.
+     * ---------------------------------------------------------
+     */
+
+    const beforeSecondRecoveryJSON =
+      JSON.stringify(
+        afterFirstRecovery
+      );
+
+
+    secondRecovery =
+      recoverInterruptedCanonicalTransactionV26(
+        lifecycleKey
+      );
+
+
+    const secondRecoveryRaw =
+      readShadowSnapshotsV26();
+
+
+    afterSecondRecovery =
+      Array.isArray(
+        secondRecoveryRaw
+      )
+        ? secondRecoveryRaw
+        : [];
+
+
+    const afterSecondRecoveryJSON =
+      JSON.stringify(
+        afterSecondRecovery
+      );
+
+
+    checks.secondRecoverySucceeded =
+      Boolean(
+        secondRecovery &&
+        secondRecovery.recovered === true
+      );
+
+
+    checks.recoveryIdempotent =
+      (
+        secondRecovery &&
+        secondRecovery.changed === false &&
+        beforeSecondRecoveryJSON ===
+          afterSecondRecoveryJSON &&
+        afterSecondRecovery.length ===
+          originalCount
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. ABSOLUTE ROLLBACK
+     *
+     * Even though recovery should already restore the state,
+     * restore the exact original backup again.
+     * ---------------------------------------------------------
+     */
+
+    rollbackWrite =
+      writeShadowSnapshotsV26(
+        JSON.parse(
+          JSON.stringify(
+            original
+          )
+        )
+      );
+
+
+    const rollbackRaw =
+      readShadowSnapshotsV26();
+
+
+    afterRollback =
+      Array.isArray(
+        rollbackRaw
+      )
+        ? rollbackRaw
+        : [];
+
+
+    checks.rollbackWriteConfirmed =
+      rollbackWrite === true;
+
+
+    checks.originalCountRestored =
+      afterRollback.length ===
+        originalCount;
+
+
+    checks.syntheticRemoved =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterRollback,
+        lifecycleKey
+      ) === 0;
+
+
+  } catch (error) {
+
+    auditError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * EMERGENCY ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      rollbackWrite =
+        writeShadowSnapshotsV26(
+          JSON.parse(
+            JSON.stringify(
+              original
+            )
+          )
+        );
+
+
+      const rollbackRaw =
+        readShadowSnapshotsV26();
+
+
+      afterRollback =
+        Array.isArray(
+          rollbackRaw
+        )
+          ? rollbackRaw
+          : [];
+
+
+      checks.rollbackWriteConfirmed =
+        rollbackWrite === true;
+
+
+      checks.originalCountRestored =
+        afterRollback.length ===
+          originalCount;
+
+
+      checks.syntheticRemoved =
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0;
+
+
+    } catch (_) {
+
+      /*
+       * Preserve original audit error.
+       */
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0 &&
+    auditError === null;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? '
+
+     
