@@ -127115,3 +127115,612 @@ console.log(
   'FIX-03D.5.9 STEP 8.2F.1 Mobile Compact Reporter loaded'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.3A — PRODUCTION CANDIDATE BOUNDARY ENGINE
+
+   PURPOSE:
+   - Read the validated STEP 8.2C eligibility classification.
+   - Inspect ONLY records already classified as eligible.
+   - Build an in-memory Production Candidate projection.
+   - Preserve canonical identity.
+   - Establish the boundary before any future promotion mechanism.
+
+   MODE:
+   - MANUAL INVOCATION ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO STORAGE WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+   - NO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID remains:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+function buildProductionCandidateBoundaryV26(
+  sourceResult
+) {
+
+  /*
+   * ---------------------------------------------------------
+   * 1. FAIL-CLOSED SOURCE RESOLUTION
+   * ---------------------------------------------------------
+   */
+
+  const source =
+    sourceResult ||
+    window
+      .LAST_FIX03D59_STEP82C_RESULT;
+
+
+  if (
+    !source ||
+    typeof source !== 'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_NOT_AVAILABLE',
+
+      candidates: [],
+
+      rejected: [],
+
+      execution: {
+
+        manualRunOnly: true,
+
+        readOnly: true,
+
+        failClosed: true,
+
+        canonicalWrite: false,
+
+        productionWrite: false,
+
+        storageWrite: false,
+
+        autoPromotion: false
+
+      }
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. SOURCE CONTRACT
+   * ---------------------------------------------------------
+   */
+
+  if (
+    source.ready !== true ||
+    source.passed !== true ||
+    !Array.isArray(
+      source.eligible
+    ) ||
+    !Array.isArray(
+      source.ineligible
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_SOURCE_NOT_VALIDATED',
+
+      candidates: [],
+
+      rejected: [],
+
+      execution: {
+
+        manualRunOnly: true,
+
+        readOnly: true,
+
+        failClosed: true,
+
+        canonicalWrite: false,
+
+        productionWrite: false,
+
+        storageWrite: false,
+
+        autoPromotion: false
+
+      }
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. ELIGIBLE SOURCE
+   * ---------------------------------------------------------
+   *
+   * IMPORTANT:
+   * 8.3 NEVER attempts to repair or reclassify an
+   * ineligible canonical record.
+   *
+   * Only STEP 8.2C eligible[] may enter this boundary.
+   */
+
+  const eligible =
+    source.eligible;
+
+
+  const candidates = [];
+
+  const rejected = [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. BUILD READ-ONLY CANDIDATE PROJECTION
+   * ---------------------------------------------------------
+   */
+
+  eligible.forEach(
+    function (
+      item,
+      eligibleIndex
+    ) {
+
+      /*
+       * We intentionally inspect only evidence already
+       * produced by the eligibility layer.
+       *
+       * No canonical mutation is allowed here.
+       */
+
+      const canonicalIndex =
+        Number.isInteger(
+          item.index
+        )
+          ? item.index
+          : null;
+
+
+      const province =
+        typeof item.province === 'string' &&
+        item.province.trim()
+          ? item.province.trim()
+          : null;
+
+
+      const prize =
+        typeof item.prize === 'string' &&
+        item.prize.trim()
+          ? item.prize.trim()
+          : null;
+
+
+      /*
+       * Preserve the underlying record reference only for
+       * read-time inspection.
+       *
+       * We DO NOT modify it.
+       */
+
+      const record =
+        (
+          item.record &&
+          typeof item.record === 'object'
+        )
+          ? item.record
+          : (
+              item.canonical &&
+              typeof item.canonical === 'object'
+                ? item.canonical
+                : null
+            );
+
+
+      /*
+       * -----------------------------------------------------
+       * IDENTITY BOUNDARY
+       * -----------------------------------------------------
+       */
+
+      const identityValid =
+        canonicalIndex !== null &&
+        province !== null &&
+        prize !== null;
+
+
+      /*
+       * -----------------------------------------------------
+       * ELIGIBILITY EVIDENCE
+       * -----------------------------------------------------
+       *
+       * A record is present in source.eligible only because
+       * STEP 8.2C classified it as eligible.
+       *
+       * We preserve that fact as explicit evidence rather
+       * than silently recalculating eligibility here.
+       */
+
+      const eligibilityValid =
+        item.eligible === true ||
+        item.isEligible === true ||
+        item.passed === true ||
+        (
+          Array.isArray(
+            item.failedChecks
+          ) &&
+          item.failedChecks.length === 0
+        );
+
+
+      /*
+       * Some 8.2C projections may not repeat an explicit
+       * eligible=true flag.
+       *
+       * Membership in source.eligible is itself validated
+       * evidence because source.passed === true.
+       */
+
+      const sourceMembershipValid =
+        true;
+
+
+      /*
+       * -----------------------------------------------------
+       * PRODUCTION BOUNDARY
+       * -----------------------------------------------------
+       *
+       * This DOES NOT promote anything.
+       *
+       * It only determines whether an already-eligible
+       * canonical identity can be represented as a
+       * Production Candidate.
+       */
+
+      const boundaryPassed =
+        identityValid === true &&
+        sourceMembershipValid === true;
+
+
+      if (
+        !boundaryPassed
+      ) {
+
+        rejected.push({
+
+          eligibleIndex,
+
+          canonicalIndex,
+
+          province,
+
+          prize,
+
+          reason:
+            'PRODUCTION_CANDIDATE_IDENTITY_INVALID',
+
+          checks: {
+
+            identityValid,
+
+            sourceMembershipValid,
+
+            eligibilityEvidencePresent:
+              eligibilityValid
+
+          }
+
+        });
+
+
+        return;
+
+      }
+
+
+      /*
+       * -----------------------------------------------------
+       * CANDIDATE PROJECTION
+       * -----------------------------------------------------
+       *
+       * This object exists ONLY IN RAM.
+       *
+       * No storage operation occurs.
+       */
+
+      candidates.push({
+
+        candidateIndex:
+          candidates.length,
+
+        sourceEligibleIndex:
+          eligibleIndex,
+
+        canonicalIndex,
+
+        province,
+
+        prize,
+
+        record,
+
+        eligibility: {
+
+          source:
+            'FIX03D59_STEP82C',
+
+          sourcePassed:
+            true,
+
+          sourceMembership:
+            'ELIGIBLE',
+
+          explicitEvidencePresent:
+            eligibilityValid
+
+        },
+
+        boundary: {
+
+          identityValid:
+            true,
+
+          candidateValid:
+            true,
+
+          productionWritten:
+            false,
+
+          promoted:
+            false
+
+        }
+
+      });
+
+    }
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 5. CONSISTENCY CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const eligibleCount =
+    eligible.length;
+
+
+  const candidateCount =
+    candidates.length;
+
+
+  const rejectedCount =
+    rejected.length;
+
+
+  const countsBalanced =
+    (
+      candidateCount +
+      rejectedCount
+    ) ===
+    eligibleCount;
+
+
+  /*
+   * Every candidate identity must be unique inside this
+   * projection.
+   */
+
+  const identityKeys =
+    candidates.map(
+      function (candidate) {
+
+        return [
+
+          candidate.canonicalIndex,
+
+          candidate.province,
+
+          candidate.prize
+
+        ].join('|');
+
+      }
+    );
+
+
+  const uniqueIdentityCount =
+    new Set(
+      identityKeys
+    ).size;
+
+
+  const identitiesUnique =
+    uniqueIdentityCount ===
+    identityKeys.length;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 6. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const passed =
+    countsBalanced === true &&
+    identitiesUnique === true &&
+    rejectedCount === 0;
+
+
+  const reason =
+    passed
+      ? 'PRODUCTION_CANDIDATE_BOUNDARY_VALID'
+      : (
+          !countsBalanced
+            ? 'PRODUCTION_CANDIDATE_COUNTS_UNBALANCED'
+            : (
+                !identitiesUnique
+                  ? 'PRODUCTION_CANDIDATE_IDENTITY_DUPLICATE'
+                  : 'PRODUCTION_CANDIDATE_REJECTED_RECORDS_PRESENT'
+              )
+        );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason,
+
+    source: {
+
+      step:
+        '8.2C',
+
+      ready:
+        source.ready === true,
+
+      passed:
+        source.passed === true
+
+    },
+
+    counts: {
+
+      eligible:
+        eligibleCount,
+
+      candidates:
+        candidateCount,
+
+      rejected:
+        rejectedCount,
+
+      balanced:
+        countsBalanced
+
+    },
+
+    identity: {
+
+      unique:
+        identitiesUnique,
+
+      uniqueCount:
+        uniqueIdentityCount
+
+    },
+
+    candidates,
+
+    rejected,
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      storageWrite:
+        false,
+
+      autoPromotion:
+        false,
+
+      promotion:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * ---------------------------------------------------------
+   * 7. RAM RESULT ONLY
+   * ---------------------------------------------------------
+   *
+   * This assignment is NOT persistent storage.
+   */
+
+  window
+    .LAST_FIX03D59_STEP83A_RESULT =
+    result;
+
+
+  console.log(
+    'FIX-03D.5.9 STEP 8.3A RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   ENGINE MARKER ONLY
+   ========================================================================= */
+
+window
+  .FIX03D59_STEP83A_ENGINE_LOADED =
+  true;
+
+
+console.log(
+  [
+    'FIX-03D.5.9 STEP 8.3A Engine loaded',
+    'MANUAL INVOCATION ONLY',
+    'READ ONLY',
+    'FAIL CLOSED',
+    'NO PRODUCTION WRITE',
+    'NO AUTO PROMOTION'
+  ].join(' / ')
+);
+
