@@ -114415,3 +114415,504 @@ console.log(
   'FIX-03D.5.8 STEP 7.10A Durability / Reload Recovery Engine loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.10B — PRE-RELOAD MANUAL ARM DEBUG BUTTON
+
+   MANUAL RUN ONLY
+   NO AUTO RELOAD
+   NO AUTO RECOVERY
+   NO AUTO PROMOTION
+   CANONICAL STORAGE WRITE: NO
+
+   IMPORTANT:
+   fix03DDebugPanelV26
+         ^
+         D MUST BE UPPERCASE
+   ========================================================================= */
+
+(function installFix03D58Step710ArmButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step710ArmV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * Duplicate protection.
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * STEP 7.10A must already exist.
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '💾 D.5.8 Arm Reload Durability Probe';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * A. ENGINE GUARD
+         * -----------------------------------------------------
+         */
+
+        if (
+          typeof
+            runFix03D58Step710DurabilityProbeV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.10B',
+              '',
+              '7.10A Engine: NOT FOUND ❌',
+              '',
+              'Probe was NOT created.',
+              'Reload: NO',
+              'Recovery: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * B. MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.10B',
+              '',
+              'PRE-RELOAD DURABILITY PROBE',
+              '',
+              'Thao tác này sẽ:',
+              '',
+              '1. Đọc canonical baseline',
+              '2. Tạo isolated durability probe',
+              '3. Persist probe qua localStorage',
+              '4. Read-back để xác minh',
+              '5. Kiểm tra canonical không thay đổi',
+              '',
+              'KHÔNG reload app.',
+              'KHÔNG chạy recovery.',
+              'KHÔNG auto promotion.',
+              'KHÔNG ghi canonical shadow store.',
+              '',
+              'Tiếp tục ARM probe?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * C. MANUAL ARM
+         * -----------------------------------------------------
+         */
+
+        const result =
+          runFix03D58Step710DurabilityProbeV26();
+
+
+        /*
+         * -----------------------------------------------------
+         * D. MOBILE REPORT
+         * -----------------------------------------------------
+         */
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.10B'
+        );
+
+        lines.push(
+          'PRE-RELOAD DURABILITY PROBE'
+        );
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'ARM VERDICT'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Created: ' +
+          (
+            result.created
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed === true
+              ? 'YES ✅'
+              : (
+                  result.passed === false
+                    ? 'NO ❌'
+                    : '-'
+                )
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        /*
+         * Existing probe protection.
+         */
+
+        if (
+          result.duplicate
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            'Existing Active Probe: YES'
+          );
+
+          lines.push(
+            'New Probe Created: NO'
+          );
+
+        }
+
+
+        /*
+         * Probe details.
+         */
+
+        if (
+          result.probe
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'DURABILITY PROBE'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Probe ID: ' +
+            (
+              result.probe.probeId ||
+              '-'
+            )
+          );
+
+
+          lines.push(
+            'Phase: ' +
+            (
+              result.probe.phase ||
+              '-'
+            )
+          );
+
+        }
+
+
+        /*
+         * Canonical verification.
+         */
+
+        if (
+          result.canonical
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'CANONICAL SAFETY'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Before: ' +
+            result.canonical.before
+          );
+
+
+          lines.push(
+            'After: ' +
+            result.canonical.after
+          );
+
+
+          lines.push(
+            'Count Unchanged: ' +
+            (
+              result.canonical
+                .countUnchanged
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Exact Match: ' +
+            (
+              result.canonical
+                .exactMatch
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+        }
+
+
+        /*
+         * Safety declaration.
+         */
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'SAFETY'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+        lines.push(
+          'Mode: MANUAL RUN ONLY'
+        );
+
+        lines.push(
+          'Auto Reload: NO'
+        );
+
+        lines.push(
+          'Auto Recovery: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+        lines.push(
+          'Canonical Storage Write: NO'
+        );
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. ATTACH TO FIX-03D PANEL
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.10B Arm Reload Durability Probe button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Panel may appear later.
+   *
+   * Retry ATTACH only.
+   * NEVER arm probe automatically.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.10B Pre-Reload Manual Arm Button loaded — MANUAL RUN ONLY'
+);
+
