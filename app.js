@@ -121587,3 +121587,736 @@ console.log(
   'FIX-03D.5.9 STEP 8.1A Canonical → Production Read Boundary Audit Engine loaded — MANUAL RUN ONLY / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.1B — CANONICAL → PRODUCTION READ BOUNDARY
+               MANUAL BUTTON + MOBILE REPORTER
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+(function installFix03D59Step81BButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step81BReadBoundaryV26';
+
+
+  function attach() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. FIND EXISTING DEBUG PANEL
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. DUPLICATE BUTTON PROTECTION
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 D.5.9 Canonical → Production Read Boundary';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. MANUAL CLICK ONLY
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * ENGINE GUARD
+         * -----------------------------------------------------
+         */
+
+        if (
+          typeof
+            runFix03D59Step81ReadBoundaryAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.1B',
+              '',
+              '8.1A Engine: NOT FOUND ❌',
+              '',
+              'Audit NOT executed.',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.1',
+              '',
+              'CANONICAL → PRODUCTION',
+              'READ BOUNDARY AUDIT',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Run audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * RUN 8.1A ENGINE
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            runFix03D59Step81ReadBoundaryAuditV26();
+
+        } catch (error) {
+
+          result = {
+
+            ready: false,
+
+            passed: false,
+
+            reason:
+              'STEP81_READ_BOUNDARY_EXCEPTION',
+
+            error:
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+
+          };
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * MOBILE-FIRST REPORT
+         *
+         * Decisive result is intentionally shown first because
+         * Android alert dialogs may visually truncate the bottom.
+         * -----------------------------------------------------
+         */
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.9 STEP 8.1'
+        );
+
+
+        lines.push(
+          'CANONICAL → PRODUCTION READ BOUNDARY'
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * FINAL VERDICT FIRST
+         */
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push(
+          'FINAL VERDICT'
+        );
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        /*
+         * BASELINE
+         */
+
+        if (
+          result &&
+          result.baseline
+        ) {
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'BASELINE'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push('');
+
+
+          lines.push(
+            'Canonical Count: ' +
+            result.baseline
+              .canonicalCount
+          );
+
+
+          lines.push(
+            'Production Runtime: ' +
+            result.baseline
+              .productionRuntimeCount
+          );
+
+
+          lines.push(
+            'Production Storage: ' +
+            result.baseline
+              .productionStorageCount
+          );
+
+
+          lines.push(
+            'Runtime/Storage Match: ' +
+            (
+              result.baseline
+                .productionRuntimeStorageMatch
+                ? 'YES ✅'
+                : 'NO ⚠️'
+            )
+          );
+
+        }
+
+
+        /*
+         * PROJECTION
+         */
+
+        if (
+          result &&
+          result.projection
+        ) {
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'READ PROJECTION'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push('');
+
+
+          lines.push(
+            'Projection Ready: ' +
+            (
+              result.projection.ready
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          lines.push(
+            'Projection Passed: ' +
+            (
+              result.projection.passed
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Canonical Rows Read: ' +
+            (
+              result.projection.count != null
+                ? result.projection.count
+                : '-'
+            )
+          );
+
+        }
+
+
+        /*
+         * STABILITY
+         */
+
+        if (
+          result &&
+          result.stability
+        ) {
+
+          const stability =
+            result.stability;
+
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'BOUNDARY STABILITY'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push('');
+
+
+          lines.push(
+            'Stability Passed: ' +
+            (
+              stability.passed
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          if (
+            stability.canonical
+          ) {
+
+            lines.push(
+              'Canonical Unchanged: ' +
+              (
+                stability.canonical
+                  .unchanged
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+          }
+
+
+          if (
+            stability.production
+          ) {
+
+            lines.push(
+              'Production Unchanged: ' +
+              (
+                stability.production
+                  .unchanged
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+
+            lines.push(
+              'Runtime Exact Match: ' +
+              (
+                stability.production
+                  .runtimeExactMatch
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+
+            lines.push(
+              'Storage Exact Match: ' +
+              (
+                stability.production
+                  .storageExactMatch
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              )
+            );
+
+          }
+
+        }
+
+
+        /*
+         * SAFETY
+         */
+
+        lines.push('');
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push(
+          'SAFETY'
+        );
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Mode: MANUAL RUN ONLY'
+        );
+
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+
+        lines.push(
+          'Canonical Write: NO'
+        );
+
+
+        lines.push(
+          'Production Write: NO'
+        );
+
+
+        lines.push(
+          'savePrediction(): NOT CALLED'
+        );
+
+
+        lines.push(
+          'saveJSON(): NOT CALLED'
+        );
+
+
+        lines.push(
+          'Canonical Writer: NOT CALLED'
+        );
+
+
+        lines.push(
+          'Synthetic Record: NO'
+        );
+
+
+        lines.push(
+          'Probe: NO'
+        );
+
+
+        lines.push(
+          'Recovery: NO'
+        );
+
+
+        lines.push(
+          'Journal Replay: NO'
+        );
+
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+
+        /*
+         * ERROR — ONLY IF PRESENT
+         */
+
+        if (
+          result &&
+          result.error
+        ) {
+
+          lines.push('');
+
+
+          lines.push(
+            'ERROR: ' +
+            String(
+              result.error
+            )
+          );
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * DISPLAY
+         * -----------------------------------------------------
+         */
+
+        alert(
+          lines.join('\n')
+        );
+
+
+        console.log(
+          'FIX-03D.5.9 STEP 8.1 RESULT',
+          result
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. ATTACH BUTTON
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.9 STEP 8.1B Read Boundary button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * F. TRY IMMEDIATELY
+   * -----------------------------------------------------------
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * G. RETRY ATTACH ONLY
+   *
+   * IMPORTANT:
+   * The AUDIT is NEVER executed automatically.
+   * -----------------------------------------------------------
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.1B Manual Button + Mobile Reporter loaded — MANUAL RUN ONLY / READ ONLY'
+);
+
