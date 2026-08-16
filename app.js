@@ -125231,3 +125231,305 @@ console.log(
   'FIX-03D.5.9 STEP 8.2C Eligibility Classification Diagnostic loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2D — ELIGIBILITY DIAGNOSTIC
+               MANUAL BUTTON
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+(function installFix03D59Step82DButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step82DDiagnosticV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * Duplicate protection
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔬 D.5.9 Eligibility Classification Diagnostic';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * MANUAL CLICK ONLY
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * Reporter guard
+         */
+
+        if (
+          typeof
+            reportFix03D59Step82CEligibilityDiagnosticV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2C',
+              '',
+              'Diagnostic Reporter: NOT FOUND ❌',
+              '',
+              'Nothing executed.',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * STEP 8.2A RAM RESULT GUARD
+         *
+         * 8.2C intentionally consumes the result
+         * already produced by the manual 8.2 audit.
+         */
+
+        if (
+          !window
+            .LAST_FIX03D59_STEP82A_RESULT
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2C',
+              '',
+              '8.2A RAM Result: NOT AVAILABLE ⚠️',
+              '',
+              'Run:',
+              '🛡️ D.5.9 Canonical Eligibility Contract',
+              '',
+              'once first.',
+              '',
+              'Then run this Diagnostic button.',
+              '',
+              'Nothing was modified.'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.2C',
+              '',
+              'ELIGIBILITY CLASSIFICATION',
+              'DIAGNOSTIC',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              'Fail Closed: YES',
+              '',
+              'Uses 8.2A RAM result only',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Run diagnostic?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * ONLY NOW may 8.2C execute.
+         */
+
+        try {
+
+          reportFix03D59Step82CEligibilityDiagnosticV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2C',
+              '',
+              'DIAGNOSTIC ERROR ❌',
+              '',
+              error &&
+              error.message
+                ? error.message
+                : String(error),
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          console.error(
+            'FIX-03D.5.9 STEP 8.2C Diagnostic error',
+            error
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.9 STEP 8.2D Diagnostic button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try attaching only.
+   *
+   * This NEVER executes the diagnostic.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+window
+  .FIX03D59_STEP82D_BUTTON_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2D Diagnostic Manual Button loaded — MANUAL RUN ONLY / READ ONLY'
+);
+
