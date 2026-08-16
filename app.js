@@ -104459,7 +104459,118 @@ function auditCanonicalCommitIdempotencyV26() {
 
     return {
 
-      ready:
+  ready: true,
+
+  passed,
+
+  reason:
+    passed
+      ? 'CANONICAL_COMMIT_IDEMPOTENCY_VALID'
+      : 'CANONICAL_COMMIT_IDEMPOTENCY_FAILED',
+
+  lifecycleKey,
+
+  originalCount,
+
+  firstCount,
+
+  secondCount,
+
+  rollbackCount,
+
+  firstSyntheticCount,
+
+  secondSyntheticCount,
+
+  rollbackSyntheticCount,
+
+  firstCommit,
+
+  secondCommit,
+
+  checks,
+
+  failedChecks,
+
+  rollbackWrite,
+
+  canonicalRestored:
+    rollbackCount ===
+      originalCount &&
+    rollbackSyntheticCount === 0,
+
+  productionPredictionModified:
+    false,
+
+  autoPromotion:
+    false
+
+};
+
+} catch (error) {
+
+  /*
+   * ---------------------------------------------------------
+   * EMERGENCY ROLLBACK
+   * ---------------------------------------------------------
+   */
+
+  try {
+
+    writeShadowSnapshotsV26(
+      JSON.parse(
+        JSON.stringify(
+          original
+        )
+      )
+    );
+
+  } catch (_) {
+
+    /*
+     * Preserve original exception.
+     */
+
+  }
+
+
+  return {
+
+    ready: false,
+
+    passed: false,
+
+    reason:
+      'IDEMPOTENCY_AUDIT_EXCEPTION',
+
+    error:
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      ),
+
+    originalCount,
+
+    lifecycleKey,
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.5A Idempotency Audit Engine loaded — MANUAL RUN ONLY'
+);
 
        
 /* =========================================================================
