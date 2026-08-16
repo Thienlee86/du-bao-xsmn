@@ -113038,3 +113038,488 @@ console.log(
   'FIX-03D.5.8 STEP 7.9D Post-Audit Read-Only Verification Engine loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.9D — POST-AUDIT READ-ONLY VERIFICATION DEBUG BUTTON
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO AUTO PROMOTION
+   NO STORAGE WRITE
+
+   IMPORTANT:
+   fix03DDebugPanelV26
+         ^
+         D MUST BE UPPERCASE
+   ========================================================================= */
+
+(function installFix03D59DReadOnlyVerificationButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59DReadOnlyVerificationV26';
+
+
+  function attach() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. FIND EXISTING FIX-03D DEBUG PANEL
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. DUPLICATE PROTECTION
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 D.5.8 Post-Audit Read-Only Verify';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. MANUAL CLICK ONLY
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            runCanonicalJournalReplayPostAuditVerificationV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.9D',
+              '',
+              'POST-AUDIT READ-ONLY VERIFICATION',
+              '',
+              '7.9D Engine: NOT FOUND ❌',
+              '',
+              'Audit was NOT executed.',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * Explicit manual confirmation.
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.9D',
+              '',
+              'POST-AUDIT READ-ONLY VERIFICATION',
+              '',
+              'Audit này chỉ đọc trạng thái hiện tại.',
+              '',
+              'READ ONLY: YES',
+              'Storage Write: NO',
+              'Recovery Replay: NO',
+              'Rollback Execution: NO',
+              'Auto Promotion: NO',
+              '',
+              'Tiếp tục kiểm tra?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * E. EXECUTE READ-ONLY RUNNER
+         * -----------------------------------------------------
+         */
+
+        const result =
+          runCanonicalJournalReplayPostAuditVerificationV26();
+
+
+        /*
+         * -----------------------------------------------------
+         * F. BUILD MOBILE-FRIENDLY REPORT
+         * -----------------------------------------------------
+         */
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.9D'
+        );
+
+        lines.push(
+          'POST-AUDIT READ-ONLY VERIFICATION'
+        );
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'VERDICT'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        /*
+         * Canonical state
+         */
+
+        if (
+          result.canonical
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'CANONICAL STATE'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Snapshot Count: ' +
+            result.canonical
+              .snapshotCount
+          );
+
+
+          lines.push(
+            'Synthetic Records Remaining: ' +
+            result.canonical
+              .syntheticRemaining
+          );
+
+
+          lines.push(
+            'Synthetic Candidate Removed: ' +
+            (
+              result.canonical
+                .syntheticRemoved
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Canonical Restored: ' +
+            (
+              result.canonical
+                .canonicalRestored
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+        }
+
+
+        /*
+         * Previous audit evidence
+         */
+
+        if (
+          result.previousAudit
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'PREVIOUS AUDIT EVIDENCE'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Audit Result Available: ' +
+            (
+              result.previousAudit
+                .available
+                ? 'YES'
+                : 'NO'
+            )
+          );
+
+
+          lines.push(
+            'Second Replay Evidence: ' +
+            (
+              result.previousAudit
+                .secondReplayVerified ===
+                null
+                ? 'NOT EXPOSED'
+                : (
+                    result.previousAudit
+                      .secondReplayVerified
+                      ? 'PASS ✅'
+                      : 'FAIL ❌'
+                  )
+            )
+          );
+
+        }
+
+
+        /*
+         * Safety
+         */
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'SAFETY'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+        lines.push(
+          'Mode: MANUAL RUN ONLY'
+        );
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+        lines.push(
+          'Storage Write: NO'
+        );
+
+        lines.push(
+          'Recovery Replay Executed: NO'
+        );
+
+        lines.push(
+          'Rollback Executed: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * G. ATTACH
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.9D Read-Only Verification button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Debug panel may be created later.
+   * Retry ATTACH only.
+   *
+   * NEVER execute verification automatically.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.9D Read-Only Verification Debug Button loaded — MANUAL RUN ONLY'
+);
+
