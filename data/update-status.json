@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-15T11:57:35.548Z",
+  "updatedAt": "2026-08-16T11:59:27.434Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -79,15 +79,15 @@
     },
     "kien-giang": {
       "ok": true,
-      "drawDate": "2026-08-09"
+      "drawDate": "2026-08-16"
     },
     "da-lat": {
       "ok": true,
-      "drawDate": "2026-08-09"
+      "drawDate": "2026-08-16"
     },
     "tien-giang": {
       "ok": true,
-      "drawDate": "2026-08-09"
+      "drawDate": "2026-08-16"
     }
   }
 }
