@@ -108444,4 +108444,996 @@ console.log(
 );
 
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.8A — CANONICAL COMMIT RECOVERY INTEGRITY /
+               CORRUPTED TRANSACTION AUDIT ENGINE
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ABSOLUTE ROLLBACK
+
+   PURPOSE:
+   - Simulate a corrupted interrupted canonical transaction.
+   - Detect transaction integrity violation.
+   - Recover canonical storage safely.
+   - Verify corrupted record is removed.
+   - Verify valid canonical records remain untouched.
+   - Verify recovery is idempotent.
+   - Restore original canonical storage absolutely.
+
+   IMPORTANT:
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD SYNTHETIC RECOVERY-INTEGRITY CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticRecoveryIntegrityCandidateV26() {
+
+  const lifecycleKey =
+    'synthetic-recovery-integrity-audit/db/RECENT/10';
+
+
+  return {
+
+    lifecycleKey,
+
+    province:
+      'synthetic-recovery-integrity-audit',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.93,
+
+    top10Rate:
+      0.84,
+
+    mrr:
+      0.75,
+
+    maturityScore:
+      97,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_RECOVERY_INTEGRITY_AUDIT',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    pendingCommit:
+      true,
+
+    autoPromotion:
+      false,
+
+    synthetic:
+      true,
+
+    syntheticAudit:
+      'FIX-03D.5.8_STEP_7.8'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BUILD CORRUPTED INTERRUPTED TRANSACTION
+   ========================================================================= */
+
+function buildSyntheticCorruptedTransactionV26(
+  candidate
+) {
+
+  const record =
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    );
+
+
+  /*
+   * Transaction started but never completed.
+   */
+
+  record.candidateStatus =
+    'COMMITTING';
+
+
+  record.pendingCommit =
+    true;
+
+
+  record.commitCompleted =
+    false;
+
+
+  record.interruptedTransaction =
+    true;
+
+
+  /*
+   * Explicit integrity marker.
+   *
+   * This record intentionally represents
+   * damaged transaction metadata.
+   */
+
+  record.transactionIntegrity =
+    'CORRUPTED';
+
+
+  record.integrityValid =
+    false;
+
+
+  record.corruptionDetected =
+    true;
+
+
+  /*
+   * Simulate missing / invalid transaction metadata.
+   */
+
+  record.transactionId =
+    null;
+
+
+  record.commitAudit =
+    'FIX-03D.5.8_STEP_7.8';
+
+
+  return record;
+
+}
+
+
+/* =========================================================================
+   3. DETECT CORRUPTED TRANSACTION
+   ========================================================================= */
+
+function isCorruptedCanonicalTransactionV26(
+  item,
+  lifecycleKey
+) {
+
+  if (
+    !item ||
+    item.lifecycleKey !== lifecycleKey
+  ) {
+
+    return false;
+
+  }
+
+
+  const interrupted =
+    (
+      item.interruptedTransaction === true ||
+      item.candidateStatus ===
+        'COMMITTING'
+    );
+
+
+  const integrityBroken =
+    (
+      item.transactionIntegrity ===
+        'CORRUPTED' ||
+
+      item.integrityValid === false ||
+
+      item.corruptionDetected === true ||
+
+      (
+        interrupted &&
+        !item.transactionId
+      )
+    );
+
+
+  return (
+    interrupted &&
+    integrityBroken
+  );
+
+}
+
+
+/* =========================================================================
+   4. COUNT CORRUPTED TRANSACTIONS
+   ========================================================================= */
+
+function countCorruptedLifecycleKeyV26(
+  snapshots,
+  lifecycleKey
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return 0;
+
+  }
+
+
+  return snapshots.filter(
+    item =>
+      isCorruptedCanonicalTransactionV26(
+        item,
+        lifecycleKey
+      )
+  ).length;
+
+}
+
+
+/* =========================================================================
+   5. RECOVER CORRUPTED TRANSACTION
+   ========================================================================= */
+
+function recoverCorruptedCanonicalTransactionV26(
+  lifecycleKey
+) {
+
+  const currentRaw =
+    readShadowSnapshotsV26();
+
+
+  const current =
+    Array.isArray(
+      currentRaw
+    )
+      ? currentRaw
+      : [];
+
+
+  const beforeCount =
+    current.length;
+
+
+  const corruptedBefore =
+    countCorruptedLifecycleKeyV26(
+      current,
+      lifecycleKey
+    );
+
+
+  /*
+   * No corrupted transaction exists.
+   *
+   * Successful NO-OP keeps recovery idempotent.
+   */
+
+  if (
+    corruptedBefore === 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      recovered: true,
+
+      changed: false,
+
+      reason:
+        'NO_CORRUPTED_TRANSACTION',
+
+      beforeCount,
+
+      afterCount:
+        beforeCount,
+
+      corruptedBefore:
+        0,
+
+      corruptedAfter:
+        0
+
+    };
+
+  }
+
+
+  /*
+   * Remove ONLY the corrupted transaction
+   * matching this lifecycleKey.
+   */
+
+  const recovered =
+    current.filter(
+      item =>
+        !isCorruptedCanonicalTransactionV26(
+          item,
+          lifecycleKey
+        )
+    );
+
+
+  const written =
+    writeShadowSnapshotsV26(
+      recovered
+    );
+
+
+  if (!written) {
+
+    return {
+
+      ready: true,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'CORRUPTED_RECOVERY_WRITE_FAILED',
+
+      beforeCount,
+
+      afterCount:
+        current.length,
+
+      corruptedBefore,
+
+      corruptedAfter:
+        corruptedBefore
+
+    };
+
+  }
+
+
+  const readBackRaw =
+    readShadowSnapshotsV26();
+
+
+  const readBack =
+    Array.isArray(
+      readBackRaw
+    )
+      ? readBackRaw
+      : [];
+
+
+  const corruptedAfter =
+    countCorruptedLifecycleKeyV26(
+      readBack,
+      lifecycleKey
+    );
+
+
+  return {
+
+    ready: true,
+
+    recovered:
+      corruptedAfter === 0,
+
+    changed: true,
+
+    reason:
+      corruptedAfter === 0
+        ? 'CORRUPTED_TRANSACTION_RECOVERED'
+        : 'CORRUPTED_TRANSACTION_REMAINS',
+
+    beforeCount,
+
+    afterCount:
+      readBack.length,
+
+    corruptedBefore,
+
+    corruptedAfter
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. STEP 7.8A AUDIT ENGINE
+   ========================================================================= */
+
+function auditCanonicalCommitRecoveryIntegrityV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. BACKUP CANONICAL STORE
+   * ---------------------------------------------------------
+   */
+
+  const originalRaw =
+    readShadowSnapshotsV26();
+
+
+  const original =
+    Array.isArray(
+      originalRaw
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            originalRaw
+          )
+        )
+      : [];
+
+
+  const originalJSON =
+    JSON.stringify(
+      original
+    );
+
+
+  const originalCount =
+    original.length;
+
+
+  const candidate =
+    buildSyntheticRecoveryIntegrityCandidateV26();
+
+
+  const lifecycleKey =
+    candidate.lifecycleKey;
+
+
+  let corruptedWrite =
+    false;
+
+
+  let afterCorruption =
+    [];
+
+
+  let firstRecovery =
+    null;
+
+
+  let afterFirstRecovery =
+    [];
+
+
+  let secondRecovery =
+    null;
+
+
+  let afterSecondRecovery =
+    [];
+
+
+  let rollbackWrite =
+    false;
+
+
+  let afterRollback =
+    [];
+
+
+  let auditError =
+    null;
+
+
+  const checks = {
+
+    candidateValid:
+      false,
+
+    lifecycleKeyInitiallyAbsent:
+      false,
+
+    corruptedWriteConfirmed:
+      false,
+
+    corruptedTransactionDetected:
+      false,
+
+    corruptedCountExactlyOne:
+      false,
+
+    firstRecoverySucceeded:
+      false,
+
+    corruptedRecordRemoved:
+      false,
+
+    originalCountRecovered:
+      false,
+
+    canonicalIntegrityRecovered:
+      false,
+
+    secondRecoverySucceeded:
+      false,
+
+    recoveryIdempotent:
+      false,
+
+    rollbackWriteConfirmed:
+      false,
+
+    originalCountRestored:
+      false,
+
+    originalCanonicalRestored:
+      false,
+
+    syntheticRemoved:
+      false
+
+  };
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * B. VALIDATE CANDIDATE
+     * ---------------------------------------------------------
+     */
+
+    checks.candidateValid =
+      Boolean(
+        candidate &&
+        candidate.lifecycleKey &&
+        candidate.approved === true &&
+        candidate.gatePassed === true &&
+        candidate.candidateStatus ===
+          'PENDING_COMMIT' &&
+        candidate.autoPromotion === false
+      );
+
+
+    const initialLifecycleCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        original,
+        lifecycleKey
+      );
+
+
+    checks.lifecycleKeyInitiallyAbsent =
+      initialLifecycleCount === 0;
+
+
+    if (
+      initialLifecycleCount !== 0
+    ) {
+
+      throw new Error(
+        'SYNTHETIC_RECOVERY_INTEGRITY_KEY_ALREADY_EXISTS'
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. INJECT CORRUPTED INTERRUPTED TRANSACTION
+     * ---------------------------------------------------------
+     */
+
+    const corruptedRecord =
+      buildSyntheticCorruptedTransactionV26(
+        candidate
+      );
+
+
+    const corruptedStore =
+      original.concat([
+        corruptedRecord
+      ]);
+
+
+    corruptedWrite =
+      writeShadowSnapshotsV26(
+        corruptedStore
+      );
+
+
+    const corruptedRaw =
+      readShadowSnapshotsV26();
+
+
+    afterCorruption =
+      Array.isArray(
+        corruptedRaw
+      )
+        ? corruptedRaw
+        : [];
+
+
+    const corruptedCount =
+      countCorruptedLifecycleKeyV26(
+        afterCorruption,
+        lifecycleKey
+      );
+
+
+    checks.corruptedWriteConfirmed =
+      corruptedWrite === true;
+
+
+    checks.corruptedTransactionDetected =
+      corruptedCount > 0;
+
+
+    checks.corruptedCountExactlyOne =
+      corruptedCount === 1;
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. FIRST RECOVERY
+     * ---------------------------------------------------------
+     */
+
+    firstRecovery =
+      recoverCorruptedCanonicalTransactionV26(
+        lifecycleKey
+      );
+
+
+    const firstRecoveryRaw =
+      readShadowSnapshotsV26();
+
+
+    afterFirstRecovery =
+      Array.isArray(
+        firstRecoveryRaw
+      )
+        ? firstRecoveryRaw
+        : [];
+
+
+    const corruptedAfterFirst =
+      countCorruptedLifecycleKeyV26(
+        afterFirstRecovery,
+        lifecycleKey
+      );
+
+
+    checks.firstRecoverySucceeded =
+      Boolean(
+        firstRecovery &&
+        firstRecovery.recovered === true
+      );
+
+
+    checks.corruptedRecordRemoved =
+      corruptedAfterFirst === 0;
+
+
+    checks.originalCountRecovered =
+      afterFirstRecovery.length ===
+        originalCount;
+
+
+    /*
+     * Stronger than count-only verification.
+     *
+     * Valid canonical records must remain
+     * byte-for-byte equivalent after JSON serialization.
+     */
+
+    checks.canonicalIntegrityRecovered =
+      JSON.stringify(
+        afterFirstRecovery
+      ) === originalJSON;
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. SECOND RECOVERY — IDEMPOTENCY
+     * ---------------------------------------------------------
+     */
+
+    const beforeSecondRecoveryJSON =
+      JSON.stringify(
+        afterFirstRecovery
+      );
+
+
+    secondRecovery =
+      recoverCorruptedCanonicalTransactionV26(
+        lifecycleKey
+      );
+
+
+    const secondRecoveryRaw =
+      readShadowSnapshotsV26();
+
+
+    afterSecondRecovery =
+      Array.isArray(
+        secondRecoveryRaw
+      )
+        ? secondRecoveryRaw
+        : [];
+
+
+    const afterSecondRecoveryJSON =
+      JSON.stringify(
+        afterSecondRecovery
+      );
+
+
+    checks.secondRecoverySucceeded =
+      Boolean(
+        secondRecovery &&
+        secondRecovery.recovered === true
+      );
+
+
+    checks.recoveryIdempotent =
+      Boolean(
+        secondRecovery &&
+        secondRecovery.changed === false &&
+        beforeSecondRecoveryJSON ===
+          afterSecondRecoveryJSON &&
+        afterSecondRecovery.length ===
+          originalCount
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    rollbackWrite =
+      writeShadowSnapshotsV26(
+        JSON.parse(
+          JSON.stringify(
+            original
+          )
+        )
+      );
+
+
+    const rollbackRaw =
+      readShadowSnapshotsV26();
+
+
+    afterRollback =
+      Array.isArray(
+        rollbackRaw
+      )
+        ? rollbackRaw
+        : [];
+
+
+    checks.rollbackWriteConfirmed =
+      rollbackWrite === true;
+
+
+    checks.originalCountRestored =
+      afterRollback.length ===
+        originalCount;
+
+
+    checks.originalCanonicalRestored =
+      JSON.stringify(
+        afterRollback
+      ) === originalJSON;
+
+
+    checks.syntheticRemoved =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterRollback,
+        lifecycleKey
+      ) === 0;
+
+
+  } catch (error) {
+
+    auditError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * EMERGENCY ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      rollbackWrite =
+        writeShadowSnapshotsV26(
+          JSON.parse(
+            JSON.stringify(
+              original
+            )
+          )
+        );
+
+
+      const rollbackRaw =
+        readShadowSnapshotsV26();
+
+
+      afterRollback =
+        Array.isArray(
+          rollbackRaw
+        )
+          ? rollbackRaw
+          : [];
+
+
+      checks.rollbackWriteConfirmed =
+        rollbackWrite === true;
+
+
+      checks.originalCountRestored =
+        afterRollback.length ===
+          originalCount;
+
+
+      checks.originalCanonicalRestored =
+        JSON.stringify(
+          afterRollback
+        ) === originalJSON;
+
+
+      checks.syntheticRemoved =
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0;
+
+
+    } catch (_) {
+
+      /*
+       * Preserve original audit error.
+       */
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0 &&
+    auditError === null;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_COMMIT_RECOVERY_INTEGRITY_VALID'
+        : 'CANONICAL_COMMIT_RECOVERY_INTEGRITY_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_8A',
+
+    mode:
+      'MANUAL_CORRUPTED_TRANSACTION_AUDIT',
+
+    lifecycleKey,
+
+    originalCount,
+
+    afterCorruptionCount:
+      afterCorruption.length,
+
+    afterFirstRecoveryCount:
+      afterFirstRecovery.length,
+
+    afterSecondRecoveryCount:
+      afterSecondRecovery.length,
+
+    afterRollbackCount:
+      afterRollback.length,
+
+    firstRecovery,
+
+    secondRecovery,
+
+    checks,
+
+    failedChecks,
+
+    auditError,
+
+    rollbackWrite,
+
+    canonicalRestored:
+      (
+        afterRollback.length ===
+          originalCount &&
+
+        JSON.stringify(
+          afterRollback
+        ) === originalJSON &&
+
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0
+      ),
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.8A Recovery Integrity Audit Engine loaded — MANUAL RUN ONLY'
+);
+
 
