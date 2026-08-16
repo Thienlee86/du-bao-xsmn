@@ -119765,3 +119765,654 @@ console.log(
   'FIX-03D.5.8 STEP 7.12A Final Certification / Closure Engine loaded — MANUAL RUN ONLY / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.12B — FINAL CERTIFICATION / CLOSURE
+                MANUAL BUTTON + REPORTER
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO SYNTHETIC RECORD
+   - NO PROBE CREATION
+   - NO PROBE CLEANUP
+   - NO TRANSACTION CREATION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+   - NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+(function installFix03D58Step712BButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step712BFinalCertificationV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * DUPLICATE BUTTON PROTECTION
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🏁 D.5.8 Final Certification / Closure';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * A. ENGINE GUARD
+         * -----------------------------------------------------
+         */
+
+        if (
+          typeof
+            runFix03D58Step712FinalCertificationV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.12B',
+              '',
+              '7.12A Engine: NOT FOUND ❌',
+              '',
+              'Certification NOT executed.',
+              '',
+              'Canonical Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * B. MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.12',
+              '',
+              'FINAL CERTIFICATION / CLOSURE',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              '',
+              'Canonical Write: NO',
+              'Synthetic Record: NO',
+              'Probe Write: NO',
+              'Probe Cleanup: NO',
+              'Transaction: NO',
+              'Recovery: NO',
+              'Journal Replay: NO',
+              'Auto Promotion: NO',
+              '',
+              'Run final certification?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * C. RUN FINAL CERTIFICATION
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            runFix03D58Step712FinalCertificationV26();
+
+        } catch (error) {
+
+          result = {
+
+            ready: false,
+
+            passed: false,
+
+            certified: false,
+
+            closed: false,
+
+            reason:
+              'STEP712_FINAL_CERTIFICATION_EXCEPTION',
+
+            error:
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+
+          };
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * D. REPORT DATA
+         * -----------------------------------------------------
+         */
+
+        const probe =
+          result &&
+          result.probe
+            ? result.probe
+            : {};
+
+
+        const canonical =
+          result &&
+          result.canonical
+            ? result.canonical
+            : {};
+
+
+        const safety =
+          result &&
+          result.safety
+            ? result.safety
+            : {};
+
+
+        const execution =
+          result &&
+          result.execution
+            ? result.execution
+            : {};
+
+
+        /*
+         * -----------------------------------------------------
+         * E. MOBILE REPORT
+         *
+         * Keep the decisive certification information first.
+         * If Android visually truncates the bottom, the final
+         * verdict remains visible at the top.
+         * -----------------------------------------------------
+         */
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.12'
+        );
+
+        lines.push(
+          'FINAL CERTIFICATION / CLOSURE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          '=== FINAL CERTIFICATION ==='
+        );
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Certified: ' +
+          (
+            result &&
+            result.certified
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Closed: ' +
+          (
+            result &&
+            result.closed
+              ? 'YES 🔒'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        /*
+         * PROBE
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== CLEAN STATE ==='
+        );
+
+
+        lines.push(
+          'Probe Absent: ' +
+          (
+            probe.absent
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        /*
+         * CANONICAL
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== CANONICAL ==='
+        );
+
+
+        lines.push(
+          'Before: ' +
+          (
+            canonical.beforeCount != null
+              ? canonical.beforeCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After: ' +
+          (
+            canonical.afterCount != null
+              ? canonical.afterCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Count Match: ' +
+          (
+            canonical.countMatch
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Exact Match: ' +
+          (
+            canonical.exactMatch
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Unchanged: ' +
+          (
+            canonical.unchanged
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        /*
+         * SAFETY
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== SAFETY ==='
+        );
+
+
+        lines.push(
+          'Safety Policy: ' +
+          (
+            safety.passed
+              ? 'PASS ✅'
+              : 'FAIL ❌'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Write: ' +
+          (
+            execution.canonicalWrite
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Synthetic Created: ' +
+          (
+            execution.syntheticRecordCreated
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Probe Created: ' +
+          (
+            execution.probeCreated
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Probe Removed: ' +
+          (
+            execution.probeRemoved
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Transaction Created: ' +
+          (
+            execution.transactionCreated
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Recovery Executed: ' +
+          (
+            execution.recoveryExecuted
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Journal Replay: ' +
+          (
+            execution.journalReplayExecuted
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            execution.autoPromotion
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            execution.productionPredictionModified
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        /*
+         * FINAL CLOSURE MARKER
+         */
+
+        if (
+          result &&
+          result.passed &&
+          result.certified &&
+          result.closed
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'FIX-03D.5.8 CERTIFIED ✅'
+          );
+
+          lines.push(
+            'FIX-03D.5.8 CLOSED 🔒'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+        }
+
+
+        if (
+          result &&
+          result.error
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            'ERROR: ' +
+            result.error
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+
+        console.log(
+          'FIX-03D.5.8 STEP 7.12 FINAL CERTIFICATION',
+          result
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. ATTACH BUTTON
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.12B Final Certification button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Debug panel may be created later.
+   *
+   * Retry ATTACH ONLY.
+   * Certification is NEVER automatically executed.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.12B Final Certification Button loaded — MANUAL RUN ONLY'
+);
+
