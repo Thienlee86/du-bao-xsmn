@@ -123388,3 +123388,744 @@ console.log(
   'FIX-03D.5.9 STEP 8.2A Canonical Eligibility Contract Audit Engine loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2B — CANONICAL ELIGIBILITY CONTRACT
+               MANUAL BUTTON + MOBILE REPORTER
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+(function installFix03D59Step82BButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step82EligibilityV26';
+
+
+  function attach() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. FIND EXISTING DEBUG PANEL
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. DUPLICATE BUTTON PROTECTION
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ D.5.9 Canonical Eligibility Contract';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. MANUAL CLICK ONLY
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * ENGINE GUARD
+         * -----------------------------------------------------
+         */
+
+        if (
+          typeof
+            runFix03D59Step82EligibilityAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.2',
+              '',
+              '8.2A Engine: NOT FOUND ❌',
+              '',
+              'Audit NOT executed.',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.2',
+              '',
+              'CANONICAL ELIGIBILITY',
+              'CONTRACT AUDIT',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              'Fail Closed: YES',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Eligible != Promoted',
+              '',
+              'Run audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * RUN 8.2A ENGINE
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            runFix03D59Step82EligibilityAuditV26();
+
+        } catch (error) {
+
+          result = {
+
+            ready: false,
+
+            passed: false,
+
+            reason:
+              'STEP82_ELIGIBILITY_AUDIT_EXCEPTION',
+
+            error:
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+
+          };
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * MOBILE-FIRST REPORT
+         * -----------------------------------------------------
+         */
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.9 STEP 8.2'
+        );
+
+
+        lines.push(
+          'CANONICAL ELIGIBILITY CONTRACT AUDIT'
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * FINAL VERDICT FIRST
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push(
+          'FINAL VERDICT'
+        );
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        /*
+         * -----------------------------------------------------
+         * ELIGIBILITY SUMMARY
+         * -----------------------------------------------------
+         */
+
+        if (
+          result &&
+          result.summary
+        ) {
+
+          const summary =
+            result.summary;
+
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'ELIGIBILITY SUMMARY'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push('');
+
+
+          lines.push(
+            'Canonical Count: ' +
+            summary.canonicalCount
+          );
+
+
+          lines.push(
+            'Eligible: ' +
+            summary.eligibleCount
+          );
+
+
+          lines.push(
+            'Ineligible: ' +
+            summary.ineligibleCount
+          );
+
+
+          lines.push(
+            'Classified: ' +
+            summary.classifiedCount
+          );
+
+
+          lines.push(
+            'Contract Operational: ' +
+            (
+              summary.contractOperational
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Canonical Unchanged: ' +
+            (
+              summary.canonicalUnchanged
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * IDENTITY SAFETY
+         * -----------------------------------------------------
+         */
+
+        if (
+          result &&
+          result.identityAudit
+        ) {
+
+          const identity =
+            result.identityAudit;
+
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'IDENTITY SAFETY'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push('');
+
+
+          lines.push(
+            'Identity Audit: ' +
+            (
+              identity.passed
+                ? 'PASS ✅'
+                : 'FAIL ❌'
+            )
+          );
+
+
+          lines.push(
+            'Duplicate Identities: ' +
+            (
+              identity.duplicateCount != null
+                ? identity.duplicateCount
+                : '-'
+            )
+          );
+
+
+          lines.push(
+            'Reason: ' +
+            (
+              identity.reason ||
+              '-'
+            )
+          );
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * INELIGIBLE RECORD SUMMARY
+         *
+         * Reporting only.
+         * NO mutation.
+         * -----------------------------------------------------
+         */
+
+        if (
+          result &&
+          Array.isArray(
+            result.ineligible
+          ) &&
+          result.ineligible.length > 0
+        ) {
+
+          lines.push('');
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          lines.push(
+            'INELIGIBLE RECORDS'
+          );
+
+
+          lines.push(
+            '======================'
+          );
+
+
+          const maxShown =
+            Math.min(
+              result.ineligible.length,
+              8
+            );
+
+
+          for (
+            let i = 0;
+            i < maxShown;
+            i++
+          ) {
+
+            const item =
+              result.ineligible[i];
+
+
+            lines.push('');
+
+
+            lines.push(
+              '#' +
+              (
+                Number(
+                  item.index
+                ) + 1
+              ) +
+              ' ' +
+              (
+                item.province ||
+                '-'
+              ) +
+              ' / ' +
+              String(
+                item.prize ||
+                '-'
+              ).toUpperCase()
+            );
+
+
+            if (
+              Array.isArray(
+                item.failedChecks
+              ) &&
+              item.failedChecks.length > 0
+            ) {
+
+              lines.push(
+                'Failed: ' +
+                item.failedChecks.join(
+                  ', '
+                )
+              );
+
+            }
+
+          }
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * SAFETY
+         * -----------------------------------------------------
+         */
+
+        lines.push('');
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push(
+          'SAFETY'
+        );
+
+
+        lines.push(
+          '======================'
+        );
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Manual Run Only: YES'
+        );
+
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+
+        lines.push(
+          'Fail Closed: YES'
+        );
+
+
+        lines.push(
+          'Canonical Write: NO'
+        );
+
+
+        lines.push(
+          'Production Write: NO'
+        );
+
+
+        lines.push(
+          'Production Candidate Created: NO'
+        );
+
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+
+        lines.push(
+          'Eligible != Promoted'
+        );
+
+
+        /*
+         * -----------------------------------------------------
+         * ERROR
+         * -----------------------------------------------------
+         */
+
+        if (
+          result &&
+          result.error
+        ) {
+
+          lines.push('');
+
+
+          lines.push(
+            'ERROR: ' +
+            String(
+              result.error
+            )
+          );
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * DISPLAY
+         * -----------------------------------------------------
+         */
+
+        alert(
+          lines.join('\n')
+        );
+
+
+        console.log(
+          'FIX-03D.5.9 STEP 8.2 RESULT',
+          result
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. ATTACH BUTTON
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.9 STEP 8.2B Eligibility button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * F. TRY IMMEDIATELY
+   * -----------------------------------------------------------
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * G. RETRY ATTACH ONLY
+   *
+   * This retry can ONLY attach the button.
+   * It NEVER runs the audit.
+   * -----------------------------------------------------------
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2B Manual Button + Mobile Reporter loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
+);
+
