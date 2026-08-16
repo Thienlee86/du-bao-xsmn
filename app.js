@@ -107546,6 +107546,606 @@ function auditCanonicalCommitCrashRecoveryV26() {
 
     reason:
       passed
-        ? '
+        ? 'CANONICAL_COMMIT_CRASH_RECOVERY_VALID'
+        : 'CANONICAL_COMMIT_CRASH_RECOVERY_FAILED',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_7A',
+
+    mode:
+      'MANUAL_CRASH_RECOVERY_AUDIT',
+
+    lifecycleKey,
+
+    originalCount,
+
+    afterInterruptionCount:
+      afterInterruption.length,
+
+    afterFirstRecoveryCount:
+      afterFirstRecovery.length,
+
+    afterSecondRecoveryCount:
+      afterSecondRecovery.length,
+
+    afterRollbackCount:
+      afterRollback.length,
+
+    firstRecovery,
+
+    secondRecovery,
+
+    checks,
+
+    failedChecks,
+
+    auditError,
+
+    rollbackWrite,
+
+    canonicalRestored:
+      (
+        afterRollback.length ===
+          originalCount &&
+
+        countLifecycleKeyInCanonicalStoreV26(
+          afterRollback,
+          lifecycleKey
+        ) === 0
+      ),
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.7A Crash-Recovery Audit Engine loaded — MANUAL RUN ONLY'
+);
 
      
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.7B — CANONICAL COMMIT CRASH-RECOVERY AUDIT
+   MANUAL RUNNER
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ========================================================================= */
+
+function runCanonicalCommitCrashRecoveryAuditV26() {
+
+  /*
+   * -----------------------------------------------------------
+   * A. VERIFY STEP 7.7A ENGINE
+   * -----------------------------------------------------------
+   */
+
+  if (
+    typeof
+      auditCanonicalCommitCrashRecoveryV26 !==
+    'function'
+  ) {
+
+    const missingResult = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_7A_ENGINE_NOT_FOUND',
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+
+    console.error(
+      'FIX-03D.5.8 STEP 7.7 — Crash-Recovery Audit Engine NOT FOUND',
+      missingResult
+    );
+
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.7',
+        '',
+        'CRASH-RECOVERY AUDIT',
+        '',
+        'STEP 7.7A Engine: NOT FOUND ❌',
+        '',
+        'Audit was NOT executed.',
+        'Storage Write: NO',
+        'Auto Promotion: NO'
+      ].join('\n')
+    );
+
+
+    return missingResult;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * B. RUN AUDIT
+   *
+   * IMPORTANT:
+   * This function is called manually only.
+   * -----------------------------------------------------------
+   */
+
+  let result = null;
+
+
+  try {
+
+    result =
+      auditCanonicalCommitCrashRecoveryV26();
+
+  } catch (error) {
+
+    result = {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CRASH_RECOVERY_RUNNER_EXCEPTION',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * C. BUILD REPORT
+   * -----------------------------------------------------------
+   */
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.8 STEP 7.7'
+  );
+
+
+  lines.push(
+    'CANONICAL COMMIT CRASH-RECOVERY AUDIT'
+  );
+
+
+  lines.push(
+    '========================================'
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * D. FINAL VERDICT
+   * -----------------------------------------------------------
+   */
+
+  if (
+    result &&
+    result.passed === true
+  ) {
+
+    lines.push(
+      'Passed: YES ✅'
+    );
+
+
+    lines.push(
+      'Reason: ' +
+      (
+        result.reason ||
+        'CANONICAL_COMMIT_CRASH_RECOVERY_VALID'
+      )
+    );
+
+  } else {
+
+    lines.push(
+      'Passed: NO ❌'
+    );
+
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'CRASH_RECOVERY_AUDIT_FAILED'
+      )
+    );
+
+  }
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * E. STORAGE COUNTS
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    'Original Count: ' +
+    (
+      result &&
+      result.originalCount != null
+        ? result.originalCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Interruption: ' +
+    (
+      result &&
+      result.afterInterruptionCount != null
+        ? result.afterInterruptionCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After First Recovery: ' +
+    (
+      result &&
+      result.afterFirstRecoveryCount != null
+        ? result.afterFirstRecoveryCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Second Recovery: ' +
+    (
+      result &&
+      result.afterSecondRecoveryCount != null
+        ? result.afterSecondRecoveryCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Rollback: ' +
+    (
+      result &&
+      result.afterRollbackCount != null
+        ? result.afterRollbackCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * F. RECOVERY VERDICT
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'RECOVERY VERDICT'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Interrupted Transaction Detected: ' +
+    (
+      result &&
+      result.checks &&
+      result.checks.interruptedStateDetected ===
+        true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'First Recovery: ' +
+    (
+      result &&
+      result.checks &&
+      result.checks.firstRecoverySucceeded ===
+        true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'Interrupted Record Removed: ' +
+    (
+      result &&
+      result.checks &&
+      result.checks.interruptedRecordRemoved ===
+        true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Recovery Idempotent: ' +
+    (
+      result &&
+      result.checks &&
+      result.checks.recoveryIdempotent ===
+        true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Canonical Restored: ' +
+    (
+      result &&
+      result.canonicalRestored === true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * G. ALL CONTRACT CHECKS
+   * -----------------------------------------------------------
+   */
+
+  if (
+    result &&
+    result.checks &&
+    typeof result.checks ===
+      'object'
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      '===================='
+    );
+
+
+    lines.push(
+      'CONTRACT CHECKS'
+    );
+
+
+    lines.push(
+      '===================='
+    );
+
+
+    Object.keys(
+      result.checks
+    ).forEach(
+      key => {
+
+        lines.push(
+          key +
+          ': ' +
+          (
+            result.checks[key]
+              ? 'PASS'
+              : 'FAIL'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * H. FAILED CHECKS
+   * -----------------------------------------------------------
+   */
+
+  const failedChecks =
+    (
+      result &&
+      Array.isArray(
+        result.failedChecks
+      )
+    )
+      ? result.failedChecks
+      : [];
+
+
+  if (
+    failedChecks.length > 0
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      '===================='
+    );
+
+
+    lines.push(
+      'FAILED CHECKS'
+    );
+
+
+    lines.push(
+      '===================='
+    );
+
+
+    failedChecks.forEach(
+      (
+        check,
+        index
+      ) => {
+
+        lines.push(
+          String(
+            index + 1
+          ) +
+          '. ' +
+          check
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * I. AUDIT ERROR
+   * -----------------------------------------------------------
+   */
+
+  if (
+    result &&
+    (
+      result.auditError ||
+      result.error
+    )
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      'Audit Error:'
+    );
+
+
+    lines.push(
+      String(
+        result.auditError ||
+        result.error
+      )
+    );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * J. SAFETY STATUS
+   * -----------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    'Production Prediction Modified: NO'
+  );
+
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  lines.push(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * K. DISPLAY + CONSOLE
+   * -----------------------------------------------------------
+   */
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.7 RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.7B Crash-Recovery Audit Runner loaded — MANUAL RUN ONLY'
+);
+
