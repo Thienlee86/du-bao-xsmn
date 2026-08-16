@@ -124129,3 +124129,1105 @@ console.log(
   'FIX-03D.5.9 STEP 8.2B Manual Button + Mobile Reporter loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.2C — ELIGIBILITY CLASSIFICATION DIAGNOSTIC
+
+   PURPOSE:
+   - Explain the classification produced by STEP 8.2A.
+   - Separate ELIGIBLE and INELIGIBLE canonical records.
+   - Show exact failed checks for INELIGIBLE records.
+   - Preserve canonical identity information.
+   - Diagnostic only.
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO savePrediction()
+   - NO saveJSON()
+   - NO writeShadowSnapshotsV26()
+   - NO SYNTHETIC RECORD
+   - NO PROBE
+   - NO TRANSACTION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   STEP 8.2C consumes the RAM result produced by STEP 8.2A.
+   It does NOT reclassify canonical records independently.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD ONE DIAGNOSTIC RECORD
+   ========================================================================= */
+
+function buildFix03D59Step82CDiagnosticRecordV26(
+  item
+) {
+
+  if (
+    !item ||
+    typeof item !== 'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      eligible: false,
+
+      reason:
+        'INVALID_CLASSIFICATION_RECORD',
+
+      failedChecks: [
+        'classificationRecord'
+      ]
+
+    };
+
+  }
+
+
+  const eligible =
+    item.eligible === true;
+
+
+  const failedChecks =
+    Array.isArray(
+      item.failedChecks
+    )
+      ? item.failedChecks.slice()
+      : [];
+
+
+  return {
+
+    ready: true,
+
+    index:
+      item.index,
+
+    snapshotId:
+      item.snapshotId || null,
+
+    province:
+      item.province || null,
+
+    prize:
+      item.prize || null,
+
+    eligible,
+
+    classification:
+      eligible
+        ? 'ELIGIBLE'
+        : 'INELIGIBLE',
+
+    reason:
+      item.reason ||
+      (
+        eligible
+          ? 'ELIGIBILITY_CONTRACT_PASSED'
+          : 'ELIGIBILITY_CONTRACT_FAILED'
+      ),
+
+    failedChecks,
+
+    explanation:
+      eligible
+        ? (
+            failedChecks.length === 0
+              ? 'All eligibility checks passed.'
+              : 'Eligible classification reported with diagnostic checks present.'
+          )
+        : (
+            failedChecks.length > 0
+              ? (
+                  'Failed eligibility checks: ' +
+                  failedChecks.join(', ')
+                )
+              : 'Record is ineligible; no failed-check detail was supplied.'
+          )
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. RUN STEP 8.2C DIAGNOSTIC
+
+   IMPORTANT:
+   - Reads STEP 8.2A RAM result only.
+   - Does not read/write canonical storage.
+   - Does not call the STEP 8.2A audit automatically.
+   ========================================================================= */
+
+function runFix03D59Step82CEligibilityDiagnosticV26() {
+
+  const source =
+    window
+      .LAST_FIX03D59_STEP82A_RESULT;
+
+
+  /*
+   * ---------------------------------------------------------
+   * A. FAIL CLOSED — STEP 8.2A RESULT REQUIRED
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !source ||
+    typeof source !== 'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82A_RESULT_NOT_AVAILABLE',
+
+      fix:
+        'FIX-03D.5.9',
+
+      step:
+        '8.2C',
+
+      mode:
+        'MANUAL_READ_ONLY_FAIL_CLOSED',
+
+      diagnosticOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. SOURCE CONTRACT GUARD
+   * ---------------------------------------------------------
+   */
+
+  if (
+    source.ready !== true ||
+    !source.summary ||
+    !Array.isArray(
+      source.records
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82A_RESULT_INVALID',
+
+      fix:
+        'FIX-03D.5.9',
+
+      step:
+        '8.2C',
+
+      mode:
+        'MANUAL_READ_ONLY_FAIL_CLOSED',
+
+      diagnosticOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. BUILD DIAGNOSTIC VIEW
+   * ---------------------------------------------------------
+   */
+
+  const records =
+    source.records.map(
+      item =>
+        buildFix03D59Step82CDiagnosticRecordV26(
+          item
+        )
+    );
+
+
+  const eligible =
+    records.filter(
+      item =>
+        item.ready === true &&
+        item.eligible === true
+    );
+
+
+  const ineligible =
+    records.filter(
+      item =>
+        item.ready === true &&
+        item.eligible === false
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. VERIFY CLASSIFICATION ACCOUNTING
+   * ---------------------------------------------------------
+   */
+
+  const canonicalCount =
+    Number(
+      source.summary.canonicalCount
+    );
+
+
+  const classifiedCount =
+    records.length;
+
+
+  const eligibleCount =
+    eligible.length;
+
+
+  const ineligibleCount =
+    ineligible.length;
+
+
+  const countsBalanced =
+    (
+      Number.isFinite(
+        canonicalCount
+      ) &&
+      canonicalCount ===
+        classifiedCount &&
+      classifiedCount ===
+        (
+          eligibleCount +
+          ineligibleCount
+        )
+    );
+
+
+  const sourceCountsMatch =
+    (
+      Number(
+        source.summary.eligibleCount
+      ) === eligibleCount &&
+
+      Number(
+        source.summary.ineligibleCount
+      ) === ineligibleCount &&
+
+      Number(
+        source.summary.classifiedCount
+      ) === classifiedCount
+    );
+
+
+  const everyRecordDiagnosticReady =
+    records.every(
+      item =>
+        item &&
+        item.ready === true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. IDENTITY AUDIT — REPORT ONLY
+   * ---------------------------------------------------------
+   */
+
+  const identityAudit =
+    source.identityAudit || null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. SAFETY INHERITANCE
+   * ---------------------------------------------------------
+   */
+
+  const sourceExecution =
+    source.execution || {};
+
+
+  const safety = {
+
+    manualRunOnly:
+      true,
+
+    readOnly:
+      true,
+
+    failClosed:
+      true,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    autoPromotion:
+      false,
+
+    productionCandidateCreated:
+      false,
+
+    productionPredictionModified:
+      false,
+
+    sourceCanonicalUnchanged:
+      source.summary
+        .canonicalUnchanged === true,
+
+    sourceContractOperational:
+      source.summary
+        .contractOperational === true,
+
+    sourceManualRunOnly:
+      sourceExecution
+        .manualRunOnly === true,
+
+    sourceReadOnly:
+      sourceExecution
+        .readOnly === true,
+
+    sourceFailClosed:
+      sourceExecution
+        .failClosed === true
+
+  };
+
+
+  const safetyPassed =
+    (
+      safety.sourceCanonicalUnchanged &&
+      safety.sourceContractOperational &&
+      safety.sourceManualRunOnly &&
+      safety.sourceReadOnly &&
+      safety.sourceFailClosed
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. FINAL VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const passed =
+    Boolean(
+      source.passed === true &&
+      countsBalanced &&
+      sourceCountsMatch &&
+      everyRecordDiagnosticReady &&
+      safetyPassed
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'ELIGIBILITY_CLASSIFICATION_DIAGNOSTIC_VALID'
+        : 'ELIGIBILITY_CLASSIFICATION_DIAGNOSTIC_FAILED',
+
+    fix:
+      'FIX-03D.5.9',
+
+    step:
+      '8.2C',
+
+    mode:
+      'MANUAL_READ_ONLY_FAIL_CLOSED',
+
+    sourceStep:
+      '8.2A',
+
+    summary: {
+
+      canonicalCount,
+
+      classifiedCount,
+
+      eligibleCount,
+
+      ineligibleCount,
+
+      countsBalanced,
+
+      sourceCountsMatch,
+
+      everyRecordDiagnosticReady
+
+    },
+
+    identityAudit,
+
+    eligible,
+
+    ineligible,
+
+    records,
+
+    safety,
+
+    execution: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionCandidateCreated:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * RAM ONLY.
+   *
+   * Diagnostic result is intentionally NOT persisted.
+   */
+
+  window
+    .LAST_FIX03D59_STEP82C_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. MOBILE REPORTER
+   ========================================================================= */
+
+function reportFix03D59Step82CEligibilityDiagnosticV26() {
+
+  const result =
+    runFix03D59Step82CEligibilityDiagnosticV26();
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.9 STEP 8.2C'
+  );
+
+
+  lines.push(
+    'ELIGIBILITY CLASSIFICATION DIAGNOSTIC'
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * ---------------------------------------------------------
+   * FAIL-CLOSED REPORT
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !result ||
+    result.ready !== true
+  ) {
+
+    lines.push(
+      'READY: NO ❌'
+    );
+
+
+    lines.push(
+      'Reason: ' +
+      (
+        result &&
+        result.reason
+          ? result.reason
+          : 'UNKNOWN'
+      )
+    );
+
+
+    lines.push('');
+
+
+    lines.push(
+      'Run STEP 8.2A first.'
+    );
+
+
+    lines.push('');
+
+
+    lines.push(
+      'Canonical Write: NO'
+    );
+
+
+    lines.push(
+      'Production Write: NO'
+    );
+
+
+    lines.push(
+      'Auto Promotion: NO'
+    );
+
+
+    alert(
+      lines.join('\n')
+    );
+
+
+    return result;
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * SUMMARY
+   * ---------------------------------------------------------
+   */
+
+  lines.push(
+    'RESULT: ' +
+    (
+      result.passed
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    result.reason
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push(
+    'SUMMARY'
+  );
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Canonical: ' +
+    result.summary.canonicalCount
+  );
+
+
+  lines.push(
+    'Classified: ' +
+    result.summary.classifiedCount
+  );
+
+
+  lines.push(
+    'Eligible: ' +
+    result.summary.eligibleCount
+  );
+
+
+  lines.push(
+    'Ineligible: ' +
+    result.summary.ineligibleCount
+  );
+
+
+  lines.push(
+    'Counts Balanced: ' +
+    (
+      result.summary.countsBalanced
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Source Counts Match: ' +
+    (
+      result.summary.sourceCountsMatch
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * ELIGIBLE
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push(
+    'ELIGIBLE'
+  );
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  if (
+    result.eligible.length === 0
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      'No eligible records.'
+    );
+
+  } else {
+
+    result.eligible.forEach(
+      item => {
+
+        lines.push('');
+
+
+        lines.push(
+          '#' +
+          String(
+            item.index
+          )
+        );
+
+
+        lines.push(
+          'Snapshot: ' +
+          (
+            item.snapshotId ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Province: ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Prize: ' +
+          (
+            item.prize ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Classification: ELIGIBLE ✅'
+        );
+
+
+        lines.push(
+          'Why: ' +
+          item.explanation
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * INELIGIBLE
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push(
+    'INELIGIBLE'
+  );
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  if (
+    result.ineligible.length === 0
+  ) {
+
+    lines.push('');
+
+
+    lines.push(
+      'No ineligible records.'
+    );
+
+  } else {
+
+    result.ineligible.forEach(
+      item => {
+
+        lines.push('');
+
+
+        lines.push(
+          '#' +
+          String(
+            item.index
+          )
+        );
+
+
+        lines.push(
+          'Snapshot: ' +
+          (
+            item.snapshotId ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Province: ' +
+          (
+            item.province ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Prize: ' +
+          (
+            item.prize ||
+            '-'
+          )
+        );
+
+
+        lines.push(
+          'Classification: INELIGIBLE ❌'
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          item.reason
+        );
+
+
+        lines.push(
+          'Failed: ' +
+          (
+            item.failedChecks.length
+              ? item.failedChecks.join(
+                  ', '
+                )
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Why: ' +
+          item.explanation
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * IDENTITY AUDIT
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push(
+    'IDENTITY AUDIT'
+  );
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push('');
+
+
+  if (
+    result.identityAudit
+  ) {
+
+    lines.push(
+      'Ready: ' +
+      (
+        result.identityAudit.ready
+          ? 'YES ✅'
+          : 'NO ❌'
+      )
+    );
+
+
+    if (
+      typeof
+        result.identityAudit
+          .duplicateCount !==
+      'undefined'
+    ) {
+
+      lines.push(
+        'Duplicate Count: ' +
+        result.identityAudit
+          .duplicateCount
+      );
+
+    }
+
+  } else {
+
+    lines.push(
+      'Identity Audit: NOT AVAILABLE'
+    );
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * SAFETY
+   * ---------------------------------------------------------
+   */
+
+  lines.push('');
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push(
+    'SAFETY'
+  );
+
+
+  lines.push(
+    '======================'
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Manual Run Only: YES'
+  );
+
+
+  lines.push(
+    'Read Only: YES'
+  );
+
+
+  lines.push(
+    'Fail Closed: YES'
+  );
+
+
+  lines.push(
+    'Canonical Write: NO'
+  );
+
+
+  lines.push(
+    'Production Write: NO'
+  );
+
+
+  lines.push(
+    'Production Candidate Created: NO'
+  );
+
+
+  lines.push(
+    'Production Prediction Modified: NO'
+  );
+
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  lines.push(
+    'Eligible != Promoted'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.9 STEP 8.2C RESULT',
+    result
+  );
+
+
+  if (
+    result.eligible.length
+  ) {
+
+    console.table(
+      result.eligible
+    );
+
+  }
+
+
+  if (
+    result.ineligible.length
+  ) {
+
+    console.table(
+      result.ineligible
+    );
+
+  }
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   4. LOAD MARKER
+
+   Loading STEP 8.2C DOES NOT execute the diagnostic.
+   ========================================================================= */
+
+window
+  .FIX03D59_STEP82C_ENGINE_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.2C Eligibility Classification Diagnostic loaded — MANUAL RUN ONLY / READ ONLY / FAIL CLOSED'
+);
+
