@@ -113523,3 +113523,895 @@ console.log(
   'FIX-03D.5.8 STEP 7.9D Read-Only Verification Debug Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.10A — CANONICAL TRANSACTION JOURNAL
+                DURABILITY / RELOAD RECOVERY ENGINE
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO AUTO RELOAD
+   NO AUTO RECOVERY
+   ABSOLUTE ROLLBACK REQUIRED
+
+   IMPORTANT:
+   FIX-03D.5.8
+       ^
+       D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. CONSTANTS
+   ========================================================================= */
+
+const FIX03D58_STEP710_PROBE_KEY =
+  'XSMN_V26_FIX03D58_STEP710_DURABILITY_PROBE';
+
+
+const FIX03D58_STEP710_VERSION =
+  '7.10A';
+
+
+/* =========================================================================
+   2. SAFE JSON CLONE
+   ========================================================================= */
+
+function cloneFix03D58Step710ValueV26(
+  value
+) {
+
+  try {
+
+    return JSON.parse(
+      JSON.stringify(
+        value
+      )
+    );
+
+  } catch (error) {
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. READ DURABILITY PROBE
+   ========================================================================= */
+
+function readFix03D58Step710DurabilityProbeV26() {
+
+  let raw =
+    null;
+
+
+  try {
+
+    raw =
+      localStorage.getItem(
+        FIX03D58_STEP710_PROBE_KEY
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      exists: false,
+
+      reason:
+        'DURABILITY_PROBE_STORAGE_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (!raw) {
+
+    return {
+
+      ready: true,
+
+      exists: false,
+
+      reason:
+        'DURABILITY_PROBE_NOT_FOUND',
+
+      probe: null
+
+    };
+
+  }
+
+
+  try {
+
+    const probe =
+      JSON.parse(
+        raw
+      );
+
+
+    return {
+
+      ready: true,
+
+      exists: true,
+
+      reason:
+        'DURABILITY_PROBE_FOUND',
+
+      probe
+
+    };
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      exists: true,
+
+      reason:
+        'DURABILITY_PROBE_CORRUPTED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error),
+
+      probe: null
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   4. WRITE DURABILITY PROBE
+
+   IMPORTANT:
+   This writes ONLY the isolated STEP 7.10 audit marker.
+
+   It does NOT write:
+   - canonical shadow snapshots
+   - production prediction
+   - promotion state
+   ========================================================================= */
+
+function writeFix03D58Step710DurabilityProbeV26(
+  probe
+) {
+
+  try {
+
+    localStorage.setItem(
+      FIX03D58_STEP710_PROBE_KEY,
+      JSON.stringify(
+        probe
+      )
+    );
+
+
+    return {
+
+      ready: true,
+
+      written: true,
+
+      reason:
+        'DURABILITY_PROBE_WRITE_CONFIRMED'
+
+    };
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      written: false,
+
+      reason:
+        'DURABILITY_PROBE_WRITE_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   5. REMOVE ISOLATED DURABILITY PROBE
+
+   This function is provided for the later absolute-cleanup phase.
+   STEP 7.10A does NOT call it automatically.
+   ========================================================================= */
+
+function removeFix03D58Step710DurabilityProbeV26() {
+
+  try {
+
+    localStorage.removeItem(
+      FIX03D58_STEP710_PROBE_KEY
+    );
+
+
+    return {
+
+      ready: true,
+
+      removed: true,
+
+      reason:
+        'DURABILITY_PROBE_REMOVED'
+
+    };
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      removed: false,
+
+      reason:
+        'DURABILITY_PROBE_REMOVE_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+}
+
+
+/* =========================================================================
+   6. CREATE STEP 7.10 DURABILITY PROBE
+
+   This captures the canonical baseline BEFORE reload.
+
+   It does NOT alter canonical storage.
+   ========================================================================= */
+
+function createFix03D58Step710DurabilityProbeV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. REQUIRED CANONICAL READER
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. PREVENT ACCIDENTAL OVERWRITE OF ACTIVE PROBE
+   * ---------------------------------------------------------
+   */
+
+  const existing =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !existing.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        existing.reason,
+
+      existing
+
+    };
+
+  }
+
+
+  if (
+    existing.exists
+  ) {
+
+    return {
+
+      ready: true,
+
+      created: false,
+
+      duplicate: true,
+
+      reason:
+        'ACTIVE_DURABILITY_PROBE_ALREADY_EXISTS',
+
+      probe:
+        existing.probe
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. READ CANONICAL BASELINE
+   * ---------------------------------------------------------
+   */
+
+  let canonical;
+
+
+  try {
+
+    canonical =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        'CANONICAL_BASELINE_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      canonical
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        'CANONICAL_BASELINE_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. COPY BASELINE
+   * ---------------------------------------------------------
+   */
+
+  const baseline =
+    cloneFix03D58Step710ValueV26(
+      canonical
+    );
+
+
+  if (
+    !Array.isArray(
+      baseline
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        'CANONICAL_BASELINE_CLONE_FAILED'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. BUILD DURABLE PROBE
+   * ---------------------------------------------------------
+   */
+
+  const now =
+    Date.now();
+
+
+  const probeId =
+    [
+      'fix03D58-step710',
+      now,
+      Math.random()
+        .toString(36)
+        .slice(2, 10)
+    ].join('-');
+
+
+  const probe = {
+
+    schema:
+      'FIX03D58_STEP710_DURABILITY_PROBE',
+
+    version:
+      FIX03D58_STEP710_VERSION,
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      '7.10',
+
+    probeId,
+
+    createdAt:
+      new Date(
+        now
+      ).toISOString(),
+
+    phase:
+      'PRE_RELOAD_ARMED',
+
+    reloadExpected:
+      true,
+
+    recoveryExpected:
+      true,
+
+    manualRunOnly:
+      true,
+
+    autoPromotion:
+      false,
+
+    autoRecovery:
+      false,
+
+    autoReload:
+      false,
+
+    canonicalBaselineCount:
+      baseline.length,
+
+    canonicalBaseline:
+      baseline,
+
+    canonicalModified:
+      false,
+
+    productionPredictionModified:
+      false
+
+  };
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. WRITE ONLY ISOLATED AUDIT PROBE
+   * ---------------------------------------------------------
+   */
+
+  const written =
+    writeFix03D58Step710DurabilityProbeV26(
+      probe
+    );
+
+
+  if (
+    !written.ready ||
+    !written.written
+  ) {
+
+    return {
+
+      ready: false,
+
+      created: false,
+
+      reason:
+        written.reason,
+
+      write:
+        written
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. READ BACK
+   * ---------------------------------------------------------
+   */
+
+  const readBack =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  const readBackMatch =
+    Boolean(
+      readBack.ready &&
+      readBack.exists &&
+      readBack.probe &&
+      readBack.probe.probeId ===
+        probeId &&
+      readBack.probe.phase ===
+        'PRE_RELOAD_ARMED'
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * H. VERIFY CANONICAL WAS NOT MODIFIED
+   * ---------------------------------------------------------
+   */
+
+  let canonicalAfter;
+
+
+  try {
+
+    canonicalAfter =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    canonicalAfter =
+      null;
+
+  }
+
+
+  const canonicalCountAfter =
+    Array.isArray(
+      canonicalAfter
+    )
+      ? canonicalAfter.length
+      : null;
+
+
+  const canonicalCountUnchanged =
+    canonicalCountAfter ===
+      baseline.length;
+
+
+  /*
+   * Exact JSON comparison is safe here because both values
+   * come from the same canonical reader during one manual run.
+   */
+
+  const canonicalExactMatch =
+    Array.isArray(
+      canonicalAfter
+    )
+      ? (
+          JSON.stringify(
+            canonicalAfter
+          ) ===
+          JSON.stringify(
+            baseline
+          )
+        )
+      : false;
+
+
+  const passed =
+    readBackMatch &&
+    canonicalCountUnchanged &&
+    canonicalExactMatch;
+
+
+  return {
+
+    ready: true,
+
+    created: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'DURABILITY_PRE_RELOAD_PROBE_ARMED'
+        : 'DURABILITY_PRE_RELOAD_PROBE_VERIFICATION_FAILED',
+
+    probe: {
+
+      probeId,
+
+      phase:
+        probe.phase,
+
+      createdAt:
+        probe.createdAt,
+
+      reloadExpected:
+        true
+
+    },
+
+    canonical: {
+
+      before:
+        baseline.length,
+
+      after:
+        canonicalCountAfter,
+
+      countUnchanged:
+        canonicalCountUnchanged,
+
+      exactMatch:
+        canonicalExactMatch,
+
+      modified:
+        !canonicalExactMatch
+
+    },
+
+    persistence: {
+
+      isolatedProbeWritten:
+        true,
+
+      readBackMatch,
+
+      canonicalStorageWritten:
+        false
+
+    },
+
+    safety: {
+
+      manualRunOnly:
+        true,
+
+      autoReload:
+        false,
+
+      autoRecovery:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. STEP 7.10A MANUAL RUNNER
+
+   IMPORTANT:
+   Calling this function ONLY arms the pre-reload probe.
+
+   It does NOT reload the page.
+   It does NOT execute recovery.
+   ========================================================================= */
+
+function runFix03D58Step710DurabilityProbeV26() {
+
+  const result =
+    createFix03D58Step710DurabilityProbeV26();
+
+
+  window
+    .LAST_FIX03D58_STEP710A_RESULT =
+    result;
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.10A'
+  );
+
+  console.log(
+    'JOURNAL DURABILITY / RELOAD RECOVERY'
+  );
+
+  console.log(
+    'PRE-RELOAD PROBE ENGINE'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.log(
+    'Ready:',
+    result.ready
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Created:',
+    result.created
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Passed:',
+    result.passed === true
+      ? 'YES'
+      : (
+          result.passed === false
+            ? 'NO'
+            : '-'
+        )
+  );
+
+
+  console.log(
+    'Reason:',
+    result.reason
+  );
+
+
+  if (
+    result.probe
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Probe ID:',
+      result.probe.probeId
+    );
+
+    console.log(
+      'Phase:',
+      result.probe.phase
+    );
+
+  }
+
+
+  if (
+    result.canonical
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Canonical Before:',
+      result.canonical.before
+    );
+
+    console.log(
+      'Canonical After:',
+      result.canonical.after
+    );
+
+    console.log(
+      'Canonical Count Unchanged:',
+      result.canonical
+        .countUnchanged
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Canonical Exact Match:',
+      result.canonical
+        .exactMatch
+        ? 'YES'
+        : 'NO'
+    );
+
+  }
+
+
+  console.log(
+    ''
+  );
+
+  console.log(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+  console.log(
+    'Auto Reload: NO'
+  );
+
+  console.log(
+    'Auto Recovery: NO'
+  );
+
+  console.log(
+    'Auto Promotion: NO'
+  );
+
+  console.log(
+    'Production Prediction Modified: NO'
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.10A Durability / Reload Recovery Engine loaded — MANUAL RUN ONLY'
+);
+
