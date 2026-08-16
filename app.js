@@ -114916,3 +114916,901 @@ console.log(
   'FIX-03D.5.8 STEP 7.10B Pre-Reload Manual Arm Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.10C — POST-RELOAD DURABILITY VERIFICATION
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO PROBE WRITE
+   NO PROBE CLEANUP
+   NO CANONICAL WRITE
+   NO AUTO RECOVERY
+   NO AUTO PROMOTION
+
+   IMPORTANT:
+   FIX-03D.5.8
+       ^
+       D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. POST-RELOAD VERIFICATION ENGINE
+   ========================================================================= */
+
+function verifyFix03D58Step710PostReloadV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. DEPENDENCY GUARDS
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof readFix03D58Step710DurabilityProbeV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'DURABILITY_PROBE_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ EXISTING PROBE
+   *
+   * READ ONLY.
+   * ---------------------------------------------------------
+   */
+
+  const probeRead =
+    readFix03D58Step710DurabilityProbeV26();
+
+
+  if (
+    !probeRead.ready
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        probeRead.reason,
+
+      probeRead
+
+    };
+
+  }
+
+
+  if (
+    !probeRead.exists ||
+    !probeRead.probe
+  ) {
+
+    return {
+
+      ready: true,
+      passed: false,
+
+      reason:
+        'PRE_RELOAD_DURABILITY_PROBE_NOT_FOUND',
+
+      probeExists:
+        false
+
+    };
+
+  }
+
+
+  const probe =
+    probeRead.probe;
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. VERIFY PROBE STRUCTURE
+   * ---------------------------------------------------------
+   */
+
+  const schemaValid =
+    probe.schema ===
+      'FIX03D58_STEP710_DURABILITY_PROBE';
+
+
+  const fixValid =
+    probe.fix ===
+      'FIX-03D.5.8';
+
+
+  const stepValid =
+    probe.step ===
+      '7.10';
+
+
+  const phaseValid =
+    probe.phase ===
+      'PRE_RELOAD_ARMED';
+
+
+  const probeIdValid =
+    typeof probe.probeId ===
+      'string' &&
+    probe.probeId.length > 0;
+
+
+  const baselineValid =
+    Array.isArray(
+      probe.canonicalBaseline
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. READ CURRENT CANONICAL
+   * ---------------------------------------------------------
+   */
+
+  let canonicalNow;
+
+
+  try {
+
+    canonicalNow =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'POST_RELOAD_CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      canonicalNow
+    )
+  ) {
+
+    return {
+
+      ready: false,
+      passed: false,
+
+      reason:
+        'POST_RELOAD_CANONICAL_INVALID'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. COMPARE PRE-RELOAD BASELINE WITH POST-RELOAD STATE
+   * ---------------------------------------------------------
+   */
+
+  const expectedCount =
+    Number(
+      probe.canonicalBaselineCount
+    );
+
+
+  const currentCount =
+    canonicalNow.length;
+
+
+  const countMatch =
+    Number.isFinite(
+      expectedCount
+    ) &&
+    currentCount ===
+      expectedCount;
+
+
+  const exactMatch =
+    baselineValid &&
+    JSON.stringify(
+      canonicalNow
+    ) ===
+    JSON.stringify(
+      probe.canonicalBaseline
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. DURABILITY VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const probeSurvivedReload =
+    schemaValid &&
+    fixValid &&
+    stepValid &&
+    phaseValid &&
+    probeIdValid;
+
+
+  const passed =
+    probeSurvivedReload &&
+    baselineValid &&
+    countMatch &&
+    exactMatch;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'POST_RELOAD_DURABILITY_VERIFIED'
+        : 'POST_RELOAD_DURABILITY_VERIFICATION_FAILED',
+
+    probe: {
+
+      exists:
+        true,
+
+      survivedReload:
+        probeSurvivedReload,
+
+      probeId:
+        probe.probeId,
+
+      phase:
+        probe.phase,
+
+      schemaValid,
+
+      fixValid,
+
+      stepValid
+
+    },
+
+    canonical: {
+
+      expectedCount,
+
+      currentCount,
+
+      countMatch,
+
+      exactMatch,
+
+      restored:
+        countMatch &&
+        exactMatch
+
+    },
+
+    safety: {
+
+      manualRunOnly:
+        true,
+
+      readOnly:
+        true,
+
+      probeWrite:
+        false,
+
+      probeCleanup:
+        false,
+
+      canonicalWrite:
+        false,
+
+      autoRecovery:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. MANUAL RUNNER
+   ========================================================================= */
+
+function runFix03D58Step710PostReloadVerificationV26() {
+
+  const result =
+    verifyFix03D58Step710PostReloadV26();
+
+
+  window
+    .LAST_FIX03D58_STEP710C_RESULT =
+    result;
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.10C'
+  );
+
+  console.log(
+    'POST-RELOAD DURABILITY VERIFICATION'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  console.log(
+    'Ready:',
+    result.ready
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Passed:',
+    result.passed
+      ? 'YES'
+      : 'NO'
+  );
+
+
+  console.log(
+    'Reason:',
+    result.reason
+  );
+
+
+  if (
+    result.probe
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Probe Exists:',
+      result.probe.exists
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Probe Survived Reload:',
+      result.probe.survivedReload
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Probe ID:',
+      result.probe.probeId
+    );
+
+    console.log(
+      'Phase:',
+      result.probe.phase
+    );
+
+  }
+
+
+  if (
+    result.canonical
+  ) {
+
+    console.log(
+      ''
+    );
+
+    console.log(
+      'Expected Count:',
+      result.canonical.expectedCount
+    );
+
+    console.log(
+      'Current Count:',
+      result.canonical.currentCount
+    );
+
+    console.log(
+      'Count Match:',
+      result.canonical.countMatch
+        ? 'YES'
+        : 'NO'
+    );
+
+    console.log(
+      'Exact Match:',
+      result.canonical.exactMatch
+        ? 'YES'
+        : 'NO'
+    );
+
+  }
+
+
+  console.log(
+    ''
+  );
+
+  console.log(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+  console.log(
+    'Read Only: YES'
+  );
+
+  console.log(
+    'Probe Write: NO'
+  );
+
+  console.log(
+    'Probe Cleanup: NO'
+  );
+
+  console.log(
+    'Canonical Write: NO'
+  );
+
+  console.log(
+    'Auto Recovery: NO'
+  );
+
+  console.log(
+    'Auto Promotion: NO'
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   3. DEBUG BUTTON
+   ========================================================================= */
+
+(function installFix03D58Step710CButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step710CVerifyV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 D.5.8 Verify Reload Durability';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.10C',
+              '',
+              'POST-RELOAD DURABILITY VERIFICATION',
+              '',
+              'READ ONLY: YES',
+              '',
+              'Probe Write: NO',
+              'Probe Cleanup: NO',
+              'Canonical Write: NO',
+              'Recovery: NO',
+              'Auto Promotion: NO',
+              '',
+              'Chạy verification?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        const result =
+          runFix03D58Step710PostReloadVerificationV26();
+
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.10C'
+        );
+
+        lines.push(
+          'POST-RELOAD DURABILITY VERIFICATION'
+        );
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'VERDICT'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result.reason ||
+            '-'
+          )
+        );
+
+
+        if (
+          result.probe
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'DURABILITY PROBE'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Probe Exists: ' +
+            (
+              result.probe.exists
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Survived Reload: ' +
+            (
+              result.probe.survivedReload
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Probe ID: ' +
+            (
+              result.probe.probeId ||
+              '-'
+            )
+          );
+
+
+          lines.push(
+            'Phase: ' +
+            (
+              result.probe.phase ||
+              '-'
+            )
+          );
+
+        }
+
+
+        if (
+          result.canonical
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push(
+            'CANONICAL INTEGRITY'
+          );
+
+          lines.push(
+            '======================'
+          );
+
+          lines.push('');
+
+
+          lines.push(
+            'Expected Count: ' +
+            result.canonical.expectedCount
+          );
+
+
+          lines.push(
+            'Current Count: ' +
+            result.canonical.currentCount
+          );
+
+
+          lines.push(
+            'Count Match: ' +
+            (
+              result.canonical.countMatch
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+
+          lines.push(
+            'Exact Match: ' +
+            (
+              result.canonical.exactMatch
+                ? 'YES ✅'
+                : 'NO ❌'
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push(
+          'SAFETY'
+        );
+
+        lines.push(
+          '======================'
+        );
+
+        lines.push('');
+
+        lines.push(
+          'Mode: MANUAL RUN ONLY'
+        );
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+        lines.push(
+          'Probe Write: NO'
+        );
+
+        lines.push(
+          'Probe Cleanup: NO'
+        );
+
+        lines.push(
+          'Canonical Write: NO'
+        );
+
+        lines.push(
+          'Auto Recovery: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.10C Post-Reload Durability Verification loaded — READ ONLY'
+);
+
