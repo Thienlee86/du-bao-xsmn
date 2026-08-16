@@ -109437,3 +109437,688 @@ console.log(
 );
 
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.8B — CANONICAL COMMIT RECOVERY INTEGRITY
+               MANUAL RUNNER + SAFETY REPORT
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+
+   PURPOSE:
+   - Run STEP 7.8A manually.
+   - Report corrupted transaction detection.
+   - Report first recovery result.
+   - Report recovery idempotency.
+   - Report absolute rollback verification.
+
+   IMPORTANT:
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+
+function runCanonicalCommitRecoveryIntegrityAuditV26() {
+
+  /*
+   * -----------------------------------------------------------
+   * A. VERIFY STEP 7.8A ENGINE
+   * -----------------------------------------------------------
+   */
+
+  if (
+    typeof
+      auditCanonicalCommitRecoveryIntegrityV26 !==
+    'function'
+  ) {
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.8',
+        '',
+        'RECOVERY INTEGRITY AUDIT',
+        '',
+        'STEP 7.8A Engine: NOT FOUND ❌',
+        '',
+        'Audit was NOT executed.',
+        'Storage Write: NO',
+        'Auto Promotion: NO'
+      ].join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_8A_ENGINE_NOT_FOUND',
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * B. RUN ENGINE
+   * -----------------------------------------------------------
+   */
+
+  let result;
+
+
+  try {
+
+    result =
+      auditCanonicalCommitRecoveryIntegrityV26();
+
+  } catch (error) {
+
+    const message =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+
+    alert(
+      [
+        'FIX-03D.5.8 STEP 7.8',
+        '',
+        'RECOVERY INTEGRITY AUDIT ERROR ❌',
+        '',
+        message,
+        '',
+        'Review required.',
+        'Auto Promotion: NO'
+      ].join('\n')
+    );
+
+
+    console.error(
+      'FIX-03D.5.8 STEP 7.8 ERROR',
+      error
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'RECOVERY_INTEGRITY_AUDIT_EXCEPTION',
+
+      error:
+        message,
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * C. BUILD REPORT
+   * -----------------------------------------------------------
+   */
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D.5.8 STEP 7.8'
+  );
+
+
+  lines.push(
+    'CANONICAL COMMIT RECOVERY INTEGRITY'
+  );
+
+
+  lines.push(
+    'CORRUPTED TRANSACTION AUDIT'
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * D. MAIN VERDICT
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'RECOVERY VERDICT'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Passed: ' +
+    (
+      result &&
+      result.passed === true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      result &&
+      result.reason
+        ? result.reason
+        : 'UNKNOWN'
+    )
+  );
+
+
+  lines.push(
+    'Lifecycle Key: ' +
+    (
+      result &&
+      result.lifecycleKey
+        ? result.lifecycleKey
+        : 'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * E. CANONICAL COUNTS
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'CANONICAL COUNTS'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Original: ' +
+    (
+      result &&
+      result.originalCount != null
+        ? result.originalCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Corruption Injection: ' +
+    (
+      result &&
+      result.afterCorruptionCount != null
+        ? result.afterCorruptionCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Recovery #1: ' +
+    (
+      result &&
+      result.afterFirstRecoveryCount != null
+        ? result.afterFirstRecoveryCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Recovery #2: ' +
+    (
+      result &&
+      result.afterSecondRecoveryCount != null
+        ? result.afterSecondRecoveryCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'After Absolute Rollback: ' +
+    (
+      result &&
+      result.afterRollbackCount != null
+        ? result.afterRollbackCount
+        : 'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * F. FIRST RECOVERY
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'FIRST RECOVERY'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  const firstRecovery =
+    result &&
+    result.firstRecovery
+      ? result.firstRecovery
+      : null;
+
+
+  lines.push(
+    'Recovered: ' +
+    (
+      firstRecovery &&
+      firstRecovery.recovered === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Changed: ' +
+    (
+      firstRecovery
+        ? (
+            firstRecovery.changed === true
+              ? 'YES'
+              : 'NO'
+          )
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      firstRecovery &&
+      firstRecovery.reason
+        ? firstRecovery.reason
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Corrupted Before: ' +
+    (
+      firstRecovery &&
+      firstRecovery.corruptedBefore != null
+        ? firstRecovery.corruptedBefore
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Corrupted After: ' +
+    (
+      firstRecovery &&
+      firstRecovery.corruptedAfter != null
+        ? firstRecovery.corruptedAfter
+        : 'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * G. SECOND RECOVERY / IDEMPOTENCY
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'SECOND RECOVERY'
+  );
+
+
+  lines.push(
+    'IDEMPOTENCY CHECK'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  const secondRecovery =
+    result &&
+    result.secondRecovery
+      ? result.secondRecovery
+      : null;
+
+
+  lines.push(
+    'Recovered: ' +
+    (
+      secondRecovery &&
+      secondRecovery.recovered === true
+        ? 'YES'
+        : 'NO'
+    )
+  );
+
+
+  lines.push(
+    'Changed: ' +
+    (
+      secondRecovery
+        ? (
+            secondRecovery.changed === true
+              ? 'YES'
+              : 'NO'
+          )
+        : 'N/A'
+    )
+  );
+
+
+  lines.push(
+    'Reason: ' +
+    (
+      secondRecovery &&
+      secondRecovery.reason
+        ? secondRecovery.reason
+        : 'N/A'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * H. SAFETY CHECKS
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'SAFETY CHECKS'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  const checks =
+    (
+      result &&
+      result.checks &&
+      typeof result.checks ===
+        'object'
+    )
+      ? result.checks
+      : {};
+
+
+  Object.keys(
+    checks
+  ).forEach(
+    key => {
+
+      lines.push(
+        key +
+        ': ' +
+        (
+          checks[key] === true
+            ? 'PASS'
+            : 'FAIL'
+        )
+      );
+
+    }
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * I. FAILED CHECKS
+   * -----------------------------------------------------------
+   */
+
+  const failedChecks =
+    (
+      result &&
+      Array.isArray(
+        result.failedChecks
+      )
+    )
+      ? result.failedChecks
+      : [];
+
+
+  lines.push(
+    'Failed Checks: ' +
+    (
+      failedChecks.length
+        ? failedChecks.join(', ')
+        : 'NONE'
+    )
+  );
+
+
+  if (
+    result &&
+    result.auditError
+  ) {
+
+    lines.push(
+      'Audit Error: ' +
+      result.auditError
+    );
+
+  }
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * J. ABSOLUTE ROLLBACK
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'ABSOLUTE ROLLBACK'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Canonical Restored: ' +
+    (
+      result &&
+      result.canonicalRestored === true
+        ? 'YES ✅'
+        : 'NO ❌'
+    )
+  );
+
+
+  lines.push(
+    'Rollback Write: ' +
+    (
+      result &&
+      result.rollbackWrite === true
+        ? 'CONFIRMED'
+        : 'NOT CONFIRMED'
+    )
+  );
+
+
+  lines.push('');
+
+
+  /*
+   * -----------------------------------------------------------
+   * K. PRODUCTION SAFETY
+   * -----------------------------------------------------------
+   */
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push(
+    'PRODUCTION SAFETY'
+  );
+
+
+  lines.push(
+    '===================='
+  );
+
+
+  lines.push('');
+
+
+  lines.push(
+    'Production Prediction Modified: NO'
+  );
+
+
+  lines.push(
+    'Auto Promotion: NO'
+  );
+
+
+  lines.push(
+    'Mode: MANUAL RUN ONLY'
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * L. DISPLAY + CONSOLE
+   * -----------------------------------------------------------
+   */
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    'FIX-03D.5.8 STEP 7.8 RESULT',
+    result
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.8B Recovery Integrity Audit Runner loaded — MANUAL RUN ONLY'
+);
+
