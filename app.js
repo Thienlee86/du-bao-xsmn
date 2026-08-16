@@ -98322,3 +98322,542 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.1 — PERSISTENCE STORAGE CONTRACT PROBE
+
+   Mục tiêu:
+   - Xác nhận Canonical Persistence Layer hiện hữu.
+   - Chỉ đọc Storage.
+   - Không gọi writer.
+   - Không sửa Production.
+   - Không Auto Promotion.
+   ========================================================================= */
+
+function probeCandidatePersistenceContractV26() {
+
+  const readerReady =
+    typeof readCanonicalShadowStoreV26 ===
+      'function';
+
+  const writerReady =
+    typeof writeCanonicalShadowStoreV26 ===
+      'function';
+
+  const keyReady =
+    typeof SHADOW_CANONICAL_STORE_KEY_V26 !==
+      'undefined' &&
+    typeof SHADOW_CANONICAL_STORE_KEY_V26 ===
+      'string' &&
+    SHADOW_CANONICAL_STORE_KEY_V26.length > 0;
+
+
+  let storageResult = null;
+  let readError = null;
+
+
+  if (readerReady) {
+
+    try {
+
+      storageResult =
+        readCanonicalShadowStoreV26();
+
+    } catch (error) {
+
+      readError =
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        );
+
+    }
+
+  }
+
+
+  const storageReadable =
+    Boolean(
+      storageResult &&
+      storageResult.ready === true &&
+      Array.isArray(
+        storageResult.snapshots
+      )
+    );
+
+
+  const corrupted =
+    Boolean(
+      storageResult &&
+      storageResult.corrupted === true
+    );
+
+
+  const checks = {
+
+    canonicalReaderExists:
+      readerReady,
+
+    canonicalWriterExists:
+      writerReady,
+
+    canonicalKeyExists:
+      keyReady,
+
+    canonicalKeyMatches:
+      keyReady &&
+      SHADOW_CANONICAL_STORE_KEY_V26 ===
+        'XSMN_V26_SHADOW_SNAPSHOTS',
+
+    storageReadable:
+      storageReadable,
+
+    storageNotCorrupted:
+      corrupted === false,
+
+    readOnly:
+      true
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'PERSISTENCE_STORAGE_CONTRACT_VALID'
+        : 'PERSISTENCE_STORAGE_CONTRACT_NOT_READY',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_1',
+
+    mode:
+      'PERSISTENCE_STORAGE_CONTRACT_PROBE',
+
+    canonicalKey:
+      keyReady
+        ? SHADOW_CANONICAL_STORE_KEY_V26
+        : null,
+
+    readerReady,
+
+    writerReady,
+
+    storageReadable,
+
+    corrupted,
+
+    snapshotCount:
+      storageReadable
+        ? storageResult.snapshots.length
+        : null,
+
+    storageSource:
+      storageResult &&
+      storageResult.source
+        ? storageResult.source
+        : null,
+
+    storageReason:
+      storageResult &&
+      storageResult.reason
+        ? storageResult.reason
+        : null,
+
+    readError,
+
+    checks,
+
+    failedChecks,
+
+    readOnly: true,
+
+    productionModified: false,
+
+    storageModified: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 7.1 DEBUG BUTTON
+   ========================================================================= */
+
+(function installFix03D58PersistenceContractProbeV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58PersistenceContractProbeV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58PersistenceContractProbeV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.8 Persistence Contract';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        let result;
+
+
+        try {
+
+          result =
+            probeCandidatePersistenceContractV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.1',
+              'PERSISTENCE STORAGE CONTRACT PROBE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.1'
+        );
+
+        lines.push(
+          'PERSISTENCE STORAGE CONTRACT PROBE'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Passed: ' +
+          (
+            result.passed
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Reason: ' +
+          result.reason
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Canonical Reader: ' +
+          (
+            result.readerReady
+              ? 'READY'
+              : 'NOT READY'
+          )
+        );
+
+        lines.push(
+          'Canonical Writer: ' +
+          (
+            result.writerReady
+              ? 'READY'
+              : 'NOT READY'
+          )
+        );
+
+        lines.push(
+          'Canonical Key: ' +
+          (
+            result.canonicalKey ||
+            'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          'Storage Readable: ' +
+          (
+            result.storageReadable
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Corrupted: ' +
+          (
+            result.corrupted
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push(
+          'Snapshot Count: ' +
+          (
+            result.snapshotCount != null
+              ? result.snapshotCount
+              : 'N/A'
+          )
+        );
+
+        lines.push(
+          'Storage Source: ' +
+          (
+            result.storageSource ||
+            'N/A'
+          )
+        );
+
+
+        if (result.storageReason) {
+
+          lines.push(
+            'Storage Reason: ' +
+            result.storageReason
+          );
+
+        }
+
+
+        if (result.readError) {
+
+          lines.push(
+            'Read Error: ' +
+            result.readError
+          );
+
+        }
+
+
+        lines.push('');
+
+        lines.push(
+          'Read Only: YES'
+        );
+
+        lines.push(
+          'Production Modified: NO'
+        );
+
+        lines.push(
+          'Storage Modified: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+
+        lines.push('');
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CONTRACT CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        Object.keys(
+          result.checks
+        ).forEach(
+          key => {
+
+            lines.push(
+              key +
+              ': ' +
+              (
+                result.checks[key]
+                  ? 'PASS'
+                  : 'FAIL'
+              )
+            );
+
+          }
+        );
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts < maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.1 Persistence Storage Contract Probe loaded — READ ONLY'
+);
+
