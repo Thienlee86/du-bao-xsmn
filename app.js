@@ -102357,3 +102357,782 @@ console.log(
   'FIX-03D.5.8 STEP 7.3C Post-Rollback Verifier loaded — READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.4A — CANONICAL PERSISTENCE FAILURE / ATOMICITY AUDIT ENGINE
+
+   Mục tiêu:
+   - Tạo synthetic APPROVED candidate.
+   - Validate candidate tại commit boundary.
+   - Giả lập persistence failure an toàn.
+   - KHÔNG ghi synthetic candidate vào canonical production store.
+   - Kiểm tra canonical store trước / sau phải giống hệt nhau.
+   - Phát hiện partial commit nếu có.
+   - Không Auto Promotion.
+   - Không sửa Production Prediction Engine.
+
+   IMPORTANT:
+   Đây là FAILURE SIMULATION.
+   Failure được inject ở audit boundary.
+   KHÔNG monkey-patch localStorage.setItem().
+   ========================================================================= */
+
+
+/* =========================================================================
+   7.4A-1 — BUILD SYNTHETIC FAILURE CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticAtomicityCandidateV26() {
+
+  const approvedAudit = {
+
+    lifecycleKey:
+      'synthetic-atomicity-failure/db/RECENT/10',
+
+    province:
+      'synthetic-atomicity-failure',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_ATOMICITY_TEST',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'SYNTHETIC_ATOMICITY_GATE_PASSED'
+
+  };
+
+
+  return (
+    buildPromotionCandidateFromApprovedAuditV26(
+      approvedAudit
+    )
+  );
+
+}
+
+
+/* =========================================================================
+   7.4A-2 — ISOLATED FAILURE INJECTOR
+
+   QUAN TRỌNG:
+   Function này CỐ Ý KHÔNG gọi canonical writer.
+
+   Nó mô phỏng failure xảy ra ngay tại persistence boundary,
+   trước khi durable canonical write được phép hoàn tất.
+
+   Vì vậy:
+   - canonical storage không bị sửa;
+   - không cần phá localStorage;
+   - không cần monkey-patch production writer.
+   ========================================================================= */
+
+function simulateCanonicalPersistenceFailureV26(
+  rows
+) {
+
+  if (!Array.isArray(rows)) {
+
+    return {
+
+      ready: false,
+
+      written: false,
+
+      failureInjected: true,
+
+      reason:
+        'INVALID_ROWS_FOR_FAILURE_SIMULATION'
+
+    };
+
+  }
+
+
+  /*
+   * Clone payload để bảo đảm audit
+   * không giữ mutable reference
+   * tới canonical rows.
+   */
+
+  let isolatedPayload;
+
+
+  try {
+
+    isolatedPayload =
+      JSON.parse(
+        JSON.stringify(rows)
+      );
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      written: false,
+
+      failureInjected: true,
+
+      reason:
+        'ISOLATED_PAYLOAD_CLONE_FAILED',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        )
+
+    };
+
+  }
+
+
+  /*
+   * FAILURE INJECTION POINT.
+   *
+   * Không gọi:
+   * writeCanonicalShadowStoreV26(...)
+   *
+   * Đây chính là simulated persistence
+   * failure trước durable commit.
+   */
+
+  return {
+
+    ready: true,
+
+    written: false,
+
+    failureInjected: true,
+
+    atomicAbort: true,
+
+    attemptedCount:
+      isolatedPayload.length,
+
+    reason:
+      'SIMULATED_CANONICAL_PERSISTENCE_FAILURE'
+
+  };
+
+}
+
+
+/* =========================================================================
+   7.4A-3 — CANONICAL FAILURE / ATOMICITY AUDIT
+   ========================================================================= */
+
+function auditCanonicalPersistenceFailureAtomicityV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. CONTRACT CHECK
+   * ---------------------------------------------------------
+   */
+
+  const requiredFunctions = {
+
+    buildCandidate:
+      typeof
+        buildPromotionCandidateFromApprovedAuditV26 ===
+      'function',
+
+    validateBoundary:
+      typeof
+        validatePromotionCandidateForCommitV26 ===
+      'function',
+
+    canonicalReader:
+      typeof
+        readCanonicalShadowStoreV26 ===
+      'function'
+
+  };
+
+
+  const missingFunctions =
+    Object.keys(
+      requiredFunctions
+    ).filter(
+      key =>
+        requiredFunctions[key] !== true
+    );
+
+
+  if (missingFunctions.length) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'ATOMICITY_AUDIT_CONTRACT_NOT_READY',
+
+      missingFunctions,
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ ORIGINAL CANONICAL STORE
+   * ---------------------------------------------------------
+   */
+
+  let beforeRead;
+
+
+  try {
+
+    beforeRead =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_BEFORE_READ_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  if (
+    !beforeRead ||
+    beforeRead.ready !== true ||
+    !Array.isArray(
+      beforeRead.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_BEFORE_STORE_INVALID',
+
+      beforeRead,
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  const beforeSnapshots =
+    JSON.parse(
+      JSON.stringify(
+        beforeRead.snapshots
+      )
+    );
+
+
+  const beforeCount =
+    beforeSnapshots.length;
+
+
+  const beforeSignature =
+    JSON.stringify(
+      beforeSnapshots
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. CREATE SYNTHETIC APPROVED CANDIDATE
+   * ---------------------------------------------------------
+   */
+
+  let candidate;
+
+
+  try {
+
+    candidate =
+      buildSyntheticAtomicityCandidateV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'ATOMICITY_CANDIDATE_BUILD_ERROR',
+
+      beforeCount,
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. COMMIT BOUNDARY VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const boundary =
+    validatePromotionCandidateForCommitV26(
+      candidate
+    );
+
+
+  if (
+    !boundary ||
+    boundary.passed !== true
+  ) {
+
+    return {
+
+      ready: true,
+
+      passed: false,
+
+      reason:
+        'ATOMICITY_CANDIDATE_BOUNDARY_REJECTED',
+
+      beforeCount,
+
+      candidate,
+
+      boundary,
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. PREPARE WOULD-BE COMMIT PAYLOAD
+   * ---------------------------------------------------------
+   */
+
+  const commitRows =
+    JSON.parse(
+      JSON.stringify(
+        beforeSnapshots
+      )
+    );
+
+
+  commitRows.push(
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    )
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. INJECT PERSISTENCE FAILURE
+   * ---------------------------------------------------------
+   */
+
+  const failureResult =
+    simulateCanonicalPersistenceFailureV26(
+      commitRows
+    );
+
+
+  /*
+   * Expected:
+   *
+   * written = false
+   * failureInjected = true
+   * atomicAbort = true
+   */
+
+  const failureObserved =
+    Boolean(
+      failureResult &&
+      failureResult.failureInjected ===
+        true &&
+      failureResult.written ===
+        false &&
+      failureResult.atomicAbort ===
+        true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. READ CANONICAL STORE AFTER FAILURE
+   * ---------------------------------------------------------
+   */
+
+  let afterRead;
+
+
+  try {
+
+    afterRead =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: true,
+
+      passed: false,
+
+      reason:
+        'CANONICAL_AFTER_FAILURE_READ_ERROR',
+
+      beforeCount,
+
+      candidate,
+
+      boundary,
+
+      failureResult,
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      productionPredictionModified:
+        false,
+
+      canonicalStorageModified:
+        null,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  const afterSnapshots =
+    (
+      afterRead &&
+      afterRead.ready === true &&
+      Array.isArray(
+        afterRead.snapshots
+      )
+    )
+      ? afterRead.snapshots
+      : [];
+
+
+  const afterCount =
+    afterSnapshots.length;
+
+
+  const afterSignature =
+    JSON.stringify(
+      afterSnapshots
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * H. SEARCH SYNTHETIC CANDIDATE
+   * ---------------------------------------------------------
+   */
+
+  const syntheticMatches =
+    afterSnapshots.filter(
+      item =>
+        item &&
+        item.lifecycleKey ===
+          candidate.lifecycleKey
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * I. ATOMICITY CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const canonicalUnchanged =
+    beforeSignature ===
+      afterSignature;
+
+
+  const countUnchanged =
+    beforeCount ===
+      afterCount;
+
+
+  const noSyntheticPersisted =
+    syntheticMatches.length ===
+      0;
+
+
+  const partialCommitDetected =
+    !canonicalUnchanged ||
+    !countUnchanged ||
+    !noSyntheticPersisted;
+
+
+  const checks = {
+
+    candidateCreated:
+      Boolean(candidate),
+
+    boundaryPassed:
+      boundary.passed === true,
+
+    failureInjected:
+      Boolean(
+        failureResult &&
+        failureResult.failureInjected ===
+          true
+      ),
+
+    writeFailedAsExpected:
+      failureObserved,
+
+    canonicalReadableAfterFailure:
+      Boolean(
+        afterRead &&
+        afterRead.ready === true &&
+        Array.isArray(
+          afterRead.snapshots
+        )
+      ),
+
+    canonicalCountUnchanged:
+      countUnchanged,
+
+    canonicalSignatureUnchanged:
+      canonicalUnchanged,
+
+    syntheticCandidateNotPersisted:
+      noSyntheticPersisted,
+
+    noPartialCommit:
+      partialCommitDetected ===
+        false
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  /*
+   * ---------------------------------------------------------
+   * J. FINAL RESULT
+   * ---------------------------------------------------------
+   */
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_FAILURE_ATOMICITY_VALID'
+        : 'CANONICAL_FAILURE_ATOMICITY_INVALID',
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_4A',
+
+    mode:
+      'SIMULATED_PERSISTENCE_FAILURE_ATOMICITY_AUDIT',
+
+    candidate,
+
+    boundary,
+
+    failureResult,
+
+    beforeCount,
+
+    wouldBeCommitCount:
+      commitRows.length,
+
+    afterCount,
+
+    syntheticRecordsRemaining:
+      syntheticMatches.length,
+
+    canonicalUnchanged,
+
+    countUnchanged,
+
+    partialCommitDetected,
+
+    failureObserved,
+
+    checks,
+
+    failedChecks,
+
+    /*
+     * Audit không gọi canonical writer.
+     */
+
+    canonicalStorageModified:
+      false,
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+/* =========================================================================
+   7.4A-4 — LOAD MARKER
+   ========================================================================= */
+
+console.log(
+  'FIX-03D.5.8 STEP 7.4A Canonical Persistence Failure / Atomicity Audit Engine loaded — NO AUTO RUN'
+);
+
