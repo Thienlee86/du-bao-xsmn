@@ -103136,3 +103136,746 @@ console.log(
   'FIX-03D.5.8 STEP 7.4A Canonical Persistence Failure / Atomicity Audit Engine loaded — NO AUTO RUN'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.4B — CANONICAL PERSISTENCE FAILURE / ATOMICITY AUDIT RUNNER
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+
+   Chữ D phải viết HOA.
+   ========================================================================= */
+
+(function installFix03D58AtomicityAuditRunnerV26() {
+
+  function install() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        'btnFix03D58AtomicityAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58AtomicityAuditV26';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 D.5.8 Atomicity Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. MANUAL CLICK
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * Không cho chạy nếu engine 7.4A
+         * chưa tồn tại.
+         */
+
+        if (
+          typeof
+            auditCanonicalPersistenceFailureAtomicityV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.4',
+              '',
+              'ATOMICITY AUDIT',
+              '',
+              'Engine 7.4A: NOT FOUND ❌',
+              '',
+              'Audit aborted.',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * D. SAFETY CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          confirm(
+            [
+              'FIX-03D.5.8 STEP 7.4',
+              '',
+              'CANONICAL PERSISTENCE',
+              'FAILURE / ATOMICITY AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Read canonical store',
+              '2. Tạo synthetic APPROVED candidate',
+              '3. Validate commit boundary',
+              '4. Inject simulated persistence failure',
+              '5. Read canonical store lại',
+              '6. Verify không có partial commit',
+              '',
+              'Canonical Writer Called: NO',
+              'Production Prediction Modified: NO',
+              'Auto Promotion: NO',
+              '',
+              'Tiếp tục chạy audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * E. RUN AUDIT
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            auditCanonicalPersistenceFailureAtomicityV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.4',
+              '',
+              'ATOMICITY AUDIT ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              ),
+              '',
+              'Review required.'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * F. BUILD REPORT
+         * -----------------------------------------------------
+         */
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.4'
+        );
+
+        lines.push(
+          'CANONICAL PERSISTENCE FAILURE'
+        );
+
+        lines.push(
+          'ATOMICITY AUDIT'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : 'UNKNOWN'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CANDIDATE / BOUNDARY
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANDIDATE / BOUNDARY'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Candidate: ' +
+          (
+            result &&
+            result.candidate
+              ? 'CREATED'
+              : 'NOT CREATED'
+          )
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            result &&
+            result.boundary &&
+            result.boundary.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Candidate Status: ' +
+          (
+            result &&
+            result.candidate &&
+            (
+              result.candidate.candidateStatus ||
+              result.candidate.status
+            )
+              ? (
+                  result.candidate.candidateStatus ||
+                  result.candidate.status
+                )
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Approved: ' +
+          (
+            result &&
+            result.candidate
+              ? String(
+                  result.candidate.approved ===
+                    true
+                )
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Gate Passed: ' +
+          (
+            result &&
+            result.candidate
+              ? String(
+                  result.candidate.gatePassed ===
+                    true
+                )
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * FAILURE INJECTION
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'FAILURE INJECTION'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Failure Injected: ' +
+          (
+            result &&
+            result.failureResult &&
+            result.failureResult.failureInjected ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Write Confirmed: ' +
+          (
+            result &&
+            result.failureResult &&
+            result.failureResult.written ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Atomic Abort: ' +
+          (
+            result &&
+            result.failureResult &&
+            result.failureResult.atomicAbort ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Failure Reason: ' +
+          (
+            result &&
+            result.failureResult &&
+            result.failureResult.reason
+              ? result.failureResult.reason
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CANONICAL STATE
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANONICAL STATE'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Before Count: ' +
+          (
+            result &&
+            result.beforeCount != null
+              ? result.beforeCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Would-Be Commit Count: ' +
+          (
+            result &&
+            result.wouldBeCommitCount != null
+              ? result.wouldBeCommitCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After Failure Count: ' +
+          (
+            result &&
+            result.afterCount != null
+              ? result.afterCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Unchanged: ' +
+          (
+            result &&
+            result.canonicalUnchanged ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Synthetic Records Remaining: ' +
+          (
+            result &&
+            result.syntheticRecordsRemaining != null
+              ? result.syntheticRecordsRemaining
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Partial Commit Detected: ' +
+          (
+            result &&
+            result.partialCommitDetected ===
+              true
+              ? 'YES ❌'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * ATOMICITY VERDICT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'ATOMICITY VERDICT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push('');
+
+
+        if (
+          result &&
+          result.passed === true
+        ) {
+
+          lines.push(
+            'Passed: YES ✅'
+          );
+
+          lines.push(
+            'Reason: CANONICAL_FAILURE_ATOMICITY_VALID'
+          );
+
+          lines.push('');
+
+          lines.push(
+            'Failure Observed: YES'
+          );
+
+          lines.push(
+            'Canonical Preserved: YES'
+          );
+
+          lines.push(
+            'Partial Commit: NO'
+          );
+
+        } else {
+
+          lines.push(
+            'Passed: NO ❌'
+          );
+
+          lines.push(
+            'Reason: ' +
+            (
+              result &&
+              result.reason
+                ? result.reason
+                : 'ATOMICITY_AUDIT_FAILED'
+            )
+          );
+
+          lines.push('');
+
+
+          const failedChecks =
+            (
+              result &&
+              Array.isArray(
+                result.failedChecks
+              )
+            )
+              ? result.failedChecks
+              : [];
+
+
+          lines.push(
+            'Failed Checks: ' +
+            (
+              failedChecks.length
+                ? failedChecks.join(', ')
+                : 'UNKNOWN'
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * SAFETY FOOTER
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          'Canonical Writer Called: NO'
+        );
+
+        lines.push(
+          'Production Prediction Modified: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+
+        /*
+         * -----------------------------------------------------
+         * G. SHOW RESULT
+         * -----------------------------------------------------
+         */
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * H. ATTACH TO DEBUG PANEL
+     *
+     * IMPORTANT:
+     * D viết HOA:
+     *
+     * fix03DDebugPanelV26
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Debug panel có thể load sau.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      /*
+       * D HOA — không đổi thành fix03d...
+       */
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * I. INSTALL
+   * -----------------------------------------------------------
+   */
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.4B Atomicity Audit Runner loaded — MANUAL RUN ONLY'
+);
+
