@@ -118615,3 +118615,586 @@ console.log(
   'FIX-03D.5.8 STEP 7.11A End-to-End Safety Audit Engine loaded — MANUAL RUN ONLY / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.11B — END-TO-END SAFETY AUDIT
+                MANUAL DEBUG BUTTON + REPORTER
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO CANONICAL WRITE
+   NO PROBE WRITE / CLEANUP
+   NO RECOVERY
+   NO JOURNAL REPLAY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   fix03DDebugPanelV26
+         ^
+         D MUST BE UPPERCASE
+   ========================================================================= */
+
+(function installFix03D58Step711BButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D58Step711BSafetyAuditV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * Duplicate protection.
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ D.5.8 End-to-End Safety Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * -----------------------------------------------------
+         * A. ENGINE GUARD
+         * -----------------------------------------------------
+         */
+
+        if (
+          typeof
+            runFix03D58Step711EndToEndSafetyAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.11B',
+              '',
+              '7.11A Engine: NOT FOUND ❌',
+              '',
+              'Audit NOT executed.',
+              '',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * B. EXPLICIT MANUAL CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.11',
+              '',
+              'END-TO-END SAFETY AUDIT',
+              '',
+              'Mode: MANUAL RUN ONLY',
+              'Read Only: YES',
+              '',
+              'Canonical Write: NO',
+              'Probe Write: NO',
+              'Probe Cleanup: NO',
+              'Recovery: NO',
+              'Journal Replay: NO',
+              'Auto Promotion: NO',
+              '',
+              'Run safety audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * C. RUN STEP 7.11A
+         * -----------------------------------------------------
+         */
+
+        let result;
+
+
+        try {
+
+          result =
+            runFix03D58Step711EndToEndSafetyAuditV26();
+
+        } catch (error) {
+
+          result = {
+
+            ready: false,
+
+            passed: false,
+
+            reason:
+              'STEP711_RUNNER_EXCEPTION',
+
+            error:
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+
+          };
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * D. COMPACT MOBILE REPORT
+         *
+         * Keep deliberately short so Android alert does not
+         * truncate the decisive evidence.
+         * -----------------------------------------------------
+         */
+
+        const probe =
+          result &&
+          result.probe
+            ? result.probe
+            : {};
+
+
+        const canonical =
+          result &&
+          result.canonical
+            ? result.canonical
+            : {};
+
+
+        const safety =
+          result &&
+          result.safety
+            ? result.safety
+            : {};
+
+
+        const boundary =
+          safety &&
+          safety.boundary
+            ? safety.boundary
+            : {};
+
+
+        const execution =
+          result &&
+          result.execution
+            ? result.execution
+            : {};
+
+
+        const lines =
+          [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.11'
+        );
+
+        lines.push(
+          'END-TO-END SAFETY AUDIT'
+        );
+
+        lines.push('');
+
+
+        /*
+         * FINAL VERDICT
+         */
+
+        lines.push(
+          '=== FINAL VERDICT ==='
+        );
+
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        /*
+         * PROBE CLEANUP
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== 7.10 CLEANUP ==='
+        );
+
+
+        lines.push(
+          'Probe Absent: ' +
+          (
+            probe.absent
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        /*
+         * CANONICAL
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== CANONICAL ==='
+        );
+
+
+        lines.push(
+          'Before: ' +
+          (
+            canonical.beforeCount != null
+              ? canonical.beforeCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'After: ' +
+          (
+            canonical.afterCount != null
+              ? canonical.afterCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Count Match: ' +
+          (
+            canonical.countMatch
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Exact Match: ' +
+          (
+            canonical.exactMatch
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Unchanged: ' +
+          (
+            canonical.unchanged
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        /*
+         * SAFETY BOUNDARY
+         */
+
+        lines.push('');
+
+        lines.push(
+          '=== SAFETY ==='
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            safety.passed
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Read Only: ' +
+          (
+            boundary.readOnly
+              ? 'YES ✅'
+              : 'NO ❌'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Write: ' +
+          (
+            execution.canonicalWrite
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Probe Created: ' +
+          (
+            execution.probeCreated
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Probe Removed: ' +
+          (
+            execution.probeRemoved
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Recovery: ' +
+          (
+            execution.recoveryExecuted
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Journal Replay: ' +
+          (
+            execution.journalReplayExecuted
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            execution.autoPromotion
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        lines.push(
+          'Production Modified: ' +
+          (
+            execution.productionPredictionModified
+              ? 'YES ❌'
+              : 'NO ✅'
+          )
+        );
+
+
+        /*
+         * ERROR — only if present
+         */
+
+        if (
+          result &&
+          result.error
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            'ERROR: ' +
+            result.error
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+
+        console.log(
+          'FIX-03D.5.8 STEP 7.11 RESULT',
+          result
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. ATTACH
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.11B End-to-End Safety Audit button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Debug panel may appear later.
+   *
+   * Retry ATTACH only.
+   * NEVER execute audit automatically.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.11B End-to-End Safety Audit Button loaded — MANUAL RUN ONLY'
+);
+
