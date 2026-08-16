@@ -103879,3 +103879,586 @@ console.log(
   'FIX-03D.5.8 STEP 7.4B Atomicity Audit Runner loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.5A — CANONICAL COMMIT IDEMPOTENCY /
+               DUPLICATE PROTECTION AUDIT ENGINE
+
+   PURPOSE:
+   - Create one synthetic approved candidate
+   - Commit candidate once
+   - Attempt same lifecycleKey again
+   - Verify duplicate is rejected
+   - Verify canonical contains exactly ONE synthetic record
+   - Rollback canonical store
+   - Verify original state restored
+
+   MANUAL AUDIT ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SYNTHETIC IDEMPOTENCY CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticIdempotencyCandidateV26() {
+
+  const lifecycleKey =
+    'synthetic-idempotency-probe/db/RECENT/10';
+
+
+  return {
+
+    lifecycleKey,
+
+    province:
+      'synthetic-idempotency-probe',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_IDEMPOTENCY_PROBE',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    synthetic:
+      true,
+
+    syntheticAudit:
+      'FIX-03D.5.8_STEP_7.5'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. COUNT LIFECYCLE KEY
+   ========================================================================= */
+
+function countLifecycleKeyInCanonicalStoreV26(
+  snapshots,
+  lifecycleKey
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return 0;
+
+  }
+
+
+  return snapshots.filter(
+    item =>
+      item &&
+      item.lifecycleKey ===
+        lifecycleKey
+  ).length;
+
+}
+
+
+/* =========================================================================
+   3. SAFE TEST COMMIT
+
+   IMPORTANT:
+   This helper performs duplicate protection BEFORE canonical write.
+   ========================================================================= */
+
+function commitSyntheticIdempotencyCandidateV26(
+  candidate
+) {
+
+  if (
+    !candidate ||
+    !candidate.lifecycleKey
+  ) {
+
+    return {
+
+      ready: false,
+
+      committed: false,
+
+      reason:
+        'INVALID_CANDIDATE'
+
+    };
+
+  }
+
+
+  if (
+    candidate.approved !== true ||
+    candidate.gatePassed !== true ||
+    candidate.candidateStatus !==
+      'PENDING_COMMIT'
+  ) {
+
+    return {
+
+      ready: true,
+
+      committed: false,
+
+      reason:
+        'BOUNDARY_REJECTED'
+
+    };
+
+  }
+
+
+  const current =
+    readShadowSnapshotsV26();
+
+
+  const snapshots =
+    Array.isArray(
+      current
+    )
+      ? current
+      : [];
+
+
+  const duplicateCount =
+    countLifecycleKeyInCanonicalStoreV26(
+      snapshots,
+      candidate.lifecycleKey
+    );
+
+
+  if (
+    duplicateCount > 0
+  ) {
+
+    return {
+
+      ready: true,
+
+      committed: false,
+
+      duplicate: true,
+
+      reason:
+        'DUPLICATE_LIFECYCLE_KEY',
+
+      lifecycleKey:
+        candidate.lifecycleKey,
+
+      existingCount:
+        duplicateCount
+
+    };
+
+  }
+
+
+  /*
+   * Clone candidate.
+   *
+   * Do not persist the original object reference.
+   */
+
+  const committedRecord =
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    );
+
+
+  committedRecord.candidateStatus =
+    'COMMITTED';
+
+
+  committedRecord.commitAudit =
+    'FIX-03D.5.8_STEP_7.5';
+
+
+  const next =
+    snapshots.concat([
+      committedRecord
+    ]);
+
+
+  const written =
+    writeShadowSnapshotsV26(
+      next
+    );
+
+
+  if (!written) {
+
+    return {
+
+      ready: true,
+
+      committed: false,
+
+      reason:
+        'CANONICAL_WRITE_FAILED'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    committed: true,
+
+    duplicate: false,
+
+    reason:
+      'COMMIT_ACCEPTED',
+
+    lifecycleKey:
+      candidate.lifecycleKey,
+
+    committedRecord
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. IDEMPOTENCY / DUPLICATE PROTECTION AUDIT
+   ========================================================================= */
+
+function auditCanonicalCommitIdempotencyV26() {
+
+  /*
+   * -----------------------------------------------------------
+   * A. BACKUP CANONICAL STORE
+   * -----------------------------------------------------------
+   */
+
+  const originalRaw =
+    readShadowSnapshotsV26();
+
+
+  const original =
+    Array.isArray(
+      originalRaw
+    )
+      ? JSON.parse(
+          JSON.stringify(
+            originalRaw
+          )
+        )
+      : [];
+
+
+  const originalCount =
+    original.length;
+
+
+  const candidate =
+    buildSyntheticIdempotencyCandidateV26();
+
+
+  const lifecycleKey =
+    candidate.lifecycleKey;
+
+
+  /*
+   * Safety:
+   * Synthetic lifecycle key must not already exist.
+   */
+
+  const preExistingCount =
+    countLifecycleKeyInCanonicalStoreV26(
+      original,
+      lifecycleKey
+    );
+
+
+  if (
+    preExistingCount !== 0
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'SYNTHETIC_LIFECYCLE_KEY_ALREADY_EXISTS',
+
+      originalCount,
+
+      preExistingCount,
+
+      productionPredictionModified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  let firstCommit = null;
+
+  let secondCommit = null;
+
+  let afterFirst = [];
+
+  let afterSecond = [];
+
+  let rollbackWrite = false;
+
+  let afterRollback = [];
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * B. FIRST COMMIT
+     * ---------------------------------------------------------
+     */
+
+    firstCommit =
+      commitSyntheticIdempotencyCandidateV26(
+        candidate
+      );
+
+
+    const firstRaw =
+      readShadowSnapshotsV26();
+
+
+    afterFirst =
+      Array.isArray(
+        firstRaw
+      )
+        ? firstRaw
+        : [];
+
+
+    const firstCount =
+      afterFirst.length;
+
+
+    const firstSyntheticCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterFirst,
+        lifecycleKey
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. SECOND COMMIT — SAME lifecycleKey
+     * ---------------------------------------------------------
+     */
+
+    secondCommit =
+      commitSyntheticIdempotencyCandidateV26(
+        candidate
+      );
+
+
+    const secondRaw =
+      readShadowSnapshotsV26();
+
+
+    afterSecond =
+      Array.isArray(
+        secondRaw
+      )
+        ? secondRaw
+        : [];
+
+
+    const secondCount =
+      afterSecond.length;
+
+
+    const secondSyntheticCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterSecond,
+        lifecycleKey
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. IDEMPOTENCY CHECKS
+     * ---------------------------------------------------------
+     */
+
+    const checks = {
+
+      firstCommitAccepted:
+        Boolean(
+          firstCommit &&
+          firstCommit.committed === true
+        ),
+
+
+      firstCommitAddsExactlyOne:
+        firstCount ===
+          originalCount + 1,
+
+
+      firstLifecycleKeyCountOne:
+        firstSyntheticCount === 1,
+
+
+      secondCommitRejected:
+        Boolean(
+          secondCommit &&
+          secondCommit.committed === false
+        ),
+
+
+      duplicateReasonCorrect:
+        Boolean(
+          secondCommit &&
+          secondCommit.reason ===
+            'DUPLICATE_LIFECYCLE_KEY'
+        ),
+
+
+      secondCommitDoesNotGrowStore:
+        secondCount === firstCount,
+
+
+      lifecycleKeyStillUnique:
+        secondSyntheticCount === 1
+
+    };
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    rollbackWrite =
+      writeShadowSnapshotsV26(
+        JSON.parse(
+          JSON.stringify(
+            original
+          )
+        )
+      );
+
+
+    const rollbackRaw =
+      readShadowSnapshotsV26();
+
+
+    afterRollback =
+      Array.isArray(
+        rollbackRaw
+      )
+        ? rollbackRaw
+        : [];
+
+
+    const rollbackCount =
+      afterRollback.length;
+
+
+    const rollbackSyntheticCount =
+      countLifecycleKeyInCanonicalStoreV26(
+        afterRollback,
+        lifecycleKey
+      );
+
+
+    checks.rollbackWriteConfirmed =
+      rollbackWrite === true;
+
+
+    checks.originalCountRestored =
+      rollbackCount ===
+        originalCount;
+
+
+    checks.syntheticRemoved =
+      rollbackSyntheticCount === 0;
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. FINAL VERDICT
+     * ---------------------------------------------------------
+     */
+
+    const failedChecks =
+      Object.keys(
+        checks
+      ).filter(
+        key =>
+          checks[key] !== true
+      );
+
+
+    const passed =
+      failedChecks.length === 0;
+
+
+    return {
+
+      ready:
+
+       
