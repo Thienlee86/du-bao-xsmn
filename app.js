@@ -110122,3 +110122,298 @@ console.log(
   'FIX-03D.5.8 STEP 7.8B Recovery Integrity Audit Runner loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.8C — RECOVERY INTEGRITY AUDIT DEBUG BUTTON
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   D MUST BE UPPERCASE
+   fix03DDebugPanelV26
+   ========================================================================= */
+
+(function installFix03D58RecoveryIntegrityButtonV26() {
+
+  const buttonId =
+    'btnFix03D58RecoveryIntegrityAuditV26';
+
+
+  function install() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    if (
+      document.getElementById(
+        buttonId
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. FIND DEBUG PANEL
+     *
+     * IMPORTANT:
+     * D IS UPPERCASE
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      buttonId;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧪 D.5.8 Recovery Integrity Audit';
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. BUTTON STYLE
+     * ---------------------------------------------------------
+     */
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. MANUAL CLICK ONLY
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * Runner must exist.
+         */
+
+        if (
+          typeof
+            runCanonicalCommitRecoveryIntegrityAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.8',
+              '',
+              'RECOVERY INTEGRITY AUDIT',
+              '',
+              'STEP 7.8B Runner: NOT FOUND ❌',
+              '',
+              'Audit was NOT executed.',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * Explicit confirmation.
+         *
+         * Nothing runs until the user
+         * presses OK.
+         */
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.8',
+              '',
+              'CANONICAL RECOVERY INTEGRITY AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Backup canonical shadow store',
+              '2. Inject 1 corrupted synthetic transaction',
+              '3. Detect transaction corruption',
+              '4. Run recovery lần 1',
+              '5. Run recovery lần 2 để kiểm tra idempotency',
+              '6. Absolute rollback về dữ liệu ban đầu',
+              '7. Verify canonical integrity',
+              '',
+              'Auto Promotion: NO',
+              'Production Prediction Modified: NO',
+              '',
+              'Chỉ tiếp tục nếu bạn muốn chạy audit.'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          console.log(
+            'FIX-03D.5.8 STEP 7.8 cancelled by user'
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * F. RUN MANUALLY
+         * -----------------------------------------------------
+         */
+
+        try {
+
+          runCanonicalCommitRecoveryIntegrityAuditV26();
+
+        } catch (error) {
+
+          console.error(
+            'FIX-03D.5.8 STEP 7.8 button execution error',
+            error
+          );
+
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.8',
+              '',
+              'AUDIT EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              ),
+              '',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * G. ATTACH BUTTON
+     * ---------------------------------------------------------
+     */
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * H. INSTALL
+   *
+   * Debug panel may not exist yet when
+   * this block is evaluated.
+   * -----------------------------------------------------------
+   */
+
+  if (install()) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+  const maxAttempts =
+    20;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          install() ||
+          attempts >= maxAttempts
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.8C Recovery Integrity Debug Button loaded — MANUAL RUN ONLY'
+);
+
