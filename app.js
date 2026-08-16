@@ -101165,3 +101165,804 @@ console.log(
   'FIX-03D.5.8 STEP 7.3A Safe Canonical Commit/Rollback Engine loaded — NO AUTO RUN'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.3B — CANONICAL COMMIT / ROLLBACK
+   DEBUG RUNNER + SAFETY REPORT
+
+   Mục tiêu:
+   - Chạy engine STEP 7.3A theo thao tác thủ công.
+   - Hiển thị Canonical Commit / Read-back / Rollback.
+   - Không Auto Run.
+   - Không Auto Promotion.
+   - Không sửa Production Prediction Engine.
+   ========================================================================= */
+
+(function installFix03D58CanonicalRollbackAuditV26() {
+
+  function install() {
+
+    /*
+     * Không cài trùng button.
+     */
+
+    if (
+      document.getElementById(
+        'btnFix03D58CanonicalRollbackAuditV26'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      'btnFix03D58CanonicalRollbackAuditV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔬 D.5.8 Canonical Rollback Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * STEP 7.3A engine phải tồn tại.
+         */
+
+        if (
+          typeof
+            auditCanonicalCandidateCommitRollbackV26 !==
+            'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.3B',
+              'CANONICAL COMMIT / ROLLBACK AUDIT',
+              '',
+              'ENGINE NOT FOUND ❌',
+              '',
+              'STEP 7.3A is not available.'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        /*
+         * Cảnh báo rõ:
+         *
+         * Audit này có canonical write TẠM THỜI,
+         * sau đó engine 7.3A phải rollback.
+         */
+
+        const confirmed =
+          confirm(
+            [
+              'FIX-03D.5.8 STEP 7.3',
+              '',
+              'CANONICAL COMMIT / ROLLBACK AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Backup canonical shadow store',
+              '2. Ghi 1 synthetic candidate tạm thời',
+              '3. Read-back để kiểm tra',
+              '4. Rollback về dữ liệu ban đầu',
+              '5. Verify rollback',
+              '',
+              'Auto Promotion: NO',
+              'Production Prediction Modified: NO',
+              '',
+              'Chỉ tiếp tục nếu bạn muốn chạy audit.'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        let result;
+
+
+        try {
+
+          result =
+            auditCanonicalCandidateCommitRollbackV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.3B',
+              'CANONICAL COMMIT / ROLLBACK AUDIT',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              ),
+              '',
+              'Không chạy lại cho tới khi kiểm tra lỗi.'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        const checks =
+          result &&
+          result.checks &&
+          typeof result.checks ===
+            'object'
+            ? result.checks
+            : {};
+
+
+        const failedChecks =
+          result &&
+          Array.isArray(
+            result.failedChecks
+          )
+            ? result.failedChecks
+            : [];
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.3'
+        );
+
+        lines.push(
+          'CANONICAL COMMIT / ROLLBACK AUDIT'
+        );
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * OVERALL RESULT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          'Ready: ' +
+          (
+            result &&
+            result.ready === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Passed: ' +
+          (
+            result &&
+            result.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Reason: ' +
+          (
+            result &&
+            result.reason
+              ? result.reason
+              : '-'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CANDIDATE / BOUNDARY
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANDIDATE / BOUNDARY'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Candidate: ' +
+          (
+            result &&
+            result.candidate
+              ? 'CREATED'
+              : 'NONE'
+          )
+        );
+
+
+        lines.push(
+          'Boundary Passed: ' +
+          (
+            result &&
+            result.boundary &&
+            result.boundary.passed === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        if (
+          result &&
+          result.candidate
+        ) {
+
+          lines.push(
+            'Candidate Status: ' +
+            String(
+              result.candidate
+                .candidateStatus
+            )
+          );
+
+
+          lines.push(
+            'Approved: ' +
+            String(
+              result.candidate
+                .approved
+            )
+          );
+
+
+          lines.push(
+            'Gate Passed: ' +
+            String(
+              result.candidate
+                .gatePassed
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CANONICAL COMMIT
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'CANONICAL COMMIT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Original Count: ' +
+          (
+            result &&
+            result.originalCount != null
+              ? result.originalCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Commit Count: ' +
+          (
+            result &&
+            result.commitCount != null
+              ? result.commitCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Write: ' +
+          (
+            result &&
+            result.canonicalWrite &&
+            result.canonicalWrite.ready === true &&
+            result.canonicalWrite.written === true
+              ? 'CONFIRMED'
+              : 'NOT CONFIRMED'
+          )
+        );
+
+
+        lines.push(
+          'Read Back Count: ' +
+          (
+            result &&
+            result.readBackCount != null
+              ? result.readBackCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Candidate Read Back Count: ' +
+          (
+            result &&
+            result.candidateReadBackCount != null
+              ? result.candidateReadBackCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Candidate Read Back Match: ' +
+          (
+            result &&
+            result.candidateReadBackMatches === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * ROLLBACK
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'ROLLBACK'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Rollback Attempted: ' +
+          (
+            result &&
+            result.rollbackAttempted === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Rollback Write: ' +
+          (
+            result &&
+            result.rollbackWrite &&
+            result.rollbackWrite.ready === true
+              ? 'READY'
+              : 'NOT READY'
+          )
+        );
+
+
+        lines.push(
+          'Rollback Verified: ' +
+          (
+            result &&
+            result.rollbackVerified === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Final Count: ' +
+          (
+            result &&
+            result.finalCount != null
+              ? result.finalCount
+              : '-'
+          )
+        );
+
+
+        lines.push(
+          'Original Count Restored: ' +
+          (
+            result &&
+            result.finalCount != null &&
+            result.originalCount != null &&
+            result.finalCount ===
+              result.originalCount
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * SAFETY STATUS
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'SAFETY STATUS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        lines.push(
+          'Canonical Temporarily Modified: ' +
+          (
+            result &&
+            result
+              .canonicalStorageTemporarilyModified ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Canonical Restored: ' +
+          (
+            result &&
+            result.canonicalStorageRestored ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Production Prediction Modified: ' +
+          (
+            result &&
+            result.productionPredictionModified ===
+              true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        lines.push(
+          'Auto Promotion: ' +
+          (
+            result &&
+            result.autoPromotion === true
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+
+        if (
+          result &&
+          result.auditError
+        ) {
+
+          lines.push('');
+
+          lines.push(
+            'AUDIT ERROR: ' +
+            String(
+              result.auditError
+            )
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * CHECKS
+         * -----------------------------------------------------
+         */
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'AUDIT CHECKS'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+
+        const checkKeys =
+          Object.keys(
+            checks
+          );
+
+
+        if (!checkKeys.length) {
+
+          lines.push(
+            'NO CHECKS'
+          );
+
+        } else {
+
+          checkKeys.forEach(
+            key => {
+
+              lines.push(
+                key +
+                ': ' +
+                (
+                  checks[key] === true
+                    ? 'PASS'
+                    : 'FAIL'
+                )
+              );
+
+            }
+          );
+
+        }
+
+
+        lines.push('');
+
+
+        lines.push(
+          'Failed Checks: ' +
+          (
+            failedChecks.length
+              ? failedChecks.join(
+                  ', '
+                )
+              : 'NONE'
+          )
+        );
+
+
+        lines.push('');
+
+
+        /*
+         * -----------------------------------------------------
+         * FINAL SAFETY MESSAGE
+         * -----------------------------------------------------
+         */
+
+        if (
+          result &&
+          result.passed === true &&
+          result.rollbackVerified === true
+        ) {
+
+          lines.push(
+            'FINAL: PASS ✅'
+          );
+
+          lines.push(
+            'Canonical store restored.'
+          );
+
+        } else if (
+          result &&
+          result.rollbackVerified === true
+        ) {
+
+          lines.push(
+            'FINAL: AUDIT FAIL ⚠️'
+          );
+
+          lines.push(
+            'Rollback verified successfully.'
+          );
+
+        } else {
+
+          lines.push(
+            'FINAL: CRITICAL REVIEW REQUIRED ❌'
+          );
+
+          lines.push(
+            'Rollback was NOT verified.'
+          );
+
+          lines.push(
+            'DO NOT RUN THIS AUDIT AGAIN.'
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * ATTACH TO DEBUG PANEL ONLY
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03dDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(
+        button
+      );
+
+      return;
+
+    }
+
+
+    /*
+     * Nếu Debug Panel chưa load:
+     * chờ tối đa 20 lần.
+     *
+     * Không tạo floating button.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03dDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
+
+  }
+
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.3B Canonical Rollback Audit Runner loaded — MANUAL RUN ONLY'
+);
+
