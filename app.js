@@ -100185,3 +100185,983 @@ console.log(
   'FIX-03D.5.8 STEP 7.2 Persistence Write Safety loaded — ISOLATED TEMP STORAGE ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.3A — SAFE CANONICAL COMMIT / ROLLBACK ENGINE
+
+   Mục tiêu:
+   - Test đường ghi thật qua Canonical Persistence Writer.
+   - Chỉ candidate APPROVED + PENDING_COMMIT hợp lệ mới được thử commit.
+   - Backup canonical snapshots trước khi ghi.
+   - Read-back xác nhận candidate đã được ghi đúng.
+   - Luôn rollback về snapshot store ban đầu.
+   - Verify rollback sau cùng.
+   - Không Auto Promotion.
+   - Không thay Production Prediction Engine.
+
+   QUAN TRỌNG:
+   Đây là AUDIT có ghi TẠM THỜI vào canonical shadow store.
+   Trạng thái cuối cùng bắt buộc phải được restore về trạng thái ban đầu.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. SAFE DEEP CLONE
+   ========================================================================= */
+
+function cloneCanonicalSnapshotsForCommitAuditV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  try {
+
+    return JSON.parse(
+      JSON.stringify(
+        snapshots
+      )
+    );
+
+  } catch (error) {
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   2. CANONICAL SNAPSHOT SIGNATURE
+
+   Dùng để xác nhận rollback trả store về đúng nội dung ban đầu.
+   Không dùng cho Production Prediction.
+   ========================================================================= */
+
+function getCanonicalSnapshotSignatureV26(
+  snapshots
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return null;
+
+  }
+
+
+  try {
+
+    return JSON.stringify(
+      snapshots
+    );
+
+  } catch (error) {
+
+    return null;
+
+  }
+
+}
+
+
+/* =========================================================================
+   3. BUILD SYNTHETIC APPROVED CANDIDATE
+
+   Candidate này chỉ tồn tại phục vụ STEP 7.3 audit.
+   lifecycleKey được tạo riêng để tránh va chạm dữ liệu thật.
+   ========================================================================= */
+
+function buildSyntheticCanonicalCommitCandidateV26() {
+
+  const nonce =
+    Date.now().toString(36) +
+    '-' +
+    Math.random()
+      .toString(36)
+      .slice(2, 10);
+
+
+  return {
+
+    lifecycleKey:
+      'fix03d58-step73/' +
+      nonce +
+      '/db/RECENT/10',
+
+    province:
+      'fix03d58-step73-audit',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.91,
+
+    top10Rate:
+      0.82,
+
+    mrr:
+      0.73,
+
+    maturityScore:
+      95,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'STEP_7_3_CANONICAL_COMMIT_AUDIT',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    approvalReason:
+      'STEP_7_3_SYNTHETIC_APPROVAL',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    source:
+      'FIX-03D.5.8_STEP_7.3',
+
+    synthetic:
+      true,
+
+    auditOnly:
+      true,
+
+    createdAt:
+      new Date().toISOString(),
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. SAFE CANONICAL COMMIT / ROLLBACK AUDIT
+   ========================================================================= */
+
+function auditCanonicalCandidateCommitRollbackV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * A. REQUIRED CONTRACTS
+   * ---------------------------------------------------------
+   */
+
+  const readerReady =
+    typeof readCanonicalShadowStoreV26 ===
+      'function';
+
+  const writerReady =
+    typeof writeCanonicalShadowStoreV26 ===
+      'function';
+
+  const boundaryReady =
+    typeof validatePromotionCandidateForCommitV26 ===
+      'function';
+
+
+  if (
+    !readerReady ||
+    !writerReady ||
+    !boundaryReady
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_REQUIRED_CONTRACT_NOT_READY',
+
+      readerReady,
+
+      writerReady,
+
+      boundaryReady,
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. READ ORIGINAL CANONICAL STORE
+   * ---------------------------------------------------------
+   */
+
+  let originalRead;
+
+
+  try {
+
+    originalRead =
+      readCanonicalShadowStoreV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_INITIAL_CANONICAL_READ_ERROR',
+
+      error:
+        String(
+          error &&
+          error.message
+            ? error.message
+            : error
+        ),
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  if (
+    !originalRead ||
+    originalRead.ready !== true ||
+    !Array.isArray(
+      originalRead.snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_CANONICAL_STORE_NOT_READY',
+
+      canonicalRead:
+        originalRead || null,
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. BACKUP ORIGINAL STORE
+   * ---------------------------------------------------------
+   */
+
+  const originalSnapshots =
+    cloneCanonicalSnapshotsForCommitAuditV26(
+      originalRead.snapshots
+    );
+
+
+  if (!originalSnapshots) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_BACKUP_CLONE_FAILED',
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  const originalSignature =
+    getCanonicalSnapshotSignatureV26(
+      originalSnapshots
+    );
+
+
+  if (
+    originalSignature === null
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_BACKUP_SIGNATURE_FAILED',
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. BUILD + VALIDATE SYNTHETIC CANDIDATE
+   * ---------------------------------------------------------
+   */
+
+  const candidate =
+    buildSyntheticCanonicalCommitCandidateV26();
+
+
+  const boundary =
+    validatePromotionCandidateForCommitV26(
+      candidate
+    );
+
+
+  if (
+    !boundary ||
+    boundary.passed !== true
+  ) {
+
+    return {
+
+      ready: true,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_BOUNDARY_REJECTED',
+
+      candidate,
+
+      boundary:
+        boundary || null,
+
+      originalCount:
+        originalSnapshots.length,
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. DUPLICATE PRE-CHECK
+   *
+   * Synthetic lifecycleKey tuyệt đối không được tồn tại trước.
+   * ---------------------------------------------------------
+   */
+
+  const duplicateBefore =
+    originalSnapshots.some(
+      item =>
+        item &&
+        item.lifecycleKey ===
+          candidate.lifecycleKey
+    );
+
+
+  if (duplicateBefore) {
+
+    return {
+
+      ready: true,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_SYNTHETIC_KEY_ALREADY_EXISTS',
+
+      candidate,
+
+      boundary,
+
+      originalCount:
+        originalSnapshots.length,
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. PREPARE TEMPORARY CANONICAL STATE
+   * ---------------------------------------------------------
+   */
+
+  const commitRows =
+    cloneCanonicalSnapshotsForCommitAuditV26(
+      originalSnapshots
+    );
+
+
+  if (!commitRows) {
+
+    return {
+
+      ready: true,
+
+      passed: false,
+
+      reason:
+        'STEP_7_3_COMMIT_CLONE_FAILED',
+
+      candidate,
+
+      boundary,
+
+      originalCount:
+        originalSnapshots.length,
+
+      canonicalWriteAttempted:
+        false,
+
+      rollbackAttempted:
+        false,
+
+      rollbackVerified:
+        false,
+
+      autoPromotion:
+        false
+
+    };
+
+  }
+
+
+  commitRows.push(
+    cloneCanonicalSnapshotsForCommitAuditV26(
+      [
+        candidate
+      ]
+    )[0]
+  );
+
+
+  /*
+   * ---------------------------------------------------------
+   * G. STATE VARIABLES
+   * ---------------------------------------------------------
+   */
+
+  let canonicalWrite = null;
+
+  let readBack = null;
+
+  let readBackCount = 0;
+
+  let candidateReadBackCount = 0;
+
+  let candidateReadBackMatches =
+    false;
+
+  let rollbackWrite = null;
+
+  let rollbackRead = null;
+
+  let rollbackVerified =
+    false;
+
+  let rollbackAttempted =
+    false;
+
+  let auditError = null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * H. CANONICAL WRITE + READ BACK
+   * ---------------------------------------------------------
+   */
+
+  try {
+
+    canonicalWrite =
+      writeCanonicalShadowStoreV26(
+        commitRows
+      );
+
+
+    if (
+      !canonicalWrite ||
+      canonicalWrite.ready !== true ||
+      canonicalWrite.written !== true
+    ) {
+
+      throw new Error(
+        'CANONICAL_COMMIT_WRITE_NOT_CONFIRMED'
+      );
+
+    }
+
+
+    readBack =
+      readCanonicalShadowStoreV26();
+
+
+    if (
+      !readBack ||
+      readBack.ready !== true ||
+      !Array.isArray(
+        readBack.snapshots
+      )
+    ) {
+
+      throw new Error(
+        'CANONICAL_COMMIT_READ_BACK_FAILED'
+      );
+
+    }
+
+
+    readBackCount =
+      readBack.snapshots.length;
+
+
+    const matches =
+      readBack.snapshots.filter(
+        item =>
+          item &&
+          item.lifecycleKey ===
+            candidate.lifecycleKey
+      );
+
+
+    candidateReadBackCount =
+      matches.length;
+
+
+    if (
+      matches.length === 1
+    ) {
+
+      const stored =
+        matches[0];
+
+
+      candidateReadBackMatches =
+        stored.province ===
+          candidate.province &&
+        stored.prize ===
+          candidate.prize &&
+        stored.model ===
+          candidate.model &&
+        Number(
+          stored.window
+        ) ===
+          Number(
+            candidate.window
+          ) &&
+        stored.gatePassed ===
+          true &&
+        stored.approved ===
+          true &&
+        stored.candidateStatus ===
+          'PENDING_COMMIT';
+
+    }
+
+  } catch (error) {
+
+    auditError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+  } finally {
+
+    /*
+     * -------------------------------------------------------
+     * I. ROLLBACK
+     *
+     * Sau khi canonical write đã được thử,
+     * rollback LUÔN được thực hiện.
+     * -------------------------------------------------------
+     */
+
+    rollbackAttempted =
+      true;
+
+
+    try {
+
+      rollbackWrite =
+        writeCanonicalShadowStoreV26(
+          originalSnapshots
+        );
+
+
+      if (
+        rollbackWrite &&
+        rollbackWrite.ready === true
+      ) {
+
+        rollbackRead =
+          readCanonicalShadowStoreV26();
+
+
+        if (
+          rollbackRead &&
+          rollbackRead.ready === true &&
+          Array.isArray(
+            rollbackRead.snapshots
+          )
+        ) {
+
+          const rollbackSignature =
+            getCanonicalSnapshotSignatureV26(
+              rollbackRead.snapshots
+            );
+
+
+          rollbackVerified =
+            rollbackSignature ===
+              originalSignature;
+
+        }
+
+      }
+
+    } catch (rollbackError) {
+
+      rollbackVerified =
+        false;
+
+
+      if (!auditError) {
+
+        auditError =
+          'ROLLBACK_ERROR: ' +
+          String(
+            rollbackError &&
+            rollbackError.message
+              ? rollbackError.message
+              : rollbackError
+          );
+
+      } else {
+
+        auditError +=
+          ' | ROLLBACK_ERROR: ' +
+          String(
+            rollbackError &&
+            rollbackError.message
+              ? rollbackError.message
+              : rollbackError
+          );
+
+      }
+
+    }
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * J. FINAL CHECKS
+   * ---------------------------------------------------------
+   */
+
+  const checks = {
+
+    boundaryPassed:
+      boundary.passed === true,
+
+    originalBackupValid:
+      Array.isArray(
+        originalSnapshots
+      ),
+
+    commitWriteConfirmed:
+      Boolean(
+        canonicalWrite &&
+        canonicalWrite.ready === true &&
+        canonicalWrite.written === true
+      ),
+
+    readBackValid:
+      Boolean(
+        readBack &&
+        readBack.ready === true &&
+        Array.isArray(
+          readBack.snapshots
+        )
+      ),
+
+    countIncreasedByOne:
+      readBackCount ===
+        originalSnapshots.length + 1,
+
+    candidateExactlyOnce:
+      candidateReadBackCount === 1,
+
+    candidateReadBackMatches:
+      candidateReadBackMatches === true,
+
+    rollbackAttempted:
+      rollbackAttempted === true,
+
+    rollbackWriteReady:
+      Boolean(
+        rollbackWrite &&
+        rollbackWrite.ready === true
+      ),
+
+    rollbackVerified:
+      rollbackVerified === true,
+
+    noAuditError:
+      auditError === null
+
+  };
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  /*
+   * ---------------------------------------------------------
+   * K. FINAL RESULT
+   * ---------------------------------------------------------
+   */
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_COMMIT_ROLLBACK_SAFETY_VALID'
+        : (
+            rollbackVerified
+              ? 'CANONICAL_COMMIT_AUDIT_FAILED_ROLLBACK_OK'
+              : 'CRITICAL_CANONICAL_ROLLBACK_NOT_VERIFIED'
+          ),
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_3A',
+
+    mode:
+      'SAFE_CANONICAL_COMMIT_ROLLBACK_AUDIT',
+
+    candidate,
+
+    boundary,
+
+    originalCount:
+      originalSnapshots.length,
+
+    commitCount:
+      commitRows.length,
+
+    readBackCount,
+
+    candidateReadBackCount,
+
+    candidateReadBackMatches,
+
+    canonicalWrite,
+
+    rollbackAttempted,
+
+    rollbackWrite,
+
+    rollbackVerified,
+
+    finalCount:
+      (
+        rollbackRead &&
+        Array.isArray(
+          rollbackRead.snapshots
+        )
+      )
+        ? rollbackRead.snapshots.length
+        : null,
+
+    auditError,
+
+    checks,
+
+    failedChecks,
+
+    /*
+     * Production Prediction Engine:
+     * KHÔNG thay đổi.
+     *
+     * Canonical shadow storage:
+     * Có thay đổi TẠM THỜI trong audit.
+     */
+    canonicalStorageTemporarilyModified:
+      Boolean(
+        canonicalWrite &&
+        canonicalWrite.ready === true &&
+        canonicalWrite.written === true
+      ),
+
+    canonicalStorageRestored:
+      rollbackVerified,
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.3A Safe Canonical Commit/Rollback Engine loaded — NO AUTO RUN'
+);
+
