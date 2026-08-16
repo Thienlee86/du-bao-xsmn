@@ -106407,3 +106407,312 @@ function runCanonicalCommitConcurrencyAuditV26() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.6C — CONCURRENCY AUDIT DEBUG BUTTON
+
+   PURPOSE:
+   - Add ONE manual debug button.
+   - Call STEP 7.6B runner only when clicked.
+   - No auto audit.
+   - No auto promotion.
+   - No production prediction modification.
+
+   IMPORTANT:
+   Debug Panel ID = fix03DDebugPanelV26
+   D MUST BE UPPERCASE.
+   ========================================================================= */
+
+(function installFix03D58ConcurrencyAuditButtonV26() {
+
+  function install() {
+
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const buttonId =
+      'btnFix03D58ConcurrencyAuditV26';
+
+
+    if (
+      document.getElementById(
+        buttonId
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      buttonId;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔀 D.5.8 Concurrency Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. CLICK HANDLER
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
+      function () {
+
+        /*
+         * STEP 7.6B runner must exist.
+         */
+
+        if (
+          typeof
+            runCanonicalCommitConcurrencyAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.6',
+              '',
+              'CONCURRENCY AUDIT',
+              '',
+              'STEP 7.6B Runner: NOT FOUND ❌',
+              '',
+              'Audit was NOT executed.',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        /*
+         * -----------------------------------------------------
+         * SAFETY CONFIRMATION
+         * -----------------------------------------------------
+         */
+
+        const confirmed =
+          confirm(
+            [
+              'FIX-03D.5.8 STEP 7.6',
+              '',
+              'CANONICAL COMMIT',
+              'CONCURRENCY / RACE-CONDITION AUDIT',
+              '',
+              'Audit này sẽ:',
+              '',
+              '1. Backup canonical store',
+              '2. Tạo synthetic candidate',
+              '3. Mô phỏng 2 transaction cùng đọc',
+              '4. Commit Transaction A',
+              '5. Revalidate Transaction B',
+              '6. Verify duplicate bị chặn',
+              '7. Rollback canonical store',
+              '8. Verify rollback',
+              '',
+              'MANUAL RUN ONLY',
+              'Auto Promotion: NO',
+              '',
+              'Tiếp tục chạy audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        /*
+         * STEP 7.6B owns execution/reporting.
+         */
+
+        runCanonicalCommitConcurrencyAuditV26();
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. ATTACH TO EXISTING DEBUG PANEL
+     *
+     * IMPORTANT:
+     *
+     * fix03DDebugPanelV26
+     *       ^^
+     *       D HOA
+     * ---------------------------------------------------------
+     */
+
+    function attachToPanel() {
+
+      const panel =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (!panel) {
+
+        return false;
+
+      }
+
+
+      /*
+       * Guard again before append.
+       */
+
+      if (
+        document.getElementById(
+          buttonId
+        )
+      ) {
+
+        return true;
+
+      }
+
+
+      panel.appendChild(
+        button
+      );
+
+
+      console.log(
+        'FIX-03D.5.8 STEP 7.6C Concurrency Audit button attached'
+      );
+
+
+      return true;
+
+    }
+
+
+    /*
+     * Try immediately.
+     */
+
+    if (
+      attachToPanel()
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * Debug Panel may appear later.
+     *
+     * Retry only.
+     * NO audit execution here.
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    const timer =
+      setInterval(
+        function () {
+
+          attempts++;
+
+
+          if (
+            attachToPanel() ||
+            attempts >=
+              maxAttempts
+          ) {
+
+            clearInterval(
+              timer
+            );
+
+          }
+
+        },
+        500
+      );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * E. INSTALL ONLY
+   *
+   * This installs the button.
+   * It DOES NOT run the audit.
+   * -----------------------------------------------------------
+   */
+
+  if (
+    document.readyState ===
+      'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.6C Concurrency Audit Button loaded — MANUAL RUN ONLY'
+);
+
