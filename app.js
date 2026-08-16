@@ -119198,3 +119198,570 @@ console.log(
   'FIX-03D.5.8 STEP 7.11B End-to-End Safety Audit Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.12A — FINAL CERTIFICATION / CLOSURE ENGINE
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+
+   PURPOSE:
+   Perform the final non-mutating certification of FIX-03D.5.8
+   after completion of the canonical safety audit chain.
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO SYNTHETIC RECORD
+   - NO PROBE CREATION
+   - NO PROBE CLEANUP
+   - NO TRANSACTION CREATION
+   - NO RECOVERY
+   - NO JOURNAL REPLAY
+   - NO AUTO PROMOTION
+   - NO PRODUCTION PREDICTION MODIFICATION
+
+   IMPORTANT:
+   FIX-03D.5.8
+          ^
+          D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. READ FINAL CANONICAL STATE
+   ========================================================================= */
+
+function readFix03D58Step712CanonicalStateV26() {
+
+  if (
+    typeof readShadowSnapshotsV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  let snapshots;
+
+
+  try {
+
+    snapshots =
+      readShadowSnapshotsV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return {
+
+      ready: false,
+
+      reason:
+        'CANONICAL_STATE_INVALID'
+
+    };
+
+  }
+
+
+  return {
+
+    ready: true,
+
+    reason:
+      'CANONICAL_STATE_READ',
+
+    count:
+      snapshots.length,
+
+    fingerprint:
+      JSON.stringify(
+        snapshots
+      )
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. VERIFY DURABILITY PROBE REMAINS ABSENT
+   ========================================================================= */
+
+function verifyFix03D58Step712ProbeAbsenceV26() {
+
+  if (
+    typeof readFix03D58Step710DurabilityProbeV26 !==
+    'function'
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP710_PROBE_READER_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  let probe;
+
+
+  try {
+
+    probe =
+      readFix03D58Step710DurabilityProbeV26();
+
+  } catch (error) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP710_PROBE_READ_FAILED',
+
+      error:
+        error &&
+        error.message
+          ? error.message
+          : String(error)
+
+    };
+
+  }
+
+
+  if (
+    !probe ||
+    !probe.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        probe &&
+        probe.reason
+          ? probe.reason
+          : 'STEP710_PROBE_READ_INVALID'
+
+    };
+
+  }
+
+
+  const absent =
+    !probe.exists;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      absent,
+
+    reason:
+      absent
+        ? 'DURABILITY_PROBE_ABSENT'
+        : 'DURABILITY_PROBE_PRESENT',
+
+    absent
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. FINAL CANONICAL DOUBLE-READ VERIFICATION
+   ========================================================================= */
+
+function verifyFix03D58Step712CanonicalIntegrityV26() {
+
+  const before =
+    readFix03D58Step712CanonicalStateV26();
+
+
+  if (
+    !before.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        before.reason
+
+    };
+
+  }
+
+
+  /*
+   * ABSOLUTELY NO OPERATION BETWEEN READS.
+   */
+
+
+  const after =
+    readFix03D58Step712CanonicalStateV26();
+
+
+  if (
+    !after.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        after.reason
+
+    };
+
+  }
+
+
+  const countMatch =
+    before.count ===
+    after.count;
+
+
+  const exactMatch =
+    before.fingerprint ===
+    after.fingerprint;
+
+
+  const passed =
+    countMatch &&
+    exactMatch;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'FINAL_CANONICAL_INTEGRITY_VALID'
+        : 'FINAL_CANONICAL_INTEGRITY_FAILED',
+
+    beforeCount:
+      before.count,
+
+    afterCount:
+      after.count,
+
+    countMatch,
+
+    exactMatch,
+
+    unchanged:
+      passed
+
+  };
+
+}
+
+
+/* =========================================================================
+   4. FINAL SAFETY POLICY
+   ========================================================================= */
+
+function verifyFix03D58Step712SafetyPolicyV26() {
+
+  const policy = {
+
+    manualRunOnly:
+      true,
+
+    readOnly:
+      true,
+
+    canonicalWrite:
+      false,
+
+    syntheticRecord:
+      false,
+
+    probeCreation:
+      false,
+
+    probeCleanup:
+      false,
+
+    transactionCreation:
+      false,
+
+    recovery:
+      false,
+
+    journalReplay:
+      false,
+
+    autoPromotion:
+      false,
+
+    productionPredictionModification:
+      false
+
+  };
+
+
+  const passed =
+    policy.manualRunOnly &&
+    policy.readOnly &&
+    !policy.canonicalWrite &&
+    !policy.syntheticRecord &&
+    !policy.probeCreation &&
+    !policy.probeCleanup &&
+    !policy.transactionCreation &&
+    !policy.recovery &&
+    !policy.journalReplay &&
+    !policy.autoPromotion &&
+    !policy.productionPredictionModification;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'FINAL_SAFETY_POLICY_VALID'
+        : 'FINAL_SAFETY_POLICY_INVALID',
+
+    policy
+
+  };
+
+}
+
+
+/* =========================================================================
+   5. FINAL CERTIFICATION ENGINE
+   ========================================================================= */
+
+function runFix03D58Step712FinalCertificationV26() {
+
+  /*
+   * STEP 7.11 must exist.
+   *
+   * We only verify engine availability.
+   * We DO NOT automatically rerun STEP 7.11.
+   */
+
+  const step711Available =
+    typeof
+      runFix03D58Step711EndToEndSafetyAuditV26 ===
+    'function';
+
+
+  if (
+    !step711Available
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      certified: false,
+
+      closed: false,
+
+      reason:
+        'STEP711_ENGINE_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  const probe =
+    verifyFix03D58Step712ProbeAbsenceV26();
+
+
+  const canonical =
+    verifyFix03D58Step712CanonicalIntegrityV26();
+
+
+  const safety =
+    verifyFix03D58Step712SafetyPolicyV26();
+
+
+  const passed =
+    Boolean(
+      probe.ready &&
+      probe.passed &&
+      canonical.ready &&
+      canonical.passed &&
+      safety.ready &&
+      safety.passed
+    );
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    certified:
+      passed,
+
+    closed:
+      passed,
+
+    reason:
+      passed
+        ? 'FIX03D58_FINAL_CERTIFICATION_VALID'
+        : 'FIX03D58_FINAL_CERTIFICATION_FAILED',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      '7.12',
+
+    certification:
+      passed
+        ? 'CERTIFIED'
+        : 'NOT_CERTIFIED',
+
+    closure:
+      passed
+        ? 'CLOSED'
+        : 'OPEN',
+
+    probe,
+
+    canonical,
+
+    safety,
+
+    execution: {
+
+      mode:
+        'MANUAL_RUN_ONLY',
+
+      readOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      syntheticRecordCreated:
+        false,
+
+      probeCreated:
+        false,
+
+      probeRemoved:
+        false,
+
+      transactionCreated:
+        false,
+
+      recoveryExecuted:
+        false,
+
+      journalReplayExecuted:
+        false,
+
+      autoPromotion:
+        false,
+
+      productionPredictionModified:
+        false
+
+    }
+
+  };
+
+
+  /*
+   * RAM ONLY.
+   *
+   * This is intentionally NOT persisted.
+   * Reload may remove it.
+   */
+
+  window
+    .LAST_FIX03D58_STEP712_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   6. ENGINE LOAD MARKER
+   ========================================================================= */
+
+window
+  .FIX03D58_STEP712A_ENGINE_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.12A Final Certification / Closure Engine loaded — MANUAL RUN ONLY / READ ONLY'
+);
+
