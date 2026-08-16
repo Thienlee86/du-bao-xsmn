@@ -127724,3 +127724,496 @@ console.log(
   ].join(' / ')
 );
 
+/* =========================================================================
+   FIX-03D.5.9
+   STEP 8.3B — PRODUCTION CANDIDATE BOUNDARY
+   MANUAL RUNNER + BUTTON
+
+   MODE:
+   - MANUAL RUN ONLY
+   - READ ONLY
+   - FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO STORAGE WRITE
+   - NO AUTO PROMOTION
+   - NO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID:
+   fix03DDebugPanelV26
+         ^
+         D MUST REMAIN UPPERCASE
+   ========================================================================= */
+
+
+function runFix03D59Step83BProductionCandidateBoundaryV26() {
+
+  /*
+   * ---------------------------------------------------------
+   * 1. PREREQUISITE — 8.2C MUST EXIST IN CURRENT RAM SESSION
+   * ---------------------------------------------------------
+   */
+
+  const source =
+    window
+      .LAST_FIX03D59_STEP82C_RESULT;
+
+
+  if (
+    !source ||
+    typeof source !== 'object'
+  ) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3B',
+        '',
+        'Ready: NO ❌',
+        'Reason: STEP_82C_RESULT_NOT_AVAILABLE',
+        '',
+        'Run STEP 8.2 classification first.',
+        '',
+        'Nothing executed automatically.',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_82C_RESULT_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. ENGINE MUST EXIST
+   * ---------------------------------------------------------
+   */
+
+  if (
+    typeof
+      buildProductionCandidateBoundaryV26 !==
+    'function'
+  ) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3B',
+        '',
+        'Ready: NO ❌',
+        'Reason: STEP_83A_ENGINE_NOT_AVAILABLE',
+        '',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83A_ENGINE_NOT_AVAILABLE'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. MANUAL ENGINE INVOCATION
+   * ---------------------------------------------------------
+   */
+
+  let result;
+
+
+  try {
+
+    result =
+      buildProductionCandidateBoundaryV26(
+        source
+      );
+
+  } catch (error) {
+
+    console.error(
+      'FIX-03D.5.9 STEP 8.3B error',
+      error
+    );
+
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3B',
+        '',
+        'ENGINE ERROR ❌',
+        '',
+        error &&
+        error.message
+          ? error.message
+          : String(error),
+        '',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83A_ENGINE_EXCEPTION'
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. MOBILE-COMPACT REPORT
+   * ---------------------------------------------------------
+   */
+
+  const counts =
+    (
+      result &&
+      result.counts
+    )
+      ? result.counts
+      : {};
+
+
+  const identity =
+    (
+      result &&
+      result.identity
+    )
+      ? result.identity
+      : {};
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.3',
+
+    'PRODUCTION CANDIDATE BOUNDARY',
+
+    '',
+
+    'Ready: ' +
+      (
+        result &&
+        result.ready === true
+          ? 'YES'
+          : 'NO'
+      ),
+
+    'Passed: ' +
+      (
+        result &&
+        result.passed === true
+          ? 'YES ✅'
+          : 'NO ❌'
+      ),
+
+    'Reason:',
+
+    result &&
+    result.reason
+      ? result.reason
+      : 'UNKNOWN',
+
+    '',
+
+    'Eligible: ' +
+      (
+        Number.isFinite(
+          counts.eligible
+        )
+          ? counts.eligible
+          : '-'
+      ),
+
+    'Candidates: ' +
+      (
+        Number.isFinite(
+          counts.candidates
+        )
+          ? counts.candidates
+          : '-'
+      ),
+
+    'Rejected: ' +
+      (
+        Number.isFinite(
+          counts.rejected
+        )
+          ? counts.rejected
+          : '-'
+      ),
+
+    'Balanced: ' +
+      (
+        counts.balanced === true
+          ? 'YES ✅'
+          : 'NO ❌'
+      ),
+
+    'Unique Identity: ' +
+      (
+        identity.unique === true
+          ? 'YES ✅'
+          : 'NO ❌'
+      ),
+
+    '',
+
+    'READ ONLY',
+
+    'Canonical Write: NO',
+
+    'Production Write: NO',
+
+    'Storage Write: NO',
+
+    'Auto Promotion: NO'
+
+  ];
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  /*
+   * RAM ALIAS ONLY.
+   */
+
+  window
+    .LAST_FIX03D59_STEP83B_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   STEP 8.3B — MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83BButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step83BBoundaryV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🚧 D.5.9 Production Candidate Boundary';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * NEVER auto-run 8.2 prerequisites.
+         */
+
+        if (
+          !window
+            .LAST_FIX03D59_STEP82C_RESULT
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.3B',
+              '',
+              '8.2C RAM Result: NOT AVAILABLE ⚠️',
+              '',
+              'Run the STEP 8.2 classification chain first.',
+              '',
+              'Then return to this button.',
+              '',
+              'Nothing executed automatically.'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.9 STEP 8.3',
+              '',
+              'PRODUCTION CANDIDATE BOUNDARY',
+              '',
+              'MANUAL RUN ONLY',
+              'READ ONLY',
+              'FAIL CLOSED',
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Storage Write: NO',
+              'Auto Promotion: NO',
+              '',
+              'Run boundary audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        runFix03D59Step83BProductionCandidateBoundaryV26();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * UI ATTACHMENT ONLY.
+   * ENGINE IS NEVER AUTO-RUN.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
+
+
+window
+  .FIX03D59_STEP83B_RUNNER_LOADED =
+  true;
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.3B Manual Runner loaded — MANUAL RUN ONLY / READ ONLY / NO PROMOTION'
+);
+
