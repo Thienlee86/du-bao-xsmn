@@ -112271,3 +112271,188 @@ console.log(
   'FIX-03D.5.8 STEP 7.9B Transaction Journal / Recovery Replay Runner loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.9C — JOURNAL REPLAY AUDIT DEBUG BUTTON
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   D MUST BE UPPERCASE
+   ========================================================================= */
+
+(function installFix03D59JournalReplayButtonV26() {
+
+  const BUTTON_ID =
+    'btnFix03D59JournalReplayAuditV26';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '📓 D.5.8 Journal Replay Audit';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            runCanonicalTransactionJournalReplayAuditV26 !==
+          'function'
+        ) {
+
+          alert(
+            'FIX-03D.5.8 STEP 7.9B Runner NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        const confirmed =
+          window.confirm(
+            [
+              'FIX-03D.5.8 STEP 7.9',
+              '',
+              'CANONICAL TRANSACTION JOURNAL',
+              'RECOVERY REPLAY AUDIT',
+              '',
+              'MANUAL RUN ONLY',
+              'NO AUTO PROMOTION',
+              'ABSOLUTE ROLLBACK',
+              '',
+              'Run audit?'
+            ].join('\n')
+          );
+
+
+        if (!confirmed) {
+
+          return;
+
+        }
+
+
+        runCanonicalTransactionJournalReplayAuditV26();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D.5.8 STEP 7.9C Journal Replay button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Panel may be created later.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.9C Journal Replay Debug Button loaded — MANUAL RUN ONLY'
+);
+
