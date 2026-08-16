@@ -110417,3 +110417,1236 @@ console.log(
   'FIX-03D.5.8 STEP 7.8C Recovery Integrity Debug Button loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.9A — CANONICAL COMMIT TRANSACTION JOURNAL /
+               DETERMINISTIC RECOVERY REPLAY AUDIT ENGINE
+
+   MANUAL RUN ONLY
+   NO AUTO PROMOTION
+   NO PRODUCTION PREDICTION MODIFICATION
+   ABSOLUTE ROLLBACK
+
+   PURPOSE:
+   - Build a synthetic canonical transaction journal entry.
+   - Simulate an interrupted transaction associated with that journal.
+   - Detect the incomplete transaction deterministically.
+   - Replay recovery from the journal.
+   - Verify second replay is idempotent.
+   - Restore the exact original canonical storage.
+
+   IMPORTANT:
+   - THIS IS AN AUDIT ENGINE ONLY.
+   - NO AUTO RUN.
+   - NO BUTTON IN STEP 7.9A.
+   - D MUST REMAIN UPPERCASE.
+   ========================================================================= */
+
+
+/* =========================================================================
+   1. BUILD SYNTHETIC JOURNAL CANDIDATE
+   ========================================================================= */
+
+function buildSyntheticJournalReplayCandidateV26() {
+
+  const lifecycleKey =
+    'synthetic-journal-replay-audit/db/RECENT/10';
+
+
+  return {
+
+    lifecycleKey,
+
+    province:
+      'synthetic-journal-replay-audit',
+
+    prize:
+      'db',
+
+    model:
+      'RECENT',
+
+    window:
+      10,
+
+    verified:
+      12,
+
+    rankedCoverage:
+      0.93,
+
+    top10Rate:
+      0.84,
+
+    mrr:
+      0.75,
+
+    maturityScore:
+      97,
+
+    maturityState:
+      'MATURE',
+
+    eligible:
+      true,
+
+    readinessStatus:
+      'READY',
+
+    readinessReason:
+      'SYNTHETIC_JOURNAL_REPLAY_AUDIT',
+
+    gatePassed:
+      true,
+
+    approved:
+      true,
+
+    approvalStatus:
+      'APPROVED',
+
+    candidateStatus:
+      'PENDING_COMMIT',
+
+    pendingCommit:
+      true,
+
+    autoPromotion:
+      false,
+
+    synthetic:
+      true,
+
+    syntheticAudit:
+      'FIX-03D.5.8_STEP_7.9'
+
+  };
+
+}
+
+
+/* =========================================================================
+   2. BUILD SYNTHETIC TRANSACTION JOURNAL ENTRY
+   ========================================================================= */
+
+function buildSyntheticCanonicalJournalEntryV26(
+  candidate
+) {
+
+  const lifecycleKey =
+    candidate &&
+    candidate.lifecycleKey
+      ? String(
+          candidate.lifecycleKey
+        )
+      : '';
+
+
+  return {
+
+    journalVersion:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_9A',
+
+    journalType:
+      'CANONICAL_COMMIT_TRANSACTION',
+
+    transactionId:
+      [
+        'journal-replay-audit',
+        Date.now(),
+        Math.random()
+          .toString(36)
+          .slice(2, 10)
+      ].join('-'),
+
+    lifecycleKey,
+
+    state:
+      'COMMITTING',
+
+    started:
+      true,
+
+    completed:
+      false,
+
+    interrupted:
+      true,
+
+    recoveryRequired:
+      true,
+
+    synthetic:
+      true,
+
+    createdAt:
+      new Date().toISOString()
+
+  };
+
+}
+
+
+/* =========================================================================
+   3. BUILD INTERRUPTED RECORD FROM JOURNAL
+   ========================================================================= */
+
+function buildJournalInterruptedRecordV26(
+  candidate,
+  journal
+) {
+
+  const record =
+    JSON.parse(
+      JSON.stringify(
+        candidate
+      )
+    );
+
+
+  record.candidateStatus =
+    'COMMITTING';
+
+  record.pendingCommit =
+    true;
+
+  record.commitInterrupted =
+    true;
+
+  record.recoveryRequired =
+    true;
+
+  record.transactionId =
+    journal.transactionId;
+
+  record.transactionJournalState =
+    journal.state;
+
+  record.syntheticJournalReplay =
+    true;
+
+
+  return record;
+
+}
+
+
+/* =========================================================================
+   4. COUNT JOURNAL TRANSACTION RECORDS
+   ========================================================================= */
+
+function countJournalTransactionRecordsV26(
+  snapshots,
+  lifecycleKey,
+  transactionId
+) {
+
+  if (
+    !Array.isArray(
+      snapshots
+    )
+  ) {
+
+    return 0;
+
+  }
+
+
+  return snapshots.filter(
+    item => {
+
+      if (
+        !item ||
+        typeof item !==
+          'object'
+      ) {
+
+        return false;
+
+      }
+
+
+      return (
+        String(
+          item.lifecycleKey || ''
+        ) ===
+          String(
+            lifecycleKey || ''
+          ) &&
+
+        String(
+          item.transactionId || ''
+        ) ===
+          String(
+            transactionId || ''
+          )
+      );
+
+    }
+  ).length;
+
+}
+
+
+/* =========================================================================
+   5. DETECT JOURNAL RECOVERY REQUIREMENT
+   ========================================================================= */
+
+function detectCanonicalJournalRecoveryRequiredV26(
+  snapshots,
+  journal
+) {
+
+  if (
+    !journal ||
+    typeof journal !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      required: false,
+
+      reason:
+        'INVALID_JOURNAL'
+
+    };
+
+  }
+
+
+  const lifecycleKey =
+    String(
+      journal.lifecycleKey || ''
+    );
+
+
+  const transactionId =
+    String(
+      journal.transactionId || ''
+    );
+
+
+  if (
+    !lifecycleKey ||
+    !transactionId
+  ) {
+
+    return {
+
+      ready: false,
+
+      required: false,
+
+      reason:
+        'INVALID_JOURNAL_IDENTITY'
+
+    };
+
+  }
+
+
+  const rows =
+    Array.isArray(
+      snapshots
+    )
+      ? snapshots
+      : [];
+
+
+  const matches =
+    rows.filter(
+      item => {
+
+        if (
+          !item ||
+          typeof item !==
+            'object'
+        ) {
+
+          return false;
+
+        }
+
+
+        return (
+          String(
+            item.lifecycleKey || ''
+          ) === lifecycleKey &&
+
+          String(
+            item.transactionId || ''
+          ) === transactionId
+        );
+
+      }
+    );
+
+
+  const interrupted =
+    matches.some(
+      item =>
+        item.commitInterrupted ===
+          true ||
+        item.recoveryRequired ===
+          true ||
+        item.candidateStatus ===
+          'COMMITTING'
+    );
+
+
+  return {
+
+    ready: true,
+
+    required:
+      interrupted,
+
+    reason:
+      interrupted
+        ? 'JOURNAL_RECOVERY_REQUIRED'
+        : 'JOURNAL_RECOVERY_NOT_REQUIRED',
+
+    lifecycleKey,
+
+    transactionId,
+
+    matchCount:
+      matches.length
+
+  };
+
+}
+
+
+/* =========================================================================
+   6. DETERMINISTIC JOURNAL RECOVERY REPLAY
+   ========================================================================= */
+
+function replayCanonicalRecoveryFromJournalV26(
+  journal
+) {
+
+  if (
+    !journal ||
+    typeof journal !==
+      'object'
+  ) {
+
+    return {
+
+      ready: false,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'INVALID_JOURNAL'
+
+    };
+
+  }
+
+
+  const lifecycleKey =
+    String(
+      journal.lifecycleKey || ''
+    );
+
+
+  const transactionId =
+    String(
+      journal.transactionId || ''
+    );
+
+
+  if (
+    !lifecycleKey ||
+    !transactionId
+  ) {
+
+    return {
+
+      ready: false,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'INVALID_JOURNAL_IDENTITY'
+
+    };
+
+  }
+
+
+  const raw =
+    readShadowSnapshotsV26();
+
+
+  const snapshots =
+    Array.isArray(
+      raw
+    )
+      ? raw
+      : [];
+
+
+  const detection =
+    detectCanonicalJournalRecoveryRequiredV26(
+      snapshots,
+      journal
+    );
+
+
+  if (
+    !detection.ready
+  ) {
+
+    return {
+
+      ready: false,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        detection.reason,
+
+      detection
+
+    };
+
+  }
+
+
+  if (
+    detection.required !==
+      true
+  ) {
+
+    return {
+
+      ready: true,
+
+      recovered: true,
+
+      changed: false,
+
+      reason:
+        'JOURNAL_ALREADY_RECOVERED',
+
+      lifecycleKey,
+
+      transactionId,
+
+      detection
+
+    };
+
+  }
+
+
+  /*
+   * Deterministic recovery rule:
+   *
+   * Remove ONLY the synthetic interrupted
+   * transaction carrying BOTH the expected
+   * lifecycleKey and transactionId.
+   *
+   * Existing canonical rows remain untouched.
+   */
+
+  const recoveredSnapshots =
+    snapshots.filter(
+      item => {
+
+        if (
+          !item ||
+          typeof item !==
+            'object'
+        ) {
+
+          return true;
+
+        }
+
+
+        const sameLifecycle =
+          String(
+            item.lifecycleKey || ''
+          ) === lifecycleKey;
+
+
+        const sameTransaction =
+          String(
+            item.transactionId || ''
+          ) === transactionId;
+
+
+        const interrupted =
+          (
+            item.commitInterrupted ===
+              true ||
+            item.recoveryRequired ===
+              true ||
+            item.candidateStatus ===
+              'COMMITTING'
+          );
+
+
+        return !(
+          sameLifecycle &&
+          sameTransaction &&
+          interrupted
+        );
+
+      }
+    );
+
+
+  const changed =
+    recoveredSnapshots.length !==
+      snapshots.length;
+
+
+  if (!changed) {
+
+    return {
+
+      ready: false,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'RECOVERY_TARGET_NOT_FOUND',
+
+      lifecycleKey,
+
+      transactionId,
+
+      detection
+
+    };
+
+  }
+
+
+  const written =
+    writeShadowSnapshotsV26(
+      recoveredSnapshots
+    );
+
+
+  if (
+    written !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      recovered: false,
+
+      changed: false,
+
+      reason:
+        'RECOVERY_WRITE_FAILED',
+
+      lifecycleKey,
+
+      transactionId,
+
+      detection
+
+    };
+
+  }
+
+
+  const verifyRaw =
+    readShadowSnapshotsV26();
+
+
+  const verifySnapshots =
+    Array.isArray(
+      verifyRaw
+    )
+      ? verifyRaw
+      : [];
+
+
+  const remaining =
+    countJournalTransactionRecordsV26(
+      verifySnapshots,
+      lifecycleKey,
+      transactionId
+    );
+
+
+  const recovered =
+    remaining === 0;
+
+
+  return {
+
+    ready: true,
+
+    recovered,
+
+    changed: true,
+
+    reason:
+      recovered
+        ? 'JOURNAL_RECOVERY_REPLAYED'
+        : 'JOURNAL_RECOVERY_VERIFY_FAILED',
+
+    lifecycleKey,
+
+    transactionId,
+
+    detection,
+
+    remaining,
+
+    written
+
+  };
+
+}
+
+
+/* =========================================================================
+   7. MAIN TRANSACTION JOURNAL / RECOVERY REPLAY AUDIT
+   ========================================================================= */
+
+function auditCanonicalTransactionJournalReplayV26() {
+
+  const candidate =
+    buildSyntheticJournalReplayCandidateV26();
+
+
+  const journal =
+    buildSyntheticCanonicalJournalEntryV26(
+      candidate
+    );
+
+
+  const lifecycleKey =
+    candidate.lifecycleKey;
+
+
+  const transactionId =
+    journal.transactionId;
+
+
+  let original = [];
+
+  let interruptedWrite = false;
+
+  let firstRecovery = null;
+
+  let secondRecovery = null;
+
+  let rollbackWrite = false;
+
+  let canonicalRestored = false;
+
+  let auditError = null;
+
+
+  const checks = {};
+
+
+  try {
+
+    /*
+     * ---------------------------------------------------------
+     * A. BACKUP ORIGINAL CANONICAL STORE
+     * ---------------------------------------------------------
+     */
+
+    const originalRaw =
+      readShadowSnapshotsV26();
+
+
+    original =
+      Array.isArray(
+        originalRaw
+      )
+        ? JSON.parse(
+            JSON.stringify(
+              originalRaw
+            )
+          )
+        : [];
+
+
+    const originalJSON =
+      JSON.stringify(
+        original
+      );
+
+
+    const originalCount =
+      original.length;
+
+
+    checks.originalBackupValid =
+      Array.isArray(
+        original
+      );
+
+
+    /*
+     * Synthetic lifecycle must not already exist.
+     */
+
+    const lifecycleAlreadyExists =
+      original.some(
+        item =>
+          item &&
+          String(
+            item.lifecycleKey || ''
+          ) ===
+            String(
+              lifecycleKey
+            )
+      );
+
+
+    checks.lifecycleKeyInitiallyAbsent =
+      lifecycleAlreadyExists ===
+        false;
+
+
+    if (
+      lifecycleAlreadyExists
+    ) {
+
+      throw new Error(
+        'SYNTHETIC_JOURNAL_LIFECYCLE_ALREADY_EXISTS'
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * B. BUILD + WRITE INTERRUPTED TRANSACTION
+     * ---------------------------------------------------------
+     */
+
+    const interruptedRecord =
+      buildJournalInterruptedRecordV26(
+        candidate,
+        journal
+      );
+
+
+    const interruptedStore =
+      original.concat([
+        interruptedRecord
+      ]);
+
+
+    interruptedWrite =
+      writeShadowSnapshotsV26(
+        interruptedStore
+      );
+
+
+    checks.interruptedWriteConfirmed =
+      interruptedWrite === true;
+
+
+    const afterInterruptedRaw =
+      readShadowSnapshotsV26();
+
+
+    const afterInterrupted =
+      Array.isArray(
+        afterInterruptedRaw
+      )
+        ? afterInterruptedRaw
+        : [];
+
+
+    const interruptedCount =
+      countJournalTransactionRecordsV26(
+        afterInterrupted,
+        lifecycleKey,
+        transactionId
+      );
+
+
+    checks.interruptedRecordExactlyOnce =
+      interruptedCount === 1;
+
+
+    /*
+     * ---------------------------------------------------------
+     * C. JOURNAL-BASED DETECTION
+     * ---------------------------------------------------------
+     */
+
+    const detection =
+      detectCanonicalJournalRecoveryRequiredV26(
+        afterInterrupted,
+        journal
+      );
+
+
+    checks.journalDetectionReady =
+      Boolean(
+        detection &&
+        detection.ready === true
+      );
+
+
+    checks.recoveryRequiredDetected =
+      Boolean(
+        detection &&
+        detection.required === true
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. FIRST RECOVERY REPLAY
+     * ---------------------------------------------------------
+     */
+
+    firstRecovery =
+      replayCanonicalRecoveryFromJournalV26(
+        journal
+      );
+
+
+    checks.firstReplayRecovered =
+      Boolean(
+        firstRecovery &&
+        firstRecovery.ready === true &&
+        firstRecovery.recovered === true &&
+        firstRecovery.changed === true
+      );
+
+
+    const afterFirstRaw =
+      readShadowSnapshotsV26();
+
+
+    const afterFirst =
+      Array.isArray(
+        afterFirstRaw
+      )
+        ? afterFirstRaw
+        : [];
+
+
+    const afterFirstCount =
+      countJournalTransactionRecordsV26(
+        afterFirst,
+        lifecycleKey,
+        transactionId
+      );
+
+
+    checks.firstReplayRemovedTransaction =
+      afterFirstCount === 0;
+
+
+    checks.originalCountRecovered =
+      afterFirst.length ===
+        originalCount;
+
+
+    const beforeSecondJSON =
+      JSON.stringify(
+        afterFirst
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. SECOND RECOVERY REPLAY — IDEMPOTENCY
+     * ---------------------------------------------------------
+     */
+
+    secondRecovery =
+      replayCanonicalRecoveryFromJournalV26(
+        journal
+      );
+
+
+    const afterSecondRaw =
+      readShadowSnapshotsV26();
+
+
+    const afterSecond =
+      Array.isArray(
+        afterSecondRaw
+      )
+        ? afterSecondRaw
+        : [];
+
+
+    const afterSecondJSON =
+      JSON.stringify(
+        afterSecond
+      );
+
+
+    checks.secondReplayRecovered =
+      Boolean(
+        secondRecovery &&
+        secondRecovery.ready === true &&
+        secondRecovery.recovered === true
+      );
+
+
+    checks.secondReplayNoChange =
+      Boolean(
+        secondRecovery &&
+        secondRecovery.changed === false
+      );
+
+
+    checks.replayIdempotent =
+      (
+        beforeSecondJSON ===
+          afterSecondJSON &&
+
+        afterSecond.length ===
+          originalCount
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * F. ABSOLUTE ROLLBACK
+     * ---------------------------------------------------------
+     */
+
+    rollbackWrite =
+      writeShadowSnapshotsV26(
+        JSON.parse(
+          JSON.stringify(
+            original
+          )
+        )
+      );
+
+
+    const rollbackRaw =
+      readShadowSnapshotsV26();
+
+
+    const rollbackSnapshots =
+      Array.isArray(
+        rollbackRaw
+      )
+        ? rollbackRaw
+        : [];
+
+
+    canonicalRestored =
+      JSON.stringify(
+        rollbackSnapshots
+      ) === originalJSON;
+
+
+    checks.rollbackWriteConfirmed =
+      rollbackWrite === true;
+
+
+    checks.canonicalRestoredExactly =
+      canonicalRestored === true;
+
+
+  } catch (error) {
+
+    auditError =
+      String(
+        error &&
+        error.message
+          ? error.message
+          : error
+      );
+
+  } finally {
+
+    /*
+     * ---------------------------------------------------------
+     * G. ABSOLUTE SAFETY RESTORE
+     *
+     * Always attempt exact restoration,
+     * even if the audit throws midway.
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      rollbackWrite =
+        writeShadowSnapshotsV26(
+          JSON.parse(
+            JSON.stringify(
+              original
+            )
+          )
+        );
+
+
+      const finalRaw =
+        readShadowSnapshotsV26();
+
+
+      const finalSnapshots =
+        Array.isArray(
+          finalRaw
+        )
+          ? finalRaw
+          : [];
+
+
+      canonicalRestored =
+        JSON.stringify(
+          finalSnapshots
+        ) ===
+          JSON.stringify(
+            original
+          );
+
+
+      checks.finalSafetyRestore =
+        canonicalRestored === true;
+
+
+    } catch (rollbackError) {
+
+      checks.finalSafetyRestore =
+        false;
+
+
+      const rollbackMessage =
+        String(
+          rollbackError &&
+          rollbackError.message
+            ? rollbackError.message
+            : rollbackError
+        );
+
+
+      auditError =
+        auditError
+          ? (
+              auditError +
+              ' | ROLLBACK_ERROR: ' +
+              rollbackMessage
+            )
+          : (
+              'ROLLBACK_ERROR: ' +
+              rollbackMessage
+            );
+
+    }
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * H. FINAL VERDICT
+   * -----------------------------------------------------------
+   */
+
+  checks.noAuditError =
+    auditError === null;
+
+
+  const failedChecks =
+    Object.keys(
+      checks
+    ).filter(
+      key =>
+        checks[key] !== true
+    );
+
+
+  const passed =
+    failedChecks.length === 0;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANONICAL_TRANSACTION_JOURNAL_REPLAY_VALID'
+        : (
+            canonicalRestored
+              ? 'JOURNAL_REPLAY_AUDIT_FAILED_ROLLBACK_OK'
+              : 'CRITICAL_CANONICAL_ROLLBACK_NOT_VERIFIED'
+          ),
+
+    version:
+      'V2.6',
+
+    fix:
+      'FIX-03D.5.8',
+
+    step:
+      'STEP_7_9A',
+
+    mode:
+      'CANONICAL_TRANSACTION_JOURNAL_RECOVERY_REPLAY_AUDIT',
+
+    candidate,
+
+    journal,
+
+    firstRecovery,
+
+    secondRecovery,
+
+    rollbackWrite,
+
+    canonicalRestored,
+
+    auditError,
+
+    checks,
+
+    failedChecks,
+
+    productionPredictionModified:
+      false,
+
+    autoPromotion:
+      false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.9A Transaction Journal / Recovery Replay Audit Engine loaded — NO AUTO RUN'
+);
+
