@@ -101966,3 +101966,394 @@ console.log(
   'FIX-03D.5.8 STEP 7.3B Canonical Rollback Audit Runner loaded — MANUAL RUN ONLY'
 );
 
+/* =========================================================================
+   FIX-03D.5.8
+   STEP 7.3C — POST-ROLLBACK VERIFICATION
+
+   READ ONLY
+   NO WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+(function installFix03D58PostRollbackVerifierV26() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'btnFix03D58PostRollbackVerifierV26'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'btnFix03D58PostRollbackVerifierV26';
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🔍 D.5.8 Post-Rollback Verify';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        /*
+         * READ CANONICAL STORAGE ONLY.
+         */
+
+        if (
+          typeof readShadowSnapshotsV26 !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.3C',
+              'POST-ROLLBACK VERIFICATION',
+              '',
+              'Reader: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+        }
+
+
+        let snapshots;
+
+
+        try {
+
+          snapshots =
+            readShadowSnapshotsV26();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.8 STEP 7.3C',
+              'POST-ROLLBACK VERIFICATION',
+              '',
+              'READ ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+          return;
+        }
+
+
+        if (!Array.isArray(snapshots)) {
+
+          snapshots = [];
+        }
+
+
+        /*
+         * Synthetic candidate của STEP 7.3
+         * phải KHÔNG còn tồn tại sau rollback.
+         *
+         * Không sửa / xóa bất kỳ record nào.
+         */
+
+        const suspicious =
+          snapshots.filter(
+            item => {
+
+              if (
+                !item ||
+                typeof item !== 'object'
+              ) {
+                return false;
+              }
+
+
+              const lifecycleKey =
+                String(
+                  item.lifecycleKey ||
+                  item.snapshotKey ||
+                  ''
+                ).toLowerCase();
+
+
+              const province =
+                String(
+                  item.province ||
+                  item.provinceSlug ||
+                  ''
+                ).toLowerCase();
+
+
+              return (
+                lifecycleKey.includes(
+                  'synthetic'
+                ) ||
+                province.includes(
+                  'synthetic'
+                )
+              );
+
+            }
+          );
+
+
+        const count =
+          snapshots.length;
+
+
+        /*
+         * Trước STEP 7.3:
+         * canonical count = 8.
+         */
+
+        const expectedCount = 8;
+
+
+        const countRestored =
+          count === expectedCount;
+
+
+        const syntheticRemoved =
+          suspicious.length === 0;
+
+
+        const passed =
+          countRestored &&
+          syntheticRemoved;
+
+
+        const lines = [];
+
+
+        lines.push(
+          'FIX-03D.5.8 STEP 7.3C'
+        );
+
+        lines.push(
+          'POST-ROLLBACK VERIFICATION'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Mode: READ ONLY'
+        );
+
+        lines.push(
+          'Storage Write: NO'
+        );
+
+        lines.push(
+          'Auto Promotion: NO'
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Canonical Snapshot Count: ' +
+          count
+        );
+
+        lines.push(
+          'Expected Count: ' +
+          expectedCount
+        );
+
+        lines.push(
+          'Original Count Restored: ' +
+          (
+            countRestored
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          'Synthetic Records Remaining: ' +
+          suspicious.length
+        );
+
+        lines.push(
+          'Synthetic Candidate Removed: ' +
+          (
+            syntheticRemoved
+              ? 'YES'
+              : 'NO'
+          )
+        );
+
+        lines.push('');
+
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push(
+          'ROLLBACK VERDICT'
+        );
+
+        lines.push(
+          '===================='
+        );
+
+        lines.push('');
+
+
+        if (passed) {
+
+          lines.push(
+            'Passed: YES ✅'
+          );
+
+          lines.push(
+            'Reason: POST_ROLLBACK_STORAGE_RESTORED'
+          );
+
+          lines.push('');
+
+          lines.push(
+            'Canonical Restored: YES'
+          );
+
+        } else {
+
+          lines.push(
+            'Passed: NO ❌'
+          );
+
+          lines.push(
+            'Reason: POST_ROLLBACK_STORAGE_MISMATCH'
+          );
+
+          lines.push('');
+
+          lines.push(
+            'DO NOT RUN STEP 7.3 AGAIN.'
+          );
+
+        }
+
+
+        alert(
+          lines.join('\n')
+        );
+
+      };
+
+
+    /*
+     * IMPORTANT:
+     * đúng ID panel — chữ D viết hoa.
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (panel) {
+
+      panel.appendChild(button);
+
+      return;
+    }
+
+
+    let attempts = 0;
+
+
+    function attach() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(button);
+
+        return;
+      }
+
+
+      if (attempts < 20) {
+
+        setTimeout(
+          attach,
+          500
+        );
+
+      }
+
+    }
+
+
+    attach();
+
+  }
+
+
+  if (
+    document.readyState === 'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
+
+console.log(
+  'FIX-03D.5.8 STEP 7.3C Post-Rollback Verifier loaded — READ ONLY'
+);
+
