@@ -128217,3 +128217,455 @@ console.log(
   'FIX-03D.5.9 STEP 8.3B Manual Runner loaded — MANUAL RUN ONLY / READ ONLY / NO PROMOTION'
 );
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3C
+   CANDIDATE IDENTITY & BOUNDARY VERIFICATION
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function verifyProductionCandidateBoundary83C() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83B_RESULT ||
+    window.LAST_FIX03D59_STEP83_RESULT ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true ||
+    source.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason:
+        'STEP_83B_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  const candidates =
+    Array.isArray(source.candidates)
+      ? source.candidates
+      : Array.isArray(source.productionCandidates)
+        ? source.productionCandidates
+        : [];
+
+
+  const expectedCount =
+    Number.isFinite(source.eligibleCount)
+      ? source.eligibleCount
+      : Number.isFinite(source.eligible)
+        ? source.eligible
+        : candidates.length;
+
+
+  const details =
+    candidates.map(
+      (candidate, index) => {
+
+        const province =
+          candidate?.province ||
+          candidate?.provinceSlug ||
+          candidate?.provinceId ||
+          candidate?.record?.province ||
+          candidate?.record?.provinceSlug ||
+          '-';
+
+
+        const prize =
+          candidate?.prize ||
+          candidate?.prizeKey ||
+          candidate?.giaiKey ||
+          candidate?.record?.prize ||
+          candidate?.record?.prizeKey ||
+          '-';
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            candidate?.canonicalIndex
+          )
+            ? candidate.canonicalIndex
+            : Number.isInteger(
+                candidate?.sourceIndex
+              )
+              ? candidate.sourceIndex
+              : null;
+
+
+        const identity =
+          candidate?.identity ||
+          candidate?.candidateIdentity ||
+          (
+            province !== '-' &&
+            prize !== '-'
+              ? `${province}/${prize}`
+              : null
+          );
+
+
+        const identityValid =
+          Boolean(
+            identity &&
+            province !== '-' &&
+            prize !== '-'
+          );
+
+
+        const candidateValid =
+          candidate &&
+          typeof candidate === 'object' &&
+          identityValid;
+
+
+        return {
+          index,
+          canonicalIndex,
+          province,
+          prize,
+          identity,
+          identityValid,
+          candidateValid
+        };
+
+      }
+    );
+
+
+  const candidateCount =
+    details.length;
+
+
+  const countMatch =
+    candidateCount === expectedCount;
+
+
+  const allIdentityValid =
+    details.every(
+      item =>
+        item.identityValid === true
+    );
+
+
+  const allCandidatesValid =
+    details.every(
+      item =>
+        item.candidateValid === true
+    );
+
+
+  const identities =
+    details
+      .map(item => item.identity)
+      .filter(Boolean);
+
+
+  const uniqueIdentity =
+    new Set(identities).size ===
+    identities.length;
+
+
+  const canonicalIndexes =
+    details
+      .map(item => item.canonicalIndex)
+      .filter(
+        value =>
+          Number.isInteger(value)
+      );
+
+
+  const canonicalIndexUnique =
+    new Set(canonicalIndexes).size ===
+    canonicalIndexes.length;
+
+
+  const passed =
+    candidateCount > 0 &&
+    countMatch &&
+    allIdentityValid &&
+    allCandidatesValid &&
+    uniqueIdentity &&
+    canonicalIndexUnique;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_IDENTITY_BOUNDARY_VALID'
+        : 'CANDIDATE_IDENTITY_BOUNDARY_INVALID',
+
+    expectedCount,
+
+    candidateCount,
+
+    countMatch,
+
+    allIdentityValid,
+
+    allCandidatesValid,
+
+    uniqueIdentity,
+
+    canonicalIndexUnique,
+
+    details,
+
+    safety: {
+      readOnly: true,
+      canonicalWrite: false,
+      productionWrite: false,
+      storageWrite: false,
+      autoPromotion: false
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3C
+   MOBILE COMPACT REPORTER
+   ========================================================================= */
+
+function reportProductionCandidateBoundary83C() {
+
+  const result =
+    verifyProductionCandidateBoundary83C();
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  if (!result.ready) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3C',
+        'CANDIDATE IDENTITY / BOUNDARY',
+        '',
+        'Ready: NO ❌',
+        `Reason: ${result.reason}`,
+        '',
+        'Run STEP 8.3B first.',
+        '',
+        'READ ONLY',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+    return result;
+
+  }
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.3C',
+    'CANDIDATE IDENTITY / BOUNDARY',
+    '',
+
+    `Ready: ${yesNo(result.ready)}`,
+    `Passed: ${yesNo(result.passed)}`,
+    `Reason: ${result.reason}`,
+    '',
+
+    `Candidates: ${result.candidateCount}`,
+    `Expected: ${result.expectedCount}`,
+    `Count Match: ${yesNo(result.countMatch)}`,
+    `Identity Valid: ${yesNo(result.allIdentityValid)}`,
+    `Candidate Valid: ${yesNo(result.allCandidatesValid)}`,
+    `Unique Identity: ${yesNo(result.uniqueIdentity)}`,
+    `Index Unique: ${yesNo(result.canonicalIndexUnique)}`,
+    ''
+
+  ];
+
+
+  result.details.forEach(
+    item => {
+
+      const canonicalLabel =
+        Number.isInteger(
+          item.canonicalIndex
+        )
+          ? `C${item.canonicalIndex}`
+          : 'C?';
+
+
+      lines.push(
+        `#${item.index} ${canonicalLabel} ` +
+        `${item.province}/${item.prize}`
+      );
+
+    }
+  );
+
+
+  lines.push(
+    '',
+    'READ ONLY',
+    'Canonical Write: NO',
+    'Production Write: NO',
+    'Storage Write: NO',
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  window.LAST_FIX03D59_STEP83C_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3C
+   MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83CButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d59-step83c-button'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'fix03d59-step83c-button';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔎 D.5.9 Candidate Identity Audit';
+
+
+    button.style.cssText = [
+      'width:100%',
+      'margin-top:10px',
+      'padding:12px 14px',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:12px',
+      'background:#27234f',
+      'color:#fff',
+      'font-size:14px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        reportProductionCandidateBoundary83C();
+
+      }
+    );
+
+
+    const settings =
+      document.querySelector(
+        '#settings-content'
+      ) ||
+      document.querySelector(
+        '.settings-content'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    if (settings) {
+
+      settings.appendChild(button);
+
+    } else {
+
+      button.style.position =
+        'fixed';
+
+      button.style.left =
+        '12px';
+
+      button.style.right =
+        '12px';
+
+      button.style.bottom =
+        '90px';
+
+      button.style.width =
+        'calc(100% - 24px)';
+
+      button.style.zIndex =
+        '99999';
+
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      { once: true }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
