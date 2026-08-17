@@ -131002,8 +131002,8 @@ function buildProductionCandidateFinalGateReport83G() {
 
 
   const finalGateValid =
-    source.passed === true &&
-    source.finalGate === true;
+  source.passed === true &&
+  source.allGateValid === true;
 
 
   const reportDetails =
