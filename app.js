@@ -130298,3 +130298,653 @@ function reportProductionCandidatePayload83E() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3F
+   PRODUCTION CANDIDATE FINAL GATE
+
+   MANUAL RUN ONLY
+   READ ONLY
+   FAIL CLOSED
+
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function verifyProductionCandidateFinalGate83F() {
+
+  const source83C =
+    window.LAST_FIX03D59_STEP83C_RESULT ||
+    null;
+
+  const source83D =
+    window.LAST_FIX03D59_STEP83D_RESULT ||
+    null;
+
+  const source83E =
+    window.LAST_FIX03D59_STEP83E_RESULT ||
+    null;
+
+
+  /* -----------------------------------------------------------------------
+     FAIL CLOSED — REQUIRED SOURCES
+     ----------------------------------------------------------------------- */
+
+  if (
+    !source83C ||
+    source83C.ready !== true ||
+    source83C.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_83C_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  if (
+    !source83D ||
+    source83D.ready !== true ||
+    source83D.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_83D_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  if (
+    !source83E ||
+    source83E.ready !== true ||
+    source83E.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_83E_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  /* -----------------------------------------------------------------------
+     COUNTS
+     ----------------------------------------------------------------------- */
+
+  const count83C =
+    Number.isInteger(source83C.candidateCount)
+      ? source83C.candidateCount
+      : 0;
+
+
+  const count83D =
+    Number.isInteger(source83D.candidateCount)
+      ? source83D.candidateCount
+      : 0;
+
+
+  const count83E =
+    Number.isInteger(source83E.candidateCount)
+      ? source83E.candidateCount
+      : 0;
+
+
+  const countsPresent =
+    count83C > 0 &&
+    count83D > 0 &&
+    count83E > 0;
+
+
+  const countsMatch =
+    countsPresent &&
+    count83C === count83D &&
+    count83D === count83E;
+
+
+  /* -----------------------------------------------------------------------
+     REQUIRED CONTRACTS
+     ----------------------------------------------------------------------- */
+
+  const boundaryValid =
+    source83C.countMatch === true &&
+    source83C.allIdentityValid === true &&
+    source83C.allCandidatesValid === true &&
+    source83C.uniqueIdentity === true &&
+    source83C.canonicalIndexUnique === true;
+
+
+  const lineageValid =
+    source83D.countMatch === true &&
+    source83D.allIndexesPresent === true &&
+    source83D.allIndexesInRange === true &&
+    source83D.allSourcesFound === true &&
+    source83D.allProvinceMatch === true &&
+    source83D.allPrizeMatch === true &&
+    source83D.allIdentityMatch === true &&
+    source83D.allLineageValid === true &&
+    source83D.uniqueLineage === true;
+
+
+  const payloadValid =
+    source83E.countMatch === true &&
+    source83E.allObjectsValid === true &&
+    source83E.allIndexesValid === true &&
+    source83E.allProvinceValid === true &&
+    source83E.allPrizeValid === true &&
+    source83E.allIdentityValid === true &&
+    source83E.allIdentityConsistent === true &&
+    source83E.allLineageValid === true &&
+    source83E.allPayloadValid === true &&
+    source83E.uniquePayloadIdentity === true;
+
+
+  /* -----------------------------------------------------------------------
+     CROSS-STEP IDENTITY CHECK
+     ----------------------------------------------------------------------- */
+
+  const details83C =
+    Array.isArray(source83C.details)
+      ? source83C.details
+      : [];
+
+
+  const details83D =
+    Array.isArray(source83D.details)
+      ? source83D.details
+      : [];
+
+
+  const details83E =
+    Array.isArray(source83E.details)
+      ? source83E.details
+      : [];
+
+
+  const detailCountsMatch =
+    details83C.length === count83C &&
+    details83D.length === count83D &&
+    details83E.length === count83E;
+
+
+  const details =
+    details83C.map(
+      (candidate, index) => {
+
+        const lineage =
+          details83D[index] ||
+          null;
+
+
+        const payload =
+          details83E[index] ||
+          null;
+
+
+        const identity83C =
+          candidate?.identity ||
+          null;
+
+
+        const identity83D =
+          lineage?.identity ||
+          lineage?.candidateIdentity ||
+          identity83C;
+
+
+        const identity83E =
+          payload?.identity ||
+          null;
+
+
+        const canonicalIndex83C =
+          Number.isInteger(
+            candidate?.canonicalIndex
+          )
+            ? candidate.canonicalIndex
+            : null;
+
+
+        const canonicalIndex83D =
+          Number.isInteger(
+            lineage?.canonicalIndex
+          )
+            ? lineage.canonicalIndex
+            : canonicalIndex83C;
+
+
+        const canonicalIndex83E =
+          Number.isInteger(
+            payload?.canonicalIndex
+          )
+            ? payload.canonicalIndex
+            : null;
+
+
+        const identityMatch =
+          Boolean(
+            identity83C &&
+            identity83D &&
+            identity83E &&
+            identity83C === identity83D &&
+            identity83D === identity83E
+          );
+
+
+        const canonicalIndexMatch =
+          Number.isInteger(
+            canonicalIndex83C
+          ) &&
+          Number.isInteger(
+            canonicalIndex83D
+          ) &&
+          Number.isInteger(
+            canonicalIndex83E
+          ) &&
+          canonicalIndex83C ===
+            canonicalIndex83D &&
+          canonicalIndex83D ===
+            canonicalIndex83E;
+
+
+        const gateValid =
+          identityMatch &&
+          canonicalIndexMatch &&
+          lineage?.lineageValid === true &&
+          payload?.payloadValid === true;
+
+
+        return {
+
+          index,
+
+          identity:
+            identity83C,
+
+          canonicalIndex:
+            canonicalIndex83C,
+
+          identityMatch,
+
+          canonicalIndexMatch,
+
+          lineageValid:
+            lineage?.lineageValid === true,
+
+          payloadValid:
+            payload?.payloadValid === true,
+
+          gateValid
+
+        };
+
+      }
+    );
+
+
+  const allIdentityMatch =
+    details.length > 0 &&
+    details.every(
+      item =>
+        item.identityMatch === true
+    );
+
+
+  const allCanonicalIndexMatch =
+    details.length > 0 &&
+    details.every(
+      item =>
+        item.canonicalIndexMatch === true
+    );
+
+
+  const allGateValid =
+    details.length > 0 &&
+    details.every(
+      item =>
+        item.gateValid === true
+    );
+
+
+  /* -----------------------------------------------------------------------
+     FINAL GATE
+     ----------------------------------------------------------------------- */
+
+  const passed =
+    countsMatch &&
+    detailCountsMatch &&
+    boundaryValid &&
+    lineageValid &&
+    payloadValid &&
+    allIdentityMatch &&
+    allCanonicalIndexMatch &&
+    allGateValid;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'PRODUCTION_CANDIDATE_FINAL_GATE_VALID'
+        : 'PRODUCTION_CANDIDATE_FINAL_GATE_INVALID',
+
+    candidateCount:
+      count83C,
+
+    counts: {
+      step83C: count83C,
+      step83D: count83D,
+      step83E: count83E
+    },
+
+    countsMatch,
+
+    detailCountsMatch,
+
+    boundaryValid,
+
+    lineageValid,
+
+    payloadValid,
+
+    allIdentityMatch,
+
+    allCanonicalIndexMatch,
+
+    allGateValid,
+
+    details,
+
+    safety: {
+      readOnly: true,
+      failClosed: true,
+      canonicalWrite: false,
+      productionWrite: false,
+      storageWrite: false,
+      autoPromotion: false
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3F
+   MOBILE COMPACT REPORTER
+   ========================================================================= */
+
+function reportProductionCandidateFinalGate83F() {
+
+  const result =
+    verifyProductionCandidateFinalGate83F();
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  if (!result.ready) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3F',
+        'PRODUCTION CANDIDATE FINAL GATE',
+        '',
+        'Ready: NO ❌',
+        `Reason: ${result.reason}`,
+        '',
+        'Required RAM chain:',
+        '8.3C → 8.3D → 8.3E',
+        '',
+        'READ ONLY',
+        'FAIL CLOSED',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+    return result;
+
+  }
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.3F',
+    'PRODUCTION CANDIDATE FINAL GATE',
+    '',
+
+    `Ready: ${yesNo(result.ready)}`,
+    `Passed: ${yesNo(result.passed)}`,
+    `Reason: ${result.reason}`,
+    '',
+
+    `Candidates: ${result.candidateCount}`,
+    `8.3C: ${result.counts.step83C}`,
+    `8.3D: ${result.counts.step83D}`,
+    `8.3E: ${result.counts.step83E}`,
+    `Counts Match: ${yesNo(result.countsMatch)}`,
+    `Detail Counts: ${yesNo(result.detailCountsMatch)}`,
+    '',
+
+    `Boundary Valid: ${yesNo(result.boundaryValid)}`,
+    `Lineage Valid: ${yesNo(result.lineageValid)}`,
+    `Payload Valid: ${yesNo(result.payloadValid)}`,
+    '',
+
+    `Identity Match: ${yesNo(result.allIdentityMatch)}`,
+    `Index Match: ${yesNo(result.allCanonicalIndexMatch)}`,
+    `Final Gate: ${yesNo(result.allGateValid)}`,
+    ''
+
+  ];
+
+
+  result.details.forEach(
+    item => {
+
+      const canonicalLabel =
+        Number.isInteger(
+          item.canonicalIndex
+        )
+          ? `C${item.canonicalIndex}`
+          : 'C?';
+
+
+      lines.push(
+        `#${item.index} ${canonicalLabel} ` +
+        `${item.identity || '-'} ` +
+        `${item.gateValid ? '✅' : '❌'}`
+      );
+
+    }
+  );
+
+
+  lines.push(
+    '',
+    'READ ONLY',
+    'FAIL CLOSED',
+    'Canonical Write: NO',
+    'Production Write: NO',
+    'Storage Write: NO',
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  window.LAST_FIX03D59_STEP83F_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3F
+   MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83FButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d59-step83f-button'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'fix03d59-step83f-button';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🚦 D.5.9 Production Candidate Final Gate';
+
+
+    button.style.cssText = [
+      'width:100%',
+      'margin-top:10px',
+      'padding:12px 14px',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:12px',
+      'background:#27234f',
+      'color:#fff',
+      'font-size:14px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        reportProductionCandidateFinalGate83F();
+
+      }
+    );
+
+
+    const anchor =
+      document.getElementById(
+        'fix03d59-step83e-button'
+      );
+
+
+    if (
+      anchor &&
+      anchor.parentNode
+    ) {
+
+      anchor.insertAdjacentElement(
+        'afterend',
+        button
+      );
+
+      return;
+
+    }
+
+
+    const settings =
+      document.querySelector(
+        '#settings-content'
+      ) ||
+      document.querySelector(
+        '.settings-content'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    if (settings) {
+
+      settings.appendChild(
+        button
+      );
+
+    } else {
+
+      button.style.position =
+        'fixed';
+
+      button.style.left =
+        '12px';
+
+      button.style.right =
+        '12px';
+
+      button.style.bottom =
+        '90px';
+
+      button.style.width =
+        'calc(100% - 24px)';
+
+      button.style.zIndex =
+        '99999';
+
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      { once: true }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
