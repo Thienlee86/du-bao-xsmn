@@ -129073,3 +129073,245 @@ function auditProductionCandidateLineage83D() {
 
 }
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3D
+   MOBILE COMPACT REPORTER
+   ========================================================================= */
+
+function reportProductionCandidateLineage83D() {
+
+  const result =
+    auditProductionCandidateLineage83D();
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  if (!result.ready) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3D',
+        'CANDIDATE SOURCE LINEAGE',
+        '',
+        'Ready: NO ❌',
+        `Reason: ${result.reason}`,
+        '',
+        'Run STEP 8.3B and 8.3C first.',
+        '',
+        'READ ONLY',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+    return result;
+
+  }
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.3D',
+    'CANDIDATE SOURCE LINEAGE',
+    '',
+
+    `Ready: ${yesNo(result.ready)}`,
+    `Passed: ${yesNo(result.passed)}`,
+    `Reason: ${result.reason}`,
+    '',
+
+    `Candidates: ${result.candidateCount}`,
+    `Expected: ${result.expectedCount}`,
+    `Canonical: ${result.canonicalCount}`,
+    `Count Match: ${yesNo(result.countMatch)}`,
+    '',
+
+    `Indexes Present: ${yesNo(result.allIndexesPresent)}`,
+    `Indexes In Range: ${yesNo(result.allIndexesInRange)}`,
+    `Sources Found: ${yesNo(result.allSourcesFound)}`,
+    `Province Match: ${yesNo(result.allProvinceMatch)}`,
+    `Prize Match: ${yesNo(result.allPrizeMatch)}`,
+    `Identity Match: ${yesNo(result.allIdentityMatch)}`,
+    `Lineage Valid: ${yesNo(result.allLineageValid)}`,
+    `Unique Lineage: ${yesNo(result.uniqueLineage)}`,
+    ''
+
+  ];
+
+
+  result.details.forEach(
+    item => {
+
+      const canonicalLabel =
+        Number.isInteger(
+          item.canonicalIndex
+        )
+          ? `C${item.canonicalIndex}`
+          : 'C?';
+
+
+      lines.push(
+        `#${item.index} ${canonicalLabel} ` +
+        `${item.candidateIdentity || '-'}`
+      );
+
+
+      lines.push(
+        `→ ${item.canonicalIdentity || '-'} ` +
+        `${item.lineageValid ? '✅' : '❌'}`
+      );
+
+    }
+  );
+
+
+  lines.push(
+    '',
+    'READ ONLY',
+    'Canonical Write: NO',
+    'Production Write: NO',
+    'Storage Write: NO',
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3D
+   MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83DButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d59-step83d-button'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'fix03d59-step83d-button';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔗 D.5.9 Candidate Lineage Audit';
+
+
+    button.style.cssText = [
+      'width:100%',
+      'margin-top:10px',
+      'padding:12px 14px',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:12px',
+      'background:#27234f',
+      'color:#fff',
+      'font-size:14px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        reportProductionCandidateLineage83D();
+
+      }
+    );
+
+
+    const settings =
+      document.querySelector(
+        '#settings-content'
+      ) ||
+      document.querySelector(
+        '.settings-content'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    if (settings) {
+
+      settings.appendChild(
+        button
+      );
+
+    } else {
+
+      button.style.position =
+        'fixed';
+
+      button.style.left =
+        '12px';
+
+      button.style.right =
+        '12px';
+
+      button.style.bottom =
+        '90px';
+
+      button.style.width =
+        'calc(100% - 24px)';
+
+      button.style.zIndex =
+        '99999';
+
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      { once: true }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
