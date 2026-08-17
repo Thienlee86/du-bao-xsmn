@@ -130959,9 +130959,9 @@ function reportProductionCandidateFinalGate83F() {
 
 function buildProductionCandidateFinalGateReport83G() {
 
-  const source =
-    window.LAST_FIX03D59_STEP83F ||
-    null;
+  const step83F =
+  window.LAST_FIX03D59_STEP83F_RESULT ||
+  null;
 
 
   if (
