@@ -130959,7 +130959,7 @@ function reportProductionCandidateFinalGate83F() {
 
 function buildProductionCandidateFinalGateReport83G() {
 
-  const step83F =
+  const source =
   window.LAST_FIX03D59_STEP83F_RESULT ||
   null;
 
@@ -131178,4 +131178,150 @@ function reportProductionCandidateFinalGate83G() {
   return result;
 
 }
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3G
+   DEBUG PANEL BUTTON
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO WRITE
+   NO PROMOTION
+   ========================================================================= */
+
+(function installFix03D59Step83GButton() {
+
+  const BUTTON_ID =
+    'btnFix03D59Step83GReporter';
+
+
+  function attach() {
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
+      );
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '📊 D.5.9 Production Candidate Final Gate Reporter';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            reportProductionCandidateFinalGate83G !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.3G REPORTER NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        reportProductionCandidateFinalGate83G();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3G Reporter button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts++;
+
+
+        if (
+          attach() ||
+          attempts >= 20
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      500
+    );
+
+})();
 
