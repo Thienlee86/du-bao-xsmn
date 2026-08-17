@@ -128551,25 +128551,67 @@ function reportProductionCandidateBoundary83C() {
    MANUAL BUTTON
    ========================================================================= */
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3C
+   MANUAL DEBUG PANEL BUTTON
+
+   PURPOSE:
+   - Attach STEP 8.3C Candidate Identity Audit
+     ONLY to the FIX-03D Debug Panel.
+   - No floating fallback.
+   - Manual run only.
+
+   SAFETY:
+   - READ ONLY
+   - NO CANONICAL WRITE
+   - NO PRODUCTION WRITE
+   - NO STORAGE WRITE
+   - NO AUTO PROMOTION
+
+   IMPORTANT:
+   Debug Panel ID = fix03DDebugPanelV26
+   D MUST REMAIN UPPERCASE.
+   ========================================================================= */
+
 (function installFix03D59Step83CButton() {
 
   function install() {
 
+    /*
+     * ---------------------------------------------------------
+     * A. PREVENT DUPLICATE BUTTON
+     * ---------------------------------------------------------
+     */
+
+    const buttonId =
+      'fix03d59-step83c-button';
+
+
     if (
       document.getElementById(
-        'fix03d59-step83c-button'
+        buttonId
       )
     ) {
+
       return;
+
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * B. CREATE BUTTON
+     * ---------------------------------------------------------
+     */
+
     const button =
-      document.createElement('button');
+      document.createElement(
+        'button'
+      );
 
 
     button.id =
-      'fix03d59-step83c-button';
+      buttonId;
 
 
     button.type =
@@ -128581,84 +128623,199 @@ function reportProductionCandidateBoundary83C() {
 
 
     button.style.cssText = [
+      'position:static',
       'width:100%',
-      'margin-top:10px',
-      'padding:12px 14px',
-      'border:1px solid rgba(255,255,255,.18)',
-      'border-radius:12px',
-      'background:#27234f',
-      'color:#fff',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
       'font-size:14px',
-      'font-weight:700',
       'cursor:pointer'
     ].join(';');
 
 
-    button.addEventListener(
-      'click',
+    /*
+     * ---------------------------------------------------------
+     * C. MANUAL CLICK ONLY
+     * ---------------------------------------------------------
+     */
+
+    button.onclick =
       function () {
 
-        reportProductionCandidateBoundary83C();
+        if (
+          typeof
+            reportProductionCandidateBoundary83C !==
+          'function'
+        ) {
 
-      }
-    );
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.3C',
+              '',
+              'CANDIDATE IDENTITY AUDIT',
+              '',
+              'Reporter: NOT FOUND ❌',
+              '',
+              'Audit was NOT executed.',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
 
 
-    const settings =
-      document.querySelector(
-        '#settings-content'
-      ) ||
-      document.querySelector(
-        '.settings-content'
-      ) ||
-      document.querySelector(
-        '[data-page="settings"]'
+          return;
+
+        }
+
+
+        try {
+
+          reportProductionCandidateBoundary83C();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.3C',
+              '',
+              'AUDIT EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              ),
+              '',
+              'Canonical Write: NO',
+              'Production Write: NO',
+              'Storage Write: NO',
+              'Auto Promotion: NO'
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. ATTACH ONLY TO DEBUG PANEL
+     * ---------------------------------------------------------
+     */
+
+    const panel =
+      document.getElementById(
+        'fix03DDebugPanelV26'
       );
 
 
-    if (settings) {
+    if (panel) {
 
-      settings.appendChild(button);
-
-    } else {
-
-      button.style.position =
-        'fixed';
-
-      button.style.left =
-        '12px';
-
-      button.style.right =
-        '12px';
-
-      button.style.bottom =
-        '90px';
-
-      button.style.width =
-        'calc(100% - 24px)';
-
-      button.style.zIndex =
-        '99999';
-
-
-      document.body.appendChild(
+      panel.appendChild(
         button
       );
 
+      console.log(
+        'FIX-03D.5.9 STEP 8.3C button attached to Debug Panel'
+      );
+
+      return;
+
     }
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. RETRY ATTACH
+     *
+     * UI attach only.
+     * Audit is NEVER executed here.
+     * ---------------------------------------------------------
+     */
+
+    let attempts = 0;
+
+    const maxAttempts = 20;
+
+
+    function attachToPanel() {
+
+      attempts++;
+
+
+      const target =
+        document.getElementById(
+          'fix03DDebugPanelV26'
+        );
+
+
+      if (target) {
+
+        target.appendChild(
+          button
+        );
+
+
+        console.log(
+          'FIX-03D.5.9 STEP 8.3C button attached to Debug Panel'
+        );
+
+
+        return;
+
+      }
+
+
+      if (
+        attempts <
+        maxAttempts
+      ) {
+
+        setTimeout(
+          attachToPanel,
+          500
+        );
+
+      } else {
+
+        console.warn(
+          'FIX-03D.5.9 STEP 8.3C Debug Panel not found — button not attached'
+        );
+
+      }
+
+    }
+
+
+    attachToPanel();
 
   }
 
 
+  /*
+   * -----------------------------------------------------------
+   * F. INSTALL AFTER DOM READY
+   * -----------------------------------------------------------
+   */
+
   if (
     document.readyState ===
-    'loading'
+      'loading'
   ) {
 
     document.addEventListener(
       'DOMContentLoaded',
       install,
-      { once: true }
+      {
+        once: true
+      }
     );
 
   } else {
@@ -128668,6 +128825,12 @@ function reportProductionCandidateBoundary83C() {
   }
 
 })();
+
+
+console.log(
+  'FIX-03D.5.9 STEP 8.3C Manual Debug Panel Button loaded — MANUAL RUN ONLY / READ ONLY'
+);
+
 
 /* =========================================================================
    FIX-03D.5.9 — STEP 8.3D
