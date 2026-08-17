@@ -129700,3 +129700,601 @@ function reportProductionCandidateLineage83D() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3E
+   CANDIDATE PAYLOAD INTEGRITY
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function verifyProductionCandidatePayload83E() {
+
+  const source83C =
+    window.LAST_FIX03D59_STEP83C_RESULT ||
+    null;
+
+  const source83D =
+    window.LAST_FIX03D59_STEP83D_RESULT ||
+    null;
+
+
+  if (
+    !source83C ||
+    source83C.ready !== true ||
+    source83C.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_83C_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  if (
+    !source83D ||
+    source83D.ready !== true ||
+    source83D.passed !== true
+  ) {
+
+    return {
+      ready: false,
+      passed: false,
+      reason: 'STEP_83D_RESULT_NOT_READY'
+    };
+
+  }
+
+
+  const candidates =
+    Array.isArray(source83C.details)
+      ? source83C.details
+      : [];
+
+
+  const lineage =
+    Array.isArray(source83D.details)
+      ? source83D.details
+      : [];
+
+
+  const expectedCount =
+    Number.isFinite(source83C.candidateCount)
+      ? source83C.candidateCount
+      : candidates.length;
+
+
+  const details =
+    candidates.map(
+      (candidate, index) => {
+
+        const lineageItem =
+          lineage[index] || null;
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            candidate?.canonicalIndex
+          )
+            ? candidate.canonicalIndex
+            : null;
+
+
+        const province =
+          candidate?.province || '-';
+
+
+        const prize =
+          candidate?.prize || '-';
+
+
+        const identity =
+          candidate?.identity ||
+          (
+            province !== '-' &&
+            prize !== '-'
+              ? `${province}/${prize}`
+              : null
+          );
+
+
+        const objectValid =
+          candidate &&
+          typeof candidate === 'object';
+
+
+        const indexValid =
+          Number.isInteger(
+            canonicalIndex
+          );
+
+
+        const provinceValid =
+          typeof province === 'string' &&
+          province.length > 0 &&
+          province !== '-';
+
+
+        const prizeValid =
+          typeof prize === 'string' &&
+          prize.length > 0 &&
+          prize !== '-';
+
+
+        const identityValid =
+          typeof identity === 'string' &&
+          identity.length > 0;
+
+
+        const identityConsistent =
+          identityValid &&
+          identity ===
+            `${province}/${prize}`;
+
+
+        const lineageValid =
+          Boolean(
+            lineageItem &&
+            (
+              lineageItem.lineageValid === true ||
+              lineageItem.valid === true ||
+              lineageItem.sourceFound === true
+            )
+          );
+
+
+        const payloadValid =
+          Boolean(
+            objectValid &&
+            indexValid &&
+            provinceValid &&
+            prizeValid &&
+            identityValid &&
+            identityConsistent &&
+            lineageValid
+          );
+
+
+        return {
+
+          index,
+
+          canonicalIndex,
+
+          province,
+
+          prize,
+
+          identity,
+
+          objectValid,
+
+          indexValid,
+
+          provinceValid,
+
+          prizeValid,
+
+          identityValid,
+
+          identityConsistent,
+
+          lineageValid,
+
+          payloadValid
+
+        };
+
+      }
+    );
+
+
+  const candidateCount =
+    details.length;
+
+
+  const countMatch =
+    candidateCount ===
+    expectedCount;
+
+
+  const allObjectsValid =
+    details.every(
+      item =>
+        item.objectValid === true
+    );
+
+
+  const allIndexesValid =
+    details.every(
+      item =>
+        item.indexValid === true
+    );
+
+
+  const allProvinceValid =
+    details.every(
+      item =>
+        item.provinceValid === true
+    );
+
+
+  const allPrizeValid =
+    details.every(
+      item =>
+        item.prizeValid === true
+    );
+
+
+  const allIdentityValid =
+    details.every(
+      item =>
+        item.identityValid === true
+    );
+
+
+  const allIdentityConsistent =
+    details.every(
+      item =>
+        item.identityConsistent === true
+    );
+
+
+  const allLineageValid =
+    details.every(
+      item =>
+        item.lineageValid === true
+    );
+
+
+  const allPayloadValid =
+    details.every(
+      item =>
+        item.payloadValid === true
+    );
+
+
+  const identities =
+    details
+      .map(item => item.identity)
+      .filter(Boolean);
+
+
+  const uniquePayloadIdentity =
+    new Set(identities).size ===
+    identities.length;
+
+
+  const passed =
+    candidateCount > 0 &&
+    countMatch &&
+    allObjectsValid &&
+    allIndexesValid &&
+    allProvinceValid &&
+    allPrizeValid &&
+    allIdentityValid &&
+    allIdentityConsistent &&
+    allLineageValid &&
+    allPayloadValid &&
+    uniquePayloadIdentity;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_PAYLOAD_INTEGRITY_VALID'
+        : 'CANDIDATE_PAYLOAD_INTEGRITY_INVALID',
+
+    expectedCount,
+
+    candidateCount,
+
+    countMatch,
+
+    allObjectsValid,
+
+    allIndexesValid,
+
+    allProvinceValid,
+
+    allPrizeValid,
+
+    allIdentityValid,
+
+    allIdentityConsistent,
+
+    allLineageValid,
+
+    allPayloadValid,
+
+    uniquePayloadIdentity,
+
+    details,
+
+    safety: {
+      readOnly: true,
+      canonicalWrite: false,
+      productionWrite: false,
+      storageWrite: false,
+      autoPromotion: false
+    }
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3E
+   MOBILE COMPACT REPORTER
+   ========================================================================= */
+
+function reportProductionCandidatePayload83E() {
+
+  const result =
+    verifyProductionCandidatePayload83E();
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  if (!result.ready) {
+
+    alert(
+      [
+        'FIX-03D.5.9 STEP 8.3E',
+        'CANDIDATE PAYLOAD INTEGRITY',
+        '',
+        'Ready: NO ❌',
+        `Reason: ${result.reason}`,
+        '',
+        'Run STEP 8.3C and 8.3D first.',
+        '',
+        'READ ONLY',
+        'NO WRITE',
+        'NO PROMOTION'
+      ].join('\n')
+    );
+
+    return result;
+
+  }
+
+
+  const lines = [
+
+    'FIX-03D.5.9 STEP 8.3E',
+    'CANDIDATE PAYLOAD INTEGRITY',
+    '',
+
+    `Ready: ${yesNo(result.ready)}`,
+    `Passed: ${yesNo(result.passed)}`,
+    `Reason: ${result.reason}`,
+    '',
+
+    `Candidates: ${result.candidateCount}`,
+    `Expected: ${result.expectedCount}`,
+    `Count Match: ${yesNo(result.countMatch)}`,
+    '',
+
+    `Objects Valid: ${yesNo(result.allObjectsValid)}`,
+    `Indexes Valid: ${yesNo(result.allIndexesValid)}`,
+    `Province Valid: ${yesNo(result.allProvinceValid)}`,
+    `Prize Valid: ${yesNo(result.allPrizeValid)}`,
+    `Identity Valid: ${yesNo(result.allIdentityValid)}`,
+    `Identity Consistent: ${yesNo(result.allIdentityConsistent)}`,
+    `Lineage Valid: ${yesNo(result.allLineageValid)}`,
+    `Payload Valid: ${yesNo(result.allPayloadValid)}`,
+    `Unique Identity: ${yesNo(result.uniquePayloadIdentity)}`,
+    ''
+
+  ];
+
+
+  result.details.forEach(
+    item => {
+
+      const canonicalLabel =
+        Number.isInteger(
+          item.canonicalIndex
+        )
+          ? `C${item.canonicalIndex}`
+          : 'C?';
+
+
+      lines.push(
+        `#${item.index} ${canonicalLabel} ` +
+        `${item.province}/${item.prize} ` +
+        `${item.payloadValid ? '✅' : '❌'}`
+      );
+
+    }
+  );
+
+
+  lines.push(
+    '',
+    'READ ONLY',
+    'Canonical Write: NO',
+    'Production Write: NO',
+    'Storage Write: NO',
+    'Auto Promotion: NO'
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  window.LAST_FIX03D59_STEP83E_RESULT =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3E
+   MANUAL BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83EButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d59-step83e-button'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'fix03d59-step83e-button';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧬 D.5.9 Candidate Payload Integrity';
+
+
+    button.style.cssText = [
+      'width:100%',
+      'margin-top:10px',
+      'padding:12px 14px',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:12px',
+      'background:#27234f',
+      'color:#fff',
+      'font-size:14px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        reportProductionCandidatePayload83E();
+
+      }
+    );
+
+
+    const anchor =
+      document.getElementById(
+        'fix03d59-step83d-button'
+      );
+
+
+    if (
+      anchor &&
+      anchor.parentNode
+    ) {
+
+      anchor.insertAdjacentElement(
+        'afterend',
+        button
+      );
+
+      return;
+
+    }
+
+
+    const settings =
+      document.querySelector(
+        '#settings-content'
+      ) ||
+      document.querySelector(
+        '.settings-content'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    if (settings) {
+
+      settings.appendChild(
+        button
+      );
+
+    } else {
+
+      button.style.position =
+        'fixed';
+
+      button.style.left =
+        '12px';
+
+      button.style.right =
+        '12px';
+
+      button.style.bottom =
+        '90px';
+
+      button.style.width =
+        'calc(100% - 24px)';
+
+      button.style.zIndex =
+        '99999';
+
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      { once: true }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
