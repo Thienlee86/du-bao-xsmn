@@ -131567,12 +131567,9 @@ function reportProductionCandidateReleaseReadiness83H() {
   function attach() {
 
     const panel =
-      document.getElementById(
-        'debug-panel'
-      ) ||
-      document.querySelector(
-        '.debug-panel'
-      );
+  document.getElementById(
+    'fix03DDebugPanelV26'
+  );
 
 
     if (!panel) {
