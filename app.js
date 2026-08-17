@@ -130948,3 +130948,234 @@ function reportProductionCandidateFinalGate83F() {
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3G
+   PRODUCTION CANDIDATE FINAL GATE REPORTER
+
+   READ ONLY
+   NO WRITE
+   NO PROMOTION
+   ========================================================================= */
+
+function buildProductionCandidateFinalGateReport83G() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83F ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83F_RESULT_NOT_READY',
+
+      readOnly: true,
+
+      writePerformed: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const details =
+    Array.isArray(source.details)
+      ? source.details
+      : [];
+
+
+  const candidateCount =
+    Number.isInteger(source.candidateCount)
+      ? source.candidateCount
+      : details.length;
+
+
+  const finalGateValid =
+    source.passed === true &&
+    source.finalGate === true;
+
+
+  const reportDetails =
+    details.map(
+      (item, index) => ({
+
+        index,
+
+        candidateId:
+          item?.candidateId ??
+          item?.identity ??
+          null,
+
+        province:
+          item?.province ??
+          null,
+
+        prize:
+          item?.prize ??
+          null,
+
+        valid:
+          item?.valid === true
+
+      })
+    );
+
+
+  const reportValid =
+    finalGateValid &&
+    candidateCount > 0 &&
+    reportDetails.length ===
+      candidateCount;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      reportValid,
+
+    reason:
+      reportValid
+        ? 'PRODUCTION_CANDIDATE_FINAL_GATE_REPORT_VALID'
+        : 'PRODUCTION_CANDIDATE_FINAL_GATE_REPORT_INVALID',
+
+    sourceStep:
+      '8.3F',
+
+    sourcePassed:
+      source.passed === true,
+
+    candidateCount,
+
+    reportCount:
+      reportDetails.length,
+
+    countsMatch:
+      reportDetails.length ===
+      candidateCount,
+
+    finalGateValid,
+
+    details:
+      reportDetails,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3G REPORTER
+   ========================================================================= */
+
+function reportProductionCandidateFinalGate83G() {
+
+  const result =
+    buildProductionCandidateFinalGateReport83G();
+
+
+  window.LAST_FIX03D59_STEP83G =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [
+
+    'FIX-03D5.9 STEP 8.3G',
+
+    'PRODUCTION CANDIDATE FINAL GATE REPORTER',
+
+    '',
+
+    'Ready: ' +
+      yesNo(result.ready),
+
+    'Passed: ' +
+      yesNo(result.passed),
+
+    'Reason: ' +
+      result.reason
+
+  ];
+
+
+  if (result.ready) {
+
+    lines.push(
+
+      '',
+
+      'Source: ' +
+        result.sourceStep,
+
+      'Source Passed: ' +
+        yesNo(result.sourcePassed),
+
+      '',
+
+      'Candidates: ' +
+        result.candidateCount,
+
+      'Reports: ' +
+        result.reportCount,
+
+      'Counts Match: ' +
+        yesNo(result.countsMatch),
+
+      'Final Gate Valid: ' +
+        yesNo(result.finalGateValid),
+
+      '',
+
+      'READ ONLY',
+
+      'Canonical Write: NO',
+
+      'Production Write: NO',
+
+      'Storage Write: NO',
+
+      'Auto Promotion: NO'
+
+    );
+
+  }
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
