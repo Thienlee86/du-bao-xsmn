@@ -128669,3 +128669,407 @@ function reportProductionCandidateBoundary83C() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3D
+   CANDIDATE SOURCE TRACE / LINEAGE AUDIT
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function auditProductionCandidateLineage83D() {
+
+  const source83C =
+    window.LAST_FIX03D59_STEP83C_RESULT ||
+    null;
+
+
+  const source83B =
+    window.LAST_FIX03D59_STEP83B_RESULT ||
+    window.LAST_FIX03D59_STEP83_RESULT ||
+    null;
+
+
+  if (
+    !source83C ||
+    source83C.ready !== true ||
+    source83C.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83C_RESULT_NOT_READY'
+
+    };
+
+  }
+
+
+  if (
+    !source83B ||
+    source83B.ready !== true ||
+    source83B.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83B_RESULT_NOT_READY'
+
+    };
+
+  }
+
+
+  const candidateDetails =
+    Array.isArray(source83C.details)
+      ? source83C.details
+      : [];
+
+
+  const canonicalSource =
+    Array.isArray(
+      source83B.canonicalRecords
+    )
+      ? source83B.canonicalRecords
+      : Array.isArray(
+          source83B.canonical
+        )
+          ? source83B.canonical
+          : [];
+
+
+  const canonicalCount =
+    canonicalSource.length;
+
+
+  const details =
+    candidateDetails.map(
+      (candidate, index) => {
+
+        const canonicalIndex =
+          Number.isInteger(
+            candidate?.canonicalIndex
+          )
+            ? candidate.canonicalIndex
+            : null;
+
+
+        const indexPresent =
+          Number.isInteger(
+            canonicalIndex
+          );
+
+
+        const indexInRange =
+          indexPresent &&
+          canonicalIndex >= 0 &&
+          canonicalIndex <
+            canonicalCount;
+
+
+        const canonicalRecord =
+          indexInRange
+            ? canonicalSource[
+                canonicalIndex
+              ]
+            : null;
+
+
+        const candidateProvince =
+          candidate?.province ||
+          '-';
+
+
+        const candidatePrize =
+          candidate?.prize ||
+          '-';
+
+
+        const candidateIdentity =
+          candidate?.identity ||
+          (
+            candidateProvince !== '-' &&
+            candidatePrize !== '-'
+              ? `${candidateProvince}/${candidatePrize}`
+              : null
+          );
+
+
+        const canonicalProvince =
+          canonicalRecord?.province ||
+          canonicalRecord?.provinceSlug ||
+          canonicalRecord?.provinceId ||
+          canonicalRecord?.record?.province ||
+          canonicalRecord?.record?.provinceSlug ||
+          '-';
+
+
+        const canonicalPrize =
+          canonicalRecord?.prize ||
+          canonicalRecord?.prizeKey ||
+          canonicalRecord?.giaiKey ||
+          canonicalRecord?.record?.prize ||
+          canonicalRecord?.record?.prizeKey ||
+          '-';
+
+
+        const canonicalIdentity =
+          canonicalProvince !== '-' &&
+          canonicalPrize !== '-'
+            ? `${canonicalProvince}/${canonicalPrize}`
+            : null;
+
+
+        const sourceFound =
+          Boolean(
+            canonicalRecord
+          );
+
+
+        const provinceMatch =
+          sourceFound &&
+          candidateProvince !== '-' &&
+          canonicalProvince !== '-' &&
+          candidateProvince ===
+            canonicalProvince;
+
+
+        const prizeMatch =
+          sourceFound &&
+          candidatePrize !== '-' &&
+          canonicalPrize !== '-' &&
+          candidatePrize ===
+            canonicalPrize;
+
+
+        const identityMatch =
+          Boolean(
+            candidateIdentity &&
+            canonicalIdentity &&
+            candidateIdentity ===
+              canonicalIdentity
+          );
+
+
+        const lineageValid =
+          indexPresent &&
+          indexInRange &&
+          sourceFound &&
+          provinceMatch &&
+          prizeMatch &&
+          identityMatch;
+
+
+        return {
+
+          index,
+
+          canonicalIndex,
+
+          candidateProvince,
+
+          candidatePrize,
+
+          candidateIdentity,
+
+          canonicalProvince,
+
+          canonicalPrize,
+
+          canonicalIdentity,
+
+          indexPresent,
+
+          indexInRange,
+
+          sourceFound,
+
+          provinceMatch,
+
+          prizeMatch,
+
+          identityMatch,
+
+          lineageValid
+
+        };
+
+      }
+    );
+
+
+  const candidateCount =
+    details.length;
+
+
+  const expectedCount =
+    Number.isFinite(
+      source83C.candidateCount
+    )
+      ? source83C.candidateCount
+      : candidateCount;
+
+
+  const countMatch =
+    candidateCount ===
+    expectedCount;
+
+
+  const allIndexesPresent =
+    details.every(
+      item =>
+        item.indexPresent === true
+    );
+
+
+  const allIndexesInRange =
+    details.every(
+      item =>
+        item.indexInRange === true
+    );
+
+
+  const allSourcesFound =
+    details.every(
+      item =>
+        item.sourceFound === true
+    );
+
+
+  const allProvinceMatch =
+    details.every(
+      item =>
+        item.provinceMatch === true
+    );
+
+
+  const allPrizeMatch =
+    details.every(
+      item =>
+        item.prizeMatch === true
+    );
+
+
+  const allIdentityMatch =
+    details.every(
+      item =>
+        item.identityMatch === true
+    );
+
+
+  const allLineageValid =
+    details.every(
+      item =>
+        item.lineageValid === true
+    );
+
+
+  const lineageIndexes =
+    details
+      .map(
+        item =>
+          item.canonicalIndex
+      )
+      .filter(
+        value =>
+          Number.isInteger(value)
+      );
+
+
+  const uniqueLineage =
+    new Set(
+      lineageIndexes
+    ).size ===
+    lineageIndexes.length;
+
+
+  const passed =
+    candidateCount > 0 &&
+    countMatch &&
+    canonicalCount > 0 &&
+    allIndexesPresent &&
+    allIndexesInRange &&
+    allSourcesFound &&
+    allProvinceMatch &&
+    allPrizeMatch &&
+    allIdentityMatch &&
+    allLineageValid &&
+    uniqueLineage;
+
+
+  const result = {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'CANDIDATE_SOURCE_LINEAGE_VALID'
+        : 'CANDIDATE_SOURCE_LINEAGE_INVALID',
+
+    candidateCount,
+
+    expectedCount,
+
+    canonicalCount,
+
+    countMatch,
+
+    allIndexesPresent,
+
+    allIndexesInRange,
+
+    allSourcesFound,
+
+    allProvinceMatch,
+
+    allPrizeMatch,
+
+    allIdentityMatch,
+
+    allLineageValid,
+
+    uniqueLineage,
+
+    details,
+
+    safety: {
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      autoPromotion: false
+
+    }
+
+  };
+
+
+  window.LAST_FIX03D59_STEP83D_RESULT =
+    result;
+
+
+  return result;
+
+}
+
