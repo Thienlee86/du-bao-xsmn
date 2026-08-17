@@ -129478,3 +129478,219 @@ function reportProductionCandidateLineage83D() {
 
 })();
 
+/* =========================================================================
+   FIX-03D.5.9 — STEP 8.3D
+   MANUAL DEBUG BUTTON
+
+   MANUAL RUN ONLY
+   READ ONLY
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+(function installFix03D59Step83DButton() {
+
+  function install() {
+
+    if (
+      document.getElementById(
+        'fix03d59-step83d-button'
+      )
+    ) {
+      return;
+    }
+
+
+    const button =
+      document.createElement('button');
+
+
+    button.id =
+      'fix03d59-step83d-button';
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🧬 D.5.9 Candidate Lineage Audit';
+
+
+    button.style.cssText = [
+      'width:100%',
+      'margin-top:10px',
+      'padding:12px 14px',
+      'border:1px solid rgba(255,255,255,.18)',
+      'border-radius:12px',
+      'background:#27234f',
+      'color:#fff',
+      'font-size:14px',
+      'font-weight:700',
+      'cursor:pointer'
+    ].join(';');
+
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        /*
+         * STEP 8.3D verifier/reporter
+         * must already exist.
+         */
+
+        if (
+          typeof
+            reportProductionCandidateLineage83D ===
+          'function'
+        ) {
+
+          reportProductionCandidateLineage83D();
+          return;
+
+        }
+
+
+        if (
+          typeof
+            verifyProductionCandidateLineage83D ===
+          'function'
+        ) {
+
+          const result =
+            verifyProductionCandidateLineage83D();
+
+
+          window.LAST_FIX03D59_STEP83D_RESULT =
+            result;
+
+
+          alert(
+            [
+              'FIX-03D.5.9 STEP 8.3D',
+              'CANDIDATE LINEAGE AUDIT',
+              '',
+              `Ready: ${
+                result?.ready === true
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              }`,
+              `Passed: ${
+                result?.passed === true
+                  ? 'YES ✅'
+                  : 'NO ❌'
+              }`,
+              `Reason: ${
+                result?.reason || '-'
+              }`,
+              '',
+              'READ ONLY',
+              'NO WRITE',
+              'NO PROMOTION'
+            ].join('\n')
+          );
+
+
+          return;
+
+        }
+
+
+        alert(
+          [
+            'FIX-03D.5.9 STEP 8.3D',
+            '',
+            'Reporter: NOT FOUND ❌',
+            'Verifier: NOT FOUND ❌',
+            '',
+            'STEP 8.3D function is not available.',
+            '',
+            'Nothing executed.',
+            'NO WRITE',
+            'NO PROMOTION'
+          ].join('\n')
+        );
+
+      }
+    );
+
+
+    /*
+     * Prefer the existing debug/settings
+     * container.
+     */
+
+    const settings =
+      document.querySelector(
+        '#settings-content'
+      ) ||
+      document.querySelector(
+        '.settings-content'
+      ) ||
+      document.querySelector(
+        '[data-page="settings"]'
+      );
+
+
+    if (settings) {
+
+      settings.appendChild(
+        button
+      );
+
+    } else {
+
+      /*
+       * Safe fallback for mobile.
+       */
+
+      button.style.position =
+        'fixed';
+
+      button.style.left =
+        '12px';
+
+      button.style.right =
+        '12px';
+
+      button.style.bottom =
+        '145px';
+
+      button.style.width =
+        'calc(100% - 24px)';
+
+      button.style.zIndex =
+        '99999';
+
+
+      document.body.appendChild(
+        button
+      );
+
+    }
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      install,
+      { once: true }
+    );
+
+  } else {
+
+    install();
+
+  }
+
+})();
+
