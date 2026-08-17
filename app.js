@@ -128903,15 +128903,21 @@ function auditProductionCandidateLineage83D() {
       : [];
 
 
+    const source82C =
+    window.LAST_FIX03D59_STEP82C_RESULT ||
+    null;
+
+
   const canonicalSource =
-    Array.isArray(
-      source83B.canonicalRecords
-    )
-      ? source83B.canonicalRecords
-      : Array.isArray(
-          source83B.canonical
-        )
-          ? source83B.canonical
+    source82C &&
+    Array.isArray(source82C.records)
+      ? source82C.records
+      : source82C &&
+        Array.isArray(source82C.canonicalRecords)
+        ? source82C.canonicalRecords
+        : source82C &&
+          Array.isArray(source82C.details)
+          ? source82C.details
           : [];
 
 
