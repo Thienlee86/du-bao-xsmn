@@ -139224,3 +139224,367 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3Q
+   PRODUCTION PROMOTION EXECUTION COMMIT GUARD
+
+   SOURCE = STEP 8.3P
+
+   PURPOSE
+   - Consume the authorization gate from STEP 8.3P.
+   - Verify the complete authorization set.
+   - Build the final commit-guard representation.
+   - DO NOT perform production promotion.
+   - DO NOT write canonical state.
+   - DO NOT write storage.
+
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionExecutionCommitGuard83Q() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83P ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83P_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3P',
+
+      sourcePassed: false,
+
+      commitEligible: false,
+
+      expectedCount: 0,
+
+      guardItemCount: 0,
+
+      countsMatch: false,
+
+      allItemsValid: false,
+
+      allItemsAuthorized: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      commitGuardValid: false,
+
+      items: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false,
+
+      commitPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    source.passed === true;
+
+
+  const authorizationEligible =
+    source.authorizationEligible === true;
+
+
+  /*
+   * STEP 8.3P may expose the authorization
+   * collection using different field names.
+   * Keep the resolver defensive.
+   */
+
+  const sourceItems =
+    Array.isArray(
+      source.authorizationItems
+    )
+      ? source.authorizationItems
+      : Array.isArray(
+          source.items
+        )
+          ? source.items
+          : Array.isArray(
+              source.authorizations
+            )
+              ? source.authorizations
+              : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      source.expectedCount
+    )
+      ? source.expectedCount
+      : Number.isInteger(
+          source.candidateCount
+        )
+          ? source.candidateCount
+          : sourceItems.length;
+
+
+  const items =
+    sourceItems.map(
+      (item, index) => {
+
+        const candidateId =
+          item?.candidateId ||
+          item?.identity ||
+          null;
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const itemValid =
+          (
+            item?.valid === true ||
+            item?.authorizationValid === true
+          );
+
+
+        const authorized =
+          (
+            item?.authorized === true ||
+            item?.authorizationReady === true ||
+            item?.executionAuthorized === true
+          );
+
+
+        const commitReady =
+          Boolean(
+            candidateId &&
+            canonicalIndex != null &&
+            province &&
+            prize &&
+            itemValid &&
+            authorized
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity:
+            item?.identity ||
+            candidateId,
+
+          province,
+
+          prize,
+
+          valid:
+            itemValid,
+
+          authorized,
+
+          commitReady
+
+        };
+
+      }
+    );
+
+
+  const guardItemCount =
+    items.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    guardItemCount ===
+      expectedCount;
+
+
+  const allItemsValid =
+    guardItemCount > 0 &&
+    items.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const allItemsAuthorized =
+    guardItemCount > 0 &&
+    items.every(
+      item =>
+        item.authorized === true
+    );
+
+
+  const allItemsCommitReady =
+    guardItemCount > 0 &&
+    items.every(
+      item =>
+        item.commitReady === true
+    );
+
+
+  const candidateIds =
+    items
+      .map(
+        item =>
+          item.candidateId
+      )
+      .filter(Boolean);
+
+
+  const candidateIdUnique =
+    candidateIds.length ===
+      guardItemCount &&
+    new Set(
+      candidateIds
+    ).size ===
+      guardItemCount;
+
+
+  const canonicalIndexes =
+    items
+      .map(
+        item =>
+          item.canonicalIndex
+      )
+      .filter(
+        value =>
+          Number.isInteger(
+            value
+          )
+      );
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length ===
+      guardItemCount &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      guardItemCount;
+
+
+  const commitEligible =
+    sourcePassed &&
+    authorizationEligible;
+
+
+  const commitGuardValid =
+    commitEligible &&
+    countsMatch &&
+    allItemsValid &&
+    allItemsAuthorized &&
+    allItemsCommitReady &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      commitGuardValid,
+
+    reason:
+      commitGuardValid
+        ? 'PRODUCTION_PROMOTION_EXECUTION_COMMIT_GUARD_PASSED'
+        : 'PRODUCTION_PROMOTION_EXECUTION_COMMIT_GUARD_FAILED',
+
+    sourceStep:
+      '8.3P',
+
+    sourcePassed,
+
+    authorizationEligible,
+
+    commitEligible,
+
+    expectedCount,
+
+    guardItemCount,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsAuthorized,
+
+    allItemsCommitReady,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    commitGuardValid,
+
+    items,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false,
+
+    commitPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3Q engine loaded — PRODUCTION PROMOTION EXECUTION COMMIT GUARD / READ ONLY'
+);
+
