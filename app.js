@@ -142685,3 +142685,378 @@ console.log(
   'FIX-03D5.9 STEP 8.4E loaded — Existing Production Write Adapter Contract / READ ONLY / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4F
+   PRODUCTION FORECAST MAPPING PREVIEW
+
+   SOURCE:
+   - STEP 8.4E write adapter contract
+   - STEP 8.4D contract items
+   - Current LAST_FORECAST production structure
+
+   PURPOSE:
+   - Map certified candidates to EXISTING forecast prize items.
+   - Preserve production forecast schema.
+   - Preview only.
+
+   READ ONLY
+   ZERO WRITE
+   ========================================================================= */
+
+function buildProductionForecastMappingPreview84F() {
+
+  const adapter =
+    window.LAST_FIX03D59_STEP84E ||
+    null;
+
+  const boundary =
+    window.LAST_FIX03D59_STEP84D ||
+    null;
+
+
+  const adapterValid =
+    Boolean(
+      adapter &&
+      adapter.ready === true &&
+      adapter.passed === true &&
+      adapter.adapterReady === true &&
+      adapter.readOnly === true &&
+      adapter.writeAuthorized === false &&
+      adapter.productionWrite === false &&
+      adapter.storageWrite === false
+    );
+
+
+  const boundaryValid =
+    Boolean(
+      boundary &&
+      boundary.ready === true &&
+      boundary.passed === true &&
+      boundary.boundaryValid === true &&
+      Array.isArray(
+        boundary.contractItems
+      )
+    );
+
+
+  /*
+   * Current production forecast.
+   */
+
+  const productionEnvelope =
+    LAST_FORECAST ||
+    null;
+
+
+  const forecast =
+    productionEnvelope?.forecast ||
+    null;
+
+
+  const forecastValid =
+    Boolean(
+      forecast &&
+      forecast.empty !== true &&
+      forecast.province &&
+      Number.isInteger(
+        forecast.windowSize
+      ) &&
+      Array.isArray(
+        forecast.items
+      ) &&
+      forecast.items.length > 0
+    );
+
+
+  const forecastItems =
+    forecastValid
+      ? forecast.items
+      : [];
+
+
+  const contractItems =
+    boundaryValid
+      ? boundary.contractItems
+      : [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * MAP CANDIDATE -> EXISTING PRIZE ITEM
+   * ---------------------------------------------------------
+   */
+
+  const mappings =
+    contractItems.map(
+      (candidate, index) => {
+
+        const prize =
+          candidate?.prize ||
+          null;
+
+
+        const province =
+          candidate?.province ||
+          null;
+
+
+        const prizeMeta =
+          prize
+            ? prizeMetaOf(
+                prize
+              )
+            : null;
+
+
+        const forecastItem =
+          prize
+            ? forecastItems.find(
+                item =>
+                  item?.key === prize
+              ) || null
+            : null;
+
+
+        const provinceMatch =
+          Boolean(
+            province &&
+            forecast?.province &&
+            province ===
+              forecast.province
+          );
+
+
+        const prizeMetaValid =
+          Boolean(
+            prizeMeta &&
+            prizeMeta.key === prize
+          );
+
+
+        const forecastItemValid =
+          Boolean(
+            forecastItem &&
+            forecastItem.key === prize &&
+            forecastItem.label &&
+            Array.isArray(
+              forecastItem.numbers
+            ) &&
+            forecastItem.numbers.length > 0
+          );
+
+
+        const numberSchemaValid =
+          Boolean(
+            forecastItemValid &&
+            forecastItem.numbers.every(
+              n =>
+                n &&
+                typeof n.number ===
+                  'string'
+            )
+          );
+
+
+        const mappingValid =
+          Boolean(
+            candidate?.contractValid === true &&
+            provinceMatch &&
+            prizeMetaValid &&
+            forecastItemValid &&
+            numberSchemaValid
+          );
+
+
+        return {
+
+          mappingIndex:
+            index + 1,
+
+          canonicalIndex:
+            candidate?.canonicalIndex ??
+            null,
+
+          candidateId:
+            candidate?.candidateId ||
+            null,
+
+          identity:
+            candidate?.identity ||
+            null,
+
+          province,
+
+          prize,
+
+          forecastProvince:
+            forecast?.province ||
+            null,
+
+          forecastPrizeKey:
+            forecastItem?.key ||
+            null,
+
+          forecastPrizeLabel:
+            forecastItem?.label ||
+            null,
+
+          productionNumberCount:
+            Array.isArray(
+              forecastItem?.numbers
+            )
+              ? forecastItem.numbers.length
+              : 0,
+
+          provinceMatch,
+
+          prizeMetaValid,
+
+          forecastItemValid,
+
+          numberSchemaValid,
+
+          mappingValid,
+
+          /*
+           * Still locked.
+           */
+
+          writeAuthorized:
+            false,
+
+          replacementPerformed:
+            false
+
+        };
+
+      }
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * MAPPING INTEGRITY
+   * ---------------------------------------------------------
+   */
+
+  const expectedCount =
+    contractItems.length;
+
+
+  const mappingCount =
+    mappings.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    mappingCount ===
+      expectedCount;
+
+
+  const allMappingsValid =
+    mappingCount > 0 &&
+    mappings.every(
+      item =>
+        item.mappingValid === true
+    );
+
+
+  const mappingValid =
+    adapterValid &&
+    boundaryValid &&
+    forecastValid &&
+    countsMatch &&
+    allMappingsValid;
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      mappingValid,
+
+    reason:
+      mappingValid
+        ? 'PRODUCTION_FORECAST_MAPPING_PREVIEW_VALID'
+        : 'PRODUCTION_FORECAST_MAPPING_PREVIEW_INVALID',
+
+    step:
+      '8.4F',
+
+    sourceStep:
+      '8.4E',
+
+    boundarySourceStep:
+      '8.4D',
+
+    adapterValid,
+
+    boundaryValid,
+
+    forecastValid,
+
+    forecastProvince:
+      forecast?.province ||
+      null,
+
+    forecastWindowSize:
+      forecast?.windowSize ??
+      null,
+
+    forecastPrizeCount:
+      forecastItems.length,
+
+    expectedCount,
+
+    mappingCount,
+
+    countsMatch,
+
+    allMappingsValid,
+
+    mappingValid,
+
+    mappings,
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    writeAuthorized:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun: true,
+
+    readOnly: true
+
+  };
+
+
+  window.LAST_FIX03D59_STEP84F =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4F loaded — Production Forecast Mapping Preview / READ ONLY / ZERO WRITE'
+);
+
