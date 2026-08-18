@@ -136075,3 +136075,349 @@ console.log(
   'FIX-03D5.9 STEP 8.3M loaded — PRODUCTION PROMOTION TRANSACTION PREFLIGHT / DRY RUN / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3M
+   PRODUCTION PROMOTION TRANSACTION PREFLIGHT
+   RUNNER + REPORTER
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function runProductionPromotionTransactionPreflight83M() {
+
+  const result =
+    buildProductionPromotionTransactionPreflight83M();
+
+
+  /*
+   * Persist latest DRY-RUN result
+   * for downstream validation only.
+   */
+
+  window.LAST_FIX03D59_STEP83M =
+    result;
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   REPORTER
+   ========================================================================= */
+
+function testProductionPromotionTransactionPreflight83M() {
+
+  const result =
+    runProductionPromotionTransactionPreflight83M();
+
+
+  const yesNo =
+    value =>
+      value === true
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3M'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION TRANSACTION PREFLIGHT'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Source: ' +
+    (
+      result.sourceStep ||
+      '8.3L'
+    )
+  );
+
+  lines.push(
+    'Gate Source: ' +
+    (
+      result.gateSourceStep ||
+      '8.3K'
+    )
+  );
+
+  lines.push(
+    'Payload Source: ' +
+    (
+      result.payloadSourceStep ||
+      '8.3J'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed
+    )
+  );
+
+  lines.push(
+    'Gate Passed: ' +
+    yesNo(
+      result.gatePassed
+    )
+  );
+
+  lines.push(
+    'Payload Passed: ' +
+    yesNo(
+      result.payloadPassed
+    )
+  );
+
+  lines.push(
+    'Transaction Eligible: ' +
+    yesNo(
+      result.transactionEligible
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Expected Candidates: ' +
+    (
+      result.expectedCount ??
+      0
+    )
+  );
+
+  lines.push(
+    'Transaction Items: ' +
+    (
+      result.transactionCount ??
+      0
+    )
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'All Items Valid: ' +
+    yesNo(
+      result.allItemsValid
+    )
+  );
+
+  lines.push(
+    'All Items Ready: ' +
+    yesNo(
+      result.allItemsReady
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.candidateIdUnique
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.canonicalIndexUnique
+    )
+  );
+
+  lines.push(
+    'Atomicity Valid: ' +
+    yesNo(
+      result.atomicityValid
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'TRANSACTION PREFLIGHT: ' +
+    (
+      result.transactionValid ===
+      true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  /*
+   * Transaction preview
+   */
+
+  lines.push('');
+
+  lines.push(
+    'TRANSACTION PREVIEW'
+  );
+
+
+  const transaction =
+    Array.isArray(
+      result.transaction
+    )
+      ? result.transaction
+      : [];
+
+
+  if (
+    transaction.length === 0
+  ) {
+
+    lines.push(
+      'NO TRANSACTION ITEMS'
+    );
+
+  } else {
+
+    transaction.forEach(
+      item => {
+
+        lines.push(
+          '#' +
+          item.index +
+          ' | ' +
+          (
+            item.province ||
+            'NO_PROVINCE'
+          ) +
+          ' | ' +
+          (
+            item.prize ||
+            'NO_PRIZE'
+          ) +
+          ' | Valid: ' +
+          yesNo(
+            item.valid
+          ) +
+          ' | Ready: ' +
+          yesNo(
+            item.ready
+          ) +
+          ' | ' +
+          (
+            item.action ||
+            '-'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * Safety status
+   */
+
+  lines.push('');
+
+  lines.push(
+    'DRY RUN'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    yesNo(
+      result.readOnly
+    )
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3M runner/reporter loaded'
+);
+
