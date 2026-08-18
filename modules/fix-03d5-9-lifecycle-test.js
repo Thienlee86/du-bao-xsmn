@@ -417,12 +417,13 @@
         Mobile Lifecycle Test · READ ONLY · ZERO WRITE
       </div>
 
-      <button
-        type="button"
-        id="fix03d59-84fl-test-button"
-      >
-        🧪 TEST 8.4F-L
-      </button>
+      <div
+  id="fix03d59-84fl-test-button"
+  role="button"
+  tabindex="0"
+>
+  🧪 TEST 8.4F-L
+</div>
 
       <div
         id="fix03d59-84fl-test-output"
