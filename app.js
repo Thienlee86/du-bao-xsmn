@@ -137606,3 +137606,348 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3O
+   PRODUCTION PROMOTION EXECUTION MANIFEST
+
+   SOURCE:
+   - STEP 8.3N = transaction final gate
+   - STEP 8.3M = transaction items
+
+   PURPOSE:
+   - freeze the exact transaction set
+   - verify identity/index integrity
+   - build execution manifest
+   - NO execution
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionExecutionManifest83O() {
+
+  const gate =
+    window.LAST_FIX03D59_STEP83N ||
+    null;
+
+  const transaction =
+    window.LAST_FIX03D59_STEP83M ||
+    null;
+
+
+  if (
+    !gate ||
+    gate.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83N_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3N',
+
+      transactionSourceStep:
+        '8.3M',
+
+      sourcePassed: false,
+
+      executionEligible: false,
+
+      expectedCount: 0,
+
+      manifestCount: 0,
+
+      countsMatch: false,
+
+      allManifestItemsValid: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      manifestValid: false,
+
+      manifest: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false,
+
+      executionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    gate.passed === true;
+
+
+  const executionEligible =
+    sourcePassed &&
+    gate.transactionEligible === true;
+
+
+  /*
+   * STEP 8.3M owns the prepared
+   * transaction item collection.
+   */
+
+  const transactionItems =
+    Array.isArray(
+      transaction?.transactionItems
+    )
+      ? transaction.transactionItems
+      : Array.isArray(
+          transaction?.items
+        )
+          ? transaction.items
+          : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      gate.expectedCount
+    )
+      ? gate.expectedCount
+      : Number.isInteger(
+          gate.transactionCount
+        )
+          ? gate.transactionCount
+          : transactionItems.length;
+
+
+  const manifest =
+    transactionItems.map(
+      (item, index) => {
+
+        const candidateId =
+          item?.candidateId ||
+          item?.identity ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          candidateId ||
+          null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const sourceValid =
+          item?.valid === true;
+
+
+        const sourceReady =
+          (
+            item?.transactionReady === true ||
+            item?.ready === true
+          );
+
+
+        const manifestItemValid =
+          Boolean(
+            candidateId &&
+            identity &&
+            province &&
+            prize &&
+            canonicalIndex != null &&
+            sourceValid &&
+            sourceReady
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          valid:
+            manifestItemValid,
+
+          executionReady:
+            manifestItemValid,
+
+          executionStatus:
+            'BLOCKED_DRY_RUN'
+
+        };
+
+      }
+    );
+
+
+  const manifestCount =
+    manifest.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    manifestCount ===
+      expectedCount;
+
+
+  const allManifestItemsValid =
+    manifestCount > 0 &&
+    manifest.every(
+      item =>
+        item.valid === true &&
+        item.executionReady === true
+    );
+
+
+  const candidateIds =
+    manifest
+      .map(
+        item =>
+          item.candidateId
+      )
+      .filter(Boolean);
+
+
+  const candidateIdUnique =
+    candidateIds.length ===
+      manifestCount &&
+    new Set(
+      candidateIds
+    ).size ===
+      manifestCount;
+
+
+  const canonicalIndexes =
+    manifest
+      .map(
+        item =>
+          item.canonicalIndex
+      )
+      .filter(
+        value =>
+          Number.isInteger(
+            value
+          )
+      );
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length ===
+      manifestCount &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      manifestCount;
+
+
+  const manifestValid =
+    sourcePassed &&
+    executionEligible &&
+    countsMatch &&
+    allManifestItemsValid &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      manifestValid,
+
+    reason:
+      manifestValid
+        ? 'PRODUCTION_PROMOTION_EXECUTION_MANIFEST_VALID'
+        : 'PRODUCTION_PROMOTION_EXECUTION_MANIFEST_INVALID',
+
+    sourceStep:
+      '8.3N',
+
+    transactionSourceStep:
+      '8.3M',
+
+    sourcePassed,
+
+    executionEligible,
+
+    expectedCount,
+
+    manifestCount,
+
+    countsMatch,
+
+    allManifestItemsValid,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    manifestValid,
+
+    manifest,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false,
+
+    executionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3O loaded — PRODUCTION PROMOTION EXECUTION MANIFEST / DRY RUN / ZERO WRITE'
+);
+
