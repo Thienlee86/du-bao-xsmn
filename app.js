@@ -132958,3 +132958,305 @@ console.log(
   'FIX-03D5.9 STEP 8.3J HOTFIX loaded — candidate payload source = 8.3G / DRY RUN / READ ONLY / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J — HOTFIX 2
+   RESTORE PAYLOAD DETAILS FROM STEP 8.3G
+
+   ROOT CAUSE:
+   8.3H / 8.3I carry aggregate gate state only.
+   Candidate detail records remain in 8.3G.
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionPayloadPreview83J() {
+
+  const guard =
+    window.LAST_FIX03D59_STEP83I ||
+    null;
+
+
+  const release =
+    window.LAST_FIX03D59_STEP83H ||
+    null;
+
+
+  const finalGate =
+    window.LAST_FIX03D59_STEP83G ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * A. GUARD MUST EXIST
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !guard ||
+    guard.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83I_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3I',
+
+      sourcePassed: false,
+
+      promotionEligible: false,
+
+      expectedCount: 0,
+
+      payloadCount: 0,
+
+      countsMatch: false,
+
+      allPayloadItemsValid: false,
+
+      payloadValid: false,
+
+      payload: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * B. SOURCE STATE
+   * ---------------------------------------------------------
+   */
+
+  const sourcePassed =
+    guard.passed === true;
+
+
+  const promotionEligible =
+    guard.promotionEligible === true;
+
+
+  /*
+   * ---------------------------------------------------------
+   * C. EXPECTED CANDIDATE COUNT
+   *
+   * Priority:
+   * 8.3I -> 8.3H -> 8.3G details
+   * ---------------------------------------------------------
+   */
+
+  const finalGateDetails =
+    finalGate &&
+    Array.isArray(
+      finalGate.details
+    )
+      ? finalGate.details
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      guard.candidateCount
+    )
+      ? guard.candidateCount
+
+      : (
+          release &&
+          Number.isInteger(
+            release.candidateCount
+          )
+            ? release.candidateCount
+
+            : finalGateDetails.length
+        );
+
+
+  /*
+   * ---------------------------------------------------------
+   * D. BUILD PAYLOAD
+   *
+   * IMPORTANT:
+   * Candidate detail source = STEP 8.3G
+   * ---------------------------------------------------------
+   */
+
+  const payload =
+    finalGateDetails.map(
+      (item, index) => {
+
+        const province =
+          item &&
+          item.province != null
+            ? item.province
+            : null;
+
+
+        const prize =
+          item &&
+          item.prize != null
+            ? item.prize
+            : null;
+
+
+        const candidateId =
+          item &&
+          item.candidateId != null
+            ? item.candidateId
+            : (
+                item &&
+                item.identity != null
+                  ? item.identity
+                  : null
+              );
+
+
+        const valid =
+          item &&
+          item.valid === true;
+
+
+        const promotionReady =
+          Boolean(
+            province &&
+            prize &&
+            valid
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          candidateId,
+
+          province,
+
+          prize,
+
+          valid,
+
+          promotionReady
+
+        };
+
+      }
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * E. VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const payloadCount =
+    payload.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    payloadCount ===
+      expectedCount;
+
+
+  const allPayloadItemsValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item.promotionReady ===
+        true
+    );
+
+
+  const payloadValid =
+    sourcePassed &&
+    promotionEligible &&
+    countsMatch &&
+    allPayloadItemsValid;
+
+
+  /*
+   * ---------------------------------------------------------
+   * F. RESULT
+   * ---------------------------------------------------------
+   */
+
+  return {
+
+    ready: true,
+
+    passed:
+      payloadValid,
+
+    reason:
+      payloadValid
+        ? 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_VALID'
+        : 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_INVALID',
+
+    sourceStep:
+      '8.3I',
+
+    detailSourceStep:
+      '8.3G',
+
+    sourcePassed,
+
+    promotionEligible,
+
+    expectedCount,
+
+    payloadCount,
+
+    countsMatch,
+
+    allPayloadItemsValid,
+
+    payloadValid,
+
+    payload,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3J HOTFIX 2 loaded — payload details restored from STEP 8.3G'
+);
+
