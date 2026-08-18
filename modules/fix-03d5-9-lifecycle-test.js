@@ -436,7 +436,34 @@
       panel
     );
 
+const testControl =
+  document.getElementById(
+    'fix03d59-84fl-test-button'
+  );
 
+const probe =
+  document.createElement(
+    'div'
+  );
+
+probe.style.cssText = `
+  margin-top: 14px;
+  padding: 12px;
+  background: white;
+  color: black;
+  border-radius: 10px;
+  font-weight: 800;
+`;
+
+probe.textContent =
+  testControl
+    ? 'DOM CONTROL: FOUND ✅'
+    : 'DOM CONTROL: MISSING ❌';
+
+panel.appendChild(
+  probe
+);
+     
     document
       .getElementById(
         'fix03d59-84fl-test-button'
