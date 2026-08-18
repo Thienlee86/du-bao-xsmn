@@ -136421,3 +136421,191 @@ console.log(
   'FIX-03D5.9 STEP 8.3M runner/reporter loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3M
+   TRANSACTION PREFLIGHT REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionTransactionPreflight83MButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83m-button';
+
+
+  function attach() {
+
+    /*
+     * Prevent duplicate button.
+     */
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * Same attachment strategy
+     * as previous 8.3 buttons.
+     */
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🧪 8.3M Transaction Preflight';
+
+
+    button.style.cssText = [
+      'position:static',
+      'width:100%',
+      'display:block',
+      'margin:8px 0',
+      'padding:12px 16px',
+      'border:0',
+      'border-radius:18px',
+      'font-weight:800',
+      'font-size:14px'
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            testProductionPromotionTransactionPreflight83M !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3M',
+              '',
+              'Reporter Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          testProductionPromotionTransactionPreflight83M();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3M',
+              'TRANSACTION PREFLIGHT',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3M Reporter button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  /*
+   * Try immediately.
+   */
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  /*
+   * Panel may not exist yet.
+   * Retry for 10 seconds.
+   */
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts += 1;
+
+
+        if (
+          attach() ||
+          attempts >= 40
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      250
+    );
+
+})();
+
