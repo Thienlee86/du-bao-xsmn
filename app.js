@@ -140847,3 +140847,188 @@ console.log(
   'FIX-03D5.9 STEP 8.3R reporter loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3R
+   PRODUCTION PROMOTION COMMIT SIMULATION
+   REPORTER BUTTON
+   ========================================================================= */
+
+(function installFix03D59Step83RReporterButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83r-reporter-button';
+
+
+  function runStep83RReporter() {
+
+    if (
+      typeof
+        reportProductionPromotionCommitSimulation83R !==
+      'function'
+    ) {
+
+      console.error(
+        'STEP 8.3R reporter is not available'
+      );
+
+      alert(
+        '❌ STEP 8.3R reporter is not available'
+      );
+
+      return;
+
+    }
+
+
+    try {
+
+      const result =
+        reportProductionPromotionCommitSimulation83R();
+
+
+      window.LAST_FIX03D59_STEP83R_BUTTON =
+        result;
+
+
+      console.log(
+        'STEP 8.3R REPORTER BUTTON RESULT:',
+        result
+      );
+
+
+      return result;
+
+    } catch (error) {
+
+      console.error(
+        'STEP 8.3R reporter button failed:',
+        error
+      );
+
+      alert(
+        '❌ STEP 8.3R reporter button failed\n\n' +
+        (
+          error &&
+          error.message
+            ? error.message
+            : String(error)
+        )
+      );
+
+    }
+
+  }
+
+
+  function installButton() {
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+    button.type =
+      'button';
+
+    button.textContent =
+      '🧪 8.3R Commit Simulation';
+
+
+    button.style.position =
+      'fixed';
+
+    button.style.right =
+      '12px';
+
+    button.style.bottom =
+      '64px';
+
+    button.style.zIndex =
+      '999999';
+
+    button.style.padding =
+      '10px 14px';
+
+    button.style.border =
+      'none';
+
+    button.style.borderRadius =
+      '10px';
+
+    button.style.fontSize =
+      '14px';
+
+    button.style.fontWeight =
+      '700';
+
+    button.style.cursor =
+      'pointer';
+
+    button.style.boxShadow =
+      '0 4px 12px rgba(0,0,0,0.25)';
+
+
+    button.addEventListener(
+      'click',
+      runStep83RReporter
+    );
+
+
+    document.body.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3R reporter button installed'
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      installButton,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    installButton();
+
+  }
+
+
+  window.runFix03D59Step83RReporterButton =
+    runStep83RReporter;
+
+
+})();
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3R reporter button loaded'
+);
+
