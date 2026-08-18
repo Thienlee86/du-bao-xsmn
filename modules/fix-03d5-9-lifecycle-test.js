@@ -290,15 +290,31 @@
       }
 
       #fix03d59-84fl-test-button {
-        width: 100%;
-        border: 0;
-        border-radius: 14px;
-        padding: 14px;
-        font-size: 16px;
-        font-weight: 800;
-        background: #ffc13d;
-        color: #17182a;
-      }
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  width: 100% !important;
+  min-height: 52px !important;
+
+  margin: 14px 0 0 !important;
+  padding: 14px !important;
+
+  border: 0 !important;
+  border-radius: 14px !important;
+
+  background: #ffc13d !important;
+  color: #17182a !important;
+
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  line-height: 1.3 !important;
+
+  position: relative !important;
+  z-index: 10 !important;
+
+  pointer-events: auto !important;
+}
 
       #fix03d59-84fl-test-output {
         margin-top: 16px;
