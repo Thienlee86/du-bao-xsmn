@@ -136609,3 +136609,374 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3M — HOTFIX 1
+   TRANSACTION PREFLIGHT ITEM MAPPING
+
+   AUTHORITATIVE PAYLOAD SOURCE = STEP 8.3J
+   COMMIT PLAN SOURCE = STEP 8.3L
+   FINAL GATE SOURCE = STEP 8.3K
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionTransactionPreflight83M() {
+
+  const plan =
+    window.LAST_FIX03D59_STEP83L ||
+    null;
+
+  const gate =
+    window.LAST_FIX03D59_STEP83K ||
+    null;
+
+  const payloadSource =
+    window.LAST_FIX03D59_STEP83J ||
+    null;
+
+
+  if (
+    !plan ||
+    plan.ready !== true ||
+    plan.passed !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83L_RESULT_NOT_READY',
+
+      sourceStep: '8.3L',
+
+      gateSourceStep: '8.3K',
+
+      payloadSourceStep: '8.3J',
+
+      sourcePassed: false,
+
+      gatePassed: false,
+
+      payloadPassed: false,
+
+      transactionEligible: false,
+
+      expectedCount: 0,
+
+      transactionCount: 0,
+
+      countsMatch: false,
+
+      allItemsValid: false,
+
+      allItemsReady: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      transactionItems: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    plan.passed === true;
+
+
+  const gatePassed =
+    Boolean(
+      gate &&
+      gate.ready === true &&
+      gate.passed === true
+    );
+
+
+  const payloadPassed =
+    Boolean(
+      payloadSource &&
+      payloadSource.ready === true &&
+      payloadSource.passed === true &&
+      payloadSource.payloadValid === true
+    );
+
+
+  const transactionEligible =
+    sourcePassed &&
+    gatePassed &&
+    payloadPassed;
+
+
+  /*
+   * 8.3J owns the authoritative
+   * promotion payload.
+   */
+
+  const payload =
+    payloadSource &&
+    Array.isArray(
+      payloadSource.payload
+    )
+      ? payloadSource.payload
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      plan.expectedCount
+    )
+      ? plan.expectedCount
+      : (
+          Number.isInteger(
+            payloadSource?.expectedCount
+          )
+            ? payloadSource.expectedCount
+            : payload.length
+        );
+
+
+  const transactionItems =
+    payload.map(
+      (item, index) => {
+
+        const candidateId =
+          item?.candidateId ||
+          item?.identity ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          candidateId ||
+          null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : index;
+
+
+        const valid =
+          item?.valid === true;
+
+
+        const promotionReady =
+          item?.promotionReady === true;
+
+
+        const itemValid =
+          Boolean(
+            candidateId &&
+            province &&
+            prize &&
+            valid
+          );
+
+
+        const transactionReady =
+          Boolean(
+            itemValid &&
+            promotionReady &&
+            transactionEligible
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          valid:
+            itemValid,
+
+          promotionReady,
+
+          transactionReady,
+
+          dryRunAction:
+            'BLOCKED_DRY_RUN'
+
+        };
+
+      }
+    );
+
+
+  const transactionCount =
+    transactionItems.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    transactionCount ===
+      expectedCount;
+
+
+  const allItemsValid =
+    transactionCount > 0 &&
+    transactionItems.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const allItemsReady =
+    transactionCount > 0 &&
+    transactionItems.every(
+      item =>
+        item.transactionReady ===
+        true
+    );
+
+
+  const candidateIds =
+    transactionItems.map(
+      item =>
+        item.candidateId
+    );
+
+
+  const candidateIdUnique =
+    candidateIds.length > 0 &&
+    candidateIds.every(Boolean) &&
+    new Set(
+      candidateIds
+    ).size ===
+      candidateIds.length;
+
+
+  const canonicalIndexes =
+    transactionItems.map(
+      item =>
+        item.canonicalIndex
+    );
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length > 0 &&
+    canonicalIndexes.every(
+      Number.isInteger
+    ) &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      canonicalIndexes.length;
+
+
+  const passed =
+    transactionEligible &&
+    countsMatch &&
+    allItemsValid &&
+    allItemsReady &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  return {
+
+    ready: true,
+
+    passed,
+
+    reason:
+      passed
+        ? 'PRODUCTION_PROMOTION_TRANSACTION_PREFLIGHT_VALID'
+        : 'PRODUCTION_PROMOTION_TRANSACTION_PREFLIGHT_INVALID',
+
+    sourceStep:
+      '8.3L',
+
+    gateSourceStep:
+      '8.3K',
+
+    payloadSourceStep:
+      '8.3J',
+
+    sourcePassed,
+
+    gatePassed,
+
+    payloadPassed,
+
+    transactionEligible,
+
+    expectedCount,
+
+    transactionCount,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsReady,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    transactionItems,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3M HOTFIX 1 loaded — authoritative payload source = STEP 8.3J'
+);
+
