@@ -134025,3 +134025,593 @@ console.log(
   'FIX-03D5.9 STEP 8.3J HOTFIX 3 loaded — identity source = STEP 8.3C / gate source = STEP 8.3G'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3K
+   PRODUCTION PROMOTION FINAL GATE
+
+   SOURCE:
+   - STEP 8.3J = promotion payload preview
+   - STEP 8.3C = authoritative identity source
+   - STEP 8.3G = final candidate gate
+
+   PURPOSE:
+   Final read-only validation before any
+   future production promotion operation.
+
+   IMPORTANT:
+   DRY RUN
+   READ ONLY
+   ZERO CANONICAL WRITE
+   ZERO PRODUCTION WRITE
+   ZERO STORAGE WRITE
+   ZERO AUTO PROMOTION
+   ========================================================================= */
+
+function validateProductionPromotionFinalGate83K() {
+
+  const preview =
+    buildProductionPromotionPayloadPreview83J();
+
+
+  if (
+    !preview ||
+    preview.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83J_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3J',
+
+      sourcePassed: false,
+
+      expectedCount: 0,
+
+      payloadCount: 0,
+
+      countsMatch: false,
+
+      allPayloadItemsValid: false,
+
+      allPayloadItemsReady: false,
+
+      allProvinceValid: false,
+
+      allPrizeValid: false,
+
+      allIdentityValid: false,
+
+      uniqueCanonicalIndexes: false,
+
+      uniqueCandidateIds: false,
+
+      finalPromotionGateValid: false,
+
+      payload: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      autoPromotion: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const payload =
+    Array.isArray(
+      preview.payload
+    )
+      ? preview.payload
+      : [];
+
+
+  const sourcePassed =
+    preview.passed === true &&
+    preview.payloadValid === true;
+
+
+  const expectedCount =
+    Number.isInteger(
+      preview.expectedCount
+    )
+      ? preview.expectedCount
+      : 0;
+
+
+  const payloadCount =
+    payload.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    payloadCount ===
+      expectedCount &&
+    preview.countsMatch === true;
+
+
+  const allPayloadItemsValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item &&
+        item.valid === true
+    );
+
+
+  const allPayloadItemsReady =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item &&
+        item.promotionReady === true
+    );
+
+
+  const allProvinceValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        typeof item.province ===
+          'string' &&
+        item.province.trim()
+          .length > 0 &&
+        item.province !==
+          'NO_PROVINCE'
+    );
+
+
+  const allPrizeValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        typeof item.prize ===
+          'string' &&
+        item.prize.trim()
+          .length > 0 &&
+        item.prize !==
+          'NO_PRIZE'
+    );
+
+
+  const allIdentityValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        typeof item.identity ===
+          'string' &&
+        item.identity.trim()
+          .length > 0 &&
+        item.identity ===
+          `${item.province}/${item.prize}` &&
+        item.candidateId ===
+          item.identity
+    );
+
+
+  const canonicalIndexes =
+    payload.map(
+      item =>
+        item.canonicalIndex
+    );
+
+
+  const uniqueCanonicalIndexes =
+    payloadCount > 0 &&
+    canonicalIndexes.every(
+      value =>
+        Number.isInteger(
+          value
+        )
+    ) &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      payloadCount;
+
+
+  const candidateIds =
+    payload.map(
+      item =>
+        item.candidateId
+    );
+
+
+  const uniqueCandidateIds =
+    payloadCount > 0 &&
+    candidateIds.every(
+      value =>
+        typeof value ===
+          'string' &&
+        value.length > 0
+    ) &&
+    new Set(
+      candidateIds
+    ).size ===
+      payloadCount;
+
+
+  const finalPromotionGateValid =
+    sourcePassed &&
+    preview.promotionEligible ===
+      true &&
+    preview.boundaryValid ===
+      true &&
+    preview.finalGateValid ===
+      true &&
+    countsMatch &&
+    allPayloadItemsValid &&
+    allPayloadItemsReady &&
+    allProvinceValid &&
+    allPrizeValid &&
+    allIdentityValid &&
+    uniqueCanonicalIndexes &&
+    uniqueCandidateIds;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      finalPromotionGateValid,
+
+    reason:
+      finalPromotionGateValid
+        ? 'PRODUCTION_PROMOTION_FINAL_GATE_PASSED'
+        : 'PRODUCTION_PROMOTION_FINAL_GATE_FAILED',
+
+    sourceStep:
+      '8.3J',
+
+    identitySourceStep:
+      preview.identitySourceStep ||
+      '8.3C',
+
+    gateSourceStep:
+      preview.gateSourceStep ||
+      '8.3G',
+
+    sourcePassed,
+
+    promotionEligible:
+      preview.promotionEligible ===
+      true,
+
+    expectedCount,
+
+    payloadCount,
+
+    countsMatch,
+
+    allPayloadItemsValid,
+
+    allPayloadItemsReady,
+
+    allProvinceValid,
+
+    allPrizeValid,
+
+    allIdentityValid,
+
+    uniqueCanonicalIndexes,
+
+    uniqueCandidateIds,
+
+    finalPromotionGateValid,
+
+    payload,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    autoPromotion: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   STEP 8.3K REPORTER
+   ========================================================================= */
+
+function testProductionPromotionFinalGate83K() {
+
+  const result =
+    validateProductionPromotionFinalGate83K();
+
+
+  window.LAST_FIX03D59_STEP83K =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3K'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION FINAL GATE'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    result.reason
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Source: ' +
+    result.sourceStep
+  );
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed
+    )
+  );
+
+  lines.push(
+    'Promotion Eligible: ' +
+    yesNo(
+      result.promotionEligible
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Expected Candidates: ' +
+    result.expectedCount
+  );
+
+  lines.push(
+    'Payload Items: ' +
+    result.payloadCount
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'All Payload Items Valid: ' +
+    yesNo(
+      result.allPayloadItemsValid
+    )
+  );
+
+  lines.push(
+    'All Payload Items Ready: ' +
+    yesNo(
+      result.allPayloadItemsReady
+    )
+  );
+
+  lines.push(
+    'Province Valid: ' +
+    yesNo(
+      result.allProvinceValid
+    )
+  );
+
+  lines.push(
+    'Prize Valid: ' +
+    yesNo(
+      result.allPrizeValid
+    )
+  );
+
+  lines.push(
+    'Identity Valid: ' +
+    yesNo(
+      result.allIdentityValid
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.uniqueCanonicalIndexes
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.uniqueCandidateIds
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'FINAL PROMOTION GATE: ' +
+    (
+      result.finalPromotionGateValid
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'PAYLOAD'
+  );
+
+
+  if (
+    Array.isArray(
+      result.payload
+    ) &&
+    result.payload.length
+  ) {
+
+    result.payload.forEach(
+      item => {
+
+        lines.push(
+          '#' +
+          item.index +
+          ' | ' +
+          (
+            item.province ||
+            'NO_PROVINCE'
+          ) +
+          ' | ' +
+          (
+            item.prize ||
+            'NO_PRIZE'
+          ) +
+          ' | Valid: ' +
+          yesNo(
+            item.valid
+          ) +
+          ' | Ready: ' +
+          yesNo(
+            item.promotionReady
+          )
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NO PAYLOAD ITEMS'
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'DRY RUN'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    yesNo(
+      result.readOnly
+    )
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite
+    )
+  );
+
+  lines.push(
+    'Auto Promotion: ' +
+    yesNo(
+      result.autoPromotion
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3K loaded — PRODUCTION PROMOTION FINAL GATE / READ ONLY'
+);
+
