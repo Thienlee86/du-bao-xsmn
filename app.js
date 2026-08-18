@@ -140847,80 +140847,23 @@ console.log(
   'FIX-03D5.9 STEP 8.3R reporter loaded'
 );
 
+
 /* =========================================================================
    FIX-03D5.9 STEP 8.3R
-   PRODUCTION PROMOTION COMMIT SIMULATION
-   REPORTER BUTTON
+   FINAL STEP 8.3 VERIFICATION BUTTON
+
+   UI ONLY
+   CALLS EXISTING 8.3R REPORTER
+   ZERO WRITE
    ========================================================================= */
 
-(function installFix03D59Step83RReporterButton() {
+(function attachFinalStep83VerificationButton() {
 
   const BUTTON_ID =
-    'fix03d59-step83r-reporter-button';
+    'fix03d59-step83r-final-verification-button';
 
 
-  function runStep83RReporter() {
-
-    if (
-      typeof
-        reportProductionPromotionCommitSimulation83R !==
-      'function'
-    ) {
-
-      console.error(
-        'STEP 8.3R reporter is not available'
-      );
-
-      alert(
-        '❌ STEP 8.3R reporter is not available'
-      );
-
-      return;
-
-    }
-
-
-    try {
-
-      const result =
-        reportProductionPromotionCommitSimulation83R();
-
-
-      window.LAST_FIX03D59_STEP83R_BUTTON =
-        result;
-
-
-      console.log(
-        'STEP 8.3R REPORTER BUTTON RESULT:',
-        result
-      );
-
-
-      return result;
-
-    } catch (error) {
-
-      console.error(
-        'STEP 8.3R reporter button failed:',
-        error
-      );
-
-      alert(
-        '❌ STEP 8.3R reporter button failed\n\n' +
-        (
-          error &&
-          error.message
-            ? error.message
-            : String(error)
-        )
-      );
-
-    }
-
-  }
-
-
-  function installButton() {
+  function attach() {
 
     if (
       document.getElementById(
@@ -140928,7 +140871,24 @@ console.log(
       )
     ) {
 
-      return;
+      return true;
+
+    }
+
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
 
     }
 
@@ -140946,89 +140906,138 @@ console.log(
       'button';
 
     button.textContent =
-      '🧪 8.3R Commit Simulation';
+      '🏁 FINAL 8.3 Verification';
 
 
-    button.style.position =
-      'fixed';
+    button.style.cssText = [
 
-    button.style.right =
-      '12px';
+      'position:static',
 
-    button.style.bottom =
-      '64px';
+      'width:100%',
 
-    button.style.zIndex =
-      '999999';
+      'display:block',
 
-    button.style.padding =
-      '10px 14px';
+      'margin:10px 0',
 
-    button.style.border =
-      'none';
+      'padding:13px 16px',
 
-    button.style.borderRadius =
-      '10px';
+      'border:0',
 
-    button.style.fontSize =
-      '14px';
+      'border-radius:18px',
 
-    button.style.fontWeight =
-      '700';
+      'font-weight:800',
 
-    button.style.cursor =
-      'pointer';
+      'font-size:14px',
 
-    button.style.boxShadow =
-      '0 4px 12px rgba(0,0,0,0.25)';
+      'cursor:pointer'
+
+    ].join(';');
 
 
-    button.addEventListener(
-      'click',
-      runStep83RReporter
-    );
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            reportProductionPromotionCommitSimulation83R !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3R',
+              '',
+              'Reporter Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
 
 
-    document.body.appendChild(
+        try {
+
+          return (
+            reportProductionPromotionCommitSimulation83R()
+          );
+
+        } catch (error) {
+
+          console.error(
+            'FINAL STEP 8.3 verification failed:',
+            error
+          );
+
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3R',
+              'FINAL STEP 8.3 VERIFICATION',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              (
+                error?.message ||
+                String(error)
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
       button
     );
 
 
     console.log(
-      'FIX-03D5.9 STEP 8.3R reporter button installed'
+      'FIX-03D5.9 FINAL STEP 8.3 Verification button attached'
     );
+
+
+    return true;
 
   }
 
 
   if (
-    document.readyState ===
-    'loading'
+    attach()
   ) {
 
-    document.addEventListener(
-      'DOMContentLoaded',
-      installButton,
-      {
-        once: true
-      }
-    );
-
-  } else {
-
-    installButton();
+    return;
 
   }
 
 
-  window.runFix03D59Step83RReporterButton =
-    runStep83RReporter;
+  document.addEventListener(
+    'DOMContentLoaded',
+    attach,
+    {
+      once: true
+    }
+  );
 
+
+  setTimeout(
+    attach,
+    1000
+  );
+
+
+  setTimeout(
+    attach,
+    3000
+  );
 
 })();
 
 
 console.log(
-  'FIX-03D5.9 STEP 8.3R reporter button loaded'
+  'FIX-03D5.9 STEP 8.3R FINAL Verification button loaded'
 );
+
 
