@@ -137422,3 +137422,187 @@ console.log(
   'FIX-03D5.9 STEP 8.3N Transaction Final Gate reporter loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3N
+   TRANSACTION FINAL GATE REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionTransactionFinalGate83NButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83n-button';
+
+
+  function attach() {
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔐 8.3N Transaction Final Gate';
+
+
+    button.style.cssText = [
+
+      'position:static',
+
+      'width:100%',
+
+      'display:block',
+
+      'margin:8px 0',
+
+      'padding:12px 16px',
+
+      'border:0',
+
+      'border-radius:18px',
+
+      'font-weight:800',
+
+      'font-size:14px',
+
+      'cursor:pointer'
+
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            runProductionPromotionTransactionFinalGate83N !==
+          'function'
+        ) {
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3N',
+              '',
+              'Reporter Function: NOT FOUND ❌'
+            ].join('\n')
+          );
+
+          return;
+
+        }
+
+
+        try {
+
+          runProductionPromotionTransactionFinalGate83N();
+
+        } catch (error) {
+
+          alert(
+            [
+              'FIX-03D5.9 STEP 8.3N',
+              'TRANSACTION FINAL GATE',
+              '',
+              'EXECUTION ERROR ❌',
+              '',
+              String(
+                error &&
+                error.message
+                  ? error.message
+                  : error
+              )
+            ].join('\n')
+          );
+
+        }
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3N Transaction Final Gate button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  let attempts = 0;
+
+
+  const timer =
+    setInterval(
+      function () {
+
+        attempts += 1;
+
+
+        if (
+          attach() ||
+          attempts >= 40
+        ) {
+
+          clearInterval(
+            timer
+          );
+
+        }
+
+      },
+      250
+    );
+
+})();
+
