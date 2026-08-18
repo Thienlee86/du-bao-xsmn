@@ -132143,3 +132143,557 @@ function reportProductionPromotionGuard83I() {
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J
+   PRODUCTION PROMOTION PAYLOAD PREVIEW
+   DRY RUN / READ ONLY / ZERO WRITE
+   ========================================================================= */
+
+function buildProductionPromotionPayloadPreview83J() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83I ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83I_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3I',
+
+      sourcePassed: false,
+
+      promotionEligible: false,
+
+      expectedCount: 0,
+
+      payloadCount: 0,
+
+      countsMatch: false,
+
+      payloadValid: false,
+
+      payload: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    source.passed === true;
+
+
+  const promotionEligible =
+    source.promotionEligible === true;
+
+
+  /*
+   * Candidate details originate from STEP 8.3H.
+   * STEP 8.3I is intentionally only a guard and
+   * does not need to duplicate the candidate payload.
+   */
+
+  const releaseSource =
+    window.LAST_FIX03D59_STEP83H ||
+    null;
+
+
+  const sourceDetails =
+    releaseSource &&
+    Array.isArray(
+      releaseSource.details
+    )
+      ? releaseSource.details
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      source.candidateCount
+    )
+      ? source.candidateCount
+      : sourceDetails.length;
+
+
+  const payload =
+    sourceDetails.map(
+      (item, index) => {
+
+        const province =
+          item?.province ??
+          null;
+
+
+        const prize =
+          item?.prize ??
+          null;
+
+
+        const valid =
+          item?.valid === true;
+
+
+        return {
+
+          index:
+            index + 1,
+
+          province,
+
+          prize,
+
+          valid,
+
+          promotionReady:
+            Boolean(
+              province &&
+              prize &&
+              valid
+            )
+
+        };
+
+      }
+    );
+
+
+  const payloadCount =
+    payload.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    payloadCount ===
+      expectedCount;
+
+
+  const allPayloadItemsValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item.promotionReady ===
+        true
+    );
+
+
+  const payloadValid =
+    sourcePassed &&
+    promotionEligible &&
+    countsMatch &&
+    allPayloadItemsValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      payloadValid,
+
+    reason:
+      payloadValid
+        ? 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_VALID'
+        : 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_INVALID',
+
+    sourceStep:
+      '8.3I',
+
+    sourcePassed,
+
+    promotionEligible,
+
+    expectedCount,
+
+    payloadCount,
+
+    countsMatch,
+
+    allPayloadItemsValid,
+
+    payloadValid,
+
+    payload,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J REPORTER
+   ========================================================================= */
+
+function reportProductionPromotionPayloadPreview83J() {
+
+  const result =
+    buildProductionPromotionPayloadPreview83J();
+
+
+  window.LAST_FIX03D59_STEP83J =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [
+
+    'FIX-03D5.9 STEP 8.3J',
+
+    'PRODUCTION PROMOTION PAYLOAD PREVIEW',
+
+    '',
+
+    'Ready: ' +
+      yesNo(
+        result.ready
+      ),
+
+    'Passed: ' +
+      yesNo(
+        result.passed
+      ),
+
+    'Reason: ' +
+      result.reason,
+
+    '',
+
+    'Source: ' +
+      (
+        result.sourceStep ||
+        '8.3I'
+      ),
+
+    'Source Passed: ' +
+      yesNo(
+        result.sourcePassed
+      ),
+
+    'Promotion Eligible: ' +
+      yesNo(
+        result.promotionEligible
+      ),
+
+    '',
+
+    'Expected Candidates: ' +
+      (
+        result.expectedCount ??
+        0
+      ),
+
+    'Payload Items: ' +
+      (
+        result.payloadCount ??
+        0
+      ),
+
+    'Counts Match: ' +
+      yesNo(
+        result.countsMatch
+      ),
+
+    'All Payload Items Valid: ' +
+      yesNo(
+        result.allPayloadItemsValid
+      ),
+
+    'Payload Valid: ' +
+      yesNo(
+        result.payloadValid
+      ),
+
+    '',
+
+    'PAYLOAD PREVIEW'
+
+  ];
+
+
+  if (
+    Array.isArray(
+      result.payload
+    ) &&
+    result.payload.length > 0
+  ) {
+
+    result.payload.forEach(
+      item => {
+
+        lines.push(
+          '#' +
+          item.index +
+          ' | ' +
+          (
+            item.province ??
+            'NO_PROVINCE'
+          ) +
+          ' | ' +
+          (
+            item.prize ??
+            'NO_PRIZE'
+          ) +
+          ' | Valid: ' +
+          yesNo(
+            item.valid
+          ) +
+          ' | Ready: ' +
+          yesNo(
+            item.promotionReady
+          )
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NO PAYLOAD ITEMS'
+    );
+
+  }
+
+
+  lines.push(
+
+    '',
+
+    'DRY RUN',
+
+    'Read Only: YES',
+
+    'Canonical Write: NO',
+
+    'Production Write: NO',
+
+    'Storage Write: NO',
+
+    'Promotion Performed: NO'
+
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    lines.join('\n')
+  );
+
+  console.log(
+    'Payload Preview:',
+    result.payload
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J
+   REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionPayloadPreview83JButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83j-button';
+
+
+  function attach() {
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '📦 D.5.9 Promotion Payload Preview';
+
+
+    button.style.cssText = [
+
+      'position:static',
+
+      'width:100%',
+
+      'display:block',
+
+      'margin:8px 0',
+
+      'padding:12px 16px',
+
+      'border:0',
+
+      'border-radius:18px',
+
+      'font-weight:800',
+
+      'font-size:14px',
+
+      'cursor:pointer'
+
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            reportProductionPromotionPayloadPreview83J !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.3J REPORTER NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        reportProductionPromotionPayloadPreview83J();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3J Payload Preview button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    attach,
+    {
+      once: true
+    }
+  );
+
+
+  setTimeout(
+    attach,
+    1000
+  );
+
+
+  setTimeout(
+    attach,
+    3000
+  );
+
+})();
+
