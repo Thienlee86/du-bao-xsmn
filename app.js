@@ -142151,3 +142151,316 @@ console.log(
   'FIX-03D5.9 STEP 8.4C loaded — Integration Candidate Snapshot / READ ONLY / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4D
+   PRODUCTION INTEGRATION BOUNDARY CONTRACT
+
+   SOURCE = STEP 8.4C
+
+   PURPOSE:
+   - Validate the isolated integration snapshot.
+   - Establish the final contract before any writable integration step.
+   - DO NOT perform integration.
+   - DO NOT perform promotion.
+   - DO NOT write canonical / production / storage.
+
+   READ ONLY
+   ZERO WRITE
+   ========================================================================= */
+
+function buildProductionIntegrationBoundaryContract84D() {
+
+  const snapshot =
+    window.LAST_FIX03D59_STEP84C ||
+    null;
+
+
+  /*
+   * 1. SOURCE GATE
+   */
+
+  const sourceValid =
+    Boolean(
+      snapshot &&
+      snapshot.ready === true &&
+      snapshot.passed === true &&
+      snapshot.snapshotValid === true &&
+      snapshot.readOnly === true &&
+      snapshot.productionIntegrationEnabled === false &&
+      snapshot.promotionEnabled === false &&
+      snapshot.canonicalWrite === false &&
+      snapshot.productionWrite === false &&
+      snapshot.storageWrite === false &&
+      snapshot.integrationPerformed === false
+    );
+
+
+  const candidates =
+    sourceValid &&
+    Array.isArray(
+      snapshot.candidates
+    )
+      ? snapshot.candidates
+      : [];
+
+
+  /*
+   * 2. CONTRACT ITEMS
+   */
+
+  const contractItems =
+    candidates.map(
+      (item, index) => {
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const candidateId =
+          item?.candidateId ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const sourceValid =
+          item?.valid === true;
+
+
+        const commitReady =
+          item?.commitReady === true;
+
+
+        const simulated =
+          item?.simulated === true;
+
+
+        const contractValid =
+          Boolean(
+            canonicalIndex != null &&
+            candidateId &&
+            identity &&
+            province &&
+            prize &&
+            sourceValid &&
+            commitReady &&
+            simulated
+          );
+
+
+        return {
+
+          contractIndex:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          sourceValid,
+
+          commitReady,
+
+          simulated,
+
+          contractValid,
+
+          /*
+           * Explicitly locked.
+           */
+
+          writeAuthorized:
+            false,
+
+          promotionAuthorized:
+            false,
+
+          integrationAuthorized:
+            false
+
+        };
+
+      }
+    );
+
+
+  /*
+   * 3. CONTRACT INTEGRITY
+   */
+
+  const expectedCount =
+    Number.isInteger(
+      snapshot?.candidateCount
+    )
+      ? snapshot.candidateCount
+      : 0;
+
+
+  const contractCount =
+    contractItems.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    contractCount ===
+      expectedCount;
+
+
+  const allContractsValid =
+    contractCount > 0 &&
+    contractItems.every(
+      item =>
+        item.contractValid === true
+    );
+
+
+  const candidateIds =
+    contractItems.map(
+      item =>
+        item.candidateId
+    );
+
+
+  const canonicalIndexes =
+    contractItems.map(
+      item =>
+        item.canonicalIndex
+    );
+
+
+  const candidateIdUnique =
+    contractCount > 0 &&
+    candidateIds.length ===
+      new Set(
+        candidateIds
+      ).size;
+
+
+  const canonicalIndexUnique =
+    contractCount > 0 &&
+    canonicalIndexes.length ===
+      new Set(
+        canonicalIndexes
+      ).size;
+
+
+  /*
+   * 4. FINAL BOUNDARY VERDICT
+   */
+
+  const boundaryValid =
+    sourceValid &&
+    countsMatch &&
+    allContractsValid &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      boundaryValid,
+
+    reason:
+      boundaryValid
+        ? 'PRODUCTION_INTEGRATION_BOUNDARY_CONTRACT_VALID'
+        : 'PRODUCTION_INTEGRATION_BOUNDARY_CONTRACT_INVALID',
+
+    step:
+      '8.4D',
+
+    sourceStep:
+      '8.4C',
+
+    sourceValid,
+
+    expectedCount,
+
+    contractCount,
+
+    countsMatch,
+
+    allContractsValid,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    boundaryValid,
+
+    contractItems,
+
+    /*
+     * IMPORTANT:
+     * 8.4D defines the boundary.
+     * It does NOT authorize crossing it.
+     */
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    writeAuthorized:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun:
+      true,
+
+    readOnly:
+      true
+
+  };
+
+
+  window.LAST_FIX03D59_STEP84D =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4D loaded — Production Integration Boundary Contract / READ ONLY / ZERO WRITE'
+);
+
