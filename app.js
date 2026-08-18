@@ -138796,3 +138796,277 @@ console.log(
   'FIX-03D5.9 STEP 8.3P engine loaded — PRODUCTION PROMOTION EXECUTION AUTHORIZATION GATE / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3P
+   PRODUCTION PROMOTION EXECUTION AUTHORIZATION GATE REPORTER
+
+   READ ONLY
+   ZERO WRITE
+   ZERO STORAGE MUTATION
+   ZERO AUTO PROMOTION
+   ZERO EXECUTION
+   ========================================================================= */
+
+function reportProductionPromotionExecutionAuthorizationGate83P() {
+
+  const result =
+    buildProductionPromotionExecutionAuthorizationGate83P();
+
+
+  window.LAST_FIX03D59_STEP83P =
+    result;
+
+
+  const yesNo =
+    value =>
+      value === true
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3P'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION EXECUTION AUTHORIZATION GATE'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    `Ready: ${yesNo(
+      result.ready
+    )}`
+  );
+
+  lines.push(
+    `Passed: ${yesNo(
+      result.passed
+    )}`
+  );
+
+  lines.push(
+    `Reason: ${
+      result.reason ||
+      '-'
+    }`
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    `Source: ${
+      result.sourceStep ||
+      '8.3O'
+    }`
+  );
+
+  lines.push(
+    `Source Passed: ${yesNo(
+      result.sourcePassed
+    )}`
+  );
+
+  lines.push(
+    `Execution Eligible: ${yesNo(
+      result.executionEligible
+    )}`
+  );
+
+  lines.push(
+    `Authorization Eligible: ${yesNo(
+      result.authorizationEligible
+    )}`
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    `Expected Candidates: ${
+      result.expectedCount ?? 0
+    }`
+  );
+
+  lines.push(
+    `Authorization Items: ${
+      result.authorizationCount ?? 0
+    }`
+  );
+
+  lines.push(
+    `Counts Match: ${yesNo(
+      result.countsMatch
+    )}`
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    `All Items Valid: ${yesNo(
+      result.allItemsValid
+    )}`
+  );
+
+  lines.push(
+    `All Items Authorized: ${yesNo(
+      result.allItemsAuthorized
+    )}`
+  );
+
+  lines.push(
+    `Candidate ID Unique: ${yesNo(
+      result.candidateIdUnique
+    )}`
+  );
+
+  lines.push(
+    `Canonical Index Unique: ${yesNo(
+      result.canonicalIndexUnique
+    )}`
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    `AUTHORIZATION GATE: ${
+      result.authorizationValid === true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    }`
+  );
+
+
+  /*
+   * Authorization preview
+   */
+
+  if (
+    Array.isArray(
+      result.authorizations
+    ) &&
+    result.authorizations.length > 0
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'AUTHORIZATION PREVIEW'
+    );
+
+
+    result.authorizations
+      .slice(
+        0,
+        4
+      )
+      .forEach(
+        item => {
+
+          lines.push(
+            `#${item.index} | ` +
+            `${item.province || 'NO_PROVINCE'} | ` +
+            `${item.prize || 'NO_PRIZE'} | ` +
+            `Valid: ${yesNo(item.valid)} | ` +
+            `Authorized: ${yesNo(item.authorized)} | ` +
+            `${
+              item.authorizationState ||
+              '-'
+            }`
+          );
+
+        }
+      );
+
+
+    if (
+      result.authorizations.length >
+      4
+    ) {
+
+      lines.push(
+        `... +${
+          result.authorizations.length -
+          4
+        } more`
+      );
+
+    }
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'READ ONLY'
+  );
+
+  lines.push(
+    `Canonical Write: ${yesNo(
+      result.canonicalWrite
+    )}`
+  );
+
+  lines.push(
+    `Production Write: ${yesNo(
+      result.productionWrite
+    )}`
+  );
+
+  lines.push(
+    `Storage Write: ${yesNo(
+      result.storageWrite
+    )}`
+  );
+
+  lines.push(
+    `Promotion Performed: ${yesNo(
+      result.promotionPerformed
+    )}`
+  );
+
+  lines.push(
+    `Execution Performed: ${yesNo(
+      result.executionPerformed
+    )}`
+  );
+
+
+  const message =
+    lines.join('\n');
+
+
+  console.log(
+    message
+  );
+
+  console.log(
+    'STEP 8.3P RESULT:',
+    result
+  );
+
+
+  alert(
+    message
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3P reporter loaded'
+);
+
