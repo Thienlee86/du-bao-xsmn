@@ -137194,3 +137194,231 @@ console.log(
   'FIX-03D5.9 STEP 8.3N Transaction Final Gate engine loaded — READ ONLY / ZERO WRITE / ZERO PROMOTION'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3N
+   PRODUCTION PROMOTION TRANSACTION FINAL GATE REPORTER
+
+   MANUAL RUN ONLY
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function runProductionPromotionTransactionFinalGate83N() {
+
+  const result =
+    buildProductionPromotionTransactionFinalGate83N();
+
+
+  window.LAST_FIX03D59_STEP83N =
+    result;
+
+
+  const yesNo =
+    value =>
+      value === true
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3N'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION TRANSACTION FINAL GATE'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Source: ' +
+    (
+      result.sourceStep ||
+      '8.3M'
+    )
+  );
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed
+    )
+  );
+
+  lines.push(
+    'Transaction Eligible: ' +
+    yesNo(
+      result.transactionEligible
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Expected Candidates: ' +
+    (
+      result.expectedCount ?? 0
+    )
+  );
+
+  lines.push(
+    'Transaction Items: ' +
+    (
+      result.transactionCount ?? 0
+    )
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'All Items Valid: ' +
+    yesNo(
+      result.allItemsValid
+    )
+  );
+
+  lines.push(
+    'All Items Ready: ' +
+    yesNo(
+      result.allItemsReady
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.candidateIdUnique
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.canonicalIndexUnique
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'FINAL TRANSACTION GATE: ' +
+    (
+      result.finalGatePassed === true
+        ? 'PASS ✅'
+        : 'BLOCKED ❌'
+    )
+  );
+
+  lines.push('');
+
+  lines.push(
+    'READ ONLY'
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite
+    )
+  );
+
+  lines.push(
+    'Transaction Executed: ' +
+    yesNo(
+      result.transactionExecuted
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D5.9 STEP 8.3N — TRANSACTION FINAL GATE'
+  );
+
+  console.log(
+    result
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3N Transaction Final Gate reporter loaded'
+);
+
