@@ -135148,3 +135148,398 @@ console.log(
   'FIX-03D5.9 STEP 8.3L loaded — PRODUCTION PROMOTION COMMIT PLAN / DRY RUN / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3L
+   PRODUCTION PROMOTION COMMIT PLAN REPORTER
+   ========================================================================= */
+
+function testProductionPromotionCommitPlan83L() {
+
+  const result =
+    buildProductionPromotionCommitPlan83L();
+
+
+  window.LAST_FIX03D59_STEP83L =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3L'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION COMMIT PLAN'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    result.reason
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Source: ' +
+    result.sourceStep
+  );
+
+  lines.push(
+    'Payload Source: ' +
+    result.payloadSourceStep
+  );
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed
+    )
+  );
+
+  lines.push(
+    'Promotion Eligible: ' +
+    yesNo(
+      result.promotionEligible
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Expected Candidates: ' +
+    result.expectedCount
+  );
+
+  lines.push(
+    'Plan Items: ' +
+    result.planCount
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'All Plan Items Valid: ' +
+    yesNo(
+      result.allPlanItemsValid
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.candidateIdUnique
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.canonicalIndexUnique
+    )
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'COMMIT PLAN: ' +
+    (
+      result.commitPlanValid
+        ? 'VALID ✅'
+        : 'INVALID ❌'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'COMMIT PLAN PREVIEW'
+  );
+
+
+  if (
+    Array.isArray(
+      result.plan
+    ) &&
+    result.plan.length
+  ) {
+
+    result.plan.forEach(
+      item => {
+
+        lines.push(
+          '#' +
+          item.planIndex +
+          ' | ' +
+          (
+            item.province ||
+            'NO_PROVINCE'
+          ) +
+          ' | ' +
+          (
+            item.prize ||
+            'NO_PRIZE'
+          ) +
+          ' | Valid: ' +
+          yesNo(
+            item.planItemValid
+          ) +
+          ' | ' +
+          item.execution
+        );
+
+      }
+    );
+
+  } else {
+
+    lines.push(
+      'NO COMMIT PLAN ITEMS'
+    );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'DRY RUN'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    yesNo(
+      result.readOnly
+    )
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3L
+   REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionCommitPlan83LButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83l-button';
+
+
+  function attach() {
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '📋 D.5.9 Production Promotion Commit Plan';
+
+
+    button.style.cssText = [
+
+      'position:static',
+
+      'width:100%',
+
+      'display:block',
+
+      'margin:8px 0',
+
+      'padding:12px 16px',
+
+      'border:0',
+
+      'border-radius:18px',
+
+      'font-weight:800',
+
+      'font-size:14px',
+
+      'cursor:pointer'
+
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            testProductionPromotionCommitPlan83L !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.3L REPORTER NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        testProductionPromotionCommitPlan83L();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3L Commit Plan button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    attach,
+    {
+      once: true
+    }
+  );
+
+
+  setTimeout(
+    attach,
+    1000
+  );
+
+
+  setTimeout(
+    attach,
+    3000
+  );
+
+})();
+
