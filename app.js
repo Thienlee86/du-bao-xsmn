@@ -141489,3 +141489,95 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4A
+   PRODUCTION INTEGRATION BASELINE
+
+   PURPOSE:
+   - Establish production integration baseline.
+   - Preserve STEP 8.3 certification.
+   - ZERO promotion.
+   - ZERO canonical write.
+   - ZERO production write.
+   - ZERO storage write.
+   ========================================================================= */
+
+function buildProductionIntegrationBaseline84A() {
+
+  const commitSimulation =
+    window.LAST_FIX03D59_STEP83R ||
+    null;
+
+
+  const baseline = {
+
+    ready: true,
+
+    step:
+      '8.4A',
+
+    sourceStep:
+      '8.3R',
+
+    sourceAvailable:
+      Boolean(
+        commitSimulation
+      ),
+
+    sourcePassed:
+      Boolean(
+        commitSimulation &&
+        commitSimulation.passed === true
+      ),
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun:
+      true,
+
+    readOnly:
+      true
+
+  };
+
+
+  baseline.passed =
+    baseline.sourceAvailable &&
+    baseline.sourcePassed;
+
+
+  baseline.reason =
+    baseline.passed
+      ? 'PRODUCTION_INTEGRATION_BASELINE_VALID'
+      : 'PRODUCTION_INTEGRATION_BASELINE_SOURCE_NOT_READY';
+
+
+  window.LAST_FIX03D59_STEP84A =
+    baseline;
+
+
+  return baseline;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4A loaded — Production Integration Baseline / ZERO WRITE'
+);
+
