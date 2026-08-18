@@ -140070,3 +140070,437 @@ console.log(
   'FIX-03D5.9 STEP 8.3Q reporter button loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3R
+   PRODUCTION PROMOTION COMMIT SIMULATION
+
+   SOURCE = STEP 8.3Q
+
+   PURPOSE
+   - Consume the final commit guard from STEP 8.3Q.
+   - Build an exact simulated commit set.
+   - Verify every guarded candidate can enter the commit boundary.
+   - DO NOT perform canonical write.
+   - DO NOT perform production write.
+   - DO NOT write storage.
+   - DO NOT perform promotion.
+   - DO NOT perform real commit.
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ZERO COMMIT
+   ========================================================================= */
+
+function buildProductionPromotionCommitSimulation83R() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83Q ||
+    null;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 1. SOURCE MUST EXIST
+   * -----------------------------------------------------------
+   */
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83Q_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3Q',
+
+      sourcePassed: false,
+
+      commitEligible: false,
+
+      simulationEligible: false,
+
+      expectedCount: 0,
+
+      simulationItemCount: 0,
+
+      countsMatch: false,
+
+      allItemsValid: false,
+
+      allItemsCommitReady: false,
+
+      allItemsSimulated: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      simulationValid: false,
+
+      items: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false,
+
+      commitPerformed: false
+
+    };
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * 2. SOURCE GATE
+   * -----------------------------------------------------------
+   */
+
+  const sourcePassed =
+    source.passed === true;
+
+
+  const commitEligible =
+    source.commitEligible === true;
+
+
+  const commitGuardValid =
+    source.commitGuardValid === true;
+
+
+  const simulationEligible =
+    sourcePassed &&
+    commitEligible &&
+    commitGuardValid;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 3. RESOLVE GUARDED ITEMS
+   * -----------------------------------------------------------
+   */
+
+  const sourceItems =
+    Array.isArray(
+      source.items
+    )
+      ? source.items
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      source.expectedCount
+    )
+      ? source.expectedCount
+      : sourceItems.length;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 4. BUILD SIMULATED COMMIT SET
+   * -----------------------------------------------------------
+   */
+
+  const items =
+    sourceItems.map(
+      (item, index) => {
+
+        const candidateId =
+          item?.candidateId ||
+          item?.identity ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          candidateId ||
+          null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const itemValid =
+          item?.valid === true;
+
+
+        const itemAuthorized =
+          (
+            item?.authorized === true ||
+            item?.authorizationReady === true
+          );
+
+
+        const itemCommitReady =
+          (
+            item?.commitReady === true ||
+            item?.commitEligible === true
+          );
+
+
+        const simulated =
+          Boolean(
+            simulationEligible &&
+            candidateId &&
+            identity &&
+            province &&
+            prize &&
+            canonicalIndex !== null &&
+            itemValid &&
+            itemAuthorized &&
+            itemCommitReady
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          valid:
+            itemValid,
+
+          authorized:
+            itemAuthorized,
+
+          commitReady:
+            itemCommitReady,
+
+          simulated,
+
+          action:
+            simulated
+              ? 'SIMULATED_COMMIT'
+              : 'BLOCKED'
+
+        };
+
+      }
+    );
+
+
+  /*
+   * -----------------------------------------------------------
+   * 5. COUNTS
+   * -----------------------------------------------------------
+   */
+
+  const simulationItemCount =
+    items.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    simulationItemCount ===
+      expectedCount;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 6. ITEM VALIDATION
+   * -----------------------------------------------------------
+   */
+
+  const allItemsValid =
+    simulationItemCount > 0 &&
+    items.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const allItemsCommitReady =
+    simulationItemCount > 0 &&
+    items.every(
+      item =>
+        item.commitReady === true
+    );
+
+
+  const allItemsSimulated =
+    simulationItemCount > 0 &&
+    items.every(
+      item =>
+        item.simulated === true
+    );
+
+
+  /*
+   * -----------------------------------------------------------
+   * 7. UNIQUENESS
+   * -----------------------------------------------------------
+   */
+
+  const candidateIds =
+    items
+      .map(
+        item =>
+          item.candidateId
+      )
+      .filter(Boolean);
+
+
+  const candidateIdUnique =
+    candidateIds.length ===
+      simulationItemCount &&
+    new Set(
+      candidateIds
+    ).size ===
+      simulationItemCount;
+
+
+  const canonicalIndexes =
+    items
+      .map(
+        item =>
+          item.canonicalIndex
+      )
+      .filter(
+        value =>
+          Number.isInteger(
+            value
+          )
+      );
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length ===
+      simulationItemCount &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      simulationItemCount;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 8. FINAL SIMULATION VALIDATION
+   * -----------------------------------------------------------
+   */
+
+  const simulationValid =
+    simulationEligible &&
+    countsMatch &&
+    allItemsValid &&
+    allItemsCommitReady &&
+    allItemsSimulated &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  /*
+   * -----------------------------------------------------------
+   * 9. RESULT
+   * -----------------------------------------------------------
+   */
+
+  return {
+
+    ready: true,
+
+    passed:
+      simulationValid,
+
+    reason:
+      simulationValid
+        ? 'PRODUCTION_PROMOTION_COMMIT_SIMULATION_VALID'
+        : 'PRODUCTION_PROMOTION_COMMIT_SIMULATION_INVALID',
+
+    sourceStep:
+      '8.3Q',
+
+    sourcePassed,
+
+    commitEligible,
+
+    commitGuardValid,
+
+    simulationEligible,
+
+    expectedCount,
+
+    simulationItemCount,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsCommitReady,
+
+    allItemsSimulated,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    simulationValid,
+
+    items,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false,
+
+    commitPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3R engine loaded — PRODUCTION PROMOTION COMMIT SIMULATION / DRY RUN / READ ONLY'
+);
+
