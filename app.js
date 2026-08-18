@@ -132697,3 +132697,264 @@ function reportProductionPromotionPayloadPreview83J() {
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J
+   HOTFIX — PAYLOAD SOURCE FROM STEP 8.3G
+
+   PURPOSE:
+   - 8.3I remains the promotion guard.
+   - Candidate detail payload comes from 8.3G.
+   - DRY RUN ONLY.
+   - READ ONLY.
+   - ZERO WRITE.
+   - NO AUTO PROMOTION.
+   ========================================================================= */
+
+function buildProductionPromotionPayloadPreview83J() {
+
+  const guard =
+    window.LAST_FIX03D59_STEP83I ||
+    null;
+
+
+  if (
+    !guard ||
+    guard.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83I_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3I',
+
+      sourcePassed: false,
+
+      promotionEligible: false,
+
+      expectedCount: 0,
+
+      payloadCount: 0,
+
+      countsMatch: false,
+
+      allPayloadItemsValid: false,
+
+      payloadValid: false,
+
+      payload: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    guard.passed === true;
+
+
+  const promotionEligible =
+    guard.promotionEligible === true;
+
+
+  /*
+   * IMPORTANT:
+   *
+   * STEP 8.3H is a release-readiness summary.
+   * It does NOT preserve candidate details.
+   *
+   * STEP 8.3G is the last verified stage
+   * that contains the candidate detail array.
+   */
+
+  const candidateSource =
+    window.LAST_FIX03D59_STEP83G ||
+    null;
+
+
+  const sourceDetails =
+    candidateSource &&
+    Array.isArray(
+      candidateSource.details
+    )
+      ? candidateSource.details
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      guard.candidateCount
+    )
+      ? guard.candidateCount
+      : (
+          Number.isInteger(
+            candidateSource?.candidateCount
+          )
+            ? candidateSource.candidateCount
+            : sourceDetails.length
+        );
+
+
+  const payload =
+    sourceDetails.map(
+      (item, index) => {
+
+        const candidateId =
+          item?.candidateId ??
+          item?.identity ??
+          null;
+
+
+        const province =
+          item?.province ??
+          null;
+
+
+        const prize =
+          item?.prize ??
+          null;
+
+
+        const valid =
+          item?.valid === true;
+
+
+        const promotionReady =
+          Boolean(
+            candidateId &&
+            province &&
+            prize &&
+            valid
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          candidateId,
+
+          province,
+
+          prize,
+
+          valid,
+
+          promotionReady
+
+        };
+
+      }
+    );
+
+
+  const payloadCount =
+    payload.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    payloadCount ===
+      expectedCount;
+
+
+  const allPayloadItemsValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item.promotionReady === true
+    );
+
+
+  const candidateSourceValid =
+    Boolean(
+      candidateSource &&
+      candidateSource.ready === true &&
+      candidateSource.passed === true
+    );
+
+
+  const payloadValid =
+    sourcePassed &&
+    promotionEligible &&
+    candidateSourceValid &&
+    countsMatch &&
+    allPayloadItemsValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      payloadValid,
+
+    reason:
+      payloadValid
+        ? 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_VALID'
+        : 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_INVALID',
+
+    sourceStep:
+      '8.3I',
+
+    candidateSourceStep:
+      '8.3G',
+
+    sourcePassed,
+
+    promotionEligible,
+
+    candidateSourceValid,
+
+    expectedCount,
+
+    payloadCount,
+
+    countsMatch,
+
+    allPayloadItemsValid,
+
+    payloadValid,
+
+    payload,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3J HOTFIX loaded — candidate payload source = 8.3G / DRY RUN / READ ONLY / ZERO WRITE'
+);
+
