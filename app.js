@@ -131694,3 +131694,452 @@ function reportProductionCandidateReleaseReadiness83H() {
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3I
+   PRODUCTION PROMOTION GUARD
+   DRY RUN / READ ONLY
+   ========================================================================= */
+
+function buildProductionPromotionGuard83I() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83H ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83H_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3H',
+
+      sourcePassed: false,
+
+      releaseReady: false,
+
+      promotionEligible: false,
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    source.passed === true;
+
+
+  const releaseReady =
+    source.releaseReady === true;
+
+
+  const candidateCount =
+    Number.isInteger(
+      source.candidateCount
+    )
+      ? source.candidateCount
+      : (
+          Array.isArray(
+            source.details
+          )
+            ? source.details.length
+            : 0
+        );
+
+
+  const reportCount =
+    Number.isInteger(
+      source.reportCount
+    )
+      ? source.reportCount
+      : (
+          Array.isArray(
+            source.details
+          )
+            ? source.details.length
+            : 0
+        );
+
+
+  const countsMatch =
+    candidateCount > 0 &&
+    reportCount ===
+      candidateCount;
+
+
+  const finalGateValid =
+    source.finalGateValid === true;
+
+
+  const candidateSetValid =
+    source.candidateSetValid === true;
+
+
+  const promotionEligible =
+    sourcePassed &&
+    releaseReady &&
+    candidateCount > 0 &&
+    countsMatch &&
+    finalGateValid &&
+    candidateSetValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      promotionEligible,
+
+    reason:
+      promotionEligible
+        ? 'PRODUCTION_PROMOTION_GUARD_PASSED'
+        : 'PRODUCTION_PROMOTION_GUARD_BLOCKED',
+
+    sourceStep:
+      '8.3H',
+
+    sourcePassed,
+
+    candidateCount,
+
+    reportCount,
+
+    countsMatch,
+
+    finalGateValid,
+
+    candidateSetValid,
+
+    releaseReady,
+
+    promotionEligible,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3I REPORTER
+   ========================================================================= */
+
+function reportProductionPromotionGuard83I() {
+
+  const result =
+    buildProductionPromotionGuard83I();
+
+
+  window.LAST_FIX03D59_STEP83I =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [
+
+    'FIX-03D5.9 STEP 8.3I',
+
+    'PRODUCTION PROMOTION GUARD',
+
+    '',
+
+    'Ready: ' +
+      yesNo(
+        result.ready
+      ),
+
+    'Passed: ' +
+      yesNo(
+        result.passed
+      ),
+
+    'Reason: ' +
+      result.reason,
+
+    '',
+
+    'Source: ' +
+      (
+        result.sourceStep ||
+        '8.3H'
+      ),
+
+    'Source Passed: ' +
+      yesNo(
+        result.sourcePassed
+      ),
+
+    '',
+
+    'Candidates: ' +
+      (
+        result.candidateCount ??
+        0
+      ),
+
+    'Reports: ' +
+      (
+        result.reportCount ??
+        0
+      ),
+
+    'Counts Match: ' +
+      yesNo(
+        result.countsMatch
+      ),
+
+    'Final Gate Valid: ' +
+      yesNo(
+        result.finalGateValid
+      ),
+
+    'Candidate Set Valid: ' +
+      yesNo(
+        result.candidateSetValid
+      ),
+
+    '',
+
+    'Release Ready: ' +
+      yesNo(
+        result.releaseReady
+      ),
+
+    'Promotion Eligible: ' +
+      yesNo(
+        result.promotionEligible
+      ),
+
+    '',
+
+    'DRY RUN',
+
+    'Read Only: YES',
+
+    'Canonical Write: NO',
+
+    'Production Write: NO',
+
+    'Storage Write: NO',
+
+    'Promotion Performed: NO'
+
+  ];
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    lines.join('\n')
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  return result;
+
+}
+
+
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3I
+   REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionGuard83IButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83i-button';
+
+
+  function attach() {
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🛡️ D.5.9 Production Promotion Guard';
+
+
+    button.style.cssText = [
+
+      'position:static',
+
+      'width:100%',
+
+      'display:block',
+
+      'margin:8px 0',
+
+      'padding:12px 16px',
+
+      'border:0',
+
+      'border-radius:18px',
+
+      'font-weight:800',
+
+      'font-size:14px',
+
+      'cursor:pointer'
+
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            reportProductionPromotionGuard83I !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.3I REPORTER NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        reportProductionPromotionGuard83I();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3I Promotion Guard button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    attach,
+    {
+      once: true
+    }
+  );
+
+
+  setTimeout(
+    attach,
+    1000
+  );
+
+
+  setTimeout(
+    attach,
+    3000
+  );
+
+})();
+
