@@ -141040,4 +141040,83 @@ console.log(
   'FIX-03D5.9 STEP 8.3R FINAL Verification button loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3 UI CLEANUP — PHASE 1
+
+   RETIRE FINAL 8.3 DIAGNOSTIC BUTTON
+   KEEP ENGINE / REPORTER INTACT
+
+   UI ONLY
+   ZERO CANONICAL WRITE
+   ZERO PRODUCTION WRITE
+   ZERO STORAGE WRITE
+   ========================================================================= */
+
+(function cleanupStep83DiagnosticUIPhase1() {
+
+  const RETIRED_STEP83_BUTTON_IDS = [
+
+    'fix03d59-step83r-final-verification-button'
+
+  ];
+
+
+  function removeRetiredStep83Buttons() {
+
+    RETIRED_STEP83_BUTTON_IDS.forEach(
+      id => {
+
+        const el =
+          document.getElementById(id);
+
+        if (el) {
+
+          el.remove();
+
+        }
+
+      }
+    );
+
+  }
+
+
+  if (
+    document.readyState === 'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      removeRetiredStep83Buttons
+    );
+
+  } else {
+
+    removeRetiredStep83Buttons();
+
+  }
+
+
+  /*
+   * Defensive cleanup:
+   * some diagnostic buttons may be
+   * created after initial page load.
+   */
+
+  setTimeout(
+    removeRetiredStep83Buttons,
+    500
+  );
+
+  setTimeout(
+    removeRetiredStep83Buttons,
+    1500
+  );
+
+
+  console.log(
+    'FIX-03D5.9 STEP 8.3 UI CLEANUP PHASE 1 loaded'
+  );
+
+})();
 
