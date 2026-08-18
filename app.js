@@ -141839,3 +141839,315 @@ console.log(
   'FIX-03D5.9 STEP 8.4B loaded — Production Integration Readiness Gate / READ ONLY / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4C
+   PRODUCTION INTEGRATION CANDIDATE SNAPSHOT
+
+   SOURCE:
+   - STEP 8.4B readiness gate
+   - STEP 8.3R certified simulation items
+
+   READ ONLY
+   ZERO PROMOTION
+   ZERO CANONICAL WRITE
+   ZERO PRODUCTION WRITE
+   ZERO STORAGE WRITE
+   ========================================================================= */
+
+function buildProductionIntegrationCandidateSnapshot84C() {
+
+  const readiness =
+    window.LAST_FIX03D59_STEP84B ||
+    null;
+
+
+  const simulation =
+    window.LAST_FIX03D59_STEP83R ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 1. SOURCE GATES
+   * ---------------------------------------------------------
+   */
+
+  const readinessValid =
+    Boolean(
+      readiness &&
+      readiness.ready === true &&
+      readiness.passed === true &&
+      readiness.integrationReady === true &&
+      readiness.readOnly === true &&
+      readiness.productionWrite === false &&
+      readiness.storageWrite === false
+    );
+
+
+  const simulationValid =
+    Boolean(
+      simulation &&
+      simulation.ready === true &&
+      simulation.passed === true &&
+      simulation.simulationValid === true &&
+      Array.isArray(
+        simulation.items
+      )
+    );
+
+
+  const sourceItems =
+    simulationValid
+      ? simulation.items
+      : [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. CREATE IMMUTABLE-STYLE SNAPSHOT
+   *
+   * Copy only integration identity fields.
+   * Do not retain writable object references.
+   * ---------------------------------------------------------
+   */
+
+  const candidates =
+    sourceItems.map(
+      (item, index) => {
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const candidateId =
+          item?.candidateId ||
+          item?.identity ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          candidateId ||
+          null;
+
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const commitReady =
+          item?.commitReady === true ||
+          item?.promotionReady === true;
+
+
+        const simulated =
+          item?.simulated === true;
+
+
+        const valid =
+          Boolean(
+            candidateId &&
+            identity &&
+            province &&
+            prize &&
+            canonicalIndex != null &&
+            commitReady &&
+            simulated
+          );
+
+
+        return {
+
+          snapshotIndex:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          commitReady,
+
+          simulated,
+
+          valid
+
+        };
+
+      }
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. SNAPSHOT INTEGRITY
+   * ---------------------------------------------------------
+   */
+
+  const expectedCount =
+    Number.isInteger(
+      readiness?.expectedCount
+    )
+      ? readiness.expectedCount
+      : 0;
+
+
+  const candidateCount =
+    candidates.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    candidateCount ===
+      expectedCount;
+
+
+  const allCandidatesValid =
+    candidateCount > 0 &&
+    candidates.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const candidateIds =
+    candidates.map(
+      item =>
+        item.candidateId
+    );
+
+
+  const canonicalIndexes =
+    candidates.map(
+      item =>
+        item.canonicalIndex
+    );
+
+
+  const candidateIdUnique =
+    candidateIds.length ===
+    new Set(
+      candidateIds
+    ).size;
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length ===
+    new Set(
+      canonicalIndexes
+    ).size;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. FINAL SNAPSHOT VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const snapshotValid =
+    readinessValid &&
+    simulationValid &&
+    countsMatch &&
+    allCandidatesValid &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      snapshotValid,
+
+    reason:
+      snapshotValid
+        ? 'PRODUCTION_INTEGRATION_CANDIDATE_SNAPSHOT_VALID'
+        : 'PRODUCTION_INTEGRATION_CANDIDATE_SNAPSHOT_INVALID',
+
+    step:
+      '8.4C',
+
+    sourceStep:
+      '8.4B',
+
+    certificationSourceStep:
+      '8.3R',
+
+    readinessValid,
+
+    simulationValid,
+
+    expectedCount,
+
+    candidateCount,
+
+    countsMatch,
+
+    allCandidatesValid,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    snapshotValid,
+
+    candidates,
+
+    /*
+     * Integration remains locked.
+     */
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun: true,
+
+    readOnly: true
+
+  };
+
+
+  window.LAST_FIX03D59_STEP84C =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4C loaded — Integration Candidate Snapshot / READ ONLY / ZERO WRITE'
+);
+
