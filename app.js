@@ -142464,3 +142464,224 @@ console.log(
   'FIX-03D5.9 STEP 8.4D loaded — Production Integration Boundary Contract / READ ONLY / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4E
+   PRODUCTION WRITE ADAPTER CONTRACT
+
+   SOURCE:
+   - STEP 8.4D Production Boundary Contract
+   - Existing production prediction persistence path
+
+   PURPOSE:
+   - Bind integration architecture to the EXISTING production writer.
+   - DO NOT create a second production storage path.
+   - DO NOT write anything yet.
+
+   READ ONLY
+   ZERO WRITE
+   ========================================================================= */
+
+function buildProductionWriteAdapterContract84E() {
+
+  const boundary =
+    window.LAST_FIX03D59_STEP84D ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 1. BOUNDARY VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const boundaryValid =
+    Boolean(
+      boundary &&
+      boundary.ready === true &&
+      boundary.passed === true &&
+      boundary.boundaryValid === true &&
+      boundary.readOnly === true &&
+      boundary.writeAuthorized === false &&
+      boundary.canonicalWrite === false &&
+      boundary.productionWrite === false &&
+      boundary.storageWrite === false &&
+      boundary.integrationPerformed === false
+    );
+
+
+  const contractItems =
+    boundaryValid &&
+    Array.isArray(
+      boundary.contractItems
+    )
+      ? boundary.contractItems
+      : [];
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. EXISTING PRODUCTION PATH
+   * ---------------------------------------------------------
+   */
+
+  const savePredictionAvailable =
+    typeof savePrediction ===
+    'function';
+
+
+  const saveJSONAvailable =
+    typeof saveJSON ===
+    'function';
+
+
+  const predictionStorageKey =
+    (
+      typeof LS_KEYS === 'object' &&
+      LS_KEYS
+    )
+      ? LS_KEYS.predictions
+      : null;
+
+
+  const predictionStorageKeyValid =
+    predictionStorageKey ===
+    'xskt_predictions';
+
+
+  const predictionStateAvailable =
+    Array.isArray(
+      PREDICTIONS
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. CONTRACT INTEGRITY
+   * ---------------------------------------------------------
+   */
+
+  const contractCount =
+    contractItems.length;
+
+
+  const allContractItemsValid =
+    contractCount > 0 &&
+    contractItems.every(
+      item =>
+        item &&
+        item.contractValid === true &&
+        item.writeAuthorized === false &&
+        item.promotionAuthorized === false &&
+        item.integrationAuthorized === false
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. ADAPTER VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const adapterReady =
+    boundaryValid &&
+    savePredictionAvailable &&
+    saveJSONAvailable &&
+    predictionStorageKeyValid &&
+    predictionStateAvailable &&
+    allContractItemsValid;
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      adapterReady,
+
+    reason:
+      adapterReady
+        ? 'PRODUCTION_WRITE_ADAPTER_CONTRACT_VALID'
+        : 'PRODUCTION_WRITE_ADAPTER_CONTRACT_INVALID',
+
+    step:
+      '8.4E',
+
+    sourceStep:
+      '8.4D',
+
+    boundaryValid,
+
+    contractCount,
+
+    allContractItemsValid,
+
+    savePredictionAvailable,
+
+    saveJSONAvailable,
+
+    predictionStateAvailable,
+
+    predictionStorageKey,
+
+    predictionStorageKeyValid,
+
+    /*
+     * The ONLY approved production persistence path.
+     */
+
+    productionWriter:
+      'savePrediction',
+
+    persistenceWriter:
+      'saveJSON',
+
+    productionStorageKey:
+      predictionStorageKey,
+
+    /*
+     * STILL LOCKED.
+     */
+
+    adapterReady,
+
+    writeAuthorized:
+      false,
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun: true,
+
+    readOnly: true
+
+  };
+
+
+  window.LAST_FIX03D59_STEP84E =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4E loaded — Existing Production Write Adapter Contract / READ ONLY / ZERO WRITE'
+);
+
