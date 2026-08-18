@@ -134615,3 +134615,156 @@ console.log(
   'FIX-03D5.9 STEP 8.3K loaded — PRODUCTION PROMOTION FINAL GATE / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3K
+   REPORTER BUTTON
+   ========================================================================= */
+
+(function attachProductionPromotionFinalGate83KButton() {
+
+  const BUTTON_ID =
+    'fix03d59-step83k-button';
+
+
+  function attach() {
+
+    const panel =
+      document.querySelector(
+        '.settings-panel'
+      ) ||
+      document.querySelector(
+        '#settings'
+      ) ||
+      document.body;
+
+
+    if (!panel) {
+
+      return false;
+
+    }
+
+
+    if (
+      document.getElementById(
+        BUTTON_ID
+      )
+    ) {
+
+      return true;
+
+    }
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔐 D.5.9 Production Promotion Final Gate';
+
+
+    button.style.cssText = [
+
+      'position:static',
+
+      'width:100%',
+
+      'display:block',
+
+      'margin:8px 0',
+
+      'padding:12px 16px',
+
+      'border:0',
+
+      'border-radius:18px',
+
+      'font-weight:800',
+
+      'font-size:14px',
+
+      'cursor:pointer'
+
+    ].join(';');
+
+
+    button.onclick =
+      function () {
+
+        if (
+          typeof
+            testProductionPromotionFinalGate83K !==
+          'function'
+        ) {
+
+          alert(
+            'STEP 8.3K REPORTER NOT FOUND ❌'
+          );
+
+          return;
+
+        }
+
+
+        testProductionPromotionFinalGate83K();
+
+      };
+
+
+    panel.appendChild(
+      button
+    );
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3K Final Gate button attached'
+    );
+
+
+    return true;
+
+  }
+
+
+  if (
+    attach()
+  ) {
+
+    return;
+
+  }
+
+
+  document.addEventListener(
+    'DOMContentLoaded',
+    attach,
+    {
+      once: true
+    }
+  );
+
+
+  setTimeout(
+    attach,
+    1000
+  );
+
+
+  setTimeout(
+    attach,
+    3000
+  );
+
+})();
+
