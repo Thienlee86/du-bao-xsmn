@@ -137951,3 +137951,314 @@ console.log(
   'FIX-03D5.9 STEP 8.3O loaded — PRODUCTION PROMOTION EXECUTION MANIFEST / DRY RUN / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3O
+   PRODUCTION PROMOTION EXECUTION MANIFEST REPORTER
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ZERO EXECUTION
+   ========================================================================= */
+
+function reportProductionPromotionExecutionManifest83O() {
+
+  const result =
+    buildProductionPromotionExecutionManifest83O();
+
+
+  window.LAST_FIX03D59_STEP83O =
+    result;
+
+
+  const yesNo =
+    value =>
+      value
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines = [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3O'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION EXECUTION MANIFEST'
+  );
+
+  lines.push('');
+
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready === true
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed === true
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Source: ' +
+    (
+      result.sourceStep ||
+      '8.3N'
+    )
+  );
+
+  lines.push(
+    'Transaction Source: ' +
+    (
+      result.transactionSourceStep ||
+      '8.3M'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed === true
+    )
+  );
+
+  lines.push(
+    'Execution Eligible: ' +
+    yesNo(
+      result.executionEligible === true
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Expected Candidates: ' +
+    (
+      result.expectedCount ?? 0
+    )
+  );
+
+  lines.push(
+    'Manifest Items: ' +
+    (
+      result.manifestCount ?? 0
+    )
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch === true
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'All Manifest Items Valid: ' +
+    yesNo(
+      result.allManifestItemsValid ===
+        true
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.candidateIdUnique ===
+        true
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.canonicalIndexUnique ===
+        true
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'EXECUTION MANIFEST: ' +
+    (
+      result.manifestValid === true
+        ? 'VALID ✅'
+        : 'INVALID ❌'
+    )
+  );
+
+
+  /*
+   * Preview only.
+   */
+
+  if (
+    Array.isArray(
+      result.manifest
+    ) &&
+    result.manifest.length
+  ) {
+
+    lines.push('');
+
+    lines.push(
+      'MANIFEST PREVIEW'
+    );
+
+
+    result.manifest
+      .slice(
+        0,
+        4
+      )
+      .forEach(
+        item => {
+
+          lines.push(
+            '#' +
+            item.index +
+            ' | ' +
+            (
+              item.province ||
+              'NO_PROVINCE'
+            ) +
+            ' | ' +
+            (
+              item.prize ||
+              'NO_PRIZE'
+            ) +
+            ' | Valid: ' +
+            yesNo(
+              item.valid === true
+            ) +
+            ' | Ready: ' +
+            yesNo(
+              item.executionReady ===
+                true
+            )
+          );
+
+        }
+      );
+
+  }
+
+
+  lines.push('');
+
+  lines.push(
+    'DRY RUN'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    yesNo(
+      result.readOnly === true
+    )
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite === true
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite === true
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite === true
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed ===
+        true
+    )
+  );
+
+  lines.push(
+    'Execution Performed: ' +
+    yesNo(
+      result.executionPerformed ===
+        true
+    )
+  );
+
+
+  alert(
+    lines.join('\n')
+  );
+
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    'FIX-03D5.9 STEP 8.3O — EXECUTION MANIFEST'
+  );
+
+  console.log(
+    result
+  );
+
+
+  if (
+    Array.isArray(
+      result.manifest
+    )
+  ) {
+
+    console.table(
+      result.manifest
+    );
+
+  }
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3O reporter loaded'
+);
+
