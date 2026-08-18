@@ -133461,3 +133461,204 @@ console.log(
   'FIX-03D5.9 STEP 8.3G HOTFIX DETAIL MAPPING loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3G — HOTFIX DETAIL MAPPING
+
+   PURPOSE:
+   Preserve STEP 8.3F final-gate detail semantics
+   for downstream STEP 8.3J payload preview.
+
+   MANUAL / READ ONLY
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   ========================================================================= */
+
+function buildProductionCandidateFinalGateReport83G() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83F_RESULT ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83F_RESULT_NOT_READY',
+
+      readOnly: true,
+
+      writePerformed: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const details =
+    Array.isArray(source.details)
+      ? source.details
+      : [];
+
+
+  const candidateCount =
+    Number.isInteger(
+      source.candidateCount
+    )
+      ? source.candidateCount
+      : details.length;
+
+
+  const finalGateValid =
+    source.passed === true &&
+    source.allGateValid === true;
+
+
+  /*
+   * IMPORTANT:
+   * STEP 8.3F uses gateValid,
+   * not "valid".
+   *
+   * Preserve the complete source detail
+   * instead of throwing fields away.
+   */
+
+  const reportDetails =
+    details.map(
+      (item, index) => {
+
+        const safeItem =
+          item &&
+          typeof item ===
+            'object'
+            ? item
+            : {};
+
+
+        return {
+
+          ...safeItem,
+
+          index,
+
+          candidateId:
+            safeItem.candidateId ??
+            safeItem.identity ??
+            safeItem.lifecycleKey ??
+            null,
+
+          /*
+           * Preserve direct values if
+           * STEP 8.3F provides them.
+           */
+
+          province:
+            safeItem.province ??
+            null,
+
+          prize:
+            safeItem.prize ??
+            null,
+
+          /*
+           * Correct semantic mapping:
+           * 8.3F gateValid -> 8.3G valid
+           */
+
+          valid:
+            safeItem.gateValid ===
+              true,
+
+          gateValid:
+            safeItem.gateValid ===
+              true
+
+        };
+
+      }
+    );
+
+
+  const countsMatch =
+    candidateCount > 0 &&
+    reportDetails.length ===
+      candidateCount;
+
+
+  const allReportsValid =
+    reportDetails.length > 0 &&
+    reportDetails.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const reportValid =
+    finalGateValid &&
+    countsMatch &&
+    allReportsValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      reportValid,
+
+    reason:
+      reportValid
+        ? 'PRODUCTION_CANDIDATE_FINAL_GATE_REPORT_VALID'
+        : 'PRODUCTION_CANDIDATE_FINAL_GATE_REPORT_INVALID',
+
+    sourceStep:
+      '8.3F',
+
+    sourcePassed:
+      source.passed === true,
+
+    candidateCount,
+
+    reportCount:
+      reportDetails.length,
+
+    countsMatch,
+
+    finalGateValid,
+
+    allReportsValid,
+
+    details:
+      reportDetails,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    autoPromotion: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3G HOTFIX DETAIL MAPPING loaded'
+);
+
