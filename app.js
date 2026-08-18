@@ -133662,3 +133662,366 @@ console.log(
   'FIX-03D5.9 STEP 8.3G HOTFIX DETAIL MAPPING loaded'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3J — HOTFIX 3
+   AUTHORITATIVE IDENTITY SOURCE = STEP 8.3C
+
+   STEP 8.3C owns:
+   - province
+   - prize
+   - identity
+   - canonicalIndex
+
+   STEP 8.3G / 8.3I remain validation gates.
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionPayloadPreview83J() {
+
+  const guard =
+    window.LAST_FIX03D59_STEP83I ||
+    null;
+
+  const boundary =
+    window.LAST_FIX03D59_STEP83C_RESULT ||
+    null;
+
+  const finalGate =
+    window.LAST_FIX03D59_STEP83G ||
+    null;
+
+
+  if (
+    !guard ||
+    guard.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83I_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3I',
+
+      identitySourceStep:
+        '8.3C',
+
+      sourcePassed: false,
+
+      promotionEligible: false,
+
+      expectedCount: 0,
+
+      payloadCount: 0,
+
+      countsMatch: false,
+
+      allPayloadItemsValid: false,
+
+      payloadValid: false,
+
+      payload: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    guard.passed === true;
+
+
+  const promotionEligible =
+    guard.promotionEligible === true;
+
+
+  /*
+   * STEP 8.3C is the authoritative
+   * identity/boundary source.
+   */
+
+  const boundaryDetails =
+    boundary &&
+    boundary.ready === true &&
+    boundary.passed === true &&
+    Array.isArray(
+      boundary.details
+    )
+      ? boundary.details
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      guard.candidateCount
+    )
+      ? guard.candidateCount
+      : boundaryDetails.length;
+
+
+  /*
+   * Optional final-gate details.
+   * Used only to confirm gate validity
+   * by canonical index.
+   */
+
+  const gateDetails =
+    finalGate &&
+    Array.isArray(
+      finalGate.details
+    )
+      ? finalGate.details
+      : [];
+
+
+  const payload =
+    boundaryDetails.map(
+      (item, index) => {
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const province =
+          item?.province &&
+          item.province !== '-'
+            ? item.province
+            : null;
+
+
+        const prize =
+          item?.prize &&
+          item.prize !== '-'
+            ? item.prize
+            : null;
+
+
+        const identity =
+          item?.identity ||
+          (
+            province &&
+            prize
+              ? `${province}/${prize}`
+              : null
+          );
+
+
+        /*
+         * Find corresponding 8.3G gate item.
+         */
+
+        const gateItem =
+          gateDetails.find(
+            gate => {
+
+              if (
+                canonicalIndex != null &&
+                Number.isInteger(
+                  gate?.canonicalIndex
+                )
+              ) {
+
+                return (
+                  gate.canonicalIndex ===
+                  canonicalIndex
+                );
+
+              }
+
+
+              return (
+                gate?.identity ===
+                identity
+              );
+
+            }
+          ) ||
+          gateDetails[index] ||
+          null;
+
+
+        const gateValid =
+          gateItem
+            ? (
+                gateItem.valid === true ||
+                gateItem.gateValid === true
+              )
+            : (
+                finalGate?.passed === true
+              );
+
+
+        const boundaryValid =
+          item?.identityValid === true &&
+          item?.candidateValid === true;
+
+
+        const promotionReady =
+          Boolean(
+            province &&
+            prize &&
+            identity &&
+            boundaryValid &&
+            gateValid
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId:
+            identity,
+
+          identity,
+
+          province,
+
+          prize,
+
+          valid:
+            boundaryValid &&
+            gateValid,
+
+          promotionReady
+
+        };
+
+      }
+    );
+
+
+  const payloadCount =
+    payload.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    payloadCount ===
+      expectedCount;
+
+
+  const allPayloadItemsValid =
+    payloadCount > 0 &&
+    payload.every(
+      item =>
+        item.promotionReady ===
+        true
+    );
+
+
+  const boundaryValid =
+    Boolean(
+      boundary &&
+      boundary.ready === true &&
+      boundary.passed === true
+    );
+
+
+  const finalGateValid =
+    Boolean(
+      finalGate &&
+      finalGate.ready === true &&
+      finalGate.passed === true
+    );
+
+
+  const payloadValid =
+    sourcePassed &&
+    promotionEligible &&
+    boundaryValid &&
+    finalGateValid &&
+    countsMatch &&
+    allPayloadItemsValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      payloadValid,
+
+    reason:
+      payloadValid
+        ? 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_VALID'
+        : 'PRODUCTION_PROMOTION_PAYLOAD_PREVIEW_INVALID',
+
+    sourceStep:
+      '8.3I',
+
+    identitySourceStep:
+      '8.3C',
+
+    gateSourceStep:
+      '8.3G',
+
+    sourcePassed,
+
+    promotionEligible,
+
+    boundaryValid,
+
+    finalGateValid,
+
+    expectedCount,
+
+    payloadCount,
+
+    countsMatch,
+
+    allPayloadItemsValid,
+
+    payloadValid,
+
+    payload,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3J HOTFIX 3 loaded — identity source = STEP 8.3C / gate source = STEP 8.3G'
+);
+
