@@ -141581,3 +141581,261 @@ console.log(
   'FIX-03D5.9 STEP 8.4A loaded — Production Integration Baseline / ZERO WRITE'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.4B
+   PRODUCTION INTEGRATION READINESS GATE
+
+   SOURCE:
+   - STEP 8.4A baseline
+   - STEP 8.3R commit simulation
+
+   READ ONLY
+   ZERO PROMOTION
+   ZERO CANONICAL WRITE
+   ZERO PRODUCTION WRITE
+   ZERO STORAGE WRITE
+   ========================================================================= */
+
+function buildProductionIntegrationReadinessGate84B() {
+
+  const baseline =
+    window.LAST_FIX03D59_STEP84A ||
+    null;
+
+
+  const simulation =
+    window.LAST_FIX03D59_STEP83R ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 1. SOURCE VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const baselineValid =
+    Boolean(
+      baseline &&
+      baseline.ready === true &&
+      baseline.passed === true &&
+      baseline.sourceStep === '8.3R' &&
+      baseline.sourcePassed === true
+    );
+
+
+  const simulationValid =
+    Boolean(
+      simulation &&
+      simulation.ready === true &&
+      simulation.passed === true &&
+      simulation.simulationValid === true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. 8.3R SAFETY / INTEGRITY GATES
+   * ---------------------------------------------------------
+   */
+
+  const commitEligible =
+    simulation?.commitEligible === true;
+
+
+  const commitGuardValid =
+    simulation?.commitGuardValid === true;
+
+
+  const simulationEligible =
+    simulation?.simulationEligible === true;
+
+
+  const countsMatch =
+    simulation?.countsMatch === true;
+
+
+  const allItemsValid =
+    simulation?.allItemsValid === true;
+
+
+  const allItemsCommitReady =
+    simulation?.allItemsCommitReady === true;
+
+
+  const allItemsSimulated =
+    simulation?.allItemsSimulated === true;
+
+
+  const candidateIdUnique =
+    simulation?.candidateIdUnique === true;
+
+
+  const canonicalIndexUnique =
+    simulation?.canonicalIndexUnique === true;
+
+
+  const items =
+    Array.isArray(
+      simulation?.items
+    )
+      ? simulation.items
+      : [];
+
+
+  const itemCount =
+    items.length;
+
+
+  const expectedCount =
+    Number.isInteger(
+      simulation?.expectedCount
+    )
+      ? simulation.expectedCount
+      : 0;
+
+
+  const itemCountValid =
+    expectedCount > 0 &&
+    itemCount === expectedCount;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. BASELINE SAFETY BOUNDARY
+   * ---------------------------------------------------------
+   */
+
+  const baselineSafetyValid =
+    Boolean(
+      baseline &&
+      baseline.productionIntegrationEnabled === false &&
+      baseline.promotionEnabled === false &&
+      baseline.canonicalWrite === false &&
+      baseline.productionWrite === false &&
+      baseline.storageWrite === false &&
+      baseline.integrationPerformed === false &&
+      baseline.dryRun === true &&
+      baseline.readOnly === true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. READINESS VERDICT
+   * ---------------------------------------------------------
+   */
+
+  const integrationReady =
+    baselineValid &&
+    simulationValid &&
+    commitEligible &&
+    commitGuardValid &&
+    simulationEligible &&
+    countsMatch &&
+    allItemsValid &&
+    allItemsCommitReady &&
+    allItemsSimulated &&
+    candidateIdUnique &&
+    canonicalIndexUnique &&
+    itemCountValid &&
+    baselineSafetyValid;
+
+
+  const result = {
+
+    ready: true,
+
+    passed:
+      integrationReady,
+
+    reason:
+      integrationReady
+        ? 'PRODUCTION_INTEGRATION_READINESS_VALID'
+        : 'PRODUCTION_INTEGRATION_READINESS_INVALID',
+
+    step:
+      '8.4B',
+
+    sourceStep:
+      '8.4A',
+
+    certificationSourceStep:
+      '8.3R',
+
+    baselineValid,
+
+    simulationValid,
+
+    commitEligible,
+
+    commitGuardValid,
+
+    simulationEligible,
+
+    expectedCount,
+
+    itemCount,
+
+    itemCountValid,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsCommitReady,
+
+    allItemsSimulated,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    baselineSafetyValid,
+
+    integrationReady,
+
+    /*
+     * IMPORTANT:
+     * Passing 8.4B does NOT authorize
+     * production integration.
+     */
+
+    productionIntegrationEnabled:
+      false,
+
+    promotionEnabled:
+      false,
+
+    canonicalWrite:
+      false,
+
+    productionWrite:
+      false,
+
+    storageWrite:
+      false,
+
+    integrationPerformed:
+      false,
+
+    dryRun: true,
+
+    readOnly: true
+
+  };
+
+
+  window.LAST_FIX03D59_STEP84B =
+    result;
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.4B loaded — Production Integration Readiness Gate / READ ONLY / ZERO WRITE'
+);
+
