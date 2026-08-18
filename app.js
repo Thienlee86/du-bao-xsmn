@@ -141120,3 +141120,168 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3 UI CLEANUP — PHASE 2
+   RETIRE D.5.9 / STEP 8.3 DIAGNOSTIC UI
+
+   UI ONLY
+   KEEP ALL ENGINES / REPORTERS
+   ZERO WRITE
+   ========================================================================= */
+
+(function cleanupFix03D59DiagnosticUIPhase2() {
+
+  const DIAGNOSTIC_MARKERS = [
+    'D.5.9',
+    '8.3Q',
+    '8.3R',
+    'FINAL 8.3'
+  ];
+
+
+  function isDiagnosticButton(button) {
+
+    if (!button) {
+      return false;
+    }
+
+
+    const id =
+      String(
+        button.id || ''
+      ).toLowerCase();
+
+
+    const text =
+      String(
+        button.textContent || ''
+      );
+
+
+    /*
+     * FIX-03D5.9 generated button IDs.
+     */
+
+    if (
+      id.includes('fix03d59') ||
+      id.includes('btnfix03d59')
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * Text fallback for diagnostic buttons
+     * that may not have a standard ID.
+     */
+
+    return DIAGNOSTIC_MARKERS.some(
+      marker =>
+        text.includes(marker)
+    );
+
+  }
+
+
+  function cleanup() {
+
+    const buttons =
+      Array.from(
+        document.querySelectorAll(
+          'button'
+        )
+      );
+
+
+    let removed = 0;
+
+
+    buttons.forEach(
+      button => {
+
+        if (
+          !isDiagnosticButton(
+            button
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        button.remove();
+
+        removed += 1;
+
+      }
+    );
+
+
+    if (removed > 0) {
+
+      console.log(
+        'FIX-03D5.9 UI CLEANUP PHASE 2 removed buttons:',
+        removed
+      );
+
+    }
+
+  }
+
+
+  /*
+   * Initial cleanup.
+   */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      cleanup,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    cleanup();
+
+  }
+
+
+  /*
+   * Some old diagnostic installers attach
+   * buttons after page initialization.
+   */
+
+  [
+    250,
+    750,
+    1500,
+    3000,
+    5000
+  ].forEach(
+    delay => {
+
+      setTimeout(
+        cleanup,
+        delay
+      );
+
+    }
+  );
+
+
+  console.log(
+    'FIX-03D5.9 STEP 8.3 UI CLEANUP PHASE 2 loaded'
+  );
+
+})();
+
