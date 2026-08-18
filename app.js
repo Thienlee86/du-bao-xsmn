@@ -135543,3 +135543,535 @@ function testProductionPromotionCommitPlan83L() {
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3M
+   PRODUCTION PROMOTION TRANSACTION PREFLIGHT
+
+   SOURCE:
+   - STEP 8.3L = authoritative commit plan
+   - STEP 8.3K = final promotion gate
+   - STEP 8.3J = promotion payload
+
+   PURPOSE:
+   - Validate the complete promotion transaction
+   - Enforce atomic transaction semantics
+   - Reject partial promotion
+   - Verify candidate identity/index integrity
+   - Prepare transaction only
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionTransactionPreflight83M() {
+
+  const commitPlan =
+    window.LAST_FIX03D59_STEP83L ||
+    null;
+
+  const finalGate =
+    window.LAST_FIX03D59_STEP83K ||
+    null;
+
+  const payloadPreview =
+    window.LAST_FIX03D59_STEP83J ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 1. SOURCE GUARD
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !commitPlan ||
+    commitPlan.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83L_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3L',
+
+      gateSourceStep:
+        '8.3K',
+
+      payloadSourceStep:
+        '8.3J',
+
+      sourcePassed: false,
+
+      transactionEligible: false,
+
+      expectedCount: 0,
+
+      transactionCount: 0,
+
+      countsMatch: false,
+
+      allItemsValid: false,
+
+      allItemsReady: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      atomicityValid: false,
+
+      transactionValid: false,
+
+      transaction: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. SOURCE VALIDITY
+   * ---------------------------------------------------------
+   */
+
+  const sourcePassed =
+    commitPlan.passed === true;
+
+
+  const gatePassed =
+    Boolean(
+      finalGate &&
+      finalGate.ready === true &&
+      finalGate.passed === true
+    );
+
+
+  const payloadPassed =
+    Boolean(
+      payloadPreview &&
+      payloadPreview.ready === true &&
+      payloadPreview.passed === true &&
+      payloadPreview.payloadValid === true
+    );
+
+
+  const transactionEligible =
+    sourcePassed &&
+    gatePassed &&
+    payloadPassed;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. AUTHORITATIVE PLAN ITEMS
+   * ---------------------------------------------------------
+   */
+
+  const planItems =
+    Array.isArray(
+      commitPlan.plan
+    )
+      ? commitPlan.plan
+      : (
+          Array.isArray(
+            commitPlan.commitPlan
+          )
+            ? commitPlan.commitPlan
+            : []
+        );
+
+
+  const payloadItems =
+    Array.isArray(
+      payloadPreview?.payload
+    )
+      ? payloadPreview.payload
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      commitPlan.expectedCount
+    )
+      ? commitPlan.expectedCount
+      : planItems.length;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. BUILD TRANSACTION
+   * ---------------------------------------------------------
+   */
+
+  const transaction =
+    planItems.map(
+      (planItem, index) => {
+
+        const canonicalIndex =
+          Number.isInteger(
+            planItem?.canonicalIndex
+          )
+            ? planItem.canonicalIndex
+            : null;
+
+
+        const candidateId =
+          planItem?.candidateId ||
+          planItem?.identity ||
+          null;
+
+
+        const province =
+          planItem?.province ||
+          null;
+
+
+        const prize =
+          planItem?.prize ||
+          null;
+
+
+        /*
+         * Locate matching payload item.
+         */
+
+        const payloadItem =
+          payloadItems.find(
+            item => {
+
+              if (
+                canonicalIndex != null &&
+                Number.isInteger(
+                  item?.canonicalIndex
+                )
+              ) {
+
+                return (
+                  item.canonicalIndex ===
+                  canonicalIndex
+                );
+
+              }
+
+
+              return (
+                item?.candidateId ===
+                candidateId
+              );
+
+            }
+          ) ||
+          null;
+
+
+        const identityMatches =
+          Boolean(
+            payloadItem &&
+            candidateId &&
+            payloadItem.candidateId ===
+              candidateId
+          );
+
+
+        const canonicalIndexMatches =
+          Boolean(
+            payloadItem &&
+            canonicalIndex != null &&
+            payloadItem.canonicalIndex ===
+              canonicalIndex
+          );
+
+
+        const provinceMatches =
+          Boolean(
+            payloadItem &&
+            province &&
+            payloadItem.province ===
+              province
+          );
+
+
+        const prizeMatches =
+          Boolean(
+            payloadItem &&
+            prize &&
+            payloadItem.prize ===
+              prize
+          );
+
+
+        const planValid =
+          (
+            planItem?.valid === true ||
+            planItem?.planValid === true
+          );
+
+
+        const payloadValid =
+          Boolean(
+            payloadItem &&
+            payloadItem.valid === true &&
+            payloadItem.promotionReady ===
+              true
+          );
+
+
+        const itemValid =
+          Boolean(
+            candidateId &&
+            province &&
+            prize &&
+            canonicalIndex != null &&
+            planValid &&
+            payloadValid &&
+            identityMatches &&
+            canonicalIndexMatches &&
+            provinceMatches &&
+            prizeMatches
+          );
+
+
+        return {
+
+          index:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          province,
+
+          prize,
+
+          planValid,
+
+          payloadValid,
+
+          identityMatches,
+
+          canonicalIndexMatches,
+
+          provinceMatches,
+
+          prizeMatches,
+
+          valid:
+            itemValid,
+
+          ready:
+            itemValid,
+
+          action:
+            itemValid
+              ? 'BLOCKED_DRY_RUN'
+              : 'REJECTED_PREFLIGHT'
+
+        };
+
+      }
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 5. TRANSACTION COUNT
+   * ---------------------------------------------------------
+   */
+
+  const transactionCount =
+    transaction.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    transactionCount ===
+      expectedCount &&
+    payloadItems.length ===
+      expectedCount;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 6. ITEM VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const allItemsValid =
+    transactionCount > 0 &&
+    transaction.every(
+      item =>
+        item.valid === true
+    );
+
+
+  const allItemsReady =
+    transactionCount > 0 &&
+    transaction.every(
+      item =>
+        item.ready === true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 7. UNIQUENESS
+   * ---------------------------------------------------------
+   */
+
+  const candidateIds =
+    transaction.map(
+      item =>
+        item.candidateId
+    );
+
+
+  const canonicalIndexes =
+    transaction.map(
+      item =>
+        item.canonicalIndex
+    );
+
+
+  const candidateIdUnique =
+    candidateIds.length > 0 &&
+    candidateIds.every(Boolean) &&
+    new Set(
+      candidateIds
+    ).size ===
+      candidateIds.length;
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length > 0 &&
+    canonicalIndexes.every(
+      Number.isInteger
+    ) &&
+    new Set(
+      canonicalIndexes
+    ).size ===
+      canonicalIndexes.length;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 8. ATOMICITY
+   *
+   * Transaction is allowed to proceed only when
+   * EVERY candidate passes.
+   *
+   * No partial promotion is permitted.
+   * ---------------------------------------------------------
+   */
+
+  const atomicityValid =
+    countsMatch &&
+    allItemsValid &&
+    allItemsReady &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 9. FINAL PREFLIGHT
+   * ---------------------------------------------------------
+   */
+
+  const transactionValid =
+    transactionEligible &&
+    atomicityValid;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      transactionValid,
+
+    reason:
+      transactionValid
+        ? 'PRODUCTION_PROMOTION_TRANSACTION_PREFLIGHT_VALID'
+        : 'PRODUCTION_PROMOTION_TRANSACTION_PREFLIGHT_INVALID',
+
+    sourceStep:
+      '8.3L',
+
+    gateSourceStep:
+      '8.3K',
+
+    payloadSourceStep:
+      '8.3J',
+
+    sourcePassed,
+
+    gatePassed,
+
+    payloadPassed,
+
+    transactionEligible,
+
+    expectedCount,
+
+    transactionCount,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsReady,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    atomicityValid,
+
+    transactionValid,
+
+    transaction,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3M loaded — PRODUCTION PROMOTION TRANSACTION PREFLIGHT / DRY RUN / ZERO WRITE'
+);
+
