@@ -140504,3 +140504,346 @@ console.log(
   'FIX-03D5.9 STEP 8.3R engine loaded — PRODUCTION PROMOTION COMMIT SIMULATION / DRY RUN / READ ONLY'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3R
+   PRODUCTION PROMOTION COMMIT SIMULATION
+   REPORTER
+
+   SOURCE = STEP 8.3R ENGINE
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ZERO COMMIT
+   ========================================================================= */
+
+function reportProductionPromotionCommitSimulation83R() {
+
+  const result =
+    buildProductionPromotionCommitSimulation83R();
+
+
+  window.LAST_FIX03D59_STEP83R =
+    result;
+
+
+  const yesNo =
+    value =>
+      value === true
+        ? 'YES ✅'
+        : 'NO ❌';
+
+
+  const lines =
+    [];
+
+
+  lines.push(
+    'FIX-03D5.9 STEP 8.3R'
+  );
+
+  lines.push(
+    'PRODUCTION PROMOTION COMMIT SIMULATION'
+  );
+
+  lines.push('');
+
+  lines.push(
+    'Ready: ' +
+    yesNo(
+      result.ready
+    )
+  );
+
+  lines.push(
+    'Passed: ' +
+    yesNo(
+      result.passed
+    )
+  );
+
+  lines.push(
+    'Reason: ' +
+    (
+      result.reason ||
+      '-'
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Source: ' +
+    (
+      result.sourceStep ||
+      '8.3Q'
+    )
+  );
+
+  lines.push(
+    'Source Passed: ' +
+    yesNo(
+      result.sourcePassed
+    )
+  );
+
+  lines.push(
+    'Commit Eligible: ' +
+    yesNo(
+      result.commitEligible
+    )
+  );
+
+  lines.push(
+    'Commit Guard Valid: ' +
+    yesNo(
+      result.commitGuardValid
+    )
+  );
+
+  lines.push(
+    'Simulation Eligible: ' +
+    yesNo(
+      result.simulationEligible
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'Expected Candidates: ' +
+    (
+      result.expectedCount ??
+      0
+    )
+  );
+
+  lines.push(
+    'Simulation Items: ' +
+    (
+      result.simulationItemCount ??
+      0
+    )
+  );
+
+  lines.push(
+    'Counts Match: ' +
+    yesNo(
+      result.countsMatch
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'All Items Valid: ' +
+    yesNo(
+      result.allItemsValid
+    )
+  );
+
+  lines.push(
+    'All Items Commit Ready: ' +
+    yesNo(
+      result.allItemsCommitReady
+    )
+  );
+
+  lines.push(
+    'All Items Simulated: ' +
+    yesNo(
+      result.allItemsSimulated
+    )
+  );
+
+  lines.push(
+    'Candidate ID Unique: ' +
+    yesNo(
+      result.candidateIdUnique
+    )
+  );
+
+  lines.push(
+    'Canonical Index Unique: ' +
+    yesNo(
+      result.canonicalIndexUnique
+    )
+  );
+
+
+  lines.push('');
+
+  lines.push(
+    'COMMIT SIMULATION: ' +
+    (
+      result.simulationValid === true
+        ? 'PASS ✅'
+        : 'FAIL ❌'
+    )
+  );
+
+
+  /*
+   * -----------------------------------------------------------
+   * SIMULATION PREVIEW
+   * -----------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    'SIMULATION PREVIEW'
+  );
+
+
+  const items =
+    Array.isArray(
+      result.items
+    )
+      ? result.items
+      : [];
+
+
+  if (
+    items.length === 0
+  ) {
+
+    lines.push(
+      'NO SIMULATION ITEMS'
+    );
+
+  } else {
+
+    items.forEach(
+      item => {
+
+        lines.push(
+          '#' +
+          (
+            item.index ??
+            '-'
+          ) +
+          ' | ' +
+          (
+            item.province ||
+            'NO_PROVINCE'
+          ) +
+          ' | ' +
+          (
+            item.prize ||
+            'NO_PRIZE'
+          ) +
+          ' | Valid: ' +
+          yesNo(
+            item.valid
+          ) +
+          ' | Ready: ' +
+          yesNo(
+            item.commitReady
+          ) +
+          ' | Simulated: ' +
+          yesNo(
+            item.simulated
+          ) +
+          ' | ' +
+          (
+            item.action ||
+            '-'
+          )
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * -----------------------------------------------------------
+   * SAFETY REPORT
+   * -----------------------------------------------------------
+   */
+
+  lines.push('');
+
+  lines.push(
+    'DRY RUN'
+  );
+
+  lines.push(
+    'Read Only: ' +
+    yesNo(
+      result.readOnly
+    )
+  );
+
+  lines.push(
+    'Canonical Write: ' +
+    yesNo(
+      result.canonicalWrite
+    )
+  );
+
+  lines.push(
+    'Production Write: ' +
+    yesNo(
+      result.productionWrite
+    )
+  );
+
+  lines.push(
+    'Storage Write: ' +
+    yesNo(
+      result.storageWrite
+    )
+  );
+
+  lines.push(
+    'Promotion Performed: ' +
+    yesNo(
+      result.promotionPerformed
+    )
+  );
+
+  lines.push(
+    'Commit Performed: ' +
+    yesNo(
+      result.commitPerformed
+    )
+  );
+
+
+  const message =
+    lines.join(
+      '\n'
+    );
+
+
+  console.log(
+    message
+  );
+
+  console.log(
+    'STEP 8.3R RESULT:',
+    result
+  );
+
+
+  alert(
+    message
+  );
+
+
+  return result;
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3R reporter loaded'
+);
+
