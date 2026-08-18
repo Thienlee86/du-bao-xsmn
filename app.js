@@ -141285,3 +141285,106 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D FINAL DEBUG UI CLEANUP
+
+   RETIRE DEVELOPMENT DEBUG PANEL FROM PRODUCTION UI
+
+   KEEP:
+   - engines
+   - reporters
+   - verification logic
+   - recovery logic
+   - safety logic
+
+   UI ONLY
+   ZERO CANONICAL WRITE
+   ZERO PRODUCTION WRITE
+   ZERO STORAGE WRITE
+   ========================================================================= */
+
+(function finalFix03DDebugUICleanup() {
+
+  const DEBUG_UI_IDS = [
+
+    'fix03DDebugPanelV26',
+
+    'btnFix03DDebugToggleV26'
+
+  ];
+
+
+  function cleanupDebugUI() {
+
+    DEBUG_UI_IDS.forEach(
+      id => {
+
+        const element =
+          document.getElementById(
+            id
+          );
+
+
+        if (element) {
+
+          element.remove();
+
+        }
+
+      }
+    );
+
+  }
+
+
+  /*
+   * Initial cleanup.
+   */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      cleanupDebugUI
+    );
+
+  } else {
+
+    cleanupDebugUI();
+
+  }
+
+
+  /*
+   * Defensive cleanup.
+   * Old installers may recreate the
+   * debug UI after initial page load.
+   */
+
+  [
+    250,
+    750,
+    1500,
+    3000,
+    5000
+  ].forEach(
+    delay => {
+
+      setTimeout(
+        cleanupDebugUI,
+        delay
+      );
+
+    }
+  );
+
+
+  console.log(
+    'FIX-03D FINAL DEBUG UI CLEANUP loaded'
+  );
+
+})();
+
