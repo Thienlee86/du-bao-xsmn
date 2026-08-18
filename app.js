@@ -136980,3 +136980,217 @@ console.log(
   'FIX-03D5.9 STEP 8.3M HOTFIX 1 loaded — authoritative payload source = STEP 8.3J'
 );
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3N
+   PRODUCTION PROMOTION TRANSACTION FINAL GATE
+
+   SOURCE:
+   STEP 8.3M — TRANSACTION PREFLIGHT
+
+   MODE:
+   MANUAL RUN ONLY
+   READ ONLY
+   FAIL CLOSED
+
+   ABSOLUTE SAFETY:
+   NO CANONICAL WRITE
+   NO PRODUCTION WRITE
+   NO STORAGE WRITE
+   NO AUTO PROMOTION
+   NO TRANSACTION EXECUTION
+   ========================================================================= */
+
+function buildProductionPromotionTransactionFinalGate83N() {
+
+  const source =
+    window.LAST_FIX03D59_STEP83M ||
+    null;
+
+
+  if (
+    !source ||
+    source.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83M_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3M',
+
+      sourcePassed: false,
+
+      transactionEligible: false,
+
+      expectedCount: 0,
+
+      transactionCount: 0,
+
+      countsMatch: false,
+
+      allItemsValid: false,
+
+      allItemsReady: false,
+
+      candidateIdUnique: false,
+
+      canonicalIndexUnique: false,
+
+      finalGatePassed: false,
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      transactionExecuted: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    source.passed === true;
+
+
+  const transactionEligible =
+    source.transactionEligible === true;
+
+
+  const expectedCount =
+    Number.isInteger(
+      source.expectedCount
+    )
+      ? source.expectedCount
+      : 0;
+
+
+  const transactionItems =
+    Array.isArray(
+      source.transactionItems
+    )
+      ? source.transactionItems
+      : (
+          Array.isArray(
+            source.items
+          )
+            ? source.items
+            : []
+        );
+
+
+  const transactionCount =
+    Number.isInteger(
+      source.transactionCount
+    )
+      ? source.transactionCount
+      : transactionItems.length;
+
+
+  const countsMatch =
+    source.countsMatch === true &&
+    expectedCount > 0 &&
+    transactionCount ===
+      expectedCount;
+
+
+  const allItemsValid =
+    source.allItemsValid === true;
+
+
+  const allItemsReady =
+    source.allItemsReady === true;
+
+
+  const candidateIdUnique =
+    source.candidateIdUnique === true;
+
+
+  const canonicalIndexUnique =
+    source.canonicalIndexUnique === true;
+
+
+  const finalGatePassed =
+    sourcePassed &&
+    transactionEligible &&
+    countsMatch &&
+    allItemsValid &&
+    allItemsReady &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  return {
+
+    ready: true,
+
+    passed:
+      finalGatePassed,
+
+    reason:
+      finalGatePassed
+        ? 'PRODUCTION_PROMOTION_TRANSACTION_FINAL_GATE_PASSED'
+        : 'PRODUCTION_PROMOTION_TRANSACTION_FINAL_GATE_BLOCKED',
+
+    sourceStep:
+      '8.3M',
+
+    sourcePassed,
+
+    transactionEligible,
+
+    expectedCount,
+
+    transactionCount,
+
+    countsMatch,
+
+    allItemsValid,
+
+    allItemsReady,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    finalGatePassed,
+
+    transactionItems,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    transactionExecuted: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3N Transaction Final Gate engine loaded — READ ONLY / ZERO WRITE / ZERO PROMOTION'
+);
+
