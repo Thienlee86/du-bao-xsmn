@@ -134768,3 +134768,383 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 STEP 8.3L
+   PRODUCTION PROMOTION COMMIT PLAN
+
+   SOURCE:
+   - STEP 8.3K = final promotion gate
+   - STEP 8.3J = authoritative promotion payload
+
+   PURPOSE:
+   - Build exact production promotion plan
+   - NO canonical write
+   - NO production write
+   - NO storage write
+   - NO promotion
+
+   DRY RUN
+   READ ONLY
+   ZERO WRITE
+   ZERO PROMOTION
+   ========================================================================= */
+
+function buildProductionPromotionCommitPlan83L() {
+
+  const finalGate =
+    window.LAST_FIX03D59_STEP83K ||
+    null;
+
+  const payloadPreview =
+    window.LAST_FIX03D59_STEP83J ||
+    null;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 1. REQUIRE STEP 8.3K
+   * ---------------------------------------------------------
+   */
+
+  if (
+    !finalGate ||
+    finalGate.ready !== true
+  ) {
+
+    return {
+
+      ready: false,
+
+      passed: false,
+
+      reason:
+        'STEP_83K_RESULT_NOT_READY',
+
+      sourceStep:
+        '8.3K',
+
+      payloadSourceStep:
+        '8.3J',
+
+      sourcePassed: false,
+
+      promotionEligible: false,
+
+      expectedCount: 0,
+
+      planCount: 0,
+
+      countsMatch: false,
+
+      allPlanItemsValid: false,
+
+      commitPlanValid: false,
+
+      plan: [],
+
+      dryRun: true,
+
+      readOnly: true,
+
+      canonicalWrite: false,
+
+      productionWrite: false,
+
+      storageWrite: false,
+
+      promotionPerformed: false
+
+    };
+
+  }
+
+
+  const sourcePassed =
+    finalGate.passed === true;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 2. REQUIRE FINAL PROMOTION GATE
+   * ---------------------------------------------------------
+   */
+
+  const promotionEligible =
+    sourcePassed &&
+    (
+      finalGate.finalPromotionGate === true ||
+      finalGate.promotionEligible === true
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 3. AUTHORITATIVE PAYLOAD = STEP 8.3J
+   * ---------------------------------------------------------
+   */
+
+  const sourcePayload =
+    payloadPreview &&
+    payloadPreview.ready === true &&
+    payloadPreview.passed === true &&
+    Array.isArray(
+      payloadPreview.payload
+    )
+      ? payloadPreview.payload
+      : [];
+
+
+  const expectedCount =
+    Number.isInteger(
+      finalGate.payloadCount
+    )
+      ? finalGate.payloadCount
+      : (
+          Number.isInteger(
+            payloadPreview?.payloadCount
+          )
+            ? payloadPreview.payloadCount
+            : sourcePayload.length
+        );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 4. BUILD IMMUTABLE COMMIT PLAN
+   * ---------------------------------------------------------
+   */
+
+  const plan =
+    sourcePayload.map(
+      (item, index) => {
+
+        const province =
+          item?.province ||
+          null;
+
+
+        const prize =
+          item?.prize ||
+          null;
+
+
+        const identity =
+          item?.identity ||
+          item?.candidateId ||
+          (
+            province &&
+            prize
+              ? `${province}/${prize}`
+              : null
+          );
+
+
+        const canonicalIndex =
+          Number.isInteger(
+            item?.canonicalIndex
+          )
+            ? item.canonicalIndex
+            : null;
+
+
+        const candidateId =
+          item?.candidateId ||
+          identity;
+
+
+        const sourceValid =
+          item?.valid === true;
+
+
+        const sourceReady =
+          item?.promotionReady === true;
+
+
+        const planItemValid =
+          Boolean(
+            province &&
+            prize &&
+            identity &&
+            candidateId &&
+            sourceValid &&
+            sourceReady
+          );
+
+
+        return {
+
+          planIndex:
+            index + 1,
+
+          canonicalIndex,
+
+          candidateId,
+
+          identity,
+
+          province,
+
+          prize,
+
+          sourceValid,
+
+          sourceReady,
+
+          planItemValid,
+
+          action:
+            'PROMOTE_TO_PRODUCTION',
+
+          execution:
+            'BLOCKED_DRY_RUN'
+
+        };
+
+      }
+    );
+
+
+  /*
+   * ---------------------------------------------------------
+   * 5. PLAN VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const planCount =
+    plan.length;
+
+
+  const countsMatch =
+    expectedCount > 0 &&
+    planCount ===
+      expectedCount;
+
+
+  const allPlanItemsValid =
+    planCount > 0 &&
+    plan.every(
+      item =>
+        item.planItemValid === true
+    );
+
+
+  const candidateIds =
+    plan
+      .map(
+        item =>
+          item.candidateId
+      )
+      .filter(Boolean);
+
+
+  const candidateIdUnique =
+    candidateIds.length ===
+      new Set(
+        candidateIds
+      ).size;
+
+
+  const canonicalIndexes =
+    plan
+      .map(
+        item =>
+          item.canonicalIndex
+      )
+      .filter(
+        value =>
+          Number.isInteger(
+            value
+          )
+      );
+
+
+  const canonicalIndexUnique =
+    canonicalIndexes.length ===
+      planCount &&
+    canonicalIndexes.length ===
+      new Set(
+        canonicalIndexes
+      ).size;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 6. FINAL COMMIT PLAN VALIDATION
+   * ---------------------------------------------------------
+   */
+
+  const commitPlanValid =
+    sourcePassed &&
+    promotionEligible &&
+    payloadPreview?.passed === true &&
+    countsMatch &&
+    allPlanItemsValid &&
+    candidateIdUnique &&
+    canonicalIndexUnique;
+
+
+  /*
+   * ---------------------------------------------------------
+   * 7. RETURN — STILL ZERO WRITE
+   * ---------------------------------------------------------
+   */
+
+  return {
+
+    ready: true,
+
+    passed:
+      commitPlanValid,
+
+    reason:
+      commitPlanValid
+        ? 'PRODUCTION_PROMOTION_COMMIT_PLAN_VALID'
+        : 'PRODUCTION_PROMOTION_COMMIT_PLAN_INVALID',
+
+    sourceStep:
+      '8.3K',
+
+    payloadSourceStep:
+      '8.3J',
+
+    sourcePassed,
+
+    promotionEligible,
+
+    expectedCount,
+
+    planCount,
+
+    countsMatch,
+
+    allPlanItemsValid,
+
+    candidateIdUnique,
+
+    canonicalIndexUnique,
+
+    commitPlanValid,
+
+    plan,
+
+    dryRun: true,
+
+    readOnly: true,
+
+    canonicalWrite: false,
+
+    productionWrite: false,
+
+    storageWrite: false,
+
+    promotionPerformed: false
+
+  };
+
+}
+
+
+console.log(
+  'FIX-03D5.9 STEP 8.3L loaded — PRODUCTION PROMOTION COMMIT PLAN / DRY RUN / ZERO WRITE'
+);
+
