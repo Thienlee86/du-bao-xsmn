@@ -141388,3 +141388,104 @@ console.log(
 
 })();
 
+/* =========================================================================
+   FIX-03D FINAL FLOATING DIAGNOSTIC CLEANUP
+
+   REMOVE FIX-03D DEVELOPMENT BUTTONS FROM PRODUCTION UI
+   KEEP ALL ENGINES / REPORTERS / SAFETY LOGIC
+
+   UI ONLY
+   ========================================================================= */
+
+(function finalFix03DFloatingDiagnosticCleanup() {
+
+  function cleanup() {
+
+    const buttons =
+      Array.from(
+        document.querySelectorAll('button')
+      );
+
+
+    buttons.forEach(
+      button => {
+
+        const text =
+          String(
+            button.textContent || ''
+          ).trim();
+
+
+        /*
+         * Retire only FIX-03D diagnostic
+         * D.5.x buttons.
+         *
+         * Examples:
+         * D.5.1
+         * D.5.2
+         * D.5.3
+         * ...
+         * D.5.9
+         */
+
+        if (
+          /\bD\.5\.\d+\b/i.test(text)
+        ) {
+
+          button.remove();
+
+        }
+
+      }
+    );
+
+  }
+
+
+  if (
+    document.readyState === 'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      cleanup
+    );
+
+  } else {
+
+    cleanup();
+
+  }
+
+
+  /*
+   * Legacy installers create some buttons
+   * asynchronously.
+   */
+
+  [
+    250,
+    500,
+    1000,
+    2000,
+    3000,
+    5000,
+    8000
+  ].forEach(
+    delay => {
+
+      setTimeout(
+        cleanup,
+        delay
+      );
+
+    }
+  );
+
+
+  console.log(
+    'FIX-03D FINAL FLOATING DIAGNOSTIC CLEANUP loaded'
+  );
+
+})();
+
