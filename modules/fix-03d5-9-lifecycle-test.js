@@ -104,6 +104,45 @@
 
     }
 
+         /*
+     * ---------------------------------------------------------
+     * 8.4F-LH HOOK DIAGNOSTICS
+     * READ ONLY
+     * ---------------------------------------------------------
+     */
+
+    const hookResult =
+      window.LAST_FIX03D59_STEP84FLH ||
+      null;
+
+
+    const hookExists =
+      Boolean(
+        hookResult
+      );
+
+
+    const hookPassed =
+      Boolean(
+        hookResult &&
+        hookResult.ready === true &&
+        hookResult.passed === true
+      );
+
+
+    const hookReason =
+      hookResult?.reason ||
+      'HOOK_RESULT_NOT_AVAILABLE';
+
+
+    const failedStage =
+      hookResult?.failedStage ||
+      null;
+
+
+    const stageReason =
+      hookResult?.stageReason ||
+      null;
 
     const hardLocksSafe =
       Boolean(
@@ -179,6 +218,50 @@
 
         </div>
 
+        <div class="fix84fl-locks">
+
+          <div>
+            Lifecycle Hook:
+            <b>
+              ${hookExists
+                ? (
+                    hookPassed
+                      ? 'PASS ✅'
+                      : 'FAILED ❌'
+                  )
+                : 'NOT AVAILABLE ⚠️'
+              }
+            </b>
+          </div>
+
+          <div>
+            Hook Reason:
+            <b>
+              ${safeText84FLTest(
+                hookReason
+              )}
+            </b>
+          </div>
+
+          <div>
+            Failed Stage:
+            <b>
+              ${safeText84FLTest(
+                failedStage
+              )}
+            </b>
+          </div>
+
+          <div>
+            Stage Reason:
+            <b>
+              ${safeText84FLTest(
+                stageReason
+              )}
+            </b>
+          </div>
+
+        </div>
 
         <div class="fix84fl-locks">
 
