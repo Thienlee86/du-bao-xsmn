@@ -122,7 +122,53 @@ const hookInspectorAvailable =
     const hookResult =
       window.LAST_FIX03D59_STEP84FLH ||
       null;
+    /*
+     * ---------------------------------------------------------
+     * 8.4F-LH FORECAST DIAGNOSTICS
+     * READ ONLY
+     * ZERO WRITE
+     * ---------------------------------------------------------
+     */
 
+    const hookDiagnostics = {
+
+      envelopeExists:
+        hookResult?.envelopeExists ??
+        null,
+
+      envelopeHasForecast:
+        hookResult?.envelopeHasForecast ??
+        null,
+
+      forecastExists:
+        hookResult?.forecastExists ??
+        null,
+
+      forecastEmpty:
+        hookResult?.forecastEmpty ??
+        null,
+
+      forecastProvince:
+        hookResult?.forecastProvince ??
+        null,
+
+      forecastWindowSize:
+        hookResult?.forecastWindowSize ??
+        null,
+
+      forecastWindowIsInteger:
+        hookResult?.forecastWindowIsInteger ??
+        null,
+
+      forecastItemsIsArray:
+        hookResult?.forecastItemsIsArray ??
+        null,
+
+      forecastItemsLength:
+        hookResult?.forecastItemsLength ??
+        null
+
+    };
 
     const hookExists =
       Boolean(
@@ -288,7 +334,116 @@ const hookInspectorAvailable =
               )}
             </b>
           </div>
+          <div
+            style="
+              margin-top: 14px;
+              padding-top: 12px;
+              border-top: 1px solid rgba(255,255,255,.15);
+            "
+          >
+            <b>
+              🔎 HOOK FORECAST DIAGNOSTICS
+            </b>
+          </div>
 
+          <div>
+            Envelope Exists:
+            <b>
+              ${hookDiagnostics.envelopeExists === null
+                ? '--'
+                : yesNo84FLTest(
+                    hookDiagnostics.envelopeExists
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Envelope Has Forecast:
+            <b>
+              ${hookDiagnostics.envelopeHasForecast === null
+                ? '--'
+                : yesNo84FLTest(
+                    hookDiagnostics.envelopeHasForecast
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Hook Forecast Exists:
+            <b>
+              ${hookDiagnostics.forecastExists === null
+                ? '--'
+                : yesNo84FLTest(
+                    hookDiagnostics.forecastExists
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Forecast Empty:
+            <b>
+              ${hookDiagnostics.forecastEmpty === null
+                ? '--'
+                : safeText84FLTest(
+                    hookDiagnostics.forecastEmpty
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Forecast Province:
+            <b>
+              ${safeText84FLTest(
+                hookDiagnostics.forecastProvince
+              )}
+            </b>
+          </div>
+
+          <div>
+            Forecast Window Size:
+            <b>
+              ${safeText84FLTest(
+                hookDiagnostics.forecastWindowSize
+              )}
+            </b>
+          </div>
+
+          <div>
+            Window Is Integer:
+            <b>
+              ${hookDiagnostics.forecastWindowIsInteger === null
+                ? '--'
+                : yesNo84FLTest(
+                    hookDiagnostics.forecastWindowIsInteger
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Items Is Array:
+            <b>
+              ${hookDiagnostics.forecastItemsIsArray === null
+                ? '--'
+                : yesNo84FLTest(
+                    hookDiagnostics.forecastItemsIsArray
+                  )
+              }
+            </b>
+          </div>
+
+          <div>
+            Items Length:
+            <b>
+              ${safeText84FLTest(
+                hookDiagnostics.forecastItemsLength
+              )}
+            </b>
+          </div>
         </div>
 
         <div class="fix84fl-locks">
