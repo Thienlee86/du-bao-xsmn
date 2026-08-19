@@ -1,6 +1,6 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4F-LH
-   PRODUCTION FORECAST LIFECYCLE HOOK
+   PRODUCTION FORECAST LIFECYCLE SNAPSHOT HOOK
 
    SOURCE:
    - STEP 8.4F-L Production Forecast Lifecycle Gate
@@ -8,8 +8,9 @@
    - Existing FIX-03D5.9 certification / preview pipeline
 
    PURPOSE:
-   - Observe Production Forecast lifecycle through STEP 8.4F-L.
+   - Consume the lifecycle snapshot published by STEP 8.4F-L.
    - Never read LAST_FORECAST directly.
+   - Never invoke the 8.4F-L inspector from this hook.
    - Never create or modify LAST_FORECAST.
    - Never modify candidates.
    - Never call savePrediction().
@@ -26,21 +27,9 @@
   'use strict';
 
 
-  const POLL_INTERVAL_MS_84FLH =
-    500;
-
-
-  let running84FLH =
-    false;
-
-
-  let lastProcessedBridge84FLH =
-    null;
-
-
   /*
    * ---------------------------------------------------------
-   * FAIL RESULT
+   * RESULT HELPERS
    * ---------------------------------------------------------
    */
 
@@ -51,46 +40,26 @@
 
     const result = {
 
-      ready:
-        false,
-
-      passed:
-        false,
+      ready: false,
+      passed: false,
 
       step:
         '8.4F-LH',
 
       reason,
 
-      writeAuthorized:
-        false,
+      writeAuthorized: false,
+      productionWrite: false,
+      storageWrite: false,
+      integrationPerformed: false,
 
-      productionWrite:
-        false,
+      savePredictionCalled: false,
+      forecastCreated: false,
+      forecastModified: false,
+      candidateModified: false,
 
-      storageWrite:
-        false,
-
-      integrationPerformed:
-        false,
-
-      savePredictionCalled:
-        false,
-
-      forecastCreated:
-        false,
-
-      forecastModified:
-        false,
-
-      candidateModified:
-        false,
-
-      readOnly:
-        true,
-
-      failClosed:
-        true,
+      readOnly: true,
+      failClosed: true,
 
       ...extra
 
@@ -105,12 +74,6 @@
 
   }
 
-
-  /*
-   * ---------------------------------------------------------
-   * SUCCESS RESULT
-   * ---------------------------------------------------------
-   */
 
   function success84FLH(
     bridge,
@@ -158,11 +121,8 @@
 
     const result = {
 
-      ready:
-        true,
-
-      passed:
-        true,
+      ready: true,
+      passed: true,
 
       step:
         '8.4F-LH',
@@ -171,66 +131,48 @@
         'LIFECYCLE_MAPPING_PREVIEW_READY',
 
       lifecycleState:
-        bridge?.lifecycleState ||
+        bridge.lifecycleState ||
         null,
 
       lifecycleReady:
-        bridge?.lifecycleReady === true,
+        bridge.lifecycleReady === true,
 
       forecastExists:
-        bridge?.forecastExists === true,
+        bridge.forecastExists === true,
 
       forecastValid:
-        bridge?.forecastValid === true,
+        bridge.forecastValid === true,
 
       forecastProvince:
-        bridge?.forecastProvince ||
+        bridge.forecastProvince ||
         null,
 
       forecastWindowSize:
-        bridge?.forecastWindowSize ??
+        bridge.forecastWindowSize ??
         null,
 
       forecastPrizeCount:
-        bridge?.forecastPrizeCount ??
+        bridge.forecastPrizeCount ??
         0,
 
-      mappingReady:
-        true,
+      mappingReady: true,
 
       mappingStep:
-        mapping?.step ||
+        mapping.step ||
         null,
 
-      writeAuthorized:
-        false,
+      writeAuthorized: false,
+      productionWrite: false,
+      storageWrite: false,
+      integrationPerformed: false,
 
-      productionWrite:
-        false,
+      savePredictionCalled: false,
+      forecastCreated: false,
+      forecastModified: false,
+      candidateModified: false,
 
-      storageWrite:
-        false,
-
-      integrationPerformed:
-        false,
-
-      savePredictionCalled:
-        false,
-
-      forecastCreated:
-        false,
-
-      forecastModified:
-        false,
-
-      candidateModified:
-        false,
-
-      readOnly:
-        true,
-
-      failClosed:
-        true
+      readOnly: true,
+      failClosed: true
 
     };
 
@@ -246,70 +188,44 @@
 
   /*
    * ---------------------------------------------------------
-   * REFRESH 8.4F-L + READ BRIDGE
+   * READ PUBLISHED 8.4F-L BRIDGE
    * ---------------------------------------------------------
    *
-   * 8.4F-L is the only component that reads the
-   * Production Forecast.
+   * IMPORTANT:
    *
-   * This hook consumes metadata only.
+   * This hook does NOT:
+   *
+   * - read LAST_FORECAST
+   * - call inspectProductionForecastLifecycle84FL()
+   * - refresh the lifecycle gate
+   * - poll Production state
+   *
+   * It consumes only the snapshot already published by 8.4F-L.
    */
 
-  function getLifecycleBridge84FLH() {
+  function getPublishedBridge84FLH() {
 
-    const inspector =
-      window
-        .inspectProductionForecastLifecycle84FL;
-
-
-    if (
-      typeof inspector !==
-      'function'
-    ) {
-
-      fail84FLH(
-        'LIFECYCLE_GATE_NOT_AVAILABLE'
-      );
-
-      return null;
-
-    }
-
-
-    let lifecycle;
-
-
-    try {
-
-      lifecycle =
-        inspector();
-
-    } catch (
-      error
-    ) {
-
-      fail84FLH(
-        'LIFECYCLE_GATE_EXCEPTION',
-        {
-          stageReason:
-            error &&
-            error.message
-              ? error.message
-              : String(
-                  error
-                )
-        }
-      );
-
-      return null;
-
-    }
+    const lifecycle =
+      window.LAST_FIX03D59_STEP84FL ||
+      null;
 
 
     const bridge =
-      window
-        .LAST_FIX03D59_STEP84FL_BRIDGE ||
+      window.LAST_FIX03D59_STEP84FL_BRIDGE ||
       null;
+
+
+    if (
+      !lifecycle
+    ) {
+
+      fail84FLH(
+        'LIFECYCLE_RESULT_NOT_AVAILABLE'
+      );
+
+      return null;
+
+    }
 
 
     if (
@@ -326,13 +242,14 @@
 
 
     /*
-     * Verify gate and bridge agree.
+     * Verify both snapshots describe the same
+     * lifecycle state.
      */
 
     if (
-      lifecycle?.forecastExists !==
+      lifecycle.forecastExists !==
         bridge.forecastExists ||
-      lifecycle?.forecastValid !==
+      lifecycle.forecastValid !==
         bridge.forecastValid
     ) {
 
@@ -340,13 +257,13 @@
         'LIFECYCLE_BRIDGE_STATE_MISMATCH',
         {
           lifecycleForecastExists:
-            lifecycle?.forecastExists === true,
+            lifecycle.forecastExists === true,
 
           bridgeForecastExists:
             bridge.forecastExists === true,
 
           lifecycleForecastValid:
-            lifecycle?.forecastValid === true,
+            lifecycle.forecastValid === true,
 
           bridgeForecastValid:
             bridge.forecastValid === true
@@ -404,6 +321,9 @@
    * ---------------------------------------------------------
    * EXISTING CERTIFIED PREVIEW PIPELINE
    * ---------------------------------------------------------
+   *
+   * READ ONLY.
+   * Every prerequisite must explicitly PASS.
    */
 
   function runExistingPipeline84FLH() {
@@ -451,8 +371,7 @@
 
 
       if (
-        typeof fn !==
-        'function'
+        typeof fn !== 'function'
       ) {
 
         return fail84FLH(
@@ -485,12 +404,8 @@
               name,
 
             stageReason:
-              error &&
-              error.message
-                ? error.message
-                : String(
-                    error
-                  )
+              error?.message ||
+              String(error)
           }
         );
 
@@ -526,8 +441,7 @@
 
 
     if (
-      typeof mappingFn !==
-      'function'
+      typeof mappingFn !== 'function'
     ) {
 
       return fail84FLH(
@@ -556,12 +470,8 @@
             'buildProductionForecastMappingPreview84F',
 
           stageReason:
-            error &&
-            error.message
-              ? error.message
-              : String(
-                  error
-                )
+            error?.message ||
+            String(error)
         }
       );
 
@@ -592,9 +502,7 @@
 
     return {
 
-      ok:
-        true,
-
+      ok: true,
       mapping
 
     };
@@ -604,32 +512,16 @@
 
   /*
    * ---------------------------------------------------------
-   * MAIN LIFECYCLE INSPECTION
+   * MAIN SNAPSHOT INSPECTION
    * ---------------------------------------------------------
    */
 
   function inspectLifecycle84FLH() {
 
-    if (
-      running84FLH
-    ) {
-
-      return (
-        window.LAST_FIX03D59_STEP84FLH ||
-        null
-      );
-
-    }
-
-
-    running84FLH =
-      true;
-
-
     try {
 
       const bridge =
-        getLifecycleBridge84FLH();
+        getPublishedBridge84FLH();
 
 
       if (
@@ -642,31 +534,6 @@
         );
 
       }
-
-
-      /*
-       * Every 8.4F-L inspection creates a fresh,
-       * metadata-only bridge object.
-       *
-       * If the exact same bridge object reaches here
-       * again, do not execute the pipeline twice.
-       */
-
-      if (
-        bridge ===
-        lastProcessedBridge84FLH
-      ) {
-
-        return (
-          window.LAST_FIX03D59_STEP84FLH ||
-          null
-        );
-
-      }
-
-
-      lastProcessedBridge84FLH =
-        bridge;
 
 
       const pipeline =
@@ -700,20 +567,10 @@
         'LIFECYCLE_HOOK_EXCEPTION',
         {
           stageReason:
-            error &&
-            error.message
-              ? error.message
-              : String(
-                  error
-                )
+            error?.message ||
+            String(error)
         }
       );
-
-
-    } finally {
-
-      running84FLH =
-        false;
 
     }
 
@@ -735,24 +592,18 @@
 
 
   /*
-   * Observe lifecycle without intercepting Production.
+   * IMPORTANT:
+   *
+   * NO setInterval().
+   * NO automatic lifecycle refresh.
+   *
+   * The test/runtime explicitly invokes this hook
+   * after STEP 8.4F-L has published its snapshot.
    */
-
-  window.setInterval(
-    inspectLifecycle84FLH,
-    POLL_INTERVAL_MS_84FLH
-  );
-
-
-  /*
-   * Safe initial inspection.
-   */
-
-  inspectLifecycle84FLH();
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-LH loaded — Lifecycle Bridge Hook / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4F-LH loaded — Snapshot Bridge Hook / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
