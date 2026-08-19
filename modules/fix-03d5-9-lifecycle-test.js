@@ -1,14 +1,14 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4F-L / 8.4F-LH
-   MOBILE LIFECYCLE SNAPSHOT TEST UI
+   MOBILE LIFECYCLE TEST
 
    PURPOSE:
-   - Test STEP 8.4F-L directly on mobile.
-   - Publish the READ-ONLY lifecycle bridge.
-   - Invoke STEP 8.4F-LH only AFTER the gate snapshot exists.
-   - Display Gate + Bridge + Hook results on screen.
-   - No DevTools Console required.
-   - Never create or modify Production Forecast.
+   - Test the rebuilt 8.4F-L lifecycle gate.
+   - Verify the read-only lifecycle bridge.
+   - Invoke the rebuilt 8.4F-LH hook after the gate.
+   - Display results directly on mobile.
+   - Never create or modify LAST_FORECAST.
+   - Never modify candidates.
    - Never call savePrediction().
    - Never write production/storage.
 
@@ -58,14 +58,6 @@
       .replace(
         />/g,
         '&gt;'
-      )
-      .replace(
-        /"/g,
-        '&quot;'
-      )
-      .replace(
-        /'/g,
-        '&#039;'
       );
 
   }
@@ -96,16 +88,8 @@
 
   /*
    * ---------------------------------------------------------
-   * RUN TEST
+   * MAIN TEST
    * ---------------------------------------------------------
-   *
-   * ORDER IS IMPORTANT:
-   *
-   * 1. Run 8.4F-L Gate
-   * 2. Gate publishes 8.4F-L Bridge
-   * 3. Verify Bridge
-   * 4. Invoke 8.4F-LH Snapshot Hook
-   * 5. Render all results
    */
 
   function runLifecycleTest84FL() {
@@ -127,7 +111,7 @@
 
     /*
      * ---------------------------------------------------------
-     * STEP 1 — VERIFY 8.4F-L GATE
+     * 1. VERIFY LIFECYCLE GATE
      * ---------------------------------------------------------
      */
 
@@ -158,8 +142,11 @@
 
     /*
      * ---------------------------------------------------------
-     * STEP 2 — RUN GATE
+     * 2. RUN GATE
      * ---------------------------------------------------------
+     *
+     * The gate inspects Production state and publishes
+     * LAST_FIX03D59_STEP84FL_BRIDGE.
      */
 
     let lifecycle;
@@ -178,13 +165,15 @@
 
         <div class="fix84fl-error">
 
-          ❌ Lifecycle Gate gặp lỗi.
+          ❌ 8.4F-L Lifecycle Gate gặp lỗi.
 
           <br><br>
 
           ${safeText84FLTest(
-            error?.message ||
-            error
+            error &&
+            error.message
+              ? error.message
+              : error
           )}
 
         </div>
@@ -198,7 +187,7 @@
 
     /*
      * ---------------------------------------------------------
-     * STEP 3 — READ PUBLISHED BRIDGE
+     * 3. READ BRIDGE
      * ---------------------------------------------------------
      */
 
@@ -208,27 +197,9 @@
       null;
 
 
-    const bridgeExists =
-      Boolean(
-        bridge
-      );
-
-
-    const bridgeForecastExists =
-      bridge?.forecastExists === true;
-
-
-    const bridgeForecastValid =
-      bridge?.forecastValid === true;
-
-
-    const bridgeMappingReady =
-      bridge?.mappingReady === true;
-
-
     /*
      * ---------------------------------------------------------
-     * STEP 4 — VERIFY SNAPSHOT HOOK
+     * 4. VERIFY HOOK
      * ---------------------------------------------------------
      */
 
@@ -250,12 +221,14 @@
 
     /*
      * ---------------------------------------------------------
-     * STEP 5 — RUN SNAPSHOT HOOK
+     * 5. RUN HOOK
      * ---------------------------------------------------------
      *
      * IMPORTANT:
-     * Hook runs only after lifecycleInspector() has published
-     * the current bridge snapshot.
+     *
+     * Gate has already run above.
+     * Therefore a current bridge snapshot exists before
+     * the explicit hook inspection.
      */
 
     let hookResult =
@@ -287,10 +260,42 @@
             'TEST_HOOK_EXCEPTION',
 
           stageReason:
-            error?.message ||
-            String(
-              error
-            )
+            error &&
+            error.message
+              ? error.message
+              : String(
+                  error
+                ),
+
+          writeAuthorized:
+            false,
+
+          productionWrite:
+            false,
+
+          storageWrite:
+            false,
+
+          integrationPerformed:
+            false,
+
+          savePredictionCalled:
+            false,
+
+          forecastCreated:
+            false,
+
+          forecastModified:
+            false,
+
+          candidateModified:
+            false,
+
+          readOnly:
+            true,
+
+          failClosed:
+            true
 
         };
 
@@ -301,7 +306,7 @@
 
     /*
      * ---------------------------------------------------------
-     * SAFETY VERIFICATION
+     * 6. SAFETY LOCK VERIFICATION
      * ---------------------------------------------------------
      */
 
@@ -347,7 +352,7 @@
 
     /*
      * ---------------------------------------------------------
-     * DISPLAY RESULT
+     * 7. DISPLAY
      * ---------------------------------------------------------
      */
 
@@ -357,14 +362,14 @@
 
 
         <div class="fix84fl-section-label">
-          8.4F-L GATE
+          ① 8.4F-L LIFECYCLE GATE
         </div>
 
 
         <div class="fix84fl-state">
 
           ${safeText84FLTest(
-            lifecycle.lifecycleState
+            lifecycle?.lifecycleState
           )}
 
         </div>
@@ -373,7 +378,7 @@
         <div class="fix84fl-reason">
 
           ${safeText84FLTest(
-            lifecycle.reason
+            lifecycle?.reason
           )}
 
         </div>
@@ -389,7 +394,7 @@
 
             <b>
               ${yesNo84FLTest(
-                lifecycle.forecastExists
+                lifecycle?.forecastExists
               )}
             </b>
 
@@ -404,7 +409,7 @@
 
             <b>
               ${yesNo84FLTest(
-                lifecycle.forecastValid
+                lifecycle?.forecastValid
               )}
             </b>
 
@@ -419,7 +424,7 @@
 
             <b>
               ${yesNo84FLTest(
-                lifecycle.mappingPreviewExists
+                lifecycle?.mappingPreviewExists
               )}
             </b>
 
@@ -434,7 +439,7 @@
 
             <b>
               ${yesNo84FLTest(
-                lifecycle.mappingReady
+                lifecycle?.mappingReady
               )}
             </b>
 
@@ -446,7 +451,7 @@
         <div class="fix84fl-section">
 
           <div class="fix84fl-section-label">
-            🌉 8.4F-L READ-ONLY BRIDGE
+            ② READ-ONLY BRIDGE
           </div>
 
 
@@ -456,37 +461,29 @@
               Bridge Exists:
               <b>
                 ${yesNo84FLTest(
-                  bridgeExists
+                  Boolean(
+                    bridge
+                  )
                 )}
               </b>
             </div>
 
 
             <div>
-              Bridge Forecast Exists:
+              Forecast Exists:
               <b>
                 ${yesNo84FLTest(
-                  bridgeForecastExists
+                  bridge?.forecastExists
                 )}
               </b>
             </div>
 
 
             <div>
-              Bridge Forecast Valid:
+              Forecast Valid:
               <b>
                 ${yesNo84FLTest(
-                  bridgeForecastValid
-                )}
-              </b>
-            </div>
-
-
-            <div>
-              Bridge Mapping Ready:
-              <b>
-                ${yesNo84FLTest(
-                  bridgeMappingReady
+                  bridge?.forecastValid
                 )}
               </b>
             </div>
@@ -503,7 +500,7 @@
 
 
             <div>
-              Window:
+              Window Size:
               <b>
                 ${safeText84FLTest(
                   bridge?.forecastWindowSize
@@ -521,6 +518,16 @@
               </b>
             </div>
 
+
+            <div>
+              Mapping Ready:
+              <b>
+                ${yesNo84FLTest(
+                  bridge?.mappingReady
+                )}
+              </b>
+            </div>
+
           </div>
 
         </div>
@@ -529,7 +536,7 @@
         <div class="fix84fl-section">
 
           <div class="fix84fl-section-label">
-            🔗 8.4F-LH SNAPSHOT HOOK
+            ③ 8.4F-LH LIFECYCLE HOOK
           </div>
 
 
@@ -570,11 +577,7 @@
               <b>
                 ${safeText84FLTest(
                   hookResult?.reason ||
-                  (
-                    hookInspectorAvailable
-                      ? 'HOOK_RESULT_NOT_AVAILABLE'
-                      : 'HOOK_INSPECTOR_NOT_AVAILABLE'
-                  )
+                  'HOOK_RESULT_NOT_AVAILABLE'
                 )}
               </b>
             </div>
@@ -607,7 +610,7 @@
         <div class="fix84fl-section">
 
           <div class="fix84fl-section-label">
-            🔒 SAFETY LOCKS
+            ④ SAFETY LOCKS
           </div>
 
 
@@ -617,7 +620,7 @@
               Write Authorized:
               <b>
                 ${yesNo84FLTest(
-                  lifecycle.writeAuthorized
+                  lifecycle?.writeAuthorized
                 )}
               </b>
             </div>
@@ -627,7 +630,7 @@
               Production Write:
               <b>
                 ${yesNo84FLTest(
-                  lifecycle.productionWrite
+                  lifecycle?.productionWrite
                 )}
               </b>
             </div>
@@ -637,7 +640,7 @@
               Storage Write:
               <b>
                 ${yesNo84FLTest(
-                  lifecycle.storageWrite
+                  lifecycle?.storageWrite
                 )}
               </b>
             </div>
@@ -663,6 +666,7 @@
 
         </div>
 
+
       </div>
 
     `;
@@ -672,7 +676,7 @@
 
   /*
    * ---------------------------------------------------------
-   * BUILD MOBILE TEST UI
+   * BUILD MOBILE UI
    * ---------------------------------------------------------
    */
 
@@ -703,12 +707,6 @@
 
     }
 
-
-    /*
-     * ---------------------------------------------------------
-     * STYLE
-     * ---------------------------------------------------------
-     */
 
     const style =
       document.createElement(
@@ -760,13 +758,11 @@
 
         font-size: 16px !important;
         font-weight: 800 !important;
-        line-height: 1.3 !important;
 
         position: relative !important;
         z-index: 10 !important;
 
         pointer-events: auto !important;
-        cursor: pointer !important;
       }
 
 
@@ -795,7 +791,6 @@
         color: #ffc13d;
         font-size: 13px;
         font-weight: 900;
-        letter-spacing: .04em;
         margin-bottom: 8px;
       }
 
@@ -809,7 +804,7 @@
 
       .fix84fl-reason {
         margin-top: 5px;
-        opacity: .7;
+        opacity: .72;
         font-size: 12px;
         word-break: break-word;
       }
@@ -887,12 +882,6 @@
     );
 
 
-    /*
-     * ---------------------------------------------------------
-     * PANEL
-     * ---------------------------------------------------------
-     */
-
     const panel =
       document.createElement(
         'div'
@@ -906,15 +895,15 @@
     panel.innerHTML = `
 
       <h3>
-        🧪 FIX-03D5.9 — 8.4F-L / LH
+        🧪 FIX-03D5.9 — FINAL LIFECYCLE TEST
       </h3>
 
 
       <div class="fix84fl-sub">
 
-        Mobile Lifecycle Snapshot Test
-        · READ ONLY
-        · ZERO WRITE
+        8.4F-L Gate → Bridge → 8.4F-LH Hook
+        <br>
+        READ ONLY · ZERO WRITE · FAIL CLOSED
 
       </div>
 
@@ -925,7 +914,7 @@
         tabindex="0"
       >
 
-        🧪 TEST 8.4F-L → LH
+        🧪 RUN FINAL LIFECYCLE TEST
 
       </div>
 
@@ -988,7 +977,7 @@
 
   /*
    * ---------------------------------------------------------
-   * INIT
+   * INITIALIZE
    * ---------------------------------------------------------
    */
 
@@ -1010,7 +999,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-L/LH Mobile Snapshot Test loaded / TEST ONLY / ZERO WRITE'
+    'FIX-03D5.9 FINAL Lifecycle Mobile Test loaded / READ ONLY / ZERO WRITE'
   );
 
 })();
