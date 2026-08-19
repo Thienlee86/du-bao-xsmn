@@ -35,17 +35,26 @@
 
   function getForecast84FLH() {
 
-    const envelope =
-      window.LAST_FORECAST ||
-      null;
+  /*
+   * Use the same production forecast lookup
+   * as STEP 8.4F-L.
+   *
+   * READ ONLY
+   * ZERO WRITE
+   */
+
+  const envelope =
+    typeof LAST_FORECAST !== 'undefined'
+      ? LAST_FORECAST
+      : null;
 
 
-    return (
-      envelope &&
-      envelope.forecast
-        ? envelope.forecast
-        : null
-    );
+  return (
+    envelope &&
+    envelope.forecast
+      ? envelope.forecast
+      : null
+  );
 
   }
 
@@ -392,8 +401,9 @@ if (
 
 
     const envelope =
-  window.LAST_FORECAST ||
-  null;
+  typeof LAST_FORECAST !== 'undefined'
+    ? LAST_FORECAST
+    : null;
 
 
 const forecast =
