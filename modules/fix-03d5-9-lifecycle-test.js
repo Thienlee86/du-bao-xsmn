@@ -110,6 +110,15 @@
      * ---------------------------------------------------------
      */
 
+     const hookScriptLoaded =
+  Boolean(
+    window.FIX03D59_STEP84FLH_HOOK_LOADED ===
+      true
+  );
+
+const hookInspectorAvailable =
+  typeof window.inspectLifecycle84FLH ===
+    'function';
     const hookResult =
       window.LAST_FIX03D59_STEP84FLH ||
       null;
@@ -218,7 +227,27 @@
         </div>
 
         <div class="fix84fl-locks">
+<div>
+  Hook Script Loaded:
+  <b>
+    ${
+      hookScriptLoaded
+        ? 'YES ✅'
+        : 'NO ❌'
+    }
+  </b>
+</div>
 
+<div>
+  Hook Inspector Available:
+  <b>
+    ${
+      hookInspectorAvailable
+        ? 'YES ✅'
+        : 'NO ❌'
+    }
+  </b>
+</div>
           <div>
             Lifecycle Hook:
             <b>
