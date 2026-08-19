@@ -5,11 +5,12 @@
    SOURCE:
    - STEP 8.4F-L Production Forecast Lifecycle Gate
    - STEP 8.4F-L Read-Only Lifecycle Bridge
+   - STEP 8.3R Certified Commit Simulation
    - Existing FIX-03D5.9 certification / preview pipeline
 
    PURPOSE:
    - Observe Production Forecast lifecycle through STEP 8.4F-L.
-   - Never read LAST_FORECAST directly.
+   - Bootstrap the existing READ-ONLY 8.3R certification when required.
    - Never create or modify LAST_FORECAST.
    - Never modify candidates.
    - Never call savePrediction().
@@ -176,10 +177,6 @@
    * ---------------------------------------------------------
    * SNAPSHOT KEY
    * ---------------------------------------------------------
-   *
-   * Do not depend on bridge object identity.
-   * The lifecycle inspector may publish a new bridge object
-   * every time it is called.
    */
 
   function buildSnapshotKey84FLH(
@@ -206,9 +203,6 @@
    * ---------------------------------------------------------
    * READ LIFECYCLE THROUGH 8.4F-L ONLY
    * ---------------------------------------------------------
-   *
-   * IMPORTANT:
-   * This hook does NOT read LAST_FORECAST.
    */
 
   function getLifecycleBridge84FLH() {
@@ -325,25 +319,163 @@
 
   /*
    * ---------------------------------------------------------
+   * 8.3R CERTIFICATION BOOTSTRAP
+   * ---------------------------------------------------------
+   *
+   * 8.3R engine can already be loaded while its snapshot
+   * has not yet been published to LAST_FIX03D59_STEP83R.
+   *
+   * Rebuild only the existing READ-ONLY simulation.
+   * ZERO PROMOTION.
+   * ZERO COMMIT.
+   * ZERO PRODUCTION WRITE.
+   * ZERO STORAGE WRITE.
+   */
+
+  function ensureCertified83R84FLH() {
+
+    let certified83R =
+      window.LAST_FIX03D59_STEP83R ||
+      null;
+
+
+    if (
+      !certified83R
+    ) {
+
+      const builder =
+        window
+          .buildProductionPromotionCommitSimulation83R;
+
+
+      if (
+        typeof builder !==
+        'function'
+      ) {
+
+        return fail84FLH(
+          'CERTIFIED_83R_ENGINE_NOT_AVAILABLE'
+        );
+
+      }
+
+
+      try {
+
+        certified83R =
+          builder();
+
+      } catch (
+        error
+      ) {
+
+        return fail84FLH(
+          'CERTIFIED_83R_EXCEPTION',
+          {
+            stageReason:
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+          }
+        );
+
+      }
+
+
+      /*
+       * Publish only the existing READ-ONLY
+       * certification result expected by 8.4A+.
+       */
+
+      window.LAST_FIX03D59_STEP83R =
+        certified83R;
+
+    }
+
+
+    if (
+      !certified83R ||
+      certified83R.ready !== true ||
+      certified83R.passed !== true ||
+      certified83R.simulationValid !== true
+    ) {
+
+      return fail84FLH(
+        'CERTIFIED_83R_NOT_AVAILABLE',
+        {
+          stageReason:
+            certified83R?.reason ||
+            null
+        }
+      );
+
+    }
+
+
+    /*
+     * Explicitly verify the safety boundary
+     * before allowing downstream preview stages.
+     */
+
+    const safetyValid =
+      Boolean(
+        certified83R.productionWrite === false &&
+        certified83R.storageWrite === false &&
+        certified83R.promotionPerformed === false &&
+        certified83R.commitPerformed === false &&
+        certified83R.dryRun === true &&
+        certified83R.readOnly === true
+      );
+
+
+    if (
+      !safetyValid
+    ) {
+
+      return fail84FLH(
+        'CERTIFIED_83R_SAFETY_BOUNDARY_INVALID'
+      );
+
+    }
+
+
+    return {
+
+      ok: true,
+
+      certified83R
+
+    };
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
    * EXISTING CERTIFIED PREVIEW PIPELINE
    * ---------------------------------------------------------
    */
 
   function runExistingPipeline84FLH() {
 
-    const certified83R =
-      window.LAST_FIX03D59_STEP83R ||
-      null;
+    /*
+     * First guarantee that the certified 8.3R snapshot
+     * exists before 8.4A+ reads it.
+     */
+
+    const certification =
+      ensureCertified83R84FLH();
 
 
     if (
-      !certified83R ||
-      certified83R.ready !== true ||
-      certified83R.passed !== true
+      !certification ||
+      certification.ok !== true
     ) {
 
-      return fail84FLH(
-        'CERTIFIED_83R_NOT_AVAILABLE'
+      return (
+        window.LAST_FIX03D59_STEP84FLH ||
+        null
       );
 
     }
@@ -568,11 +700,6 @@
         );
 
 
-      /*
-       * Do not repeatedly execute the certified preview
-       * pipeline for an unchanged lifecycle snapshot.
-       */
-
       if (
         snapshotKey ===
         lastProcessedSnapshotKey84FLH
@@ -585,11 +712,6 @@
 
       }
 
-
-      /*
-       * Record the snapshot before executing downstream
-       * stages. Any failure remains fail closed.
-       */
 
       lastProcessedSnapshotKey84FLH =
         snapshotKey;
@@ -674,16 +796,13 @@
 
   /*
    * Initial inspection.
-   *
-   * If Production Forecast does not exist yet,
-   * the hook simply enters a fail-closed waiting state.
    */
 
   inspectLifecycle84FLH();
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-LH loaded — Snapshot Lifecycle Hook / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4F-LH loaded — 8.3R Bootstrap + Snapshot Lifecycle Hook / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
