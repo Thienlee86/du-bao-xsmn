@@ -9,6 +9,7 @@
    PURPOSE:
    - Determine whether the current runtime has a valid Production Forecast.
    - Classify lifecycle state before any future Production write stage.
+   - Expose a minimal READ-ONLY lifecycle bridge for STEP 8.4F-LH.
    - Never create or modify LAST_FORECAST.
    - Never modify candidates.
    - Never call savePrediction().
@@ -41,8 +42,8 @@
      * SAFE PRODUCTION FORECAST LOOKUP
      * ---------------------------------------------------------
      *
-     * Do not directly evaluate LAST_FORECAST unless it exists.
-     * Lifecycle inspection must never create Production state.
+     * Read only.
+     * Never creates or modifies Production state.
      */
 
     const productionEnvelope =
@@ -183,8 +184,6 @@
      * ---------------------------------------------------------
      *
      * This does NOT authorize a write.
-     * It only states whether lifecycle prerequisites are ready
-     * for another explicitly guarded stage.
      */
 
     const lifecycleReady =
@@ -194,7 +193,8 @@
 
     const result = {
 
-      ready: true,
+      ready:
+        true,
 
       passed:
         lifecycleReady,
@@ -233,6 +233,7 @@
       mappingPreviewExists,
 
       mappingReady,
+
 
       /*
        * HARD SAFETY LOCKS
@@ -282,23 +283,49 @@
 
     };
 
+
     /*
      * ---------------------------------------------------------
-     * 8.4F-LH READ-ONLY LIFECYCLE BRIDGE
+     * PUBLISH COMPLETE 8.4F-L RESULT
+     * ---------------------------------------------------------
+     */
+
+    window.LAST_FIX03D59_STEP84FL =
+      result;
+
+
+    /*
+     * ---------------------------------------------------------
+     * READ-ONLY LIFECYCLE BRIDGE
      * ---------------------------------------------------------
      *
-     * Exposes lifecycle metadata only.
-     * Does NOT expose or modify the Production Forecast object.
-     * ZERO WRITE to production/storage.
+     * STEP 8.4F-LH consumes this bridge instead of reading
+     * LAST_FORECAST directly.
+     *
+     * Only lifecycle metadata is exposed.
+     *
+     * No forecast object is copied.
+     * No candidate object is copied.
+     * No Production object is modified.
+     * No storage operation is performed.
      */
 
     window.LAST_FIX03D59_STEP84FL_BRIDGE = {
+
+      step:
+        '8.4F-L-BRIDGE',
+
+      sourceStep:
+        '8.4F-L',
 
       ready:
         result.ready === true,
 
       passed:
         result.passed === true,
+
+      reason:
+        result.reason,
 
       lifecycleState:
         result.lifecycleState,
@@ -313,16 +340,27 @@
         result.forecastValid === true,
 
       forecastProvince:
-        result.forecastProvince,
+        result.forecastProvince ||
+        null,
 
       forecastWindowSize:
-        result.forecastWindowSize,
+        result.forecastWindowSize ??
+        null,
 
       forecastPrizeCount:
-        result.forecastPrizeCount,
+        result.forecastPrizeCount ??
+        0,
 
-      readOnly:
-        true,
+      mappingPreviewExists:
+        result.mappingPreviewExists === true,
+
+      mappingReady:
+        result.mappingReady === true,
+
+
+      /*
+       * HARD SAFETY LOCKS
+       */
 
       writeAuthorized:
         false,
@@ -334,12 +372,27 @@
         false,
 
       integrationPerformed:
-        false
+        false,
+
+      savePredictionCalled:
+        false,
+
+      forecastCreated:
+        false,
+
+      forecastModified:
+        false,
+
+      candidateModified:
+        false,
+
+      readOnly:
+        true,
+
+      failClosed:
+        true
 
     };
-     
-    window.LAST_FIX03D59_STEP84FL =
-      result;
 
 
     return result;
@@ -348,11 +401,12 @@
 
 
   /*
-   * Expose inspector only.
+   * ---------------------------------------------------------
+   * PUBLIC READ-ONLY INSPECTOR
+   * ---------------------------------------------------------
    *
-   * IMPORTANT:
    * Do not auto-run here.
-   * 8.4F itself depends on runtime state produced elsewhere.
+   * Runtime state is produced elsewhere.
    */
 
   window.inspectProductionForecastLifecycle84FL =
@@ -360,7 +414,8 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-L loaded — Production Forecast Lifecycle Gate / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4F-L loaded — Production Forecast Lifecycle Gate + Read-Only Bridge / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
+
