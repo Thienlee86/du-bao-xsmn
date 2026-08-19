@@ -40,7 +40,7 @@
 
   /*
    * ---------------------------------------------------------
-   * RESULT HELPERS
+   * FAIL RESULT
    * ---------------------------------------------------------
    */
 
@@ -106,6 +106,12 @@
   }
 
 
+  /*
+   * ---------------------------------------------------------
+   * SUCCESS RESULT
+   * ---------------------------------------------------------
+   */
+
   function success84FLH(
     bridge,
     mapping
@@ -125,25 +131,51 @@
       );
 
 
+    if (
+      !mappingReady
+    ) {
+
+      return fail84FLH(
+        'LIFECYCLE_MAPPING_PREVIEW_NOT_READY',
+        {
+          lifecycleState:
+            bridge?.lifecycleState ||
+            null,
+
+          forecastExists:
+            bridge?.forecastExists === true,
+
+          forecastValid:
+            bridge?.forecastValid === true,
+
+          mappingReady:
+            false
+        }
+      );
+
+    }
+
+
     const result = {
 
       ready:
-        mappingReady,
+        true,
 
       passed:
-        mappingReady,
+        true,
 
       step:
         '8.4F-LH',
 
       reason:
-        mappingReady
-          ? 'LIFECYCLE_MAPPING_PREVIEW_READY'
-          : 'LIFECYCLE_MAPPING_PREVIEW_NOT_READY',
+        'LIFECYCLE_MAPPING_PREVIEW_READY',
 
       lifecycleState:
         bridge?.lifecycleState ||
         null,
+
+      lifecycleReady:
+        bridge?.lifecycleReady === true,
 
       forecastExists:
         bridge?.forecastExists === true,
@@ -163,7 +195,8 @@
         bridge?.forecastPrizeCount ??
         0,
 
-      mappingReady,
+      mappingReady:
+        true,
 
       mappingStep:
         mapping?.step ||
@@ -213,12 +246,164 @@
 
   /*
    * ---------------------------------------------------------
-   * RUN EXISTING CERTIFIED PREVIEW PIPELINE
+   * REFRESH 8.4F-L + READ BRIDGE
    * ---------------------------------------------------------
    *
-   * IMPORTANT:
-   * This function contains no Production write logic.
-   * Every existing stage must explicitly PASS.
+   * 8.4F-L is the only component that reads the
+   * Production Forecast.
+   *
+   * This hook consumes metadata only.
+   */
+
+  function getLifecycleBridge84FLH() {
+
+    const inspector =
+      window
+        .inspectProductionForecastLifecycle84FL;
+
+
+    if (
+      typeof inspector !==
+      'function'
+    ) {
+
+      fail84FLH(
+        'LIFECYCLE_GATE_NOT_AVAILABLE'
+      );
+
+      return null;
+
+    }
+
+
+    let lifecycle;
+
+
+    try {
+
+      lifecycle =
+        inspector();
+
+    } catch (
+      error
+    ) {
+
+      fail84FLH(
+        'LIFECYCLE_GATE_EXCEPTION',
+        {
+          stageReason:
+            error &&
+            error.message
+              ? error.message
+              : String(
+                  error
+                )
+        }
+      );
+
+      return null;
+
+    }
+
+
+    const bridge =
+      window
+        .LAST_FIX03D59_STEP84FL_BRIDGE ||
+      null;
+
+
+    if (
+      !bridge
+    ) {
+
+      fail84FLH(
+        'LIFECYCLE_BRIDGE_NOT_AVAILABLE'
+      );
+
+      return null;
+
+    }
+
+
+    /*
+     * Verify gate and bridge agree.
+     */
+
+    if (
+      lifecycle?.forecastExists !==
+        bridge.forecastExists ||
+      lifecycle?.forecastValid !==
+        bridge.forecastValid
+    ) {
+
+      fail84FLH(
+        'LIFECYCLE_BRIDGE_STATE_MISMATCH',
+        {
+          lifecycleForecastExists:
+            lifecycle?.forecastExists === true,
+
+          bridgeForecastExists:
+            bridge.forecastExists === true,
+
+          lifecycleForecastValid:
+            lifecycle?.forecastValid === true,
+
+          bridgeForecastValid:
+            bridge.forecastValid === true
+        }
+      );
+
+      return null;
+
+    }
+
+
+    if (
+      bridge.forecastExists !== true ||
+      bridge.forecastValid !== true
+    ) {
+
+      fail84FLH(
+        'FORECAST_NOT_VALID_FOR_HOOK',
+        {
+          lifecycleState:
+            bridge.lifecycleState ||
+            null,
+
+          forecastExists:
+            bridge.forecastExists === true,
+
+          forecastValid:
+            bridge.forecastValid === true,
+
+          forecastProvince:
+            bridge.forecastProvince ||
+            null,
+
+          forecastWindowSize:
+            bridge.forecastWindowSize ??
+            null,
+
+          forecastPrizeCount:
+            bridge.forecastPrizeCount ??
+            0
+        }
+      );
+
+      return null;
+
+    }
+
+
+    return bridge;
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * EXISTING CERTIFIED PREVIEW PIPELINE
+   * ---------------------------------------------------------
    */
 
   function runExistingPipeline84FLH() {
@@ -419,136 +604,7 @@
 
   /*
    * ---------------------------------------------------------
-   * READ LIFECYCLE THROUGH 8.4F-L ONLY
-   * ---------------------------------------------------------
-   *
-   * The hook deliberately does NOT read LAST_FORECAST.
-   */
-
-  function getLifecycleBridge84FLH() {
-
-    const inspector =
-      window
-        .inspectProductionForecastLifecycle84FL;
-
-
-    if (
-      typeof inspector !==
-      'function'
-    ) {
-
-      fail84FLH(
-        'LIFECYCLE_GATE_NOT_AVAILABLE'
-      );
-
-      return null;
-
-    }
-
-
-    let lifecycle;
-
-
-    try {
-
-      lifecycle =
-        inspector();
-
-    } catch (
-      error
-    ) {
-
-      fail84FLH(
-        'LIFECYCLE_GATE_EXCEPTION',
-        {
-          stageReason:
-            error &&
-            error.message
-              ? error.message
-              : String(
-                  error
-                )
-        }
-      );
-
-      return null;
-
-    }
-
-
-    const bridge =
-      window
-        .LAST_FIX03D59_STEP84FL_BRIDGE ||
-      null;
-
-
-    if (
-      !bridge
-    ) {
-
-      fail84FLH(
-        'LIFECYCLE_BRIDGE_NOT_AVAILABLE'
-      );
-
-      return null;
-
-    }
-
-
-    if (
-      lifecycle?.forecastExists !== true ||
-      lifecycle?.forecastValid !== true ||
-      bridge.forecastExists !== true ||
-      bridge.forecastValid !== true
-    ) {
-
-      /*
-       * No valid Production Forecast yet.
-       *
-       * This is a normal waiting state.
-       * Still fail closed.
-       */
-
-      fail84FLH(
-        'FORECAST_NOT_VALID_FOR_HOOK',
-        {
-          lifecycleState:
-            lifecycle?.lifecycleState ||
-            null,
-
-          forecastExists:
-            bridge.forecastExists === true,
-
-          forecastValid:
-            bridge.forecastValid === true,
-
-          forecastProvince:
-            bridge.forecastProvince ||
-            null,
-
-          forecastWindowSize:
-            bridge.forecastWindowSize ??
-            null,
-
-          forecastPrizeCount:
-            bridge.forecastPrizeCount ??
-            0
-        }
-      );
-
-      return null;
-
-    }
-
-
-    return bridge;
-
-  }
-
-
-  /*
-   * ---------------------------------------------------------
-   * LIFECYCLE INSPECTION
+   * MAIN LIFECYCLE INSPECTION
    * ---------------------------------------------------------
    */
 
@@ -589,8 +645,11 @@
 
 
       /*
-       * Avoid repeatedly executing the preview pipeline
-       * against the exact same bridge object.
+       * Every 8.4F-L inspection creates a fresh,
+       * metadata-only bridge object.
+       *
+       * If the exact same bridge object reaches here
+       * again, do not execute the pipeline twice.
        */
 
       if (
@@ -605,12 +664,6 @@
 
       }
 
-
-      /*
-       * Mark this bridge before running the pipeline.
-       * Any failure remains FAIL CLOSED and will not
-       * be retried continuously every 500 ms.
-       */
 
       lastProcessedBridge84FLH =
         bridge;
@@ -669,7 +722,7 @@
 
   /*
    * ---------------------------------------------------------
-   * PUBLIC READ-ONLY DIAGNOSTIC ENTRY
+   * PUBLIC READ-ONLY ENTRY
    * ---------------------------------------------------------
    */
 
@@ -682,8 +735,7 @@
 
 
   /*
-   * Polling observes lifecycle state only.
-   * It does not intercept or replace Production functions.
+   * Observe lifecycle without intercepting Production.
    */
 
   window.setInterval(
@@ -693,8 +745,7 @@
 
 
   /*
-   * Initial inspection is safe.
-   * Without a valid forecast it simply fails closed.
+   * Safe initial inspection.
    */
 
   inspectLifecycle84FLH();
