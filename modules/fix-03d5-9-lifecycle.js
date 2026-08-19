@@ -282,7 +282,62 @@
 
     };
 
+    /*
+     * ---------------------------------------------------------
+     * 8.4F-LH READ-ONLY LIFECYCLE BRIDGE
+     * ---------------------------------------------------------
+     *
+     * Exposes lifecycle metadata only.
+     * Does NOT expose or modify the Production Forecast object.
+     * ZERO WRITE to production/storage.
+     */
 
+    window.LAST_FIX03D59_STEP84FL_BRIDGE = {
+
+      ready:
+        result.ready === true,
+
+      passed:
+        result.passed === true,
+
+      lifecycleState:
+        result.lifecycleState,
+
+      lifecycleReady:
+        result.lifecycleReady === true,
+
+      forecastExists:
+        result.forecastExists === true,
+
+      forecastValid:
+        result.forecastValid === true,
+
+      forecastProvince:
+        result.forecastProvince,
+
+      forecastWindowSize:
+        result.forecastWindowSize,
+
+      forecastPrizeCount:
+        result.forecastPrizeCount,
+
+      readOnly:
+        true,
+
+      writeAuthorized:
+        false,
+
+      productionWrite:
+        false,
+
+      storageWrite:
+        false,
+
+      integrationPerformed:
+        false
+
+    };
+     
     window.LAST_FIX03D59_STEP84FL =
       result;
 
