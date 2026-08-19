@@ -536,6 +536,12 @@ if (
    * - no change to forecast generation
    */
 
+   window.inspectLifecycle84FLH =
+  inspectLifecycle84FLH;
+
+window.FIX03D59_STEP84FLH_HOOK_LOADED =
+  true;
+   
   window.setInterval(
     inspectLifecycle84FLH,
     POLL_INTERVAL_MS_84FLH
