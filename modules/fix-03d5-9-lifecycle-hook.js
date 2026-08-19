@@ -391,22 +391,99 @@ if (
     }
 
 
-    const forecast =
-      getForecast84FLH();
+    const envelope =
+  window.LAST_FORECAST ||
+  null;
 
 
-    if (
-      !forecastValid84FLH(
+const forecast =
+  getForecast84FLH();
+
+
+if (
+  !forecastValid84FLH(
+    forecast
+  )
+) {
+
+  /*
+   * 8.4F-LH DIAGNOSTIC
+   * READ ONLY / ZERO WRITE
+   *
+   * Record why the lifecycle hook cannot
+   * recognise the current production forecast.
+   */
+
+  fail84FLH(
+    'FORECAST_NOT_VALID_FOR_HOOK',
+    {
+
+      envelopeExists:
+        Boolean(
+          envelope
+        ),
+
+      envelopeHasForecast:
+        Boolean(
+          envelope &&
+          envelope.forecast
+        ),
+
+      forecastExists:
+        Boolean(
+          forecast
+        ),
+
+      forecastEmpty:
         forecast
-      )
-    ) {
+          ? forecast.empty
+          : null,
 
-      lastForecastReference84FLH =
-        null;
+      forecastProvince:
+        forecast
+          ? forecast.province
+          : null,
 
-      return;
+      forecastWindowSize:
+        forecast
+          ? forecast.windowSize
+          : null,
+
+      forecastWindowIsInteger:
+        Boolean(
+          forecast &&
+          Number.isInteger(
+            forecast.windowSize
+          )
+        ),
+
+      forecastItemsIsArray:
+        Boolean(
+          forecast &&
+          Array.isArray(
+            forecast.items
+          )
+        ),
+
+      forecastItemsLength:
+        forecast &&
+        Array.isArray(
+          forecast.items
+        )
+          ? forecast.items.length
+          : null
 
     }
+  );
+
+
+  lastForecastReference84FLH =
+    null;
+
+
+  return;
+
+}
 
 
     const signature =
