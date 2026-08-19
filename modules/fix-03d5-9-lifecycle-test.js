@@ -1,15 +1,21 @@
 /* =========================================================================
-   FIX-03D5.9 STEP 8.4F-L
-   MOBILE LIFECYCLE TEST UI
+   FIX-03D5.9 STEP 8.4F-L / 8.4F-LH
+   MOBILE LIFECYCLE SNAPSHOT TEST UI
 
    PURPOSE:
-   - Test 8.4F-L directly on mobile.
+   - Test STEP 8.4F-L directly on mobile.
+   - Publish the READ-ONLY lifecycle bridge.
+   - Invoke STEP 8.4F-LH only AFTER the gate snapshot exists.
+   - Display Gate + Bridge + Hook results on screen.
    - No DevTools Console required.
-   - Display lifecycle result on screen.
+   - Never create or modify Production Forecast.
+   - Never call savePrediction().
+   - Never write production/storage.
 
    TEST ONLY
    READ ONLY
    ZERO WRITE
+   FAIL CLOSED
    ========================================================================= */
 
 (function () {
@@ -17,7 +23,15 @@
   'use strict';
 
 
-  function yesNo84FLTest(value) {
+  /*
+   * ---------------------------------------------------------
+   * DISPLAY HELPERS
+   * ---------------------------------------------------------
+   */
+
+  function yesNo84FLTest(
+    value
+  ) {
 
     return value
       ? 'YES ✅'
@@ -26,7 +40,9 @@
   }
 
 
-  function safeText84FLTest(value) {
+  function safeText84FLTest(
+    value
+  ) {
 
     return String(
       value ?? '--'
@@ -42,10 +58,55 @@
       .replace(
         />/g,
         '&gt;'
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      )
+      .replace(
+        /'/g,
+        '&#039;'
       );
 
   }
 
+
+  function hookStatus84FLTest(
+    hook
+  ) {
+
+    if (
+      !hook
+    ) {
+
+      return 'NOT AVAILABLE ⚠️';
+
+    }
+
+
+    return (
+      hook.ready === true &&
+      hook.passed === true
+    )
+      ? 'PASS ✅'
+      : 'FAILED ❌';
+
+  }
+
+
+  /*
+   * ---------------------------------------------------------
+   * RUN TEST
+   * ---------------------------------------------------------
+   *
+   * ORDER IS IMPORTANT:
+   *
+   * 1. Run 8.4F-L Gate
+   * 2. Gate publishes 8.4F-L Bridge
+   * 3. Verify Bridge
+   * 4. Invoke 8.4F-LH Snapshot Hook
+   * 5. Render all results
+   */
 
   function runLifecycleTest84FL() {
 
@@ -56,15 +117,38 @@
 
 
     if (
-      typeof window
-        .inspectProductionForecastLifecycle84FL !==
+      !output
+    ) {
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 1 — VERIFY 8.4F-L GATE
+     * ---------------------------------------------------------
+     */
+
+    const lifecycleInspector =
+      window
+        .inspectProductionForecastLifecycle84FL;
+
+
+    if (
+      typeof lifecycleInspector !==
       'function'
     ) {
 
       output.innerHTML = `
+
         <div class="fix84fl-error">
+
           ❌ 8.4F-L Lifecycle Gate chưa được tải.
+
         </div>
+
       `;
 
       return;
@@ -72,407 +156,492 @@
     }
 
 
-    let result;
+    /*
+     * ---------------------------------------------------------
+     * STEP 2 — RUN GATE
+     * ---------------------------------------------------------
+     */
+
+    let lifecycle;
 
 
     try {
 
-      result =
-        window
-          .inspectProductionForecastLifecycle84FL();
+      lifecycle =
+        lifecycleInspector();
 
-    } catch (error) {
+    } catch (
+      error
+    ) {
 
       output.innerHTML = `
+
         <div class="fix84fl-error">
 
-          ❌ Lifecycle inspector gặp lỗi.
+          ❌ Lifecycle Gate gặp lỗi.
 
           <br><br>
 
           ${safeText84FLTest(
-            error &&
-            error.message
-              ? error.message
-              : error
+            error?.message ||
+            error
           )}
 
         </div>
+
       `;
 
       return;
 
     }
-         /*
-     * ---------------------------------------------------------
-     * 8.4F-LH HOOK DIAGNOSTICS
-     * READ ONLY
-     * ---------------------------------------------------------
-     */
 
-     const hookScriptLoaded =
-  Boolean(
-    window.FIX03D59_STEP84FLH_HOOK_LOADED ===
-      true
-  );
 
-const hookInspectorAvailable =
-  typeof window.inspectLifecycle84FLH ===
-    'function';
-    const hookResult =
-      window.LAST_FIX03D59_STEP84FLH ||
-      null;
     /*
      * ---------------------------------------------------------
-     * 8.4F-LH FORECAST DIAGNOSTICS
-     * READ ONLY
-     * ZERO WRITE
+     * STEP 3 — READ PUBLISHED BRIDGE
      * ---------------------------------------------------------
      */
 
-    const hookDiagnostics = {
+    const bridge =
+      window
+        .LAST_FIX03D59_STEP84FL_BRIDGE ||
+      null;
 
-      envelopeExists:
-        hookResult?.envelopeExists ??
-        null,
 
-      envelopeHasForecast:
-        hookResult?.envelopeHasForecast ??
-        null,
-
-      forecastExists:
-        hookResult?.forecastExists ??
-        null,
-
-      forecastEmpty:
-        hookResult?.forecastEmpty ??
-        null,
-
-      forecastProvince:
-        hookResult?.forecastProvince ??
-        null,
-
-      forecastWindowSize:
-        hookResult?.forecastWindowSize ??
-        null,
-
-      forecastWindowIsInteger:
-        hookResult?.forecastWindowIsInteger ??
-        null,
-
-      forecastItemsIsArray:
-        hookResult?.forecastItemsIsArray ??
-        null,
-
-      forecastItemsLength:
-        hookResult?.forecastItemsLength ??
-        null
-
-    };
-
-    const hookExists =
+    const bridgeExists =
       Boolean(
-        hookResult
+        bridge
       );
 
 
-    const hookPassed =
+    const bridgeForecastExists =
+      bridge?.forecastExists === true;
+
+
+    const bridgeForecastValid =
+      bridge?.forecastValid === true;
+
+
+    const bridgeMappingReady =
+      bridge?.mappingReady === true;
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 4 — VERIFY SNAPSHOT HOOK
+     * ---------------------------------------------------------
+     */
+
+    const hookScriptLoaded =
+      window
+        .FIX03D59_STEP84FLH_HOOK_LOADED ===
+      true;
+
+
+    const hookInspector =
+      window
+        .inspectLifecycle84FLH;
+
+
+    const hookInspectorAvailable =
+      typeof hookInspector ===
+      'function';
+
+
+    /*
+     * ---------------------------------------------------------
+     * STEP 5 — RUN SNAPSHOT HOOK
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     * Hook runs only after lifecycleInspector() has published
+     * the current bridge snapshot.
+     */
+
+    let hookResult =
+      null;
+
+
+    if (
+      hookInspectorAvailable
+    ) {
+
+      try {
+
+        hookResult =
+          hookInspector();
+
+      } catch (
+        error
+      ) {
+
+        hookResult = {
+
+          ready:
+            false,
+
+          passed:
+            false,
+
+          reason:
+            'TEST_HOOK_EXCEPTION',
+
+          stageReason:
+            error?.message ||
+            String(
+              error
+            )
+
+        };
+
+      }
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * SAFETY VERIFICATION
+     * ---------------------------------------------------------
+     */
+
+    const lifecycleLocksSafe =
+      Boolean(
+        lifecycle &&
+        lifecycle.writeAuthorized === false &&
+        lifecycle.productionWrite === false &&
+        lifecycle.storageWrite === false &&
+        lifecycle.integrationPerformed === false &&
+        lifecycle.savePredictionCalled === false &&
+        lifecycle.forecastCreated === false &&
+        lifecycle.forecastModified === false &&
+        lifecycle.candidateModified === false &&
+        lifecycle.readOnly === true &&
+        lifecycle.failClosed === true
+      );
+
+
+    const hookLocksSafe =
       Boolean(
         hookResult &&
-        hookResult.ready === true &&
-        hookResult.passed === true
+        hookResult.writeAuthorized === false &&
+        hookResult.productionWrite === false &&
+        hookResult.storageWrite === false &&
+        hookResult.integrationPerformed === false &&
+        hookResult.savePredictionCalled === false &&
+        hookResult.forecastCreated === false &&
+        hookResult.forecastModified === false &&
+        hookResult.candidateModified === false &&
+        hookResult.readOnly === true &&
+        hookResult.failClosed === true
       );
 
-
-    const hookReason =
-      hookResult?.reason ||
-      'HOOK_RESULT_NOT_AVAILABLE';
-
-
-    const failedStage =
-      hookResult?.failedStage ||
-      null;
-
-
-    const stageReason =
-      hookResult?.stageReason ||
-      null;
 
     const hardLocksSafe =
-      Boolean(
-        result &&
-        result.writeAuthorized === false &&
-        result.productionWrite === false &&
-        result.storageWrite === false &&
-        result.integrationPerformed === false &&
-        result.savePredictionCalled === false &&
-        result.forecastCreated === false &&
-        result.forecastModified === false &&
-        result.candidateModified === false &&
-        result.readOnly === true &&
-        result.failClosed === true
+      lifecycleLocksSafe &&
+      (
+        !hookResult ||
+        hookLocksSafe
       );
 
+
+    /*
+     * ---------------------------------------------------------
+     * DISPLAY RESULT
+     * ---------------------------------------------------------
+     */
 
     output.innerHTML = `
 
       <div class="fix84fl-result">
 
+
+        <div class="fix84fl-section-label">
+          8.4F-L GATE
+        </div>
+
+
         <div class="fix84fl-state">
+
           ${safeText84FLTest(
-            result.lifecycleState
+            lifecycle.lifecycleState
           )}
+
         </div>
 
 
         <div class="fix84fl-reason">
+
           ${safeText84FLTest(
-            result.reason
+            lifecycle.reason
           )}
+
         </div>
 
 
         <div class="fix84fl-grid">
 
           <div>
-            <span>Forecast Exists</span>
+
+            <span>
+              Forecast Exists
+            </span>
+
             <b>
               ${yesNo84FLTest(
-                result.forecastExists
+                lifecycle.forecastExists
               )}
             </b>
+
           </div>
 
-          <div>
-            <span>Forecast Valid</span>
-            <b>
-              ${yesNo84FLTest(
-                result.forecastValid
-              )}
-            </b>
-          </div>
 
           <div>
-            <span>Mapping Preview</span>
+
+            <span>
+              Forecast Valid
+            </span>
+
             <b>
               ${yesNo84FLTest(
-                result.mappingPreviewExists
+                lifecycle.forecastValid
               )}
             </b>
+
           </div>
 
+
           <div>
-            <span>Mapping Ready</span>
+
+            <span>
+              Mapping Preview
+            </span>
+
             <b>
               ${yesNo84FLTest(
-                result.mappingReady
+                lifecycle.mappingPreviewExists
               )}
             </b>
+
+          </div>
+
+
+          <div>
+
+            <span>
+              Mapping Ready
+            </span>
+
+            <b>
+              ${yesNo84FLTest(
+                lifecycle.mappingReady
+              )}
+            </b>
+
           </div>
 
         </div>
 
-        <div class="fix84fl-locks">
-<div>
-  Hook Script Loaded:
-  <b>
-    ${
-      hookScriptLoaded
-        ? 'YES ✅'
-        : 'NO ❌'
-    }
-  </b>
-</div>
 
-<div>
-  Hook Inspector Available:
-  <b>
-    ${
-      hookInspectorAvailable
-        ? 'YES ✅'
-        : 'NO ❌'
-    }
-  </b>
-</div>
-          <div>
-            Lifecycle Hook:
-            <b>
-              ${hookExists
-                ? (
-                    hookPassed
-                      ? 'PASS ✅'
-                      : 'FAILED ❌'
-                  )
-                : 'NOT AVAILABLE ⚠️'
-              }
-            </b>
+        <div class="fix84fl-section">
+
+          <div class="fix84fl-section-label">
+            🌉 8.4F-L READ-ONLY BRIDGE
           </div>
 
-          <div>
-            Hook Reason:
-            <b>
-              ${safeText84FLTest(
-                hookReason
-              )}
-            </b>
+
+          <div class="fix84fl-locks">
+
+            <div>
+              Bridge Exists:
+              <b>
+                ${yesNo84FLTest(
+                  bridgeExists
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Bridge Forecast Exists:
+              <b>
+                ${yesNo84FLTest(
+                  bridgeForecastExists
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Bridge Forecast Valid:
+              <b>
+                ${yesNo84FLTest(
+                  bridgeForecastValid
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Bridge Mapping Ready:
+              <b>
+                ${yesNo84FLTest(
+                  bridgeMappingReady
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Province:
+              <b>
+                ${safeText84FLTest(
+                  bridge?.forecastProvince
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Window:
+              <b>
+                ${safeText84FLTest(
+                  bridge?.forecastWindowSize
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Prize Count:
+              <b>
+                ${safeText84FLTest(
+                  bridge?.forecastPrizeCount
+                )}
+              </b>
+            </div>
+
           </div>
 
-          <div>
-            Failed Stage:
-            <b>
-              ${safeText84FLTest(
-                failedStage
-              )}
-            </b>
-          </div>
-
-          <div>
-            Stage Reason:
-            <b>
-              ${safeText84FLTest(
-                stageReason
-              )}
-            </b>
-          </div>
-          <div
-            style="
-              margin-top: 14px;
-              padding-top: 12px;
-              border-top: 1px solid rgba(255,255,255,.15);
-            "
-          >
-            <b>
-              🔎 HOOK FORECAST DIAGNOSTICS
-            </b>
-          </div>
-
-          <div>
-            Envelope Exists:
-            <b>
-              ${hookDiagnostics.envelopeExists === null
-                ? '--'
-                : yesNo84FLTest(
-                    hookDiagnostics.envelopeExists
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Envelope Has Forecast:
-            <b>
-              ${hookDiagnostics.envelopeHasForecast === null
-                ? '--'
-                : yesNo84FLTest(
-                    hookDiagnostics.envelopeHasForecast
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Hook Forecast Exists:
-            <b>
-              ${hookDiagnostics.forecastExists === null
-                ? '--'
-                : yesNo84FLTest(
-                    hookDiagnostics.forecastExists
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Forecast Empty:
-            <b>
-              ${hookDiagnostics.forecastEmpty === null
-                ? '--'
-                : safeText84FLTest(
-                    hookDiagnostics.forecastEmpty
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Forecast Province:
-            <b>
-              ${safeText84FLTest(
-                hookDiagnostics.forecastProvince
-              )}
-            </b>
-          </div>
-
-          <div>
-            Forecast Window Size:
-            <b>
-              ${safeText84FLTest(
-                hookDiagnostics.forecastWindowSize
-              )}
-            </b>
-          </div>
-
-          <div>
-            Window Is Integer:
-            <b>
-              ${hookDiagnostics.forecastWindowIsInteger === null
-                ? '--'
-                : yesNo84FLTest(
-                    hookDiagnostics.forecastWindowIsInteger
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Items Is Array:
-            <b>
-              ${hookDiagnostics.forecastItemsIsArray === null
-                ? '--'
-                : yesNo84FLTest(
-                    hookDiagnostics.forecastItemsIsArray
-                  )
-              }
-            </b>
-          </div>
-
-          <div>
-            Items Length:
-            <b>
-              ${safeText84FLTest(
-                hookDiagnostics.forecastItemsLength
-              )}
-            </b>
-          </div>
         </div>
 
-        <div class="fix84fl-locks">
 
-          <div>
-            Write Authorized:
-            <b>
-              ${yesNo84FLTest(
-                result.writeAuthorized
-              )}
-            </b>
+        <div class="fix84fl-section">
+
+          <div class="fix84fl-section-label">
+            🔗 8.4F-LH SNAPSHOT HOOK
           </div>
 
-          <div>
-            Production Write:
-            <b>
-              ${yesNo84FLTest(
-                result.productionWrite
-              )}
-            </b>
+
+          <div class="fix84fl-locks">
+
+            <div>
+              Hook Script Loaded:
+              <b>
+                ${yesNo84FLTest(
+                  hookScriptLoaded
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Hook Inspector Available:
+              <b>
+                ${yesNo84FLTest(
+                  hookInspectorAvailable
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Lifecycle Hook:
+              <b>
+                ${hookStatus84FLTest(
+                  hookResult
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Hook Reason:
+              <b>
+                ${safeText84FLTest(
+                  hookResult?.reason ||
+                  (
+                    hookInspectorAvailable
+                      ? 'HOOK_RESULT_NOT_AVAILABLE'
+                      : 'HOOK_INSPECTOR_NOT_AVAILABLE'
+                  )
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Failed Stage:
+              <b>
+                ${safeText84FLTest(
+                  hookResult?.failedStage
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Stage Reason:
+              <b>
+                ${safeText84FLTest(
+                  hookResult?.stageReason
+                )}
+              </b>
+            </div>
+
           </div>
 
-          <div>
-            Storage Write:
-            <b>
-              ${yesNo84FLTest(
-                result.storageWrite
-              )}
-            </b>
+        </div>
+
+
+        <div class="fix84fl-section">
+
+          <div class="fix84fl-section-label">
+            🔒 SAFETY LOCKS
+          </div>
+
+
+          <div class="fix84fl-locks">
+
+            <div>
+              Write Authorized:
+              <b>
+                ${yesNo84FLTest(
+                  lifecycle.writeAuthorized
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Production Write:
+              <b>
+                ${yesNo84FLTest(
+                  lifecycle.productionWrite
+                )}
+              </b>
+            </div>
+
+
+            <div>
+              Storage Write:
+              <b>
+                ${yesNo84FLTest(
+                  lifecycle.storageWrite
+                )}
+              </b>
+            </div>
+
           </div>
 
         </div>
@@ -501,6 +670,12 @@ const hookInspectorAvailable =
   }
 
 
+  /*
+   * ---------------------------------------------------------
+   * BUILD MOBILE TEST UI
+   * ---------------------------------------------------------
+   */
+
   function buildLifecycleTestUI84FL() {
 
     if (
@@ -520,12 +695,20 @@ const hookInspectorAvailable =
       );
 
 
-    if (!settings) {
+    if (
+      !settings
+    ) {
 
       return;
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * STYLE
+     * ---------------------------------------------------------
+     */
 
     const style =
       document.createElement(
@@ -543,10 +726,12 @@ const hookInspectorAvailable =
         color: white;
       }
 
+
       #fix03d59-84fl-test-panel h3 {
         margin: 0 0 8px;
         font-size: 20px;
       }
+
 
       .fix84fl-sub {
         opacity: .72;
@@ -555,36 +740,40 @@ const hookInspectorAvailable =
         margin-bottom: 14px;
       }
 
+
       #fix03d59-84fl-test-button {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
 
-  width: 100% !important;
-  min-height: 52px !important;
+        width: 100% !important;
+        min-height: 52px !important;
 
-  margin: 14px 0 0 !important;
-  padding: 14px !important;
+        margin: 14px 0 0 !important;
+        padding: 14px !important;
 
-  border: 0 !important;
-  border-radius: 14px !important;
+        border: 0 !important;
+        border-radius: 14px !important;
 
-  background: #ffc13d !important;
-  color: #17182a !important;
+        background: #ffc13d !important;
+        color: #17182a !important;
 
-  font-size: 16px !important;
-  font-weight: 800 !important;
-  line-height: 1.3 !important;
+        font-size: 16px !important;
+        font-weight: 800 !important;
+        line-height: 1.3 !important;
 
-  position: relative !important;
-  z-index: 10 !important;
+        position: relative !important;
+        z-index: 10 !important;
 
-  pointer-events: auto !important;
-}
+        pointer-events: auto !important;
+        cursor: pointer !important;
+      }
+
 
       #fix03d59-84fl-test-output {
         margin-top: 16px;
       }
+
 
       .fix84fl-result {
         background: rgba(255,255,255,.06);
@@ -592,11 +781,31 @@ const hookInspectorAvailable =
         padding: 14px;
       }
 
+
+      .fix84fl-section {
+        margin-top: 18px;
+        padding-top: 14px;
+        border-top:
+          1px solid
+          rgba(255,255,255,.10);
+      }
+
+
+      .fix84fl-section-label {
+        color: #ffc13d;
+        font-size: 13px;
+        font-weight: 900;
+        letter-spacing: .04em;
+        margin-bottom: 8px;
+      }
+
+
       .fix84fl-state {
         font-size: 22px;
         font-weight: 900;
         color: #ffc13d;
       }
+
 
       .fix84fl-reason {
         margin-top: 5px;
@@ -605,6 +814,7 @@ const hookInspectorAvailable =
         word-break: break-word;
       }
 
+
       .fix84fl-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
@@ -612,11 +822,13 @@ const hookInspectorAvailable =
         margin-top: 15px;
       }
 
+
       .fix84fl-grid div {
         padding: 10px;
         border-radius: 10px;
         background: rgba(0,0,0,.15);
       }
+
 
       .fix84fl-grid span {
         display: block;
@@ -624,35 +836,47 @@ const hookInspectorAvailable =
         font-size: 11px;
       }
 
+
       .fix84fl-grid b {
         display: block;
         margin-top: 5px;
         font-size: 13px;
       }
 
+
       .fix84fl-locks {
-        margin-top: 14px;
-        line-height: 1.8;
+        margin-top: 8px;
+        line-height: 1.9;
         font-size: 13px;
       }
+
+
+      .fix84fl-locks b {
+        word-break: break-word;
+      }
+
 
       .fix84fl-safe,
       .fix84fl-danger,
       .fix84fl-error {
-        margin-top: 14px;
+        margin-top: 16px;
         padding: 12px;
         border-radius: 11px;
         font-weight: 800;
         line-height: 1.5;
       }
 
+
       .fix84fl-safe {
-        background: rgba(45,200,120,.15);
+        background:
+          rgba(45,200,120,.15);
       }
+
 
       .fix84fl-danger,
       .fix84fl-error {
-        background: rgba(255,80,80,.15);
+        background:
+          rgba(255,80,80,.15);
       }
 
     `;
@@ -662,6 +886,12 @@ const hookInspectorAvailable =
       style
     );
 
+
+    /*
+     * ---------------------------------------------------------
+     * PANEL
+     * ---------------------------------------------------------
+     */
 
     const panel =
       document.createElement(
@@ -676,20 +906,29 @@ const hookInspectorAvailable =
     panel.innerHTML = `
 
       <h3>
-        🧪 FIX-03D5.9 — 8.4F-L
+        🧪 FIX-03D5.9 — 8.4F-L / LH
       </h3>
 
+
       <div class="fix84fl-sub">
-        Mobile Lifecycle Test · READ ONLY · ZERO WRITE
+
+        Mobile Lifecycle Snapshot Test
+        · READ ONLY
+        · ZERO WRITE
+
       </div>
 
+
       <div
-  id="fix03d59-84fl-test-button"
-  role="button"
-  tabindex="0"
->
-  🧪 TEST 8.4F-L
-</div>
+        id="fix03d59-84fl-test-button"
+        role="button"
+        tabindex="0"
+      >
+
+        🧪 TEST 8.4F-L → LH
+
+      </div>
+
 
       <div
         id="fix03d59-84fl-test-output"
@@ -702,45 +941,56 @@ const hookInspectorAvailable =
       panel
     );
 
-const testControl =
-  document.getElementById(
-    'fix03d59-84fl-test-button'
-  );
 
-const probe =
-  document.createElement(
-    'div'
-  );
-
-probe.style.cssText = `
-  margin-top: 14px;
-  padding: 12px;
-  background: white;
-  color: black;
-  border-radius: 10px;
-  font-weight: 800;
-`;
-
-probe.textContent =
-  testControl
-    ? 'DOM CONTROL: FOUND ✅'
-    : 'DOM CONTROL: MISSING ❌';
-
-panel.appendChild(
-  probe
-);
-     
-    document
-      .getElementById(
+    const testControl =
+      document.getElementById(
         'fix03d59-84fl-test-button'
-      )
-      .addEventListener(
-        'click',
-        runLifecycleTest84FL
       );
+
+
+    if (
+      !testControl
+    ) {
+
+      return;
+
+    }
+
+
+    testControl.addEventListener(
+      'click',
+      runLifecycleTest84FL
+    );
+
+
+    testControl.addEventListener(
+      'keydown',
+      function (
+        event
+      ) {
+
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+
+          event.preventDefault();
+
+          runLifecycleTest84FL();
+
+        }
+
+      }
+    );
 
   }
 
+
+  /*
+   * ---------------------------------------------------------
+   * INIT
+   * ---------------------------------------------------------
+   */
 
   if (
     document.readyState ===
@@ -760,7 +1010,7 @@ panel.appendChild(
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-L Mobile Test UI loaded / TEST ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.4F-L/LH Mobile Snapshot Test loaded / TEST ONLY / ZERO WRITE'
   );
 
 })();
