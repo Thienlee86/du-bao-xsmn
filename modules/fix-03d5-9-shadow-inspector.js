@@ -3165,6 +3165,33 @@
 
 })();
 
+document
+  .getElementById('tab-settings')
+  ?.insertAdjacentHTML(
+    'beforeend',
+    `
+      <div
+        style="
+          margin:18px 24px 30px;
+          padding:18px;
+          border-radius:20px;
+          background:#5b214c;
+          border:2px solid #ff5ca8;
+          color:#ffffff;
+          font-weight:900;
+          line-height:1.6;
+          box-sizing:border-box;
+        "
+      >
+        🧪 8.2A EXECUTION BOUNDARY
+        <br>
+        <span style="color:#ffb4d7;">
+          Browser executed code after Source Trace marker.
+        </span>
+      </div>
+    `
+  );
+
 /* =========================================================================
    FIX-03D5.9 — STEP 8.2A SOURCE TRACE V1
 
