@@ -4228,10 +4228,7 @@
 
   } else {
 
-    window.setTimeout(
-      buildStep82ASourceTraceUI,
-      350
-    );
+    buildStep82ASourceTraceUI();
 
   }
 
