@@ -3191,6 +3191,32 @@ document
       </div>
     `
   );
+document
+  .getElementById('tab-settings')
+  ?.insertAdjacentHTML(
+    'beforeend',
+    `
+      <div
+        style="
+          margin:18px 24px 30px;
+          padding:18px;
+          border-radius:20px;
+          background:#174a3a;
+          border:2px solid #4ade80;
+          color:#ffffff;
+          font-weight:900;
+          line-height:1.6;
+          box-sizing:border-box;
+        "
+      >
+        🟢 8.2A BLOCK ENTRY
+        <br>
+        <span style="color:#a7f3d0;">
+          Browser reached start of 8.2A V1 block.
+        </span>
+      </div>
+    `
+  );
 
 /* =========================================================================
    FIX-03D5.9 — STEP 8.2A SOURCE TRACE V1
