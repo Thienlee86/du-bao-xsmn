@@ -3145,7 +3145,27 @@
     true;
 
 })();
-
+document
+  .getElementById('tab-settings')
+  ?.insertAdjacentHTML(
+    'beforeend',
+    `
+      <div style="
+        margin:18px 24px 30px;
+        padding:18px;
+        border-radius:20px;
+        background:#164e63;
+        border:2px solid #22d3ee;
+        color:#fff;
+        font-weight:900;
+        line-height:1.6;
+      ">
+        🔵 PRE-8.2A MARKER
+        <br>
+        Browser passed Source Trace marker.
+      </div>
+    `
+  );
 
 /* =========================================================================
    FIX-03D5.9 — STEP 8.2A SOURCE TRACE
