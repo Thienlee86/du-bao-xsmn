@@ -974,7 +974,333 @@
 
   }
 
+  /*
+   * ---------------------------------------------------------
+   * MOBILE 8.4F MAPPING DIAGNOSTIC
+   * ---------------------------------------------------------
+   */
 
+  function runMappingDiagnostic84FMobile() {
+
+    const output =
+      document.getElementById(
+        'fix03d59-84f-diagnose-output'
+      );
+
+    if (!output) {
+      return;
+    }
+
+    const result =
+      window.LAST_FIX03D59_STEP84F ||
+      null;
+
+    if (!result) {
+
+      output.innerHTML = `
+        <div class="fix84fl-error">
+          ❌ Không có LAST_FIX03D59_STEP84F.
+          <br><br>
+          Hãy bấm RUN FINAL LIFECYCLE TEST trước.
+        </div>
+      `;
+
+      return;
+    }
+
+    const mappings =
+      Array.isArray(result.mappings)
+        ? result.mappings
+        : [];
+
+    const failed =
+      mappings.filter(
+        item =>
+          item.mappingValid !== true
+      );
+
+    const rows =
+      mappings.map(
+        item => {
+
+          const ok =
+            item.mappingValid === true;
+
+          return `
+            <div
+              style="
+                margin-top:10px;
+                padding:12px;
+                border-radius:12px;
+                background:rgba(0,0,0,.15);
+              "
+            >
+
+              <div
+                style="
+                  font-weight:900;
+                  margin-bottom:7px;
+                  color:${ok ? '#65e6a5' : '#ff7b7b'};
+                "
+              >
+                ${safeText84FLTest(
+                  item.prize ||
+                  item.forecastPrizeKey ||
+                  ('Mapping ' + item.mappingIndex)
+                )}
+
+                ${ok ? '✅' : '❌'}
+              </div>
+
+              <div>
+                Index:
+                <b>${safeText84FLTest(
+                  item.mappingIndex
+                )}</b>
+              </div>
+
+              <div>
+                Province:
+                <b>${safeText84FLTest(
+                  item.province
+                )}</b>
+              </div>
+
+              <div>
+                Forecast Province:
+                <b>${safeText84FLTest(
+                  item.forecastProvince
+                )}</b>
+              </div>
+
+              <div>
+                Forecast Prize:
+                <b>${safeText84FLTest(
+                  item.forecastPrizeKey
+                )}</b>
+              </div>
+
+              <div>
+                Number Count:
+                <b>${safeText84FLTest(
+                  item.productionNumberCount
+                )}</b>
+              </div>
+
+              <div>
+                Province Match:
+                <b>${yesNo84FLTest(
+                  item.provinceMatch === true
+                )}</b>
+              </div>
+
+              <div>
+                Prize Meta Valid:
+                <b>${yesNo84FLTest(
+                  item.prizeMetaValid === true
+                )}</b>
+              </div>
+
+              <div>
+                Forecast Item Valid:
+                <b>${yesNo84FLTest(
+                  item.forecastItemValid === true
+                )}</b>
+              </div>
+
+              <div>
+                Number Schema Valid:
+                <b>${yesNo84FLTest(
+                  item.numberSchemaValid === true
+                )}</b>
+              </div>
+
+              <div>
+                Mapping Valid:
+                <b>${yesNo84FLTest(
+                  item.mappingValid === true
+                )}</b>
+              </div>
+
+            </div>
+          `;
+
+        }
+      )
+      .join('');
+
+    output.innerHTML = `
+
+      <div class="fix84fl-result">
+
+        <div class="fix84fl-section-label">
+          🔎 8.4F MAPPING DIAGNOSIS
+        </div>
+
+        <div class="fix84fl-locks">
+
+          <div>
+            8.4F Passed:
+            <b>${yesNo84FLTest(
+              result.passed === true
+            )}</b>
+          </div>
+
+          <div>
+            Reason:
+            <b>${safeText84FLTest(
+              result.reason
+            )}</b>
+          </div>
+
+          <div>
+            Expected Count:
+            <b>${safeText84FLTest(
+              result.expectedCount
+            )}</b>
+          </div>
+
+          <div>
+            Mapping Count:
+            <b>${safeText84FLTest(
+              result.mappingCount
+            )}</b>
+          </div>
+
+          <div>
+            Counts Match:
+            <b>${yesNo84FLTest(
+              result.countsMatch === true
+            )}</b>
+          </div>
+
+          <div>
+            All Mappings Valid:
+            <b>${yesNo84FLTest(
+              result.allMappingsValid === true
+            )}</b>
+          </div>
+
+          <div>
+            Failed Mappings:
+            <b>${failed.length}</b>
+          </div>
+
+        </div>
+
+        ${rows || `
+          <div class="fix84fl-error">
+            ⚠️ Không có mapping nào để kiểm tra.
+          </div>
+        `}
+
+      </div>
+    `;
+
+  }
+
+
+  function addMappingDiagnostic84FMobile() {
+
+    const panel =
+      document.getElementById(
+        'fix03d59-84fl-test-panel'
+      );
+
+    if (!panel) {
+      return;
+    }
+
+    if (
+      document.getElementById(
+        'fix03d59-84f-diagnose-button'
+      )
+    ) {
+      return;
+    }
+
+    const button =
+      document.createElement(
+        'div'
+      );
+
+    button.id =
+      'fix03d59-84f-diagnose-button';
+
+    button.setAttribute(
+      'role',
+      'button'
+    );
+
+    button.setAttribute(
+      'tabindex',
+      '0'
+    );
+
+    button.style.cssText = `
+      width:100%;
+      margin-top:14px;
+      padding:14px;
+      border-radius:14px;
+      background:#65e6a5;
+      color:#17182a;
+      font-size:16px;
+      font-weight:900;
+      text-align:center;
+      box-sizing:border-box;
+    `;
+
+    button.textContent =
+      '🔍 DIAGNOSE 8.4F MAPPING';
+
+
+    const output =
+      document.createElement(
+        'div'
+      );
+
+    output.id =
+      'fix03d59-84f-diagnose-output';
+
+    output.style.marginTop =
+      '16px';
+
+
+    panel.appendChild(
+      button
+    );
+
+    panel.appendChild(
+      output
+    );
+
+
+    button.addEventListener(
+      'click',
+      runMappingDiagnostic84FMobile
+    );
+
+
+    button.addEventListener(
+      'keydown',
+      function (event) {
+
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+
+          event.preventDefault();
+
+          runMappingDiagnostic84FMobile();
+
+        }
+
+      }
+    );
+
+  }
+   
   /*
    * ---------------------------------------------------------
    * INITIALIZE
@@ -1176,4 +1502,456 @@ function diagnoseMapping84F() {
     failed
   };
 }
+
+/* =========================================================================
+   FIX-03D5.9 — MOBILE 8.4F MAPPING DIAGNOSIS
+   DISPLAY ONLY / READ ONLY / ZERO WRITE
+   ========================================================================= */
+
+(function () {
+
+  'use strict';
+
+
+  function safeDiag84F(value) {
+
+    return String(
+      value ?? '--'
+    )
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  }
+
+
+  function yesNoDiag84F(value) {
+
+    return value === true
+      ? 'YES ✅'
+      : 'NO ❌';
+
+  }
+
+
+  function buildMappingDiagnosisUI84F() {
+
+    if (
+      document.getElementById(
+        'fix03d59-84f-diagnosis-panel'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement('div');
+
+
+    panel.id =
+      'fix03d59-84f-diagnosis-panel';
+
+
+    panel.style.cssText = `
+      margin:18px 0 30px;
+      padding:18px;
+      border-radius:20px;
+      background:#20264f;
+      color:white;
+    `;
+
+
+    panel.innerHTML = `
+
+      <h3 style="
+        margin:0 0 8px;
+        font-size:20px;
+      ">
+        🔎 8.4F MAPPING DIAGNOSIS
+      </h3>
+
+
+      <div style="
+        opacity:.72;
+        font-size:13px;
+        line-height:1.5;
+      ">
+        Kiểm tra chính xác mapping nào làm
+        Production Forecast Mapping Preview thất bại.
+        <br>
+        READ ONLY · ZERO WRITE
+      </div>
+
+
+      <button
+        id="fix03d59-84f-diagnosis-button"
+        type="button"
+        style="
+          width:100%;
+          margin-top:14px;
+          padding:14px;
+          border:0;
+          border-radius:14px;
+          background:#ffc13d;
+          color:#17182a;
+          font-size:16px;
+          font-weight:800;
+        "
+      >
+        🔎 RUN 8.4F DIAGNOSIS
+      </button>
+
+
+      <div
+        id="fix03d59-84f-diagnosis-output"
+        style="
+          margin-top:16px;
+        "
+      ></div>
+
+    `;
+
+
+    settings.appendChild(panel);
+
+
+    document
+      .getElementById(
+        'fix03d59-84f-diagnosis-button'
+      )
+      .addEventListener(
+        'click',
+        runMappingDiagnosisUI84F
+      );
+
+  }
+
+
+  function runMappingDiagnosisUI84F() {
+
+    const output =
+      document.getElementById(
+        'fix03d59-84f-diagnosis-output'
+      );
+
+
+    const result =
+      window.LAST_FIX03D59_STEP84F ||
+      null;
+
+
+    if (!result) {
+
+      output.innerHTML = `
+        <div style="
+          padding:14px;
+          border-radius:12px;
+          background:rgba(255,80,80,.15);
+        ">
+          ❌ LAST_FIX03D59_STEP84F
+          chưa tồn tại.
+          <br><br>
+          Hãy chạy FINAL LIFECYCLE TEST trước,
+          sau đó chạy Diagnosis lại.
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    const mappings =
+      Array.isArray(result.mappings)
+        ? result.mappings
+        : [];
+
+
+    const failed =
+      mappings.filter(
+        item =>
+          item.mappingValid !== true
+      );
+
+
+    let html = `
+
+      <div style="
+        padding:14px;
+        border-radius:14px;
+        background:rgba(255,255,255,.06);
+        line-height:1.8;
+      ">
+
+        <b style="color:#ffc13d;">
+          8.4F SUMMARY
+        </b>
+
+        <br><br>
+
+        Passed:
+        <b>
+          ${yesNoDiag84F(result.passed)}
+        </b>
+
+        <br>
+
+        Reason:
+        <b>
+          ${safeDiag84F(result.reason)}
+        </b>
+
+        <br>
+
+        Expected Count:
+        <b>
+          ${safeDiag84F(result.expectedCount)}
+        </b>
+
+        <br>
+
+        Mapping Count:
+        <b>
+          ${safeDiag84F(result.mappingCount)}
+        </b>
+
+        <br>
+
+        Counts Match:
+        <b>
+          ${yesNoDiag84F(result.countsMatch)}
+        </b>
+
+        <br>
+
+        All Mappings Valid:
+        <b>
+          ${yesNoDiag84F(result.allMappingsValid)}
+        </b>
+
+        <br>
+
+        Failed Mappings:
+        <b>
+          ${failed.length}
+        </b>
+
+      </div>
+
+    `;
+
+
+    if (!mappings.length) {
+
+      html += `
+
+        <div style="
+          margin-top:12px;
+          padding:14px;
+          border-radius:12px;
+          background:rgba(255,189,60,.12);
+        ">
+          ⚠️ Không có mapping để kiểm tra.
+        </div>
+
+      `;
+
+      output.innerHTML = html;
+
+      return;
+
+    }
+
+
+    mappings.forEach(
+      function (
+        item,
+        index
+      ) {
+
+        const valid =
+          item.mappingValid === true;
+
+
+        html += `
+
+          <div style="
+            margin-top:12px;
+            padding:14px;
+            border-radius:14px;
+            background:${
+              valid
+                ? 'rgba(45,200,120,.10)'
+                : 'rgba(255,80,80,.13)'
+            };
+            line-height:1.75;
+          ">
+
+            <div style="
+              font-size:16px;
+              font-weight:900;
+              color:${
+                valid
+                  ? '#67e8a5'
+                  : '#ff8b8b'
+              };
+            ">
+
+              ${
+                valid
+                  ? '✅'
+                  : '❌'
+              }
+
+              Mapping ${index + 1}
+
+              · ${safeDiag84F(
+                item.prize
+              )}
+
+            </div>
+
+
+            Province:
+            <b>
+              ${safeDiag84F(
+                item.province
+              )}
+            </b>
+
+            <br>
+
+
+            Forecast Province:
+            <b>
+              ${safeDiag84F(
+                item.forecastProvince
+              )}
+            </b>
+
+            <br>
+
+
+            Forecast Prize:
+            <b>
+              ${safeDiag84F(
+                item.forecastPrizeKey
+              )}
+            </b>
+
+            <br>
+
+
+            Number Count:
+            <b>
+              ${safeDiag84F(
+                item.productionNumberCount
+              )}
+            </b>
+
+            <br><br>
+
+
+            Province Match:
+            <b>
+              ${yesNoDiag84F(
+                item.provinceMatch
+              )}
+            </b>
+
+            <br>
+
+
+            Prize Meta Valid:
+            <b>
+              ${yesNoDiag84F(
+                item.prizeMetaValid
+              )}
+            </b>
+
+            <br>
+
+
+            Forecast Item Valid:
+            <b>
+              ${yesNoDiag84F(
+                item.forecastItemValid
+              )}
+            </b>
+
+            <br>
+
+
+            Number Schema Valid:
+            <b>
+              ${yesNoDiag84F(
+                item.numberSchemaValid
+              )}
+            </b>
+
+            <br>
+
+
+            Mapping Valid:
+            <b>
+              ${yesNoDiag84F(
+                item.mappingValid
+              )}
+            </b>
+
+          </div>
+
+        `;
+
+      }
+    );
+
+
+    output.innerHTML =
+      html;
+
+  }
+
+
+  if (
+    document.readyState === 'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildMappingDiagnosisUI84F
+    );
+
+  } else {
+
+    buildMappingDiagnosisUI84F();
+
+  }
+
+
+  window.runMappingDiagnosisUI84F =
+    runMappingDiagnosisUI84F;
+
+
+  console.log(
+    'FIX-03D5.9 8.4F Mobile Mapping Diagnosis loaded / READ ONLY / ZERO WRITE'
+  );
+
+})();
 
