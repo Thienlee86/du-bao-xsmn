@@ -1753,3 +1753,1306 @@
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 — STEP 8.3B SOURCE TRACE V1
+
+   PURPOSE:
+   - Inspect LAST_FIX03D59_STEP83B_RESULT.
+   - Trace the 4 legacy/test province candidates.
+   - Inspect nearby FIX03D59 RAM objects that may precede STEP 8.3B.
+   - Mobile UI only.
+   - READ ONLY.
+   - ZERO WRITE.
+   - NO ENGINE EXECUTION.
+   ========================================================================= */
+
+(function () {
+
+  'use strict';
+
+
+  const PANEL_ID =
+    'fix03d59-step83b-source-trace-panel';
+
+
+  const OUTPUT_ID =
+    'fix03d59-step83b-source-trace-output';
+
+
+  const LEGACY_PROVINCES =
+    [
+      'tp-hcm',
+      'tay-ninh',
+      'tien-giang',
+      'binh-duong'
+    ];
+
+
+  /* =========================================================
+     HELPERS
+     ========================================================= */
+
+  function escape83B(value) {
+
+    return String(
+      value ?? '--'
+    )
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  }
+
+
+  function safeKeys83B(value) {
+
+    if (
+      !value ||
+      typeof value !== 'object'
+    ) {
+
+      return [];
+
+    }
+
+
+    try {
+
+      return Object.keys(value);
+
+    } catch (error) {
+
+      return [];
+
+    }
+
+  }
+
+
+  function normalizeProvince83B(value) {
+
+    return String(
+      value ?? ''
+    )
+      .trim()
+      .toLowerCase();
+
+  }
+
+
+  function isLegacyProvince83B(value) {
+
+    return LEGACY_PROVINCES.includes(
+      normalizeProvince83B(value)
+    );
+
+  }
+
+
+  function getSelectedProvince83B() {
+
+    try {
+
+      const select =
+        document.getElementById(
+          'provinceSelect'
+        );
+
+
+      if (
+        select &&
+        select.value
+      ) {
+
+        return select.value;
+
+      }
+
+    } catch (error) {
+
+      // READ ONLY
+    }
+
+
+    return null;
+
+  }
+
+
+  /* =========================================================
+     FIND PROVINCE PATHS INSIDE AN OBJECT
+     ========================================================= */
+
+  function findProvincePaths83B(
+    root,
+    rootName
+  ) {
+
+    const found =
+      [];
+
+
+    const visited =
+      new WeakSet();
+
+
+    function walk(
+      value,
+      path,
+      depth
+    ) {
+
+      if (depth > 8) {
+
+        return;
+
+      }
+
+
+      if (
+        !value ||
+        typeof value !== 'object'
+      ) {
+
+        return;
+
+      }
+
+
+      if (visited.has(value)) {
+
+        return;
+
+      }
+
+
+      visited.add(value);
+
+
+      let keys;
+
+
+      try {
+
+        keys =
+          Object.keys(value);
+
+      } catch (error) {
+
+        return;
+
+      }
+
+
+      keys.forEach(
+        key => {
+
+          let child;
+
+
+          try {
+
+            child =
+              value[key];
+
+          } catch (error) {
+
+            return;
+
+          }
+
+
+          const childPath =
+            path
+              ? path + '.' + key
+              : key;
+
+
+          const lowerKey =
+            String(key)
+              .toLowerCase();
+
+
+          if (
+            lowerKey.includes(
+              'province'
+            )
+          ) {
+
+            const normalized =
+              (
+                child &&
+                typeof child === 'object'
+              )
+                ? '[object]'
+                : String(
+                    child ?? '--'
+                  );
+
+
+            found.push({
+
+              path:
+                childPath,
+
+              value:
+                normalized,
+
+              legacy:
+                isLegacyProvince83B(
+                  normalized
+                )
+
+            });
+
+          }
+
+
+          if (
+            child &&
+            typeof child === 'object'
+          ) {
+
+            walk(
+              child,
+              childPath,
+              depth + 1
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    if (
+      root &&
+      typeof root === 'object'
+    ) {
+
+      walk(
+        root,
+        rootName,
+        0
+      );
+
+    }
+
+
+    return found;
+
+  }
+
+
+  /* =========================================================
+     INSPECT ONE CANDIDATE
+     ========================================================= */
+
+  function inspectCandidate83B(
+    candidate,
+    index
+  ) {
+
+    const keys =
+      safeKeys83B(
+        candidate
+      );
+
+
+    const provincePaths =
+      findProvincePaths83B(
+        candidate,
+        'candidate[' + index + ']'
+      );
+
+
+    const primitiveFields =
+      [];
+
+
+    keys.forEach(
+      key => {
+
+        let value;
+
+
+        try {
+
+          value =
+            candidate[key];
+
+        } catch (error) {
+
+          return;
+
+        }
+
+
+        if (
+          value === null ||
+          (
+            typeof value !==
+            'object' &&
+            typeof value !==
+            'function'
+          )
+        ) {
+
+          primitiveFields.push({
+
+            key,
+            value:
+              String(
+                value ?? '--'
+              )
+
+          });
+
+        }
+
+      }
+    );
+
+
+    return {
+
+      index,
+
+      province:
+        candidate?.province ||
+        candidate?.provinceSlug ||
+        null,
+
+      keys,
+
+      primitiveFields,
+
+      provincePaths,
+
+      legacy:
+        isLegacyProvince83B(
+          candidate?.province ||
+          candidate?.provinceSlug
+        )
+
+    };
+
+  }
+
+
+  /* =========================================================
+     DISCOVER NEARBY FIX03D59 RAM OBJECTS
+     ========================================================= */
+
+  function discoverNearbyRam83B() {
+
+    const results =
+      [];
+
+
+    let names =
+      [];
+
+
+    try {
+
+      names =
+        Object.getOwnPropertyNames(
+          window
+        );
+
+    } catch (error) {
+
+      return results;
+
+    }
+
+
+    names.forEach(
+      name => {
+
+        const upper =
+          String(name)
+            .toUpperCase();
+
+
+        /*
+         * Only inspect FIX03D59 / STEP83-related RAM.
+         * Do not execute functions.
+         */
+
+        if (
+          !(
+            upper.includes(
+              'FIX03D59'
+            ) ||
+            upper.includes(
+              'STEP83'
+            )
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        let value;
+
+
+        try {
+
+          value =
+            window[name];
+
+        } catch (error) {
+
+          return;
+
+        }
+
+
+        if (
+          !value ||
+          typeof value !== 'object'
+        ) {
+
+          return;
+
+        }
+
+
+        const provincePaths =
+          findProvincePaths83B(
+            value,
+            name
+          );
+
+
+        const legacyPaths =
+          provincePaths.filter(
+            item =>
+              item.legacy === true
+          );
+
+
+        results.push({
+
+          name,
+
+          keys:
+            safeKeys83B(value),
+
+          provincePaths,
+
+          legacyPaths,
+
+          containsLegacy:
+            legacyPaths.length > 0
+
+        });
+
+      }
+    );
+
+
+    results.sort(
+      (a, b) => {
+
+        if (
+          a.containsLegacy !==
+          b.containsLegacy
+        ) {
+
+          return a.containsLegacy
+            ? -1
+            : 1;
+
+        }
+
+
+        return String(a.name)
+          .localeCompare(
+            String(b.name)
+          );
+
+      }
+    );
+
+
+    return results;
+
+  }
+
+
+  /* =========================================================
+     MAIN TRACE
+     ========================================================= */
+
+  function inspectStep83BSource() {
+
+    const selectedProvince =
+      getSelectedProvince83B();
+
+
+    const result =
+      window
+        .LAST_FIX03D59_STEP83B_RESULT ||
+      null;
+
+
+    const candidates =
+      Array.isArray(
+        result?.candidates
+      )
+        ? result.candidates
+        : [];
+
+
+    const candidateDetails =
+      candidates.map(
+        (candidate, index) =>
+          inspectCandidate83B(
+            candidate,
+            index
+          )
+      );
+
+
+    const rootProvincePaths =
+      findProvincePaths83B(
+        result,
+        'LAST_FIX03D59_STEP83B_RESULT'
+      );
+
+
+    const nearbyRam =
+      discoverNearbyRam83B();
+
+
+    const legacyNearby =
+      nearbyRam.filter(
+        item =>
+          item.containsLegacy
+      );
+
+
+    return {
+
+      timestamp:
+        new Date()
+          .toISOString(),
+
+      selectedProvince,
+
+      step83BExists:
+        Boolean(result),
+
+      rootKeys:
+        safeKeys83B(result),
+
+      candidateCount:
+        candidates.length,
+
+      candidateDetails,
+
+      rootProvincePaths,
+
+      nearbyRamCount:
+        nearbyRam.length,
+
+      legacyNearbyCount:
+        legacyNearby.length,
+
+      nearbyRam,
+
+      legacyNearby,
+
+      readOnly:
+        true,
+
+      writeAuthorized:
+        false,
+
+      engineExecuted:
+        false
+
+    };
+
+  }
+
+
+  /* =========================================================
+     RENDER
+     ========================================================= */
+
+  function renderStep83BTrace(
+    trace,
+    output
+  ) {
+
+    let html = `
+
+      <div
+        style="
+          margin-top:16px;
+          padding:16px;
+          border-radius:18px;
+          background:rgba(0,0,0,.16);
+          line-height:1.6;
+        "
+      >
+
+        <div
+          style="
+            color:#ffbd3c;
+            font-weight:900;
+            font-size:17px;
+            margin-bottom:10px;
+          "
+        >
+          🔬 STEP 8.3B SOURCE SUMMARY
+        </div>
+
+        <div>
+          Selected Province:
+          <b>
+            ${escape83B(
+              trace.selectedProvince
+            )}
+          </b>
+        </div>
+
+        <div>
+          STEP 8.3B Exists:
+          <b>
+            ${
+              trace.step83BExists
+                ? 'YES ✅'
+                : 'NO ❌'
+            }
+          </b>
+        </div>
+
+        <div>
+          Candidate Count:
+          <b>
+            ${trace.candidateCount}
+          </b>
+        </div>
+
+        <div>
+          Nearby RAM Objects:
+          <b>
+            ${trace.nearbyRamCount}
+          </b>
+        </div>
+
+        <div>
+          RAM Objects Carrying Legacy Provinces:
+          <b>
+            ${trace.legacyNearbyCount}
+          </b>
+        </div>
+
+        <div
+          style="
+            margin-top:14px;
+            color:#ffbd3c;
+            font-weight:900;
+          "
+        >
+          ROOT KEYS
+        </div>
+
+        <div
+          style="
+            word-break:break-word;
+            opacity:.82;
+          "
+        >
+          ${
+            escape83B(
+              trace.rootKeys.join(', ') ||
+              '[none]'
+            )
+          }
+        </div>
+
+      </div>
+
+    `;
+
+
+    trace.candidateDetails.forEach(
+      item => {
+
+        html += `
+
+          <div
+            style="
+              margin-top:14px;
+              padding:16px;
+              border-radius:18px;
+              background:${
+                item.legacy
+                  ? 'rgba(255,80,80,.14)'
+                  : 'rgba(45,200,120,.10)'
+              };
+              line-height:1.6;
+            "
+          >
+
+            <div
+              style="
+                font-weight:900;
+                font-size:17px;
+              "
+            >
+              ${
+                item.legacy
+                  ? '❌'
+                  : '✅'
+              }
+              Candidate ${item.index + 1}
+            </div>
+
+            <div>
+              Province:
+              <b>
+                ${escape83B(
+                  item.province
+                )}
+              </b>
+            </div>
+
+            <div>
+              Legacy/Test Match:
+              <b>
+                ${
+                  item.legacy
+                    ? 'YES ⚠️'
+                    : 'NO ✅'
+                }
+              </b>
+            </div>
+
+            <div
+              style="
+                margin-top:8px;
+                color:#ffbd3c;
+                font-weight:800;
+              "
+            >
+              Candidate Keys
+            </div>
+
+            <div
+              style="
+                word-break:break-word;
+                opacity:.82;
+              "
+            >
+              ${escape83B(
+                item.keys.join(', ') ||
+                '[none]'
+              )}
+            </div>
+
+        `;
+
+
+        if (
+          item.primitiveFields.length
+        ) {
+
+          html += `
+
+            <div
+              style="
+                margin-top:10px;
+                color:#ffbd3c;
+                font-weight:800;
+              "
+            >
+              Primitive Fields
+            </div>
+
+          `;
+
+
+          item.primitiveFields.forEach(
+            field => {
+
+              html += `
+
+                <div
+                  style="
+                    margin-top:4px;
+                    word-break:break-word;
+                  "
+                >
+                  ${escape83B(
+                    field.key
+                  )}:
+                  <b>
+                    ${escape83B(
+                      field.value
+                    )}
+                  </b>
+                </div>
+
+              `;
+
+            }
+          );
+
+        }
+
+
+        html += `
+
+          </div>
+
+        `;
+
+      }
+    );
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:20px;
+          color:#ffbd3c;
+          font-size:18px;
+          font-weight:900;
+        "
+      >
+        🧭 LEGACY PROVINCE RAM SOURCES
+      </div>
+
+      <div
+        style="
+          margin-top:6px;
+          opacity:.75;
+          line-height:1.5;
+        "
+      >
+        Các object RAM đang chứa một hoặc nhiều
+        tỉnh test cũ. Object xuất hiện ở đây
+        không mặc nhiên là nguyên nhân; đây là
+        danh sách để truy ngược nguồn.
+      </div>
+
+    `;
+
+
+    if (
+      trace.legacyNearby.length === 0
+    ) {
+
+      html += `
+
+        <div
+          style="
+            margin-top:12px;
+            padding:14px;
+            border-radius:14px;
+            background:rgba(45,200,120,.10);
+          "
+        >
+          Không tìm thấy object FIX03D59/STEP83
+          khác đang mang 4 tỉnh test.
+        </div>
+
+      `;
+
+    }
+
+
+    trace.legacyNearby.forEach(
+      (item, index) => {
+
+        html += `
+
+          <div
+            style="
+              margin-top:12px;
+              padding:15px;
+              border-radius:16px;
+              background:rgba(255,189,60,.09);
+              border:1px solid rgba(255,189,60,.20);
+              line-height:1.55;
+            "
+          >
+
+            <div
+              style="
+                font-weight:900;
+                word-break:break-word;
+              "
+            >
+              ${index + 1}.
+              ${escape83B(
+                item.name
+              )}
+            </div>
+
+            <div
+              style="
+                margin-top:6px;
+                opacity:.75;
+                word-break:break-word;
+              "
+            >
+              Keys:
+              ${escape83B(
+                item.keys.join(', ') ||
+                '[none]'
+              )}
+            </div>
+
+        `;
+
+
+        item.legacyPaths.forEach(
+          path => {
+
+            html += `
+
+              <div
+                style="
+                  margin-top:7px;
+                  word-break:break-word;
+                "
+              >
+                📍
+                ${escape83B(
+                  path.path
+                )}
+
+                =
+                <b>
+                  ${escape83B(
+                    path.value
+                  )}
+                </b>
+              </div>
+
+            `;
+
+          }
+        );
+
+
+        html += `
+
+          </div>
+
+        `;
+
+      }
+    );
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:18px;
+          padding:14px;
+          border-radius:14px;
+          background:rgba(52,211,153,.12);
+          color:#e4fff2;
+          font-weight:900;
+          line-height:1.55;
+        "
+      >
+        🔒 READ ONLY · ZERO WRITE
+        <br>
+        NO ENGINE EXECUTION
+      </div>
+
+    `;
+
+
+    output.innerHTML =
+      html;
+
+  }
+
+
+  /* =========================================================
+     RUN
+     ========================================================= */
+
+  function runStep83BSourceTrace() {
+
+    const output =
+      document.getElementById(
+        OUTPUT_ID
+      );
+
+
+    if (!output) {
+
+      return;
+
+    }
+
+
+    let trace;
+
+
+    try {
+
+      trace =
+        inspectStep83BSource();
+
+    } catch (error) {
+
+      output.innerHTML = `
+
+        <div
+          style="
+            margin-top:14px;
+            padding:14px;
+            border-radius:14px;
+            background:rgba(255,80,80,.15);
+          "
+        >
+          ❌ SOURCE TRACE ERROR
+          <br><br>
+          ${escape83B(
+            error?.message ||
+            String(error)
+          )}
+        </div>
+
+      `;
+
+      return;
+
+    }
+
+
+    window
+      .LAST_FIX03D59_STEP83B_SOURCE_TRACE =
+      trace;
+
+
+    renderStep83BTrace(
+      trace,
+      output
+    );
+
+  }
+
+
+  /* =========================================================
+     BUILD MOBILE UI
+     ========================================================= */
+
+  function buildStep83BSourceTraceUI() {
+
+    if (
+      document.getElementById(
+        PANEL_ID
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      PANEL_ID;
+
+
+    panel.style.cssText = [
+      'margin:18px 24px 30px',
+      'padding:20px',
+      'border-radius:24px',
+      'background:linear-gradient(145deg,#242d67,#1b214b)',
+      'border:1px solid rgba(255,193,61,.30)',
+      'color:#fff',
+      'box-sizing:border-box'
+    ].join(';');
+
+
+    panel.innerHTML = `
+
+      <div
+        style="
+          font-size:20px;
+          font-weight:900;
+        "
+      >
+        🔬 STEP 8.3B SOURCE TRACE
+      </div>
+
+      <div
+        style="
+          margin-top:8px;
+          opacity:.72;
+          line-height:1.55;
+        "
+      >
+        Truy ngược nguồn của 4 province
+        xuất hiện tại checkpoint 8.3B.
+      </div>
+
+      <div
+        style="
+          margin-top:7px;
+          opacity:.72;
+          font-size:13px;
+        "
+      >
+        READ ONLY · ZERO WRITE · NO ENGINE EXECUTION
+      </div>
+
+      <div
+        id="fix03d59-step83b-source-trace-control"
+        role="button"
+        tabindex="0"
+        style="
+          display:flex;
+          width:100%;
+          min-height:60px;
+          margin-top:18px;
+          padding:15px;
+          border-radius:16px;
+          background:linear-gradient(90deg,#ffc13d,#ff963d);
+          color:#17182a;
+          font-size:16px;
+          font-weight:900;
+          align-items:center;
+          justify-content:center;
+          text-align:center;
+          box-sizing:border-box;
+        "
+      >
+        🔬 RUN 8.3B SOURCE TRACE
+      </div>
+
+      <div
+        id="${OUTPUT_ID}"
+      ></div>
+
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    const control =
+      document.getElementById(
+        'fix03d59-step83b-source-trace-control'
+      );
+
+
+    if (control) {
+
+      control.addEventListener(
+        'click',
+        runStep83BSourceTrace
+      );
+
+
+      control.addEventListener(
+        'keydown',
+        function (event) {
+
+          if (
+            event.key === 'Enter' ||
+            event.key === ' '
+          ) {
+
+            event.preventDefault();
+
+            runStep83BSourceTrace();
+
+          }
+
+        }
+      );
+
+    }
+
+  }
+
+
+  /* =========================================================
+     INITIALIZE
+     ========================================================= */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildStep83BSourceTraceUI,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    window.setTimeout(
+      buildStep83BSourceTraceUI,
+      300
+    );
+
+  }
+
+
+  window.inspectStep83BSource03D59 =
+    inspectStep83BSource;
+
+
+  window.runStep83BSourceTrace03D59 =
+    runStep83BSourceTrace;
+
+
+  window.FIX03D59_STEP83B_SOURCE_TRACE_LOADED =
+    true;
+
+
+  console.log(
+    'FIX-03D5.9 STEP 8.3B SOURCE TRACE V1 loaded / READ ONLY / ZERO WRITE'
+  );
+
+})();
+
