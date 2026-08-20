@@ -1003,3 +1003,177 @@
   );
 
 })();
+
+function diagnoseMapping84F() {
+
+  const result =
+    window.LAST_FIX03D59_STEP84F ||
+    null;
+
+  console.log(
+    '=========================================='
+  );
+
+  console.log(
+    '🔎 FIX-03D5.9 — 8.4F MAPPING DIAGNOSIS'
+  );
+
+  console.log(
+    '=========================================='
+  );
+
+  if (!result) {
+
+    console.log(
+      '❌ Không có LAST_FIX03D59_STEP84F'
+    );
+
+    return null;
+  }
+
+  console.log(
+    '8.4F passed:',
+    result.passed
+  );
+
+  console.log(
+    'reason:',
+    result.reason
+  );
+
+  console.log(
+    'expectedCount:',
+    result.expectedCount
+  );
+
+  console.log(
+    'mappingCount:',
+    result.mappingCount
+  );
+
+  console.log(
+    'countsMatch:',
+    result.countsMatch
+  );
+
+  console.log(
+    'allMappingsValid:',
+    result.allMappingsValid
+  );
+
+  console.log(
+    '------------------------------------------'
+  );
+
+  const mappings =
+    Array.isArray(result.mappings)
+      ? result.mappings
+      : [];
+
+  if (!mappings.length) {
+
+    console.log(
+      '⚠️ Không có mapping nào để kiểm tra.'
+    );
+
+    return result;
+  }
+
+  console.table(
+    mappings.map(
+      item => ({
+
+        index:
+          item.mappingIndex,
+
+        prize:
+          item.prize,
+
+        province:
+          item.province,
+
+        forecastProvince:
+          item.forecastProvince,
+
+        forecastPrize:
+          item.forecastPrizeKey,
+
+        numberCount:
+          item.productionNumberCount,
+
+        provinceMatch:
+          item.provinceMatch,
+
+        prizeMetaValid:
+          item.prizeMetaValid,
+
+        forecastItemValid:
+          item.forecastItemValid,
+
+        numberSchemaValid:
+          item.numberSchemaValid,
+
+        mappingValid:
+          item.mappingValid
+
+      })
+    )
+  );
+
+  const failed =
+    mappings.filter(
+      item =>
+        item.mappingValid !== true
+    );
+
+  console.log(
+    '------------------------------------------'
+  );
+
+  console.log(
+    'FAILED MAPPINGS:',
+    failed.length
+  );
+
+  if (failed.length) {
+
+    console.table(
+      failed.map(
+        item => ({
+
+          index:
+            item.mappingIndex,
+
+          prize:
+            item.prize,
+
+          provinceMatch:
+            item.provinceMatch,
+
+          prizeMetaValid:
+            item.prizeMetaValid,
+
+          forecastItemValid:
+            item.forecastItemValid,
+
+          numberSchemaValid:
+            item.numberSchemaValid
+
+        })
+      )
+    );
+
+  } else {
+
+    console.log(
+      '✅ Không phát hiện mapping lỗi.'
+    );
+
+  }
+
+  return {
+    result,
+    failed
+  };
+}
+
