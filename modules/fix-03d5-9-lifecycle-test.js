@@ -1139,3 +1139,477 @@
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 — MOBILE SHADOW STORE INSPECTOR
+
+   PURPOSE:
+   - Inspect current Shadow Snapshot Store directly on mobile.
+   - Display province / prize / snapshot information.
+   - READ ONLY.
+   - ZERO WRITE.
+   - Never modify snapshots.
+   - Never modify production forecast.
+   ========================================================================= */
+
+(function () {
+
+  'use strict';
+
+
+  function safeShadowText(value) {
+
+    return String(
+      value ?? '--'
+    )
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+  }
+
+
+  function runMobileShadowInspector() {
+
+    const output =
+      document.getElementById(
+        'fix03d59-shadow-store-output'
+      );
+
+
+    if (!output) {
+
+      return;
+
+    }
+
+
+    if (
+      typeof window.readShadowSnapshotsV26 !==
+      'function'
+    ) {
+
+      output.innerHTML = `
+        <div class="fix84fl-error">
+
+          ❌ Không tìm thấy
+          <b>readShadowSnapshotsV26()</b>.
+
+          <br><br>
+
+          Shadow Snapshot Engine chưa sẵn sàng.
+
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    let snapshots;
+
+
+    try {
+
+      snapshots =
+        window.readShadowSnapshotsV26();
+
+    } catch (error) {
+
+      output.innerHTML = `
+        <div class="fix84fl-error">
+
+          ❌ Không đọc được Shadow Store.
+
+          <br><br>
+
+          ${safeShadowText(
+            error?.message || error
+          )}
+
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    if (
+      !Array.isArray(snapshots)
+    ) {
+
+      output.innerHTML = `
+        <div class="fix84fl-error">
+
+          ❌ Shadow Store không trả về Array.
+
+        </div>
+      `;
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * GROUP BY PROVINCE
+     * ---------------------------------------------------------
+     */
+
+    const provinceMap = {};
+
+
+    snapshots.forEach(
+      snapshot => {
+
+        const province =
+          snapshot?.province ||
+          snapshot?.provinceSlug ||
+          'UNKNOWN';
+
+
+        if (!provinceMap[province]) {
+
+          provinceMap[province] = {
+
+            province,
+
+            count: 0,
+
+            prizes: new Set()
+
+          };
+
+        }
+
+
+        provinceMap[province].count++;
+
+
+        const prize =
+          snapshot?.prize ||
+          snapshot?.giaiKey ||
+          snapshot?.prizeKey ||
+          null;
+
+
+        if (prize) {
+
+          provinceMap[
+            province
+          ].prizes.add(
+            prize
+          );
+
+        }
+
+      }
+    );
+
+
+    const provinces =
+      Object.values(
+        provinceMap
+      )
+        .sort(
+          (a, b) =>
+            String(a.province)
+              .localeCompare(
+                String(b.province)
+              )
+        );
+
+
+    let html = `
+
+      <div class="fix84fl-result">
+
+        <div class="fix84fl-section-label">
+
+          🔍 SHADOW STORE SUMMARY
+
+        </div>
+
+
+        <div class="fix84fl-locks">
+
+          <div>
+
+            Total Snapshots:
+
+            <b>
+              ${snapshots.length}
+            </b>
+
+          </div>
+
+
+          <div>
+
+            Provinces Found:
+
+            <b>
+              ${provinces.length}
+            </b>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    `;
+
+
+    if (
+      snapshots.length === 0
+    ) {
+
+      html += `
+
+        <div class="fix84fl-warning">
+
+          ⚠️ Shadow Store hiện đang rỗng.
+
+        </div>
+
+      `;
+
+    }
+
+
+    provinces.forEach(
+      (item, index) => {
+
+        html += `
+
+          <div class="fix84fl-mapping-ok">
+
+            <div class="fix84fl-mapping-title">
+
+              ${index + 1}.
+              ${safeShadowText(
+                item.province
+              )}
+
+            </div>
+
+
+            <div>
+
+              Snapshots:
+
+              <b>
+                ${item.count}
+              </b>
+
+            </div>
+
+
+            <div>
+
+              Prizes:
+
+              <b>
+                ${
+                  item.prizes.size
+                    ? safeShadowText(
+                        Array.from(
+                          item.prizes
+                        ).join(', ')
+                      )
+                    : '--'
+                }
+              </b>
+
+            </div>
+
+          </div>
+
+        `;
+
+      }
+    );
+
+
+    html += `
+
+      <div class="fix84fl-safe">
+
+        🔒 READ ONLY — ZERO WRITE
+
+        <br>
+
+        Không snapshot nào được sửa hoặc xóa.
+
+      </div>
+
+    `;
+
+
+    output.innerHTML =
+      html;
+
+  }
+
+
+  function buildMobileShadowInspector() {
+
+    if (
+      document.getElementById(
+        'fix03d59-shadow-store-panel'
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      'fix03d59-shadow-store-panel';
+
+
+    panel.innerHTML = `
+
+      <div
+        style="
+          margin:18px 0 30px;
+          padding:18px;
+          border-radius:20px;
+          background:#20264f;
+          color:white;
+        "
+      >
+
+        <h3 style="margin-top:0;">
+
+          🔍 SHADOW STORE INSPECTOR
+
+        </h3>
+
+
+        <div
+          style="
+            opacity:.72;
+            font-size:13px;
+            line-height:1.5;
+          "
+        >
+
+          Kiểm tra dữ liệu Shadow Snapshot
+          hiện đang lưu trên điện thoại.
+
+          <br>
+
+          READ ONLY · ZERO WRITE
+
+        </div>
+
+
+        <button
+          id="fix03d59-shadow-store-button"
+          type="button"
+          style="
+            display:block;
+            width:100%;
+            min-height:52px;
+            margin-top:16px;
+            border:0;
+            border-radius:14px;
+            background:#ffbd3c;
+            color:#17192f;
+            font-size:15px;
+            font-weight:900;
+          "
+        >
+
+          🔍 KIỂM TRA SHADOW STORE
+
+        </button>
+
+
+        <div
+          id="fix03d59-shadow-store-output"
+        ></div>
+
+      </div>
+
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    const button =
+      document.getElementById(
+        'fix03d59-shadow-store-button'
+      );
+
+
+    if (button) {
+
+      button.addEventListener(
+        'click',
+        runMobileShadowInspector
+      );
+
+    }
+
+  }
+
+
+  /*
+   * File 3 đang được load cuối app.js,
+   * nhưng vẫn hỗ trợ cả hai trạng thái DOM.
+   */
+
+  if (
+    document.readyState === 'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildMobileShadowInspector
+    );
+
+  } else {
+
+    buildMobileShadowInspector();
+
+  }
+
+
+  window.runMobileShadowInspector =
+    runMobileShadowInspector;
+
+
+  console.log(
+    'FIX-03D5.9 Mobile Shadow Store Inspector loaded / READ ONLY / ZERO WRITE'
+  );
+
+})();
+
