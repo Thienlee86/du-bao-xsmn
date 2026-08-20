@@ -1,13 +1,19 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4F-L / 8.4F-LH
-   MOBILE FINAL LIFECYCLE TEST
+   FINAL MOBILE LIFECYCLE TEST — STABLE DOM BUILD
 
    PURPOSE:
-   - Test 8.4F-L lifecycle gate.
-   - Verify read-only lifecycle bridge.
-   - Run 8.4F-LH lifecycle hook.
-   - Diagnose 8.4F Production Forecast Mapping Preview.
-   - Display results directly on mobile.
+   - Verify 8.4F-L Lifecycle Gate.
+   - Verify Read-Only Bridge.
+   - Invoke 8.4F-LH Lifecycle Hook.
+   - Diagnose 8.4F Mapping Preview.
+   - Build mobile controls using direct DOM creation.
+
+   SAFETY:
+   - Never create or modify LAST_FORECAST.
+   - Never modify candidates.
+   - Never call savePrediction().
+   - Never write production/storage.
 
    TEST ONLY
    READ ONLY
@@ -20,23 +26,22 @@
   'use strict';
 
 
-  /* =====================================================================
-     HELPERS
-     ===================================================================== */
+  /*
+   * =========================================================
+   * HELPERS
+   * =========================================================
+   */
 
-  function safeText(value) {
+  function safeText84FL(value) {
 
     return String(
       value ?? '--'
-    )
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+    );
 
   }
 
 
-  function yesNo(value) {
+  function yesNo84FL(value) {
 
     return value === true
       ? 'YES ✅'
@@ -45,15 +50,183 @@
   }
 
 
-  /* =====================================================================
-     FINAL LIFECYCLE TEST
-     ===================================================================== */
+  function createLine84FL(
+    label,
+    value
+  ) {
 
-  function runFinalLifecycleTest() {
+    const row =
+      document.createElement(
+        'div'
+      );
+
+
+    row.style.marginBottom =
+      '7px';
+
+
+    const labelSpan =
+      document.createElement(
+        'span'
+      );
+
+
+    labelSpan.textContent =
+      label + ': ';
+
+
+    const valueStrong =
+      document.createElement(
+        'strong'
+      );
+
+
+    valueStrong.textContent =
+      safeText84FL(
+        value
+      );
+
+
+    row.appendChild(
+      labelSpan
+    );
+
+
+    row.appendChild(
+      valueStrong
+    );
+
+
+    return row;
+
+  }
+
+
+  /*
+   * =========================================================
+   * PANEL STYLING
+   * =========================================================
+   */
+
+  function applyPanelStyle84FL(
+    panel
+  ) {
+
+    panel.style.margin =
+      '18px 24px 30px';
+
+
+    panel.style.padding =
+      '22px';
+
+
+    panel.style.borderRadius =
+      '28px';
+
+
+    panel.style.background =
+      'linear-gradient(145deg,#242d67,#1b214b)';
+
+
+    panel.style.border =
+      '1px solid rgba(255,193,61,.35)';
+
+
+    panel.style.color =
+      '#ffffff';
+
+
+    panel.style.boxSizing =
+      'border-box';
+
+  }
+
+
+  function applyButtonStyle84FL(
+    button
+  ) {
+
+    button.style.display =
+      'block';
+
+
+    button.style.width =
+      '100%';
+
+
+    button.style.minHeight =
+      '56px';
+
+
+    button.style.marginTop =
+      '14px';
+
+
+    button.style.padding =
+      '15px 12px';
+
+
+    button.style.border =
+      '0';
+
+
+    button.style.borderRadius =
+      '16px';
+
+
+    button.style.background =
+      'linear-gradient(90deg,#ffc13d,#ff9a3d)';
+
+
+    button.style.color =
+      '#17182a';
+
+
+    button.style.fontSize =
+      '16px';
+
+
+    button.style.fontWeight =
+      '900';
+
+
+    button.style.textAlign =
+      'center';
+
+
+    button.style.cursor =
+      'pointer';
+
+
+    button.style.visibility =
+      'visible';
+
+
+    button.style.opacity =
+      '1';
+
+
+    button.style.position =
+      'relative';
+
+
+    button.style.zIndex =
+      '10';
+
+  }
+
+
+  /*
+   * =========================================================
+   * FINAL LIFECYCLE TEST
+   * =========================================================
+   */
+
+  function runLifecycleTest84FL() {
 
     const output =
       document.getElementById(
-        'fix03d59-final-output'
+        'fix03d59-84fl-test-output'
       );
 
 
@@ -64,26 +237,25 @@
     }
 
 
-    const lifecycleFn =
+    output.replaceChildren();
+
+
+    const inspector =
       window
         .inspectProductionForecastLifecycle84FL;
 
 
     if (
-      typeof lifecycleFn !==
+      typeof inspector !==
       'function'
     ) {
 
-      output.innerHTML = `
-        <div style="
-          margin-top:14px;
-          padding:14px;
-          border-radius:12px;
-          background:rgba(255,70,70,.15);
-        ">
-          ❌ 8.4F-L Lifecycle Gate chưa được tải.
-        </div>
-      `;
+      output.appendChild(
+        createLine84FL(
+          'Lifecycle Gate',
+          'NOT AVAILABLE ❌'
+        )
+      );
 
       return;
 
@@ -96,24 +268,17 @@
     try {
 
       lifecycle =
-        lifecycleFn();
+        inspector();
 
     } catch (error) {
 
-      output.innerHTML = `
-        <div style="
-          margin-top:14px;
-          padding:14px;
-          border-radius:12px;
-          background:rgba(255,70,70,.15);
-        ">
-          ❌ Lifecycle Gate Exception
-          <br><br>
-          ${safeText(
-            error?.message || error
-          )}
-        </div>
-      `;
+      output.appendChild(
+        createLine84FL(
+          'Lifecycle Gate Error',
+          error?.message ||
+          String(error)
+        )
+      );
 
       return;
 
@@ -132,50 +297,58 @@
       true;
 
 
-    const hookFn =
+    const hookInspector =
       window
         .inspectLifecycle84FLH;
 
 
-    let hook =
+    let hookResult =
       null;
 
 
     if (
-      typeof hookFn ===
+      typeof hookInspector ===
       'function'
     ) {
 
       try {
 
-        hook =
-          hookFn();
+        hookResult =
+          hookInspector();
 
       } catch (error) {
 
-        hook = {
+        hookResult = {
 
           ready: false,
+
           passed: false,
 
           reason:
-            'HOOK_EXCEPTION',
+            'TEST_HOOK_EXCEPTION',
 
           stageReason:
             error?.message ||
             String(error),
 
           writeAuthorized: false,
+
           productionWrite: false,
+
           storageWrite: false,
+
           integrationPerformed: false,
 
           savePredictionCalled: false,
+
           forecastCreated: false,
+
           forecastModified: false,
+
           candidateModified: false,
 
           readOnly: true,
+
           failClosed: true
 
         };
@@ -202,252 +375,216 @@
 
 
     const hookSafe =
-      !hook ||
+      !hookResult ||
       Boolean(
-        hook.writeAuthorized === false &&
-        hook.productionWrite === false &&
-        hook.storageWrite === false &&
-        hook.integrationPerformed === false &&
-        hook.savePredictionCalled === false &&
-        hook.forecastCreated === false &&
-        hook.forecastModified === false &&
-        hook.candidateModified === false &&
-        hook.readOnly === true &&
-        hook.failClosed === true
+        hookResult.writeAuthorized === false &&
+        hookResult.productionWrite === false &&
+        hookResult.storageWrite === false &&
+        hookResult.integrationPerformed === false &&
+        hookResult.savePredictionCalled === false &&
+        hookResult.forecastCreated === false &&
+        hookResult.forecastModified === false &&
+        hookResult.candidateModified === false &&
+        hookResult.readOnly === true &&
+        hookResult.failClosed === true
       );
 
 
-    const safe =
+    const lines = [
+
+      [
+        'Lifecycle State',
+        lifecycle?.lifecycleState
+      ],
+
+      [
+        'Lifecycle Reason',
+        lifecycle?.reason
+      ],
+
+      [
+        'Forecast Exists',
+        yesNo84FL(
+          lifecycle?.forecastExists
+        )
+      ],
+
+      [
+        'Forecast Valid',
+        yesNo84FL(
+          lifecycle?.forecastValid
+        )
+      ],
+
+      [
+        'Mapping Preview Exists',
+        yesNo84FL(
+          lifecycle?.mappingPreviewExists
+        )
+      ],
+
+      [
+        'Mapping Ready',
+        yesNo84FL(
+          lifecycle?.mappingReady
+        )
+      ],
+
+      [
+        'Bridge Exists',
+        yesNo84FL(
+          Boolean(bridge)
+        )
+      ],
+
+      [
+        'Province',
+        bridge?.forecastProvince
+      ],
+
+      [
+        'Window Size',
+        bridge?.forecastWindowSize
+      ],
+
+      [
+        'Prize Count',
+        bridge?.forecastPrizeCount
+      ],
+
+      [
+        'Hook Script Loaded',
+        yesNo84FL(
+          hookLoaded
+        )
+      ],
+
+      [
+        'Hook Inspector',
+        yesNo84FL(
+          typeof hookInspector ===
+          'function'
+        )
+      ],
+
+      [
+        'Hook Passed',
+        yesNo84FL(
+          hookResult?.passed
+        )
+      ],
+
+      [
+        'Hook Reason',
+        hookResult?.reason ||
+        'NOT AVAILABLE'
+      ],
+
+      [
+        'Failed Stage',
+        hookResult?.failedStage
+      ],
+
+      [
+        'Stage Reason',
+        hookResult?.stageReason
+      ],
+
+      [
+        'Lifecycle Safety',
+        yesNo84FL(
+          lifecycleSafe
+        )
+      ],
+
+      [
+        'Hook Safety',
+        yesNo84FL(
+          hookSafe
+        )
+      ]
+
+    ];
+
+
+    lines.forEach(
+      function (item) {
+
+        output.appendChild(
+          createLine84FL(
+            item[0],
+            item[1]
+          )
+        );
+
+      }
+    );
+
+
+    const final =
+      document.createElement(
+        'div'
+      );
+
+
+    final.style.marginTop =
+      '16px';
+
+
+    final.style.padding =
+      '14px';
+
+
+    final.style.borderRadius =
+      '14px';
+
+
+    final.style.fontWeight =
+      '900';
+
+
+    if (
       lifecycleSafe &&
-      hookSafe;
+      hookSafe
+    ) {
+
+      final.style.background =
+        'rgba(45,200,120,.15)';
 
 
-    output.innerHTML = `
+      final.textContent =
+        '🔒 SAFETY LOCKS VERIFIED — ZERO WRITE';
 
-      <div style="
-        margin-top:18px;
-        padding:15px;
-        border-radius:15px;
-        background:rgba(255,255,255,.06);
-        line-height:1.8;
-      ">
+    } else {
 
-        <div style="
-          color:#ffc13d;
-          font-weight:900;
-          margin-bottom:8px;
-        ">
-          ① 8.4F-L LIFECYCLE GATE
-        </div>
-
-        State:
-        <b>
-          ${safeText(
-            lifecycle?.lifecycleState
-          )}
-        </b>
-
-        <br>
-
-        Reason:
-        <b>
-          ${safeText(
-            lifecycle?.reason
-          )}
-        </b>
-
-        <br>
-
-        Forecast Exists:
-        <b>
-          ${yesNo(
-            lifecycle?.forecastExists
-          )}
-        </b>
-
-        <br>
-
-        Forecast Valid:
-        <b>
-          ${yesNo(
-            lifecycle?.forecastValid
-          )}
-        </b>
-
-        <br>
-
-        Mapping Preview:
-        <b>
-          ${yesNo(
-            lifecycle?.mappingPreviewExists
-          )}
-        </b>
-
-        <br>
-
-        Mapping Ready:
-        <b>
-          ${yesNo(
-            lifecycle?.mappingReady
-          )}
-        </b>
+      final.style.background =
+        'rgba(255,80,80,.15)';
 
 
-        <div style="
-          margin-top:18px;
-          padding-top:14px;
-          border-top:1px solid rgba(255,255,255,.12);
-          color:#ffc13d;
-          font-weight:900;
-        ">
-          ② READ-ONLY BRIDGE
-        </div>
+      final.textContent =
+        '⚠️ SAFETY LOCK CHECK FAILED';
 
-        Bridge Exists:
-        <b>
-          ${yesNo(
-            Boolean(bridge)
-          )}
-        </b>
-
-        <br>
-
-        Province:
-        <b>
-          ${safeText(
-            bridge?.forecastProvince
-          )}
-        </b>
-
-        <br>
-
-        Window Size:
-        <b>
-          ${safeText(
-            bridge?.forecastWindowSize
-          )}
-        </b>
-
-        <br>
-
-        Prize Count:
-        <b>
-          ${safeText(
-            bridge?.forecastPrizeCount
-          )}
-        </b>
-
-        <br>
-
-        Mapping Ready:
-        <b>
-          ${yesNo(
-            bridge?.mappingReady
-          )}
-        </b>
+    }
 
 
-        <div style="
-          margin-top:18px;
-          padding-top:14px;
-          border-top:1px solid rgba(255,255,255,.12);
-          color:#ffc13d;
-          font-weight:900;
-        ">
-          ③ 8.4F-LH HOOK
-        </div>
-
-        Hook Script Loaded:
-        <b>
-          ${yesNo(
-            hookLoaded
-          )}
-        </b>
-
-        <br>
-
-        Hook Function:
-        <b>
-          ${yesNo(
-            typeof hookFn ===
-            'function'
-          )}
-        </b>
-
-        <br>
-
-        Hook Passed:
-        <b>
-          ${yesNo(
-            hook?.passed
-          )}
-        </b>
-
-        <br>
-
-        Hook Reason:
-        <b>
-          ${safeText(
-            hook?.reason ||
-            'NO_RESULT'
-          )}
-        </b>
-
-        <br>
-
-        Failed Stage:
-        <b>
-          ${safeText(
-            hook?.failedStage
-          )}
-        </b>
-
-        <br>
-
-        Stage Reason:
-        <b>
-          ${safeText(
-            hook?.stageReason
-          )}
-        </b>
-
-
-        <div style="
-          margin-top:18px;
-          padding:14px;
-          border-radius:12px;
-          font-weight:900;
-          background:${
-            safe
-              ? 'rgba(45,200,120,.15)'
-              : 'rgba(255,70,70,.15)'
-          };
-        ">
-
-          ${
-            safe
-              ? '🔒 SAFETY LOCKS VERIFIED — ZERO WRITE'
-              : '⚠️ SAFETY LOCK CHECK FAILED'
-          }
-
-        </div>
-
-      </div>
-
-    `;
+    output.appendChild(
+      final
+    );
 
   }
 
 
-  /* =====================================================================
-     8.4F MAPPING DIAGNOSIS
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 8.4F MAPPING DIAGNOSIS
+   * =========================================================
+   */
 
-  function runMappingDiagnosis() {
+  function runMappingDiagnosisUI84F() {
 
     const output =
       document.getElementById(
-        'fix03d59-final-output'
+        'fix03d59-84f-diagnosis-output'
       );
 
 
@@ -458,6 +595,9 @@
     }
 
 
+    output.replaceChildren();
+
+
     const result =
       window
         .LAST_FIX03D59_STEP84F ||
@@ -466,24 +606,13 @@
 
     if (!result) {
 
-      output.innerHTML = `
-        <div style="
-          margin-top:14px;
-          padding:14px;
-          border-radius:12px;
-          background:rgba(255,189,60,.12);
-        ">
+      output.appendChild(
+        createLine84FL(
+          '8.4F',
+          'LAST_FIX03D59_STEP84F NOT AVAILABLE ❌'
+        )
+      );
 
-          ⚠️ LAST_FIX03D59_STEP84F chưa tồn tại.
-
-          <br><br>
-
-          Hãy bấm
-          <b>RUN FINAL LIFECYCLE TEST</b>
-          trước.
-
-        </div>
-      `;
 
       return;
 
@@ -505,109 +634,66 @@
       );
 
 
-    let html = `
-
-      <div style="
-        margin-top:18px;
-        padding:15px;
-        border-radius:15px;
-        background:rgba(255,255,255,.06);
-        line-height:1.8;
-      ">
-
-        <div style="
-          color:#ffc13d;
-          font-weight:900;
-          font-size:17px;
-          margin-bottom:10px;
-        ">
-          🔎 8.4F MAPPING DIAGNOSIS
-        </div>
-
-        Passed:
-        <b>
-          ${yesNo(
-            result.passed
-          )}
-        </b>
-
-        <br>
-
-        Reason:
-        <b>
-          ${safeText(
-            result.reason
-          )}
-        </b>
-
-        <br>
-
-        Expected Count:
-        <b>
-          ${safeText(
-            result.expectedCount
-          )}
-        </b>
-
-        <br>
-
-        Mapping Count:
-        <b>
-          ${safeText(
-            result.mappingCount
-          )}
-        </b>
-
-        <br>
-
-        Counts Match:
-        <b>
-          ${yesNo(
-            result.countsMatch
-          )}
-        </b>
-
-        <br>
-
-        All Mappings Valid:
-        <b>
-          ${yesNo(
-            result.allMappingsValid
-          )}
-        </b>
-
-        <br>
-
-        Failed Mappings:
-        <b>
-          ${failed.length}
-        </b>
-
-      </div>
-
-    `;
+    output.appendChild(
+      createLine84FL(
+        'Passed',
+        yesNo84FL(
+          result.passed
+        )
+      )
+    );
 
 
-    if (
-      mappings.length === 0
-    ) {
+    output.appendChild(
+      createLine84FL(
+        'Reason',
+        result.reason
+      )
+    );
 
-      html += `
 
-        <div style="
-          margin-top:12px;
-          padding:14px;
-          border-radius:12px;
-          background:rgba(255,189,60,.12);
-        ">
+    output.appendChild(
+      createLine84FL(
+        'Expected Count',
+        result.expectedCount
+      )
+    );
 
-          ⚠️ Không có mapping nào để kiểm tra.
 
-        </div>
+    output.appendChild(
+      createLine84FL(
+        'Mapping Count',
+        result.mappingCount
+      )
+    );
 
-      `;
 
-    }
+    output.appendChild(
+      createLine84FL(
+        'Counts Match',
+        yesNo84FL(
+          result.countsMatch
+        )
+      )
+    );
+
+
+    output.appendChild(
+      createLine84FL(
+        'All Mappings Valid',
+        yesNo84FL(
+          result.allMappingsValid
+        )
+      )
+    );
+
+
+    output.appendChild(
+      createLine84FL(
+        'Failed Mappings',
+        failed.length
+      )
+    );
 
 
     mappings.forEach(
@@ -616,160 +702,186 @@
         index
       ) {
 
-        const valid =
-          item.mappingValid === true;
+        const box =
+          document.createElement(
+            'div'
+          );
 
 
-        html += `
+        box.style.marginTop =
+          '14px';
 
-          <div style="
-            margin-top:12px;
-            padding:14px;
-            border-radius:14px;
-            line-height:1.75;
-            background:${
-              valid
-                ? 'rgba(45,200,120,.10)'
-                : 'rgba(255,70,70,.13)'
-            };
-          ">
 
-            <div style="
-              color:#ffc13d;
-              font-weight:900;
-              font-size:16px;
-              margin-bottom:8px;
-            ">
+        box.style.padding =
+          '14px';
 
-              ${
-                valid
-                  ? '✅'
-                  : '❌'
-              }
 
-              Mapping ${index + 1}
+        box.style.borderRadius =
+          '14px';
 
-              ·
 
-              ${safeText(
-                item.prize ||
-                item.forecastPrizeKey
-              )}
+        box.style.background =
+          item.mappingValid === true
+            ? 'rgba(45,200,120,.10)'
+            : 'rgba(255,80,80,.13)';
 
-            </div>
 
-            Province:
-            <b>
-              ${safeText(
-                item.province
-              )}
-            </b>
+        const title =
+          document.createElement(
+            'div'
+          );
 
-            <br>
 
-            Forecast Province:
-            <b>
-              ${safeText(
-                item.forecastProvince
-              )}
-            </b>
+        title.style.fontWeight =
+          '900';
 
-            <br>
 
-            Forecast Prize:
-            <b>
-              ${safeText(
-                item.forecastPrizeKey
-              )}
-            </b>
+        title.style.marginBottom =
+          '8px';
 
-            <br>
 
-            Number Count:
-            <b>
-              ${safeText(
-                item.productionNumberCount
-              )}
-            </b>
+        title.textContent =
+          (
+            item.mappingValid === true
+              ? '✅ '
+              : '❌ '
+          ) +
+          'Mapping ' +
+          (index + 1) +
+          ' · ' +
+          safeText84FL(
+            item.prize ||
+            item.forecastPrizeKey
+          );
 
-            <br><br>
 
-            Province Match:
-            <b>
-              ${yesNo(
-                item.provinceMatch
-              )}
-            </b>
+        box.appendChild(
+          title
+        );
 
-            <br>
 
-            Prize Meta Valid:
-            <b>
-              ${yesNo(
-                item.prizeMetaValid
-              )}
-            </b>
+        const details = [
 
-            <br>
+          [
+            'Mapping Index',
+            item.mappingIndex
+          ],
 
-            Forecast Item Valid:
-            <b>
-              ${yesNo(
-                item.forecastItemValid
-              )}
-            </b>
+          [
+            'Province',
+            item.province
+          ],
 
-            <br>
+          [
+            'Forecast Province',
+            item.forecastProvince
+          ],
 
-            Number Schema Valid:
-            <b>
-              ${yesNo(
-                item.numberSchemaValid
-              )}
-            </b>
+          [
+            'Forecast Prize',
+            item.forecastPrizeKey
+          ],
 
-            <br>
+          [
+            'Number Count',
+            item.productionNumberCount
+          ],
 
-            Mapping Valid:
-            <b>
-              ${yesNo(
-                item.mappingValid
-              )}
-            </b>
+          [
+            'Province Match',
+            yesNo84FL(
+              item.provinceMatch
+            )
+          ],
 
-          </div>
+          [
+            'Prize Meta Valid',
+            yesNo84FL(
+              item.prizeMetaValid
+            )
+          ],
 
-        `;
+          [
+            'Forecast Item Valid',
+            yesNo84FL(
+              item.forecastItemValid
+            )
+          ],
+
+          [
+            'Number Schema Valid',
+            yesNo84FL(
+              item.numberSchemaValid
+            )
+          ],
+
+          [
+            'Mapping Valid',
+            yesNo84FL(
+              item.mappingValid
+            )
+          ]
+
+        ];
+
+
+        details.forEach(
+          function (detail) {
+
+            box.appendChild(
+              createLine84FL(
+                detail[0],
+                detail[1]
+              )
+            );
+
+          }
+        );
+
+
+        output.appendChild(
+          box
+        );
 
       }
     );
 
-
-    output.innerHTML =
-      html;
-
   }
 
 
-  /* =====================================================================
-     BUILD UI
-     ===================================================================== */
+  /*
+   * =========================================================
+   * BUILD PANEL
+   * =========================================================
+   */
 
-  function buildFinalTestUI() {
+  function buildLifecycleTestUI84FL() {
 
     /*
-     * Prevent duplicate panel.
+     * Remove any old diagnostic panels first.
      */
 
-    if (
-      document.getElementById(
-        'fix03d59-final-test-panel'
-      )
-    ) {
+    [
+      'fix03d59-84fl-test-panel',
+      'fix03d59-84f-diagnosis-panel',
+      'fix03d59-84fl-master-panel'
+    ].forEach(
+      function (id) {
 
-      return;
+        const old =
+          document.getElementById(
+            id
+          );
 
-    }
+
+        if (old) {
+
+          old.remove();
+
+        }
+
+      }
+    );
 
 
     const settings =
@@ -781,7 +893,7 @@
     if (!settings) {
 
       console.warn(
-        'FIX-03D5.9 FINAL TEST: tab-settings not found'
+        'FIX-03D5.9: tab-settings not found'
       );
 
       return;
@@ -789,129 +901,360 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * MASTER PANEL
+     * ---------------------------------------------------------
+     */
+
     const panel =
+      document.createElement(
+        'section'
+      );
+
+
+    panel.id =
+      'fix03d59-84fl-master-panel';
+
+
+    applyPanelStyle84FL(
+      panel
+    );
+
+
+    /*
+     * TITLE
+     */
+
+    const title =
+      document.createElement(
+        'h3'
+      );
+
+
+    title.textContent =
+      '🧪 FIX-03D5.9 FINAL TEST';
+
+
+    title.style.margin =
+      '0 0 8px';
+
+
+    title.style.fontSize =
+      '24px';
+
+
+    panel.appendChild(
+      title
+    );
+
+
+    /*
+     * DESCRIPTION
+     */
+
+    const description =
       document.createElement(
         'div'
       );
 
 
-    panel.id =
-      'fix03d59-final-test-panel';
+    description.textContent =
+      'Production Forecast Lifecycle';
+
+
+    description.style.opacity =
+      '.72';
+
+
+    description.style.marginBottom =
+      '6px';
+
+
+    panel.appendChild(
+      description
+    );
+
+
+    const path =
+      document.createElement(
+        'div'
+      );
+
+
+    path.textContent =
+      '8.4F-L Gate → Read-Only Bridge → 8.4F-LH Hook → 8.4F Mapping Diagnosis';
+
+
+    path.style.opacity =
+      '.72';
+
+
+    path.style.lineHeight =
+      '1.55';
+
+
+    path.style.marginBottom =
+      '10px';
+
+
+    panel.appendChild(
+      path
+    );
+
+
+    const safety =
+      document.createElement(
+        'div'
+      );
+
+
+    safety.textContent =
+      'READ ONLY · ZERO WRITE · FAIL CLOSED';
+
+
+    safety.style.opacity =
+      '.72';
+
+
+    safety.style.marginBottom =
+      '18px';
+
+
+    panel.appendChild(
+      safety
+    );
 
 
     /*
-     * IMPORTANT:
-     *
-     * Inline styles intentionally used here.
-     * This diagnostic panel must not depend
-     * on style.css.
+     * ---------------------------------------------------------
+     * BUTTON 1
+     * ---------------------------------------------------------
      */
 
-    panel.style.cssText = [
-      'margin:24px 0 90px',
-      'padding:18px',
-      'border-radius:20px',
-      'background:#20264f',
-      'color:#ffffff',
-      'box-sizing:border-box',
-      'border:1px solid rgba(255,193,61,.30)'
-    ].join(';');
+    const lifecycleButton =
+      document.createElement(
+        'button'
+      );
 
 
-    panel.innerHTML = `
-
-      <div style="
-        font-size:21px;
-        font-weight:900;
-        margin-bottom:8px;
-      ">
-        🧪 FIX-03D5.9 FINAL TEST
-      </div>
+    lifecycleButton.id =
+      'fix03d59-84fl-test-button';
 
 
-      <div style="
-        opacity:.72;
-        font-size:13px;
-        line-height:1.6;
-        margin-bottom:16px;
-      ">
-
-        Production Forecast Lifecycle
-
-        <br>
-
-        8.4F-L Gate →
-        Read-Only Bridge →
-        8.4F-LH Hook →
-        8.4F Mapping Diagnosis
-
-        <br><br>
-
-        READ ONLY · ZERO WRITE · FAIL CLOSED
-
-      </div>
+    lifecycleButton.type =
+      'button';
 
 
-      <button
-        id="fix03d59-run-final-test"
-        type="button"
-        style="
-          display:block !important;
-          visibility:visible !important;
-          opacity:1 !important;
-          width:100%;
-          min-height:56px;
-          margin:0 0 12px;
-          padding:14px;
-          border:0;
-          border-radius:15px;
-          background:#ffc13d;
-          color:#17182a;
-          font-size:16px;
-          font-weight:900;
-          text-align:center;
-          box-sizing:border-box;
-        "
-      >
-        🧪 RUN FINAL LIFECYCLE TEST
-      </button>
+    lifecycleButton.textContent =
+      '🧪 RUN FINAL LIFECYCLE TEST';
 
 
-      <button
-        id="fix03d59-run-mapping-diagnosis"
-        type="button"
-        style="
-          display:block !important;
-          visibility:visible !important;
-          opacity:1 !important;
-          width:100%;
-          min-height:56px;
-          margin:0;
-          padding:14px;
-          border:1px solid rgba(255,193,61,.60);
-          border-radius:15px;
-          background:#303966;
-          color:#ffffff;
-          font-size:16px;
-          font-weight:900;
-          text-align:center;
-          box-sizing:border-box;
-        "
-      >
-        🔎 RUN 8.4F DIAGNOSIS
-      </button>
+    applyButtonStyle84FL(
+      lifecycleButton
+    );
 
 
-      <div
-        id="fix03d59-final-output"
-      ></div>
+    lifecycleButton.addEventListener(
+      'click',
+      runLifecycleTest84FL
+    );
 
-    `;
+
+    panel.appendChild(
+      lifecycleButton
+    );
 
 
     /*
-     * Put the diagnostic at the END
-     * of Settings.
+     * OUTPUT 1
+     */
+
+    const lifecycleOutput =
+      document.createElement(
+        'div'
+      );
+
+
+    lifecycleOutput.id =
+      'fix03d59-84fl-test-output';
+
+
+    lifecycleOutput.style.marginTop =
+      '16px';
+
+
+    lifecycleOutput.style.lineHeight =
+      '1.6';
+
+
+    lifecycleOutput.style.fontSize =
+      '13px';
+
+
+    panel.appendChild(
+      lifecycleOutput
+    );
+
+
+    /*
+     * ---------------------------------------------------------
+     * DIVIDER
+     * ---------------------------------------------------------
+     */
+
+    const divider =
+      document.createElement(
+        'div'
+      );
+
+
+    divider.style.height =
+      '1px';
+
+
+    divider.style.background =
+      'rgba(255,255,255,.12)';
+
+
+    divider.style.margin =
+      '24px 0 18px';
+
+
+    panel.appendChild(
+      divider
+    );
+
+
+    /*
+     * DIAGNOSIS TITLE
+     */
+
+    const diagnosisTitle =
+      document.createElement(
+        'div'
+      );
+
+
+    diagnosisTitle.textContent =
+      '🔎 8.4F MAPPING DIAGNOSIS';
+
+
+    diagnosisTitle.style.fontSize =
+      '18px';
+
+
+    diagnosisTitle.style.fontWeight =
+      '900';
+
+
+    diagnosisTitle.style.marginBottom =
+      '8px';
+
+
+    panel.appendChild(
+      diagnosisTitle
+    );
+
+
+    const diagnosisDescription =
+      document.createElement(
+        'div'
+      );
+
+
+    diagnosisDescription.textContent =
+      'Kiểm tra chính xác mapping nào đang làm Production Forecast Mapping Preview thất bại.';
+
+
+    diagnosisDescription.style.opacity =
+      '.72';
+
+
+    diagnosisDescription.style.lineHeight =
+      '1.55';
+
+
+    panel.appendChild(
+      diagnosisDescription
+    );
+
+
+    /*
+     * ---------------------------------------------------------
+     * BUTTON 2
+     * ---------------------------------------------------------
+     */
+
+    const diagnosisButton =
+      document.createElement(
+        'button'
+      );
+
+
+    diagnosisButton.id =
+      'fix03d59-84f-diagnosis-button';
+
+
+    diagnosisButton.type =
+      'button';
+
+
+    diagnosisButton.textContent =
+      '🔎 RUN 8.4F MAPPING DIAGNOSIS';
+
+
+    applyButtonStyle84FL(
+      diagnosisButton
+    );
+
+
+    diagnosisButton.addEventListener(
+      'click',
+      runMappingDiagnosisUI84F
+    );
+
+
+    panel.appendChild(
+      diagnosisButton
+    );
+
+
+    /*
+     * OUTPUT 2
+     */
+
+    const diagnosisOutput =
+      document.createElement(
+        'div'
+      );
+
+
+    diagnosisOutput.id =
+      'fix03d59-84f-diagnosis-output';
+
+
+    diagnosisOutput.style.marginTop =
+      '16px';
+
+
+    diagnosisOutput.style.lineHeight =
+      '1.6';
+
+
+    diagnosisOutput.style.fontSize =
+      '13px';
+
+
+    panel.appendChild(
+      diagnosisOutput
+    );
+
+
+    /*
+     * ---------------------------------------------------------
+     * INSERT AT END OF SETTINGS
+     * ---------------------------------------------------------
      */
 
     settings.appendChild(
@@ -919,61 +1262,51 @@
     );
 
 
-    const finalButton =
-      document.getElementById(
-        'fix03d59-run-final-test'
-      );
-
-
-    const diagnosisButton =
-      document.getElementById(
-        'fix03d59-run-mapping-diagnosis'
-      );
-
-
-    if (finalButton) {
-
-      finalButton.addEventListener(
-        'click',
-        runFinalLifecycleTest
-      );
-
-    }
-
-
-    if (diagnosisButton) {
-
-      diagnosisButton.addEventListener(
-        'click',
-        runMappingDiagnosis
-      );
-
-    }
-
-
     console.log(
-      'FIX-03D5.9 FINAL TEST UI BUILT'
+      'FIX-03D5.9 FINAL TEST UI BUILT',
+      {
+        panel:
+          Boolean(
+            document.getElementById(
+              'fix03d59-84fl-master-panel'
+            )
+          ),
+
+        lifecycleButton:
+          Boolean(
+            document.getElementById(
+              'fix03d59-84fl-test-button'
+            )
+          ),
+
+        diagnosisButton:
+          Boolean(
+            document.getElementById(
+              'fix03d59-84f-diagnosis-button'
+            )
+          )
+      }
     );
 
   }
 
 
-  /* =====================================================================
-     INITIALIZE
-     ===================================================================== */
+  /*
+   * =========================================================
+   * INITIALIZE
+   * =========================================================
+   */
 
-  function initializeFinalTestUI() {
+  function initialize84FLTest() {
 
     /*
-     * Delay slightly so the normal Settings UI,
-     * V2.2 and V2.4 can finish building first.
-     *
-     * No production state is touched.
+     * Small delay deliberately allows the normal application
+     * UI to finish constructing tab-settings first.
      */
 
     window.setTimeout(
-      buildFinalTestUI,
-      800
+      buildLifecycleTestUI84FL,
+      300
     );
 
   }
@@ -986,26 +1319,33 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      initializeFinalTestUI
+      initialize84FLTest,
+      {
+        once: true
+      }
     );
 
   } else {
 
-    initializeFinalTestUI();
+    initialize84FLTest();
 
   }
 
 
-  /* =====================================================================
-     PUBLIC DIAGNOSTIC API
-     ===================================================================== */
+  /*
+   * Public diagnostic access.
+   */
 
   window.runLifecycleTest84FL =
-    runFinalLifecycleTest;
+    runLifecycleTest84FL;
 
 
   window.runMappingDiagnosisUI84F =
-    runMappingDiagnosis;
+    runMappingDiagnosisUI84F;
+
+
+  window.rebuildLifecycleTestUI84FL =
+    buildLifecycleTestUI84FL;
 
 
   window.FIX03D59_FINAL_TEST_UI_LOADED =
@@ -1013,8 +1353,8 @@
 
 
   console.log(
-    'FIX-03D5.9 FINAL TEST loaded / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 FINAL TEST loaded — DIRECT DOM / READ ONLY / ZERO WRITE'
   );
 
-
 })();
+
