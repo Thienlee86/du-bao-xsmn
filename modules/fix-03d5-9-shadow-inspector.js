@@ -737,13 +737,31 @@
       </p>
 
 
-      <button
-        type="button"
+            <div
         id="fix03d59-shadow-inspector-button"
-        class="btn-primary"
+        role="button"
+        tabindex="0"
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          width:100%;
+          min-height:58px;
+          margin-top:16px;
+          padding:15px 16px;
+          border-radius:14px;
+          background:linear-gradient(135deg,#ffbd3c,#ff963c);
+          color:#17192f;
+          font-size:16px;
+          font-weight:800;
+          text-align:center;
+          cursor:pointer;
+          visibility:visible;
+          opacity:1;
+        "
       >
         🕵️ RUN SHADOW INSPECTOR
-      </button>
+      </div>
 
 
       <div
