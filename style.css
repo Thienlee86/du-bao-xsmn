@@ -235,3 +235,10 @@ table.stat-table th { background: rgba(255,255,255,0.05); color: var(--accent); 
 .empty-state { text-align: center; padding: 24px 10px; color: var(--text-dim); font-size: 13px; }
 
 .section-title { font-size: 12px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin: 16px 0 8px; }
+/* FIX-03D5.9 — force diagnostic buttons visible */
+#fix03d59-84fl-test-button,
+#fix03d59-84f-diagnosis-button {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
