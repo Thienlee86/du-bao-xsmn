@@ -242,3 +242,21 @@ table.stat-table th { background: rgba(255,255,255,0.05); color: var(--accent); 
   visibility: visible !important;
   opacity: 1 !important;
 }
+/* FIX-03D5.9 diagnostic button mobile style */
+.fix84fl-button {
+  display: block !important;
+  width: 100% !important;
+  min-height: 52px !important;
+  margin-top: 16px !important;
+  padding: 14px 16px !important;
+  border: none !important;
+  border-radius: 14px !important;
+  background: #ffbd3c !important;
+  color: #17192f !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+  text-align: center !important;
+  cursor: pointer !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
