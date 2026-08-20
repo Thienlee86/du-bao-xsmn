@@ -3056,3 +3056,93 @@
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 — SOURCE TRACE V1 MOBILE LOAD MARKER
+   DIAGNOSTIC ONLY · READ ONLY · ZERO WRITE
+   ========================================================================= */
+
+(function () {
+
+  'use strict';
+
+  function buildSourceTraceLoadMarker03D59() {
+
+    if (
+      document.getElementById(
+        'fix03d59-source-trace-load-marker'
+      )
+    ) {
+      return;
+    }
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+    if (!settings) {
+      return;
+    }
+
+    const marker =
+      document.createElement('div');
+
+    marker.id =
+      'fix03d59-source-trace-load-marker';
+
+    marker.style.cssText = [
+      'margin:18px 24px 30px',
+      'padding:18px',
+      'border-radius:20px',
+      'background:#20264f',
+      'border:1px solid rgba(255,193,61,.35)',
+      'color:#ffffff',
+      'font-weight:800',
+      'line-height:1.6',
+      'box-sizing:border-box'
+    ].join(';');
+
+    marker.innerHTML = `
+      🧭 SOURCE TRACE V1 LOAD MARKER
+      <br>
+      <span style="opacity:.72;font-weight:600;">
+        Shadow Inspector reached end of file.
+      </span>
+      <br>
+      <span style="color:#9ff0c8;">
+        🔒 READ ONLY · ZERO WRITE
+      </span>
+    `;
+
+    settings.appendChild(
+      marker
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildSourceTraceLoadMarker03D59,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    buildSourceTraceLoadMarker03D59();
+
+  }
+
+
+  window.FIX03D59_SOURCE_TRACE_LOAD_MARKER =
+    true;
+
+})();
+
