@@ -3165,3 +3165,1080 @@
 
 })();
 
+/* =========================================================================
+   FIX-03D5.9 — STEP 8.2A SOURCE TRACE V1
+
+   PURPOSE:
+   - Trace RAM immediately before STEP 8.3B.
+   - Discover FIX03D59 / STEP82 / STEP83 objects carrying legacy provinces.
+   - Identify possible upstream source of STEP 8.3B candidates.
+   - Diagnostic only.
+
+   READ ONLY
+   ZERO WRITE
+   NO ENGINE EXECUTION
+   ========================================================================= */
+
+(function () {
+
+  'use strict';
+
+
+  const PANEL_ID =
+    'fix03d59-step82a-source-trace-panel';
+
+  const OUTPUT_ID =
+    'fix03d59-step82a-source-trace-output';
+
+
+  const LEGACY_PROVINCES = [
+    'tp-hcm',
+    'tphcm',
+    'tay-ninh',
+    'tien-giang',
+    'binh-duong'
+  ];
+
+
+  function normalize82A(value) {
+
+    return String(
+      value ?? ''
+    )
+      .trim()
+      .toLowerCase();
+
+  }
+
+
+  function escape82A(value) {
+
+    return String(
+      value ?? '--'
+    )
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  }
+
+
+  function isLegacy82A(value) {
+
+    return LEGACY_PROVINCES.includes(
+      normalize82A(value)
+    );
+
+  }
+
+
+  function safeKeys82A(value) {
+
+    if (
+      !value ||
+      typeof value !== 'object'
+    ) {
+
+      return [];
+
+    }
+
+
+    try {
+
+      return Object.keys(value);
+
+    } catch (error) {
+
+      return [];
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * FIND ALL PROVINCE VALUES
+   * =========================================================
+   */
+
+  function findProvincePaths82A(
+    root,
+    rootName
+  ) {
+
+    const found = [];
+
+    const visited =
+      new WeakSet();
+
+
+    function walk(
+      value,
+      path,
+      depth
+    ) {
+
+      if (
+        depth > 10 ||
+        !value ||
+        typeof value !== 'object'
+      ) {
+
+        return;
+
+      }
+
+
+      if (
+        visited.has(value)
+      ) {
+
+        return;
+
+      }
+
+
+      visited.add(value);
+
+
+      let keys;
+
+
+      try {
+
+        keys =
+          Object.keys(value);
+
+      } catch (error) {
+
+        return;
+
+      }
+
+
+      keys.forEach(
+        function (key) {
+
+          let child;
+
+
+          try {
+
+            child =
+              value[key];
+
+          } catch (error) {
+
+            return;
+
+          }
+
+
+          const childPath =
+            path
+              ? path + '.' + key
+              : key;
+
+
+          const lowerKey =
+            String(key)
+              .toLowerCase();
+
+
+          /*
+           * Province-like field.
+           */
+
+          if (
+            lowerKey.includes(
+              'province'
+            )
+          ) {
+
+            if (
+              child === null ||
+              typeof child !== 'object'
+            ) {
+
+              const normalized =
+                normalize82A(child);
+
+
+              found.push({
+
+                path:
+                  childPath,
+
+                value:
+                  normalized,
+
+                legacy:
+                  isLegacy82A(
+                    normalized
+                  )
+
+              });
+
+            }
+
+          }
+
+
+          /*
+           * Also detect raw legacy strings even when
+           * field name itself does not contain "province".
+           */
+
+          if (
+            typeof child === 'string' &&
+            isLegacy82A(child)
+          ) {
+
+            const alreadyExists =
+              found.some(
+                item =>
+                  item.path ===
+                    childPath &&
+                  item.value ===
+                    normalize82A(child)
+              );
+
+
+            if (!alreadyExists) {
+
+              found.push({
+
+                path:
+                  childPath,
+
+                value:
+                  normalize82A(child),
+
+                legacy:
+                  true
+
+              });
+
+            }
+
+          }
+
+
+          if (
+            child &&
+            typeof child === 'object'
+          ) {
+
+            walk(
+              child,
+              childPath,
+              depth + 1
+            );
+
+          }
+
+        }
+      );
+
+    }
+
+
+    if (
+      root &&
+      typeof root === 'object'
+    ) {
+
+      walk(
+        root,
+        rootName,
+        0
+      );
+
+    }
+
+
+    return found;
+
+  }
+
+
+  /*
+   * =========================================================
+   * DISCOVER RAM OBJECTS
+   * =========================================================
+   */
+
+  function discoverStep82ARam() {
+
+    const results = [];
+
+    let names = [];
+
+
+    try {
+
+      names =
+        Object.getOwnPropertyNames(
+          window
+        );
+
+    } catch (error) {
+
+      return results;
+
+    }
+
+
+    names.forEach(
+      function (name) {
+
+        const upper =
+          String(name)
+            .toUpperCase();
+
+
+        /*
+         * Limit inspection to our diagnostic /
+         * certification namespace.
+         */
+
+        if (
+          !(
+            upper.includes('FIX03D59') ||
+            upper.includes('STEP82') ||
+            upper.includes('STEP83')
+          )
+        ) {
+
+          return;
+
+        }
+
+
+        let value;
+
+
+        try {
+
+          value =
+            window[name];
+
+        } catch (error) {
+
+          return;
+
+        }
+
+
+        if (
+          !value ||
+          typeof value !== 'object'
+        ) {
+
+          return;
+
+        }
+
+
+        const paths =
+          findProvincePaths82A(
+            value,
+            name
+          );
+
+
+        const legacyPaths =
+          paths.filter(
+            item =>
+              item.legacy === true
+          );
+
+
+        results.push({
+
+          name,
+
+          keys:
+            safeKeys82A(value),
+
+          paths,
+
+          legacyPaths,
+
+          containsLegacy:
+            legacyPaths.length > 0
+
+        });
+
+      }
+    );
+
+
+    /*
+     * Put legacy carriers first.
+     */
+
+    results.sort(
+      function (a, b) {
+
+        if (
+          a.containsLegacy !==
+          b.containsLegacy
+        ) {
+
+          return a.containsLegacy
+            ? -1
+            : 1;
+
+        }
+
+
+        return String(a.name)
+          .localeCompare(
+            String(b.name)
+          );
+
+      }
+    );
+
+
+    return results;
+
+  }
+
+
+  /*
+   * =========================================================
+   * STEP 8.3B REFERENCE
+   * =========================================================
+   */
+
+  function inspect83BReference82A() {
+
+    const result =
+      window
+        .LAST_FIX03D59_STEP83B_RESULT ||
+      null;
+
+
+    if (!result) {
+
+      return {
+
+        exists: false,
+        candidateCount: 0,
+        provinces: []
+
+      };
+
+    }
+
+
+    const candidates =
+      Array.isArray(
+        result.candidates
+      )
+        ? result.candidates
+        : [];
+
+
+    const provinces =
+      candidates
+        .map(
+          item =>
+            normalize82A(
+              item?.province ||
+              item?.provinceSlug
+            )
+        )
+        .filter(Boolean);
+
+
+    return {
+
+      exists: true,
+
+      candidateCount:
+        candidates.length,
+
+      provinces
+
+    };
+
+  }
+
+
+  /*
+   * =========================================================
+   * MAIN INSPECTOR
+   * =========================================================
+   */
+
+  function inspectStep82ASourceTrace() {
+
+    const ram =
+      discoverStep82ARam();
+
+
+    const legacyCarriers =
+      ram.filter(
+        item =>
+          item.containsLegacy
+      );
+
+
+    const reference83B =
+      inspect83BReference82A();
+
+
+    const trace = {
+
+      timestamp:
+        new Date()
+          .toISOString(),
+
+      reference83B,
+
+      ramObjectCount:
+        ram.length,
+
+      legacyCarrierCount:
+        legacyCarriers.length,
+
+      legacyCarriers,
+
+      allRam:
+        ram,
+
+      readOnly:
+        true,
+
+      writeAuthorized:
+        false,
+
+      engineExecuted:
+        false
+
+    };
+
+
+    window
+      .LAST_FIX03D59_STEP82A_SOURCE_TRACE =
+      trace;
+
+
+    return trace;
+
+  }
+
+
+  /*
+   * =========================================================
+   * RENDER
+   * =========================================================
+   */
+
+  function renderStep82ATrace(
+    trace,
+    output
+  ) {
+
+    let html = `
+
+      <div
+        style="
+          margin-top:16px;
+          padding:16px;
+          border-radius:18px;
+          background:rgba(0,0,0,.16);
+          line-height:1.6;
+        "
+      >
+
+        <div
+          style="
+            color:#ffbd3c;
+            font-size:18px;
+            font-weight:900;
+          "
+        >
+          🧬 STEP 8.2A SOURCE TRACE
+        </div>
+
+        <div style="margin-top:10px;">
+          STEP 8.3B Reference:
+          <b>
+            ${
+              trace.reference83B.exists
+                ? 'EXISTS ✅'
+                : 'NOT AVAILABLE'
+            }
+          </b>
+        </div>
+
+        <div>
+          8.3B Candidate Count:
+          <b>
+            ${trace.reference83B.candidateCount}
+          </b>
+        </div>
+
+        <div>
+          8.3B Provinces:
+          <b>
+            ${escape82A(
+              trace.reference83B
+                .provinces
+                .join(', ') ||
+              '--'
+            )}
+          </b>
+        </div>
+
+        <div style="margin-top:8px;">
+          RAM Objects inspected:
+          <b>
+            ${trace.ramObjectCount}
+          </b>
+        </div>
+
+        <div>
+          Legacy carriers:
+          <b>
+            ${trace.legacyCarrierCount}
+          </b>
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:20px;
+          color:#ffbd3c;
+          font-size:18px;
+          font-weight:900;
+        "
+      >
+        🔎 UPSTREAM LEGACY CARRIERS
+      </div>
+
+    `;
+
+
+    if (
+      trace.legacyCarriers.length === 0
+    ) {
+
+      html += `
+
+        <div
+          style="
+            margin-top:12px;
+            padding:15px;
+            border-radius:15px;
+            background:rgba(52,211,153,.10);
+            line-height:1.6;
+          "
+        >
+          Không tìm thấy RAM object upstream
+          nào đang chứa các tỉnh test cũ.
+        </div>
+
+      `;
+
+    }
+
+
+    trace.legacyCarriers.forEach(
+      function (item, index) {
+
+        html += `
+
+          <div
+            style="
+              margin-top:12px;
+              padding:15px;
+              border-radius:16px;
+              background:rgba(255,189,60,.09);
+              border:1px solid rgba(255,189,60,.20);
+              line-height:1.55;
+            "
+          >
+
+            <div
+              style="
+                font-weight:900;
+                word-break:break-word;
+              "
+            >
+              ${index + 1}.
+              ${escape82A(
+                item.name
+              )}
+            </div>
+
+            <div
+              style="
+                margin-top:6px;
+                opacity:.70;
+                word-break:break-word;
+              "
+            >
+              Keys:
+              ${escape82A(
+                item.keys.join(', ') ||
+                '[none]'
+              )}
+            </div>
+
+        `;
+
+
+        item.legacyPaths.forEach(
+          function (path) {
+
+            html += `
+
+              <div
+                style="
+                  margin-top:8px;
+                  word-break:break-word;
+                "
+              >
+                📍
+                ${escape82A(
+                  path.path
+                )}
+                =
+                <b>
+                  ${escape82A(
+                    path.value
+                  )}
+                </b>
+              </div>
+
+            `;
+
+          }
+        );
+
+
+        html += `
+
+          </div>
+
+        `;
+
+      }
+    );
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:18px;
+          padding:14px;
+          border-radius:14px;
+          background:rgba(52,211,153,.12);
+          font-weight:900;
+          line-height:1.55;
+        "
+      >
+        🔒 READ ONLY · ZERO WRITE
+        <br>
+        NO ENGINE EXECUTION
+      </div>
+
+    `;
+
+
+    output.innerHTML =
+      html;
+
+  }
+
+
+  /*
+   * =========================================================
+   * RUN
+   * =========================================================
+   */
+
+  function runStep82ASourceTrace() {
+
+    const output =
+      document.getElementById(
+        OUTPUT_ID
+      );
+
+
+    if (!output) {
+
+      return null;
+
+    }
+
+
+    try {
+
+      const trace =
+        inspectStep82ASourceTrace();
+
+
+      renderStep82ATrace(
+        trace,
+        output
+      );
+
+
+      return trace;
+
+    } catch (error) {
+
+      output.innerHTML = `
+
+        <div
+          style="
+            margin-top:14px;
+            padding:14px;
+            border-radius:14px;
+            background:rgba(255,80,80,.15);
+          "
+        >
+          ❌ STEP 8.2A TRACE ERROR
+          <br><br>
+          ${escape82A(
+            error?.message ||
+            String(error)
+          )}
+        </div>
+
+      `;
+
+
+      return null;
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * BUILD MOBILE UI
+   * =========================================================
+   */
+
+  function buildStep82ASourceTraceUI() {
+
+    if (
+      document.getElementById(
+        PANEL_ID
+      )
+    ) {
+
+      return;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return;
+
+    }
+
+
+    const panel =
+      document.createElement(
+        'div'
+      );
+
+
+    panel.id =
+      PANEL_ID;
+
+
+    panel.style.cssText = [
+      'margin:18px 24px 30px',
+      'padding:20px',
+      'border-radius:24px',
+      'background:linear-gradient(145deg,#242d67,#1b214b)',
+      'border:1px solid rgba(255,193,61,.30)',
+      'color:#fff',
+      'box-sizing:border-box'
+    ].join(';');
+
+
+    panel.innerHTML = `
+
+      <div
+        style="
+          font-size:20px;
+          font-weight:900;
+        "
+      >
+        🧬 STEP 8.2A SOURCE TRACE
+      </div>
+
+      <div
+        style="
+          margin-top:8px;
+          opacity:.72;
+          line-height:1.55;
+        "
+      >
+        Truy ngược RAM trước STEP 8.3B để
+        xác định object nào đang mang các
+        province test cũ.
+      </div>
+
+      <div
+        style="
+          margin-top:7px;
+          opacity:.72;
+          font-size:13px;
+        "
+      >
+        READ ONLY · ZERO WRITE · NO ENGINE EXECUTION
+      </div>
+
+      <div
+        id="fix03d59-step82a-source-trace-control"
+        role="button"
+        tabindex="0"
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          width:100%;
+          min-height:60px;
+          margin-top:18px;
+          padding:15px;
+          border-radius:16px;
+          background:linear-gradient(90deg,#ffc13d,#ff963d);
+          color:#17182a;
+          font-size:16px;
+          font-weight:900;
+          text-align:center;
+          box-sizing:border-box;
+          cursor:pointer;
+        "
+      >
+        🧬 RUN 8.2A SOURCE TRACE
+      </div>
+
+      <div
+        id="${OUTPUT_ID}"
+      ></div>
+
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    const control =
+      document.getElementById(
+        'fix03d59-step82a-source-trace-control'
+      );
+
+
+    if (control) {
+
+      control.addEventListener(
+        'click',
+        runStep82ASourceTrace
+      );
+
+
+      control.addEventListener(
+        'keydown',
+        function (event) {
+
+          if (
+            event.key === 'Enter' ||
+            event.key === ' '
+          ) {
+
+            event.preventDefault();
+
+            runStep82ASourceTrace();
+
+          }
+
+        }
+      );
+
+    }
+
+  }
+
+
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
+
+  window.inspectStep82ASource03D59 =
+    inspectStep82ASourceTrace;
+
+
+  window.runStep82ASourceTrace03D59 =
+    runStep82ASourceTrace;
+
+
+  window.FIX03D59_STEP82A_SOURCE_TRACE_V1_LOADED =
+    true;
+
+
+  /*
+   * =========================================================
+   * INITIALIZE
+   * =========================================================
+   */
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      buildStep82ASourceTraceUI,
+      {
+        once: true
+      }
+    );
+
+  } else {
+
+    window.setTimeout(
+      buildStep82ASourceTraceUI,
+      350
+    );
+
+  }
+
+
+  console.log(
+    'FIX-03D5.9 STEP 8.2A SOURCE TRACE V1 loaded / READ ONLY / ZERO WRITE / NO ENGINE EXECUTION'
+  );
+
+})();
+
