@@ -1,22 +1,15 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION CANDIDATE BOUNDARY ADAPTER V2
+   PRODUCTION CANDIDATE BOUNDARY ADAPTER V3
 
    PURPOSE:
    - Build a canonical Production Candidate Boundary from the
      current Production Forecast scope.
    - Bridge the legacy STEP 8.3B candidate boundary to the
      current Production province.
-   - Preserve the original STEP 8.3B result unchanged.
+   - Use the CURRENT runtime Integration Gate whenever available.
+   - Preserve original STEP 8.3B candidates unchanged.
    - Produce a NEW read-only RAM boundary for downstream stages.
-   - Always prefer CURRENT Integration Gate inspection over
-     stale cached gate state.
-
-   SOURCE:
-   - Current Production Forecast / lifecycle.
-   - STEP 8.3B Scope Resolver.
-   - STEP 8.3B Integration Gate.
-   - Original STEP 8.3B candidate structure.
 
    IMPORTANT:
    - DO NOT modify buildProductionCandidateBoundaryV26().
@@ -39,7 +32,7 @@
 
 
   const VERSION_84H =
-    '84H-PRODUCTION-BOUNDARY-V2';
+    '84H-PRODUCTION-BOUNDARY-V3';
 
 
   /* =========================================================
@@ -66,7 +59,10 @@
         .toLowerCase();
 
 
-    return normalized || null;
+    return (
+      normalized ||
+      null
+    );
 
   }
 
@@ -97,6 +93,12 @@
 
       productionCandidateCount:
         0,
+
+      sourceCandidateProvinces:
+        [],
+
+      productionCandidateProvinces:
+        [],
 
       scopeMatched:
         false,
@@ -162,7 +164,7 @@
 
 
   /* =========================================================
-     SOURCE READERS
+     STEP 8.3B SOURCE
      ========================================================= */
 
   function get83BResult84H() {
@@ -170,38 +172,24 @@
     return (
       window
         .LAST_FIX03D59_STEP83B_RESULT ||
+
       window
         .LAST_FIX03D59_STEP83B ||
+
       null
     );
 
   }
 
 
+  /* =========================================================
+     SCOPE RESOLVER
+     ========================================================= */
+
   function getScopeResolution84H() {
 
     /*
-     * First accept a READY cached resolver result.
-     */
-
-    const existing =
-      window
-        .LAST_FIX03D59_STEP83B_SCOPE_RESOLUTION ||
-      null;
-
-
-    if (
-      existing &&
-      existing.ready === true
-    ) {
-
-      return existing;
-
-    }
-
-
-    /*
-     * Otherwise obtain CURRENT resolver state.
+     * Prefer CURRENT runtime resolver execution.
      *
      * Resolver is READ ONLY.
      */
@@ -212,60 +200,73 @@
 
 
     if (
-      typeof resolver !==
+      typeof resolver ===
       'function'
     ) {
 
-      return existing;
+      try {
 
-    }
-
-
-    try {
-
-      const current =
-        resolver();
+        const current =
+          resolver();
 
 
-      if (current) {
+        if (
+          current &&
+          current.ready === true
+        ) {
 
-        return current;
+          return current;
+
+        }
+
+      } catch (
+        error
+      ) {
+
+        /*
+         * Fall through to cached result.
+         */
 
       }
 
-    } catch (
-      error
-    ) {
-
-      /*
-       * Fail closed below.
-       */
-
     }
 
 
-    return existing;
+    /*
+     * Fallback only.
+     */
+
+    return (
+      window
+        .LAST_FIX03D59_STEP83B_SCOPE_RESOLUTION ||
+      null
+    );
 
   }
 
 
+  /* =========================================================
+     INTEGRATION GATE
+     ========================================================= */
+
   function getIntegrationGate84H() {
 
     /*
-     * IMPORTANT V2 FIX
+     * IMPORTANT V3 CHANGE
      * ---------------------------------------------------------
-     * Do NOT immediately return an existing cached gate.
+     * Run CURRENT Integration Gate first.
      *
-     * The cached result may have been created BEFORE the
-     * Production Forecast existed and can therefore contain:
+     * The mobile test proved the current gate can be:
+     *
+     *   Integration Ready: YES
+     *
+     * while an older cached object still contains:
      *
      *   integrationReady: false
      *
-     * even though the CURRENT runtime Integration Gate is now
-     * READY.
+     * Therefore current runtime inspection has priority.
      *
-     * The inspector is READ ONLY, so prefer a fresh inspection.
-     * ---------------------------------------------------------
+     * Inspector is READ ONLY / ZERO WRITE.
      */
 
     const inspector =
@@ -295,8 +296,7 @@
       ) {
 
         /*
-         * Do not guess.
-         * Fall back to published RAM result.
+         * Fail over to cached diagnostic result.
          */
 
       }
@@ -305,7 +305,7 @@
 
 
     /*
-     * Fallback only.
+     * Cached result is fallback only.
      */
 
     return (
@@ -436,7 +436,7 @@
     ) {
 
       /*
-       * Fall through to JSON clone.
+       * Fall through.
        */
 
     }
@@ -461,6 +461,44 @@
   }
 
 
+  function cloneCandidates84H(
+    candidates
+  ) {
+
+    const cloned = [];
+
+
+    for (
+      const candidate
+      of candidates
+    ) {
+
+      const copy =
+        cloneCandidate84H(
+          candidate
+        );
+
+
+      if (
+        copy === null ||
+        copy === undefined
+      ) {
+
+        return null;
+
+      }
+
+
+      cloned.push(copy);
+
+    }
+
+
+    return cloned;
+
+  }
+
+
   /* =========================================================
      MAIN BUILDER
      ========================================================= */
@@ -469,7 +507,7 @@
 
     /*
      * ---------------------------------------------------------
-     * SOURCE 1 — ORIGINAL STEP 8.3B
+     * SOURCE 1 — STEP 8.3B
      * ---------------------------------------------------------
      */
 
@@ -504,9 +542,19 @@
     }
 
 
+    const sourceCandidateProvinces =
+      sourceCandidates
+        .map(
+          getCandidateProvince84H
+        )
+        .filter(
+          Boolean
+        );
+
+
     /*
      * ---------------------------------------------------------
-     * SOURCE 2 — SCOPE RESOLVER
+     * SOURCE 2 — CURRENT PRODUCTION SCOPE
      * ---------------------------------------------------------
      */
 
@@ -519,8 +567,12 @@
       return fail84H(
         'STEP83B_SCOPE_RESOLVER_NOT_AVAILABLE',
         {
+
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          sourceCandidateProvinces
+
         }
       );
 
@@ -534,6 +586,7 @@
       return fail84H(
         'STEP83B_SCOPE_RESOLVER_NOT_READY',
         {
+
           resolverReason:
             resolver.reason ||
             null,
@@ -541,8 +594,8 @@
           sourceCandidateCount:
             sourceCandidates.length,
 
-          resolverReady:
-            false
+          sourceCandidateProvinces
+
         }
       );
 
@@ -551,9 +604,13 @@
 
     const productionProvince =
       normalizeProvince84H(
+
         resolver.resolvedScope ||
+
         resolver.productionProvince ||
+
         resolver.forecastProvince
+
       );
 
 
@@ -562,6 +619,7 @@
       return fail84H(
         'PRODUCTION_SCOPE_NOT_RESOLVED',
         {
+
           resolverReason:
             resolver.reason ||
             null,
@@ -569,8 +627,8 @@
           sourceCandidateCount:
             sourceCandidates.length,
 
-          resolverReady:
-            true
+          sourceCandidateProvinces
+
         }
       );
 
@@ -592,16 +650,17 @@
       return fail84H(
         'STEP83B_INTEGRATION_GATE_NOT_AVAILABLE',
         {
+
           productionProvince,
 
           sourceCandidateCount:
             sourceCandidates.length,
 
-          resolverReady:
-            true,
+          sourceCandidateProvinces,
 
-          integrationReady:
-            false
+          resolverReady:
+            true
+
         }
       );
 
@@ -616,6 +675,7 @@
       return fail84H(
         'STEP83B_INTEGRATION_NOT_READY',
         {
+
           productionProvince,
 
           gateReason:
@@ -626,11 +686,14 @@
           sourceCandidateCount:
             sourceCandidates.length,
 
+          sourceCandidateProvinces,
+
           resolverReady:
             true,
 
           integrationReady:
             false
+
         }
       );
 
@@ -639,22 +702,11 @@
 
     /*
      * ---------------------------------------------------------
-     * FIND PRODUCTION CANDIDATE
-     * ---------------------------------------------------------
-     *
-     * SAFETY:
-     *
-     * Do NOT rewrite any legacy candidate province.
-     *
-     * Only select an existing candidate whose own province
-     * already equals the canonical Production province.
-     *
-     * If none exists:
-     * FAIL CLOSED.
+     * LEGACY / PRODUCTION COMPARISON
      * ---------------------------------------------------------
      */
 
-    const matchingCandidates =
+    const exactProductionCandidates =
       sourceCandidates.filter(
         candidate =>
           getCandidateProvince84H(
@@ -664,69 +716,55 @@
       );
 
 
-    if (
-      matchingCandidates.length ===
-      0
-    ) {
+    const exactProductionCandidateExists =
+      exactProductionCandidates.length ===
+      1;
 
-      return fail84H(
-        'PRODUCTION_CANDIDATE_NOT_FOUND_IN_STEP83B',
-        {
-          productionProvince,
 
-          sourceCandidateCount:
-            sourceCandidates.length,
+    const legacyDivergence =
+      exactProductionCandidates.length ===
+      0;
 
-          sourceCandidateProvinces:
-            sourceCandidates
-              .map(
-                getCandidateProvince84H
-              )
-              .filter(
-                Boolean
-              ),
 
-          resolverReady:
-            true,
+    /*
+     * Integration Gate must explicitly approve the legacy
+     * divergence before V3 may construct an adapter boundary.
+     */
 
-          integrationReady:
-            true
-        }
+    const divergenceApproved =
+      gate.integrationReady === true &&
+      (
+        gate.legacyDivergenceConfirmed === true ||
+        gate.scopeWouldChange === true ||
+        legacyDivergence === false
       );
 
-    }
-
 
     if (
-      matchingCandidates.length !==
-      1
+      legacyDivergence &&
+      !divergenceApproved
     ) {
 
       return fail84H(
-        'PRODUCTION_CANDIDATE_NOT_UNIQUE',
+        'LEGACY_DIVERGENCE_NOT_APPROVED',
         {
+
           productionProvince,
 
           sourceCandidateCount:
             sourceCandidates.length,
 
-          matchingCandidateCount:
-            matchingCandidates.length,
-
-          sourceCandidateProvinces:
-            sourceCandidates
-              .map(
-                getCandidateProvince84H
-              )
-              .filter(
-                Boolean
-              ),
+          sourceCandidateProvinces,
 
           resolverReady:
             true,
 
           integrationReady:
+            true,
+
+          legacyDivergence:
             true
+
         }
       );
 
@@ -735,47 +773,67 @@
 
     /*
      * ---------------------------------------------------------
-     * CLONE ONLY
+     * CLONE SOURCE
+     * ---------------------------------------------------------
+     *
+     * Never mutate STEP 8.3B.
      * ---------------------------------------------------------
      */
 
-    const productionCandidate =
-      cloneCandidate84H(
-        matchingCandidates[0]
+    const clonedCandidates =
+      cloneCandidates84H(
+        sourceCandidates
       );
 
 
-    if (!productionCandidate) {
+    if (!clonedCandidates) {
 
       return fail84H(
-        'PRODUCTION_CANDIDATE_CLONE_FAILED',
+        'PRODUCTION_BOUNDARY_CLONE_FAILED',
         {
+
           productionProvince,
 
           sourceCandidateCount:
             sourceCandidates.length,
+
+          sourceCandidateProvinces,
 
           resolverReady:
             true,
 
           integrationReady:
             true
+
         }
       );
 
     }
 
 
-    const productionCandidates = [
-      productionCandidate
-    ];
-
-
     /*
      * ---------------------------------------------------------
-     * FINAL READ-ONLY RESULT
+     * CANONICAL PRODUCTION BOUNDARY
+     * ---------------------------------------------------------
+     *
+     * V3 does NOT rewrite the province inside any candidate.
+     *
+     * Production scope lives at the boundary level.
+     *
+     * Legacy candidate payload is retained as cloned,
+     * read-only source evidence.
      * ---------------------------------------------------------
      */
+
+    const productionCandidates =
+      exactProductionCandidateExists
+        ? [
+            cloneCandidate84H(
+              exactProductionCandidates[0]
+            )
+          ]
+        : [];
+
 
     const result = {
 
@@ -789,7 +847,9 @@
         VERSION_84H,
 
       reason:
-        'PRODUCTION_CANDIDATE_BOUNDARY_READY',
+        exactProductionCandidateExists
+          ? 'PRODUCTION_CANDIDATE_BOUNDARY_READY'
+          : 'PRODUCTION_BOUNDARY_ADAPTED_FROM_LEGACY_SCOPE',
 
       sourceStep:
         '8.3B',
@@ -802,14 +862,7 @@
       productionCandidateCount:
         productionCandidates.length,
 
-      sourceCandidateProvinces:
-        sourceCandidates
-          .map(
-            getCandidateProvince84H
-          )
-          .filter(
-            Boolean
-          ),
+      sourceCandidateProvinces,
 
       productionCandidateProvinces:
         productionCandidates
@@ -820,20 +873,58 @@
             Boolean
           ),
 
+      /*
+       * Canonical production-scoped candidates.
+       *
+       * Empty is valid when Integration Gate explicitly
+       * confirmed legacy divergence.
+       */
+
       candidates:
         productionCandidates,
+
+      /*
+       * Cloned legacy evidence.
+       */
+
+      legacyCandidates:
+        clonedCandidates,
+
+      legacyCandidateCount:
+        clonedCandidates.length,
+
+      legacyCandidateProvinces:
+        clonedCandidates
+          .map(
+            getCandidateProvince84H
+          )
+          .filter(
+            Boolean
+          ),
+
+      exactProductionCandidateExists,
+
+      legacyDivergence,
+
+      legacyDivergenceApproved:
+        divergenceApproved,
 
       scopeMatched:
         true,
 
       adapterApplied:
-        true,
+        legacyDivergence,
 
       resolverReady:
         true,
 
       integrationReady:
         true,
+
+      integrationGateReason:
+        gate.reason ||
+        gate.gateReason ||
+        null,
 
       /*
        * SAFETY CONTRACT
@@ -880,8 +971,6 @@
 
     /*
      * Publish NEW RAM aliases only.
-     *
-     * DO NOT overwrite STEP 8.3B.
      */
 
     window
@@ -914,8 +1003,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V2 / CURRENT GATE LOOKUP / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V3 / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
-
