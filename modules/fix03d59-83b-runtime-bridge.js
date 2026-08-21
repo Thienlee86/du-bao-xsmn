@@ -285,7 +285,140 @@
    * SOURCE INSPECTOR
    * =========================================================
    */
+  /*
+   * =========================================================
+   * B8 VERIFICATION PATH INSPECTOR
+   * READ ONLY
+   * =========================================================
+   */
 
+  function inspectB8VerificationPath83BRB() {
+
+    const root =
+      window.LAST_V26_B8_STARTUP_VERIFY ||
+      null;
+
+
+    const verification =
+      root?.verification ||
+      null;
+
+
+    const guard =
+      verification?.guard ||
+      null;
+
+
+    const lifecycle =
+      guard?.lifecycle ||
+      null;
+
+
+    const verifiedDetails =
+      lifecycle?.verifiedDetails ||
+      null;
+
+
+    function describe(
+      name,
+      value
+    ) {
+
+      return {
+
+        name,
+
+        exists:
+          value !== null &&
+          value !== undefined,
+
+        type:
+          value === null
+            ? 'null'
+            : Array.isArray(value)
+              ? 'array'
+              : typeof value,
+
+        fields:
+          safeKeys83BRB(value)
+            .slice(0, 50),
+
+        length:
+          Array.isArray(value)
+            ? value.length
+            : null
+
+      };
+
+    }
+
+
+    return {
+
+      root:
+        describe(
+          'LAST_V26_B8_STARTUP_VERIFY',
+          root
+        ),
+
+      verification:
+        describe(
+          'verification',
+          verification
+        ),
+
+      guard:
+        describe(
+          'verification.guard',
+          guard
+        ),
+
+      lifecycle:
+        describe(
+          'verification.guard.lifecycle',
+          lifecycle
+        ),
+
+      verifiedDetails:
+        describe(
+          'verification.guard.lifecycle.verifiedDetails',
+          verifiedDetails
+        ),
+
+      verifiedDetailsPreview:
+        Array.isArray(
+          verifiedDetails
+        )
+          ? verifiedDetails
+              .slice(0, 12)
+              .map(
+                (item, index) => ({
+                  index,
+                  fields:
+                    safeKeys83BRB(item)
+                      .slice(0, 30),
+
+                  province:
+                    item?.province ??
+                    null,
+
+                  slug:
+                    item?.slug ??
+                    null
+                })
+              )
+          : [],
+
+      readOnly: true,
+      writeAuthorized: false,
+      storageWrite: false,
+      productionWrite: false
+
+    };
+
+  }
+
+   
   function inspectSource83BRB(
     name,
     value
