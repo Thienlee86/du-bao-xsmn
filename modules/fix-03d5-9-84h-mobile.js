@@ -1,12 +1,14 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION CANDIDATE BOUNDARY — MOBILE INSPECTOR V1
+   PRODUCTION CANDIDATE BOUNDARY — MOBILE INSPECTOR V2
+   DIV CONTROL BUILD
 
    PURPOSE:
    - Confirm STEP 8.4H module is loaded.
    - Run the READ-ONLY 8.4H Production Candidate Boundary Adapter.
    - Display the current 8.4H result inside the Settings tab.
    - Allow inspection from mobile without DevTools.
+   - Avoid native BUTTON elements completely.
 
    IMPORTANT:
    - READ ONLY.
@@ -28,6 +30,9 @@
 
   const OUTPUT_ID =
     'fix03d59-84h-mobile-output';
+
+  const CONTROL_ID =
+    'fix03d59-84h-mobile-run';
 
 
   /*
@@ -198,10 +203,10 @@
 
 
     /*
-     * 8.4H itself is READ ONLY.
+     * STEP 8.4H itself is READ ONLY.
      *
-     * Run the builder so the mobile panel can inspect
-     * the current runtime state.
+     * Running the builder here only inspects
+     * the current runtime boundary state.
      */
 
     if (
@@ -537,19 +542,128 @@
 
   /*
    * =========================================================
+   * DIV CONTROL
+   * =========================================================
+   */
+
+  function create84HMobileControl() {
+
+    const control =
+      document.createElement(
+        'div'
+      );
+
+
+    control.id =
+      CONTROL_ID;
+
+
+    control.setAttribute(
+      'role',
+      'button'
+    );
+
+
+    control.setAttribute(
+      'tabindex',
+      '0'
+    );
+
+
+    control.textContent =
+      '🔍 INSPECT STEP 8.4H';
+
+
+    /*
+     * Deliberately avoid native BUTTON.
+     *
+     * This isolates the inspector control
+     * from application-level button CSS.
+     */
+
+    control.style.cssText = [
+      'display:flex',
+      'width:100%',
+      'min-height:56px',
+      'margin-bottom:14px',
+      'padding:14px 10px',
+      'border-radius:14px',
+      'background:linear-gradient(90deg,#ffc13d,#ff963d)',
+      'color:#17192f',
+      'font-size:15px',
+      'font-weight:900',
+      'align-items:center',
+      'justify-content:center',
+      'text-align:center',
+      'box-sizing:border-box',
+      'cursor:pointer',
+      'visibility:visible',
+      'opacity:1',
+      'position:relative',
+      'z-index:100'
+    ].join(';');
+
+
+    control.addEventListener(
+      'click',
+      render84HMobile
+    );
+
+
+    control.addEventListener(
+      'keydown',
+      function (
+        event
+      ) {
+
+        if (
+          event.key ===
+            'Enter' ||
+          event.key ===
+            ' '
+        ) {
+
+          event.preventDefault();
+
+          render84HMobile();
+
+        }
+
+      }
+    );
+
+
+    return control;
+
+  }
+
+
+  /*
+   * =========================================================
    * BUILD MOBILE PANEL
    * =========================================================
    */
 
   function build84HMobilePanel() {
 
-    if (
+    /*
+     * Remove previous build if present.
+     *
+     * This makes rebuild deterministic and
+     * avoids retaining an old native-button panel.
+     */
+
+    const oldPanel =
       document.getElementById(
         PANEL_ID
-      )
+      );
+
+
+    if (
+      oldPanel
     ) {
 
-      return;
+      oldPanel.remove();
 
     }
 
@@ -563,6 +677,10 @@
     if (
       !settings
     ) {
+
+      console.warn(
+        'FIX-03D5.9 STEP 8.4H Mobile: tab-settings not found'
+      );
 
       return;
 
@@ -586,55 +704,89 @@
       background:rgba(30,36,78,.96);
       border:1px solid rgba(135,145,255,.25);
       color:#fff;
+      box-sizing:border-box;
     `;
 
 
-    panel.innerHTML = `
+    /*
+     * HEADER
+     */
 
-      <div
-        style="
-          font-size:20px;
-          font-weight:800;
-          margin-bottom:7px;
-        "
-      >
-        🧭 STEP 8.4H — Production Boundary
-      </div>
+    const title =
+      document.createElement(
+        'div'
+      );
 
-      <div
-        style="
-          color:rgba(255,255,255,.65);
-          font-size:13px;
-          line-height:1.5;
-          margin-bottom:14px;
-        "
-      >
-        Mobile runtime inspector · READ ONLY · ZERO WRITE
-      </div>
 
-      <button
-        type="button"
-        id="fix03d59-84h-mobile-run"
-        style="
-          width:100%;
-          border:0;
-          border-radius:14px;
-          padding:14px 10px;
-          font-size:15px;
-          font-weight:800;
-          background:#ffbd3c;
-          color:#17192f;
-          margin-bottom:14px;
-        "
-      >
-        🔍 Inspect STEP 8.4H
-      </button>
+    title.textContent =
+      '🧭 STEP 8.4H — Production Boundary';
 
-      <div
-        id="${OUTPUT_ID}"
-      ></div>
 
+    title.style.cssText = `
+      font-size:20px;
+      font-weight:800;
+      margin-bottom:7px;
     `;
+
+
+    panel.appendChild(
+      title
+    );
+
+
+    const description =
+      document.createElement(
+        'div'
+      );
+
+
+    description.textContent =
+      'Mobile runtime inspector · READ ONLY · ZERO WRITE';
+
+
+    description.style.cssText = `
+      color:rgba(255,255,255,.65);
+      font-size:13px;
+      line-height:1.5;
+      margin-bottom:14px;
+    `;
+
+
+    panel.appendChild(
+      description
+    );
+
+
+    /*
+     * DIV CONTROL
+     */
+
+    const control =
+      create84HMobileControl();
+
+
+    panel.appendChild(
+      control
+    );
+
+
+    /*
+     * OUTPUT
+     */
+
+    const output =
+      document.createElement(
+        'div'
+      );
+
+
+    output.id =
+      OUTPUT_ID;
+
+
+    panel.appendChild(
+      output
+    );
 
 
     settings.appendChild(
@@ -642,29 +794,65 @@
     );
 
 
-    const button =
-      document.getElementById(
-        'fix03d59-84h-mobile-run'
-      );
-
-
-    if (
-      button
-    ) {
-
-      button.addEventListener(
-        'click',
-        render84HMobile
-      );
-
-    }
-
-
     /*
-     * Initial read.
+     * Initial READ-ONLY inspection.
      */
 
     render84HMobile();
+
+
+    /*
+     * Runtime DOM diagnostic.
+     */
+
+    window
+      .FIX03D59_STEP84H_MOBILE_DOM_STATUS = {
+
+        version:
+          '84H-MOBILE-DIV-CONTROL-V2',
+
+        panelExists:
+          Boolean(
+            document.getElementById(
+              PANEL_ID
+            )
+          ),
+
+        controlExists:
+          Boolean(
+            document.getElementById(
+              CONTROL_ID
+            )
+          ),
+
+        outputExists:
+          Boolean(
+            document.getElementById(
+              OUTPUT_ID
+            )
+          ),
+
+        controlTag:
+          document.getElementById(
+            CONTROL_ID
+          )
+            ?.tagName ||
+          null,
+
+        readOnly:
+          true,
+
+        writeAuthorized:
+          false
+
+      };
+
+
+    console.log(
+      'FIX-03D5.9 STEP 8.4H Mobile DIV CONTROL built',
+      window
+        .FIX03D59_STEP84H_MOBILE_DOM_STATUS
+    );
 
   }
 
@@ -681,6 +869,11 @@
 
 
   window
+    .rebuild84HMobile =
+    build84HMobilePanel;
+
+
+  window
     .FIX03D59_STEP84H_MOBILE_LOADED =
     true;
 
@@ -691,6 +884,22 @@
    * =========================================================
    */
 
+  function initialize84HMobile() {
+
+    /*
+     * Small delay keeps this diagnostic panel
+     * isolated from the application's initial
+     * Settings UI construction.
+     */
+
+    window.setTimeout(
+      build84HMobilePanel,
+      300
+    );
+
+  }
+
+
   if (
     document.readyState ===
     'loading'
@@ -698,18 +907,21 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      build84HMobilePanel
+      initialize84HMobile,
+      {
+        once: true
+      }
     );
 
   } else {
 
-    build84HMobilePanel();
+    initialize84HMobile();
 
   }
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4H Mobile Inspector V1 loaded — READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.4H Mobile Inspector V2 loaded — DIV CONTROL / READ ONLY / ZERO WRITE'
   );
 
 })();
