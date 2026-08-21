@@ -75,6 +75,33 @@
 
   function getProductionForecast83BGate() {
 
+    /*
+     * Keep Production lookup aligned with
+     * STEP 8.3B Scope Resolver.
+     *
+     * READ ONLY.
+     * ZERO WRITE.
+     */
+
+    try {
+
+      if (
+        typeof LAST_FORECAST !==
+          'undefined' &&
+        LAST_FORECAST
+      ) {
+
+        return LAST_FORECAST;
+
+      }
+
+    } catch (error) {
+
+      // Continue to window fallback.
+
+    }
+
+
     try {
 
       return (
@@ -122,6 +149,7 @@
     } catch (error) {
 
       // FAIL CLOSED
+
     }
 
 
@@ -142,6 +170,7 @@
     } catch (error) {
 
       // FAIL CLOSED
+
     }
 
 
@@ -693,3 +722,4 @@
   );
 
 })();
+
