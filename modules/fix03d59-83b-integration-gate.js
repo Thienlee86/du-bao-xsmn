@@ -1,14 +1,16 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE V1
+   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE V2
    FILE:
    modules/fix03d59-83b-integration-gate.js
 
    PURPOSE:
    - Validate the boundary between Production Forecast,
      STEP 8.3B Scope Resolver, and current STEP 8.3B.
-   - Confirm the resolver produces the current Production province.
-   - Preserve the existing STEP 8.3B candidates for comparison only.
-   - Determine whether STEP 8.3B is ready for a future integration patch.
+   - Use STEP 8.3B Scope Resolver as the canonical observable
+     source for the current Production province.
+   - Preserve current STEP 8.3B candidates for comparison only.
+   - Determine whether STEP 8.3B is ready for a future
+     integration patch.
 
    IMPORTANT:
    - READ ONLY.
@@ -28,7 +30,7 @@
 
 
   const VERSION =
-    '83B-INTEGRATION-GATE-V1';
+    '83B-INTEGRATION-GATE-V2';
 
 
   const LEGACY_PROVINCES = [
@@ -65,116 +67,6 @@
           .filter(Boolean)
       )
     );
-
-  }
-
-
-  /* =========================================================
-     PRODUCTION FORECAST
-     ========================================================= */
-
-  function getProductionForecast83BGate() {
-
-    /*
-     * Keep Production lookup aligned with
-     * STEP 8.3B Scope Resolver.
-     *
-     * READ ONLY.
-     * ZERO WRITE.
-     */
-
-    try {
-
-      if (
-        typeof LAST_FORECAST !==
-          'undefined' &&
-        LAST_FORECAST
-      ) {
-
-        return LAST_FORECAST;
-
-      }
-
-    } catch (error) {
-
-      // Continue to window fallback.
-
-    }
-
-
-    try {
-
-      return (
-        window.LAST_FORECAST ||
-        null
-      );
-
-    } catch (error) {
-
-      return null;
-
-    }
-
-  }
-
-
-  function getProductionProvince83BGate(
-    envelope
-  ) {
-
-    if (!envelope) {
-
-      return null;
-
-    }
-
-
-    /*
-     * Current Production schema.
-     */
-
-    try {
-
-      if (
-        envelope.forecast &&
-        envelope.forecast.province
-      ) {
-
-        return normalize83BGate(
-          envelope.forecast.province
-        );
-
-      }
-
-    } catch (error) {
-
-      // FAIL CLOSED
-
-    }
-
-
-    /*
-     * Defensive fallback only.
-     */
-
-    try {
-
-      if (envelope.province) {
-
-        return normalize83BGate(
-          envelope.province
-        );
-
-      }
-
-    } catch (error) {
-
-      // FAIL CLOSED
-
-    }
-
-
-    return null;
 
   }
 
@@ -268,7 +160,7 @@
 
 
   /* =========================================================
-     RESOLVER
+     SCOPE RESOLVER
      ========================================================= */
 
   function resolveScope83BGate() {
@@ -362,11 +254,6 @@
     }
 
 
-    /*
-     * Support a single province or array
-     * without changing resolver output.
-     */
-
     const possibleValues = [
       resolverResult.resolvedScope,
       resolverResult.scope,
@@ -406,7 +293,9 @@
 
         if (normalized) {
 
-          return [normalized];
+          return [
+            normalized
+          ];
 
         }
 
@@ -421,20 +310,83 @@
 
 
   /* =========================================================
+     CANONICAL PRODUCTION VIEW
+     ========================================================= */
+
+  function getCanonicalProduction83BGate(
+    resolverResult
+  ) {
+
+    if (!resolverResult) {
+
+      return {
+
+        forecastExists: false,
+
+        province: null,
+
+        source: null,
+
+        trusted: false
+
+      };
+
+    }
+
+
+    const forecastExists =
+      resolverResult
+        .productionForecastExists ===
+      true;
+
+
+    const province =
+      normalize83BGate(
+        resolverResult
+          .productionProvince
+      ) || null;
+
+
+    const source =
+      resolverResult.source ||
+      null;
+
+
+    /*
+     * Fail closed:
+     *
+     * Production is trusted only when the resolver
+     * explicitly observed a Production Forecast AND
+     * explicitly resolved its province.
+     */
+
+    const trusted =
+      Boolean(
+        forecastExists &&
+        province
+      );
+
+
+    return {
+
+      forecastExists,
+
+      province,
+
+      source,
+
+      trusted
+
+    };
+
+  }
+
+
+  /* =========================================================
      MAIN GATE
      ========================================================= */
 
   function inspectStep83BIntegrationGate03D59() {
-
-    const productionForecast =
-      getProductionForecast83BGate();
-
-
-    const productionProvince =
-      getProductionProvince83BGate(
-        productionForecast
-      );
-
 
     const current83B =
       inspectCurrent83BGate();
@@ -452,6 +404,22 @@
       getResolvedScope83BGate(
         resolverResult
       );
+
+
+    const canonicalProduction =
+      getCanonicalProduction83BGate(
+        resolverResult
+      );
+
+
+    const productionForecastExists =
+      canonicalProduction
+        .forecastExists;
+
+
+    const productionProvince =
+      canonicalProduction
+        .province;
 
 
     const resolverReady =
@@ -490,27 +458,37 @@
       );
 
 
+    const scopeWouldChange =
+      Boolean(
+        productionProvince &&
+        !current83BMatchesProduction
+      );
+
+
     /*
      * FUTURE INTEGRATION MAY PROCEED ONLY WHEN:
      *
-     * 1. Production Forecast exists.
-     * 2. Production province is observable.
-     * 3. Resolver exists.
-     * 4. Resolver says ready.
-     * 5. Resolver resolves exactly one province.
-     * 6. That province equals Production province.
-     * 7. Current 8.3B exists.
+     * 1. Resolver exists.
+     * 2. Resolver executes without error.
+     * 3. Resolver explicitly observed Production Forecast.
+     * 4. Production province is observable.
+     * 5. Resolver says ready.
+     * 6. Resolver resolves exactly one province.
+     * 7. Resolved province equals Production province.
+     * 8. Current STEP 8.3B exists.
      *
-     * This gate DOES NOT perform that integration.
+     * This gate DOES NOT perform integration.
      */
 
     const integrationReady =
       Boolean(
-        productionForecast &&
-        productionProvince &&
         resolverEnvelope.available &&
         !resolverEnvelope.error &&
+        productionForecastExists &&
+        productionProvince &&
+        canonicalProduction.trusted &&
         resolverReady &&
+        resolvedScope.length === 1 &&
         resolvedToProduction &&
         current83B.exists
       );
@@ -519,17 +497,7 @@
     let reason;
 
 
-    if (!productionForecast) {
-
-      reason =
-        'NO_PRODUCTION_FORECAST';
-
-    } else if (!productionProvince) {
-
-      reason =
-        'NO_PRODUCTION_PROVINCE';
-
-    } else if (
+    if (
       !resolverEnvelope.available
     ) {
 
@@ -543,7 +511,37 @@
       reason =
         'RESOLVER_ERROR';
 
-    } else if (!resolverReady) {
+    } else if (
+      !resolverResult
+    ) {
+
+      reason =
+        'NO_RESOLVER_RESULT';
+
+    } else if (
+      !productionForecastExists
+    ) {
+
+      reason =
+        'NO_PRODUCTION_FORECAST';
+
+    } else if (
+      !productionProvince
+    ) {
+
+      reason =
+        'NO_PRODUCTION_PROVINCE';
+
+    } else if (
+      !canonicalProduction.trusted
+    ) {
+
+      reason =
+        'PRODUCTION_VIEW_NOT_TRUSTED';
+
+    } else if (
+      !resolverReady
+    ) {
 
       reason =
         'RESOLVER_NOT_READY';
@@ -562,7 +560,9 @@
       reason =
         'RESOLVED_SCOPE_MISMATCH';
 
-    } else if (!current83B.exists) {
+    } else if (
+      !current83B.exists
+    ) {
 
       reason =
         'STEP83B_NOT_AVAILABLE';
@@ -601,12 +601,19 @@
       production: {
 
         forecastExists:
-          Boolean(
-            productionForecast
-          ),
+          productionForecastExists,
 
         province:
-          productionProvince
+          productionProvince,
+
+        trusted:
+          canonicalProduction.trusted,
+
+        observationSource:
+          'STEP83B_SCOPE_RESOLVER',
+
+        resolverSource:
+          canonicalProduction.source
 
       },
 
@@ -647,11 +654,7 @@
 
         legacyDivergenceConfirmed,
 
-        scopeWouldChange:
-          Boolean(
-            productionProvince &&
-            !current83BMatchesProduction
-          )
+        scopeWouldChange
 
       },
 
@@ -689,8 +692,11 @@
     /*
      * Diagnostic RAM result only.
      *
-     * This does not modify Production Forecast,
-     * STEP 8.3B, candidates, or storage.
+     * Does NOT modify:
+     * - Production Forecast
+     * - STEP 8.3B
+     * - candidates
+     * - storage
      */
 
     window
@@ -718,7 +724,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Integration Gate V1 loaded / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.3B Integration Gate V2 loaded / CANONICAL RESOLVER VIEW / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
