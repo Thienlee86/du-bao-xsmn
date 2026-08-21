@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-08-20T14:03:58.918Z",
+  "updatedAt": "2026-08-21T14:01:00.828Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -55,15 +55,15 @@
     },
     "vinh-long": {
       "ok": true,
-      "drawDate": "2026-08-14"
+      "drawDate": "2026-08-21"
     },
     "binh-duong": {
       "ok": true,
-      "drawDate": "2026-08-14"
+      "drawDate": "2026-08-21"
     },
     "tra-vinh": {
       "ok": true,
-      "drawDate": "2026-08-14"
+      "drawDate": "2026-08-21"
     },
     "long-an": {
       "ok": true,
