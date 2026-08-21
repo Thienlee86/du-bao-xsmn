@@ -1,6 +1,6 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION CANDIDATE BOUNDARY ADAPTER V1
+   PRODUCTION CANDIDATE BOUNDARY ADAPTER V2
 
    PURPOSE:
    - Build a canonical Production Candidate Boundary from the
@@ -9,6 +9,8 @@
      current Production province.
    - Preserve the original STEP 8.3B result unchanged.
    - Produce a NEW read-only RAM boundary for downstream stages.
+   - Always prefer CURRENT Integration Gate inspection over
+     stale cached gate state.
 
    SOURCE:
    - Current Production Forecast / lifecycle.
@@ -37,14 +39,12 @@
 
 
   const VERSION_84H =
-    '84H-PRODUCTION-BOUNDARY-V1';
+    '84H-PRODUCTION-BOUNDARY-V2';
 
 
-  /*
-   * =========================================================
-   * HELPERS
-   * =========================================================
-   */
+  /* =========================================================
+     HELPERS
+     ========================================================= */
 
   function normalizeProvince84H(
     value
@@ -66,10 +66,7 @@
         .toLowerCase();
 
 
-    return (
-      normalized ||
-      null
-    );
+    return normalized || null;
 
   }
 
@@ -107,6 +104,12 @@
       adapterApplied:
         false,
 
+      resolverReady:
+        false,
+
+      integrationReady:
+        false,
+
       writeAuthorized:
         false,
 
@@ -126,6 +129,15 @@
         false,
 
       sourceCandidatesModified:
+        false,
+
+      promotionPerformed:
+        false,
+
+      transactionExecuted:
+        false,
+
+      commitPerformed:
         false,
 
       readOnly:
@@ -149,11 +161,9 @@
   }
 
 
-  /*
-   * =========================================================
-   * SOURCE READERS
-   * =========================================================
-   */
+  /* =========================================================
+     SOURCE READERS
+     ========================================================= */
 
   function get83BResult84H() {
 
@@ -171,7 +181,7 @@
   function getScopeResolution84H() {
 
     /*
-     * Prefer already-published resolver result.
+     * First accept a READY cached resolver result.
      */
 
     const existing =
@@ -191,9 +201,9 @@
 
 
     /*
-     * Resolver itself is READ ONLY.
-     * It may be called when the cached result
-     * is not available.
+     * Otherwise obtain CURRENT resolver state.
+     *
+     * Resolver is READ ONLY.
      */
 
     const resolver =
@@ -206,22 +216,35 @@
       'function'
     ) {
 
-      return null;
+      return existing;
 
     }
 
 
     try {
 
-      return resolver();
+      const current =
+        resolver();
+
+
+      if (current) {
+
+        return current;
+
+      }
 
     } catch (
       error
     ) {
 
-      return null;
+      /*
+       * Fail closed below.
+       */
 
     }
+
+
+    return existing;
 
   }
 
@@ -229,23 +252,21 @@
   function getIntegrationGate84H() {
 
     /*
-     * Prefer already-published gate result.
+     * IMPORTANT V2 FIX
+     * ---------------------------------------------------------
+     * Do NOT immediately return an existing cached gate.
+     *
+     * The cached result may have been created BEFORE the
+     * Production Forecast existed and can therefore contain:
+     *
+     *   integrationReady: false
+     *
+     * even though the CURRENT runtime Integration Gate is now
+     * READY.
+     *
+     * The inspector is READ ONLY, so prefer a fresh inspection.
+     * ---------------------------------------------------------
      */
-
-    const existing =
-      window
-        .LAST_FIX03D59_STEP83B_INTEGRATION_GATE ||
-      null;
-
-
-    if (
-      existing
-    ) {
-
-      return existing;
-
-    }
-
 
     const inspector =
       window
@@ -253,35 +274,52 @@
 
 
     if (
-      typeof inspector !==
+      typeof inspector ===
       'function'
     ) {
 
-      return null;
+      try {
+
+        const current =
+          inspector();
+
+
+        if (current) {
+
+          return current;
+
+        }
+
+      } catch (
+        error
+      ) {
+
+        /*
+         * Do not guess.
+         * Fall back to published RAM result.
+         */
+
+      }
 
     }
 
 
-    try {
+    /*
+     * Fallback only.
+     */
 
-      return inspector();
-
-    } catch (
-      error
-    ) {
-
-      return null;
-
-    }
+    return (
+      window
+        .LAST_FIX03D59_STEP83B_INTEGRATION_GATE ||
+      null
+    );
 
   }
 
 
-  /*
-   * =========================================================
-   * CANDIDATE HELPERS
-   * =========================================================
-   */
+  /* =========================================================
+     CANDIDATE HELPERS
+     ========================================================= */
 
   function getCandidates84H(
     step83B
@@ -299,10 +337,7 @@
     }
 
 
-    return (
-      step83B
-        .candidates
-    );
+    return step83B.candidates;
 
   }
 
@@ -350,9 +385,7 @@
         );
 
 
-      if (
-        normalized
-      ) {
+      if (normalized) {
 
         return normalized;
 
@@ -366,11 +399,9 @@
   }
 
 
-  /*
-   * =========================================================
-   * SAFE CLONE
-   * =========================================================
-   */
+  /* =========================================================
+     SAFE CLONE
+     ========================================================= */
 
   function cloneCandidate84H(
     candidate
@@ -386,13 +417,6 @@
 
     }
 
-
-    /*
-     * Candidate payloads are expected to be
-     * plain JSON-compatible data.
-     *
-     * structuredClone is preferred where available.
-     */
 
     try {
 
@@ -437,11 +461,9 @@
   }
 
 
-  /*
-   * =========================================================
-   * MAIN BUILDER
-   * =========================================================
-   */
+  /* =========================================================
+     MAIN BUILDER
+     ========================================================= */
 
   function buildProductionCandidateBoundary84H() {
 
@@ -455,9 +477,7 @@
       get83BResult84H();
 
 
-    if (
-      !step83B
-    ) {
+    if (!step83B) {
 
       return fail84H(
         'STEP83B_RESULT_NOT_AVAILABLE'
@@ -494,9 +514,7 @@
       getScopeResolution84H();
 
 
-    if (
-      !resolver
-    ) {
+    if (!resolver) {
 
       return fail84H(
         'STEP83B_SCOPE_RESOLVER_NOT_AVAILABLE',
@@ -521,7 +539,10 @@
             null,
 
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          resolverReady:
+            false
         }
       );
 
@@ -536,9 +557,7 @@
       );
 
 
-    if (
-      !productionProvince
-    ) {
+    if (!productionProvince) {
 
       return fail84H(
         'PRODUCTION_SCOPE_NOT_RESOLVED',
@@ -548,7 +567,10 @@
             null,
 
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          resolverReady:
+            true
         }
       );
 
@@ -557,7 +579,7 @@
 
     /*
      * ---------------------------------------------------------
-     * SOURCE 3 — INTEGRATION GATE
+     * SOURCE 3 — CURRENT INTEGRATION GATE
      * ---------------------------------------------------------
      */
 
@@ -565,9 +587,7 @@
       getIntegrationGate84H();
 
 
-    if (
-      !gate
-    ) {
+    if (!gate) {
 
       return fail84H(
         'STEP83B_INTEGRATION_GATE_NOT_AVAILABLE',
@@ -575,7 +595,13 @@
           productionProvince,
 
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          resolverReady:
+            true,
+
+          integrationReady:
+            false
         }
       );
 
@@ -598,7 +624,13 @@
             null,
 
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          resolverReady:
+            true,
+
+          integrationReady:
+            false
         }
       );
 
@@ -610,15 +642,14 @@
      * FIND PRODUCTION CANDIDATE
      * ---------------------------------------------------------
      *
-     * IMPORTANT:
+     * SAFETY:
      *
-     * We do NOT rewrite a legacy candidate province.
+     * Do NOT rewrite any legacy candidate province.
      *
-     * We only select an existing candidate whose own
-     * province already matches the canonical Production
-     * province.
+     * Only select an existing candidate whose own province
+     * already equals the canonical Production province.
      *
-     * If no such candidate exists:
+     * If none exists:
      * FAIL CLOSED.
      * ---------------------------------------------------------
      */
@@ -653,7 +684,13 @@
               )
               .filter(
                 Boolean
-              )
+              ),
+
+          resolverReady:
+            true,
+
+          integrationReady:
+            true
         }
       );
 
@@ -674,7 +711,22 @@
             sourceCandidates.length,
 
           matchingCandidateCount:
-            matchingCandidates.length
+            matchingCandidates.length,
+
+          sourceCandidateProvinces:
+            sourceCandidates
+              .map(
+                getCandidateProvince84H
+              )
+              .filter(
+                Boolean
+              ),
+
+          resolverReady:
+            true,
+
+          integrationReady:
+            true
         }
       );
 
@@ -685,10 +737,6 @@
      * ---------------------------------------------------------
      * CLONE ONLY
      * ---------------------------------------------------------
-     *
-     * Never return the original mutable candidate reference
-     * as the canonical Production boundary.
-     * ---------------------------------------------------------
      */
 
     const productionCandidate =
@@ -697,9 +745,7 @@
       );
 
 
-    if (
-      !productionCandidate
-    ) {
+    if (!productionCandidate) {
 
       return fail84H(
         'PRODUCTION_CANDIDATE_CLONE_FAILED',
@@ -707,17 +753,22 @@
           productionProvince,
 
           sourceCandidateCount:
-            sourceCandidates.length
+            sourceCandidates.length,
+
+          resolverReady:
+            true,
+
+          integrationReady:
+            true
         }
       );
 
     }
 
 
-    const productionCandidates =
-      [
-        productionCandidate
-      ];
+    const productionCandidates = [
+      productionCandidate
+    ];
 
 
     /*
@@ -828,7 +879,7 @@
 
 
     /*
-     * Publish NEW RAM alias only.
+     * Publish NEW RAM aliases only.
      *
      * DO NOT overwrite STEP 8.3B.
      */
@@ -848,11 +899,9 @@
   }
 
 
-  /*
-   * =========================================================
-   * PUBLIC READ-ONLY API
-   * =========================================================
-   */
+  /* =========================================================
+     PUBLIC READ-ONLY API
+     ========================================================= */
 
   window
     .buildProductionCandidateBoundary84H =
@@ -865,7 +914,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V1 / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V2 / CURRENT GATE LOOKUP / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
