@@ -823,7 +823,200 @@
         }
       );
 
+    /*
+     * =========================================================
+     * B8 VERIFICATION PATH OUTPUT
+     * =========================================================
+     */
 
+    const b8Path =
+      inspectB8VerificationPath83BRB();
+
+
+    html += `
+
+      <div
+        style="
+          margin-top:18px;
+          padding:16px;
+          border-radius:16px;
+          background:rgba(255,189,60,.08);
+          border:1px solid rgba(255,189,60,.25);
+        "
+      >
+
+        <div
+          style="
+            font-size:16px;
+            font-weight:900;
+            margin-bottom:12px;
+          "
+        >
+          🧬 B8 VERIFICATION PATH
+        </div>
+
+    `;
+
+
+    [
+      b8Path.root,
+      b8Path.verification,
+      b8Path.guard,
+      b8Path.lifecycle,
+      b8Path.verifiedDetails
+    ]
+      .forEach(
+        item => {
+
+          html += `
+
+            <div
+              style="
+                padding:11px 0;
+                border-bottom:
+                  1px solid rgba(255,255,255,.08);
+                font-size:12px;
+                line-height:1.6;
+                word-break:break-word;
+              "
+            >
+
+              <b>
+                ${escape83BRB(
+                  item.name
+                )}
+              </b>
+
+              <br>
+
+              Exists:
+              <b>
+                ${
+                  item.exists
+                    ? 'YES ✅'
+                    : 'NO ❌'
+                }
+              </b>
+
+              <br>
+
+              Type:
+              <b>
+                ${escape83BRB(
+                  item.type
+                )}
+              </b>
+
+              ${
+                item.length !== null
+                  ? `
+                    <br>
+                    Length:
+                    <b>${item.length}</b>
+                  `
+                  : ''
+              }
+
+              <br>
+
+              Fields:
+              <b>
+                ${
+                  item.fields.length
+                    ? escape83BRB(
+                        item.fields.join(', ')
+                      )
+                    : '--'
+                }
+              </b>
+
+            </div>
+
+          `;
+
+        }
+      );
+
+
+    html += `
+
+        <div
+          style="
+            margin-top:14px;
+            font-size:13px;
+            font-weight:900;
+          "
+        >
+          🔬 verifiedDetails preview
+        </div>
+
+    `;
+
+
+    b8Path
+      .verifiedDetailsPreview
+      .forEach(
+        item => {
+
+          html += `
+
+            <div
+              style="
+                margin-top:8px;
+                padding:10px;
+                border-radius:10px;
+                background:rgba(255,255,255,.05);
+                font-size:12px;
+                line-height:1.55;
+                word-break:break-word;
+              "
+            >
+
+              #${item.index}
+
+              <br>
+
+              Province:
+              <b>
+                ${escape83BRB(
+                  item.province
+                )}
+              </b>
+
+              <br>
+
+              Slug:
+              <b>
+                ${escape83BRB(
+                  item.slug
+                )}
+              </b>
+
+              <br>
+
+              Fields:
+              ${
+                item.fields.length
+                  ? escape83BRB(
+                      item.fields.join(', ')
+                    )
+                  : '--'
+              }
+
+            </div>
+
+          `;
+
+        }
+      );
+
+
+    html += `
+
+      </div>
+
+    `;
+     
     html += `
 
       <div
