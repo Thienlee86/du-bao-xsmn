@@ -14,11 +14,12 @@
        -> Boundary Gate
        -> Safety Contract
    - No DevTools required.
+   - Understand B8 PRE-PRODUCTION boundary readiness.
+   - NEVER interpret boundaryReady as write authorization.
 
    IMPORTANT:
    - READ ONLY.
    - ZERO WRITE.
-   - BOUNDARY ONLY.
    - NO ENGINE EXECUTION.
    - Does NOT rebuild STEP 8.3B.
    - Does NOT modify STEP 8.3B candidates.
@@ -79,9 +80,7 @@
 
       try {
 
-        return JSON.stringify(
-          value
-        );
+        return JSON.stringify(value);
 
       } catch (error) {
 
@@ -111,7 +110,7 @@
 
   function yesNo83BGateMobile(value) {
 
-    return value
+    return value === true
       ? 'YES ✅'
       : 'NO ❌';
 
@@ -120,7 +119,7 @@
 
   function safeNo83BGateMobile(value) {
 
-    return value
+    return value === true
       ? 'YES ❌'
       : 'NO ✅';
 
@@ -247,6 +246,15 @@
         : {};
 
 
+    /*
+     * IMPORTANT:
+     *
+     * V3 uses boundaryReady.
+     *
+     * DO NOT fall back to old
+     * gate.integrationReady semantics.
+     */
+
     const boundaryReady =
       gate.boundaryReady === true;
 
@@ -260,34 +268,8 @@
       true;
 
 
-    let boundaryTitle =
-      '🔴 BOUNDARY BLOCKED';
-
-
-    if (boundaryReady) {
-
-      if (
-        b8PreProductionPathReady
-      ) {
-
-        boundaryTitle =
-          '🟢 B8 PRE-PRODUCTION BOUNDARY READY';
-
-      } else if (
-        productionPathReady
-      ) {
-
-        boundaryTitle =
-          '🟢 PRODUCTION BOUNDARY READY';
-
-      } else {
-
-        boundaryTitle =
-          '🟢 BOUNDARY READY';
-
-      }
-
-    }
+    const b8Verified =
+      b8Path.verified === true;
 
 
     let html = `
@@ -299,6 +281,7 @@
           border-radius:18px;
           background:rgba(0,0,0,.16);
           line-height:1.6;
+          word-break:break-word;
         "
       >
 
@@ -313,7 +296,7 @@
         </div>
 
         <div style="margin-top:10px;">
-          Mobile Version:
+          Mobile UI Version:
           <b>
             ${escape83BGateMobile(
               VERSION
@@ -340,6 +323,16 @@
           </b>
         </div>
 
+        <div>
+          Selected Province:
+          <b>
+            ${escape83BGateMobile(
+              result &&
+              result.selectedProvince
+            )}
+          </b>
+        </div>
+
       </div>
 
 
@@ -350,6 +343,7 @@
           border-radius:18px;
           background:rgba(52,211,153,.09);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -395,7 +389,7 @@
           Production Path Ready:
           <b>
             ${yesNo83BGateMobile(
-              production.pathReady
+              productionPathReady
             )}
           </b>
         </div>
@@ -410,6 +404,7 @@
           border-radius:18px;
           background:rgba(59,130,246,.10);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -495,8 +490,9 @@
           padding:16px;
           border-radius:18px;
           background:rgba(168,85,247,.12);
-          border:1px solid rgba(196,181,253,.24);
+          border:1px solid rgba(196,181,253,.25);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -569,17 +565,16 @@
           B8 Verified:
           <b>
             ${yesNo83BGateMobile(
-              b8Path.verified
+              b8Verified
             )}
           </b>
         </div>
 
         <div>
-          Pre-Production Path Ready:
+          B8 Pre-Production Path Ready:
           <b>
             ${yesNo83BGateMobile(
-              b8Path
-                .preProductionPathReady
+              b8PreProductionPathReady
             )}
           </b>
         </div>
@@ -594,6 +589,7 @@
           border-radius:18px;
           background:rgba(248,113,113,.10);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -664,6 +660,7 @@
           background:rgba(255,189,60,.10);
           border:1px solid rgba(255,189,60,.28);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -718,6 +715,10 @@
 
       </div>
 
+    `;
+
+
+    html += `
 
       <div
         style="
@@ -735,6 +736,7 @@
               : '#f87171'
           };
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -749,14 +751,18 @@
             };
           "
         >
-          ${boundaryTitle}
+          ${
+            boundaryReady
+              ? '🟢 BOUNDARY READY'
+              : '🔴 BOUNDARY BLOCKED'
+          }
         </div>
 
         <div style="margin-top:9px;">
           Boundary Ready:
           <b>
             ${yesNo83BGateMobile(
-              gate.boundaryReady
+              boundaryReady
             )}
           </b>
         </div>
@@ -765,7 +771,7 @@
           Production Path Ready:
           <b>
             ${yesNo83BGateMobile(
-              production.pathReady
+              productionPathReady
             )}
           </b>
         </div>
@@ -774,8 +780,7 @@
           B8 Pre-Production Path Ready:
           <b>
             ${yesNo83BGateMobile(
-              b8Path
-                .preProductionPathReady
+              b8PreProductionPathReady
             )}
           </b>
         </div>
@@ -818,6 +823,7 @@
           background:rgba(14,116,144,.25);
           line-height:1.65;
           font-weight:800;
+          word-break:break-word;
         "
       >
 
@@ -1017,13 +1023,21 @@
 
   function build83BIntegrationGateMobileUI() {
 
-    if (
+    const existing =
       document.getElementById(
         PANEL_ID
-      )
-    ) {
+      );
 
-      return;
+
+    /*
+     * Important for cache/version testing:
+     * rebuild the panel instead of silently
+     * keeping an older DOM panel.
+     */
+
+    if (existing) {
+
+      existing.remove();
 
     }
 
@@ -1072,7 +1086,7 @@
           font-weight:900;
         "
       >
-        🚦 8.3B INTEGRATION GATE
+        🚦 8.3B B8 BOUNDARY GATE
       </div>
 
 
@@ -1083,9 +1097,11 @@
           opacity:.78;
         "
       >
-        Kiểm tra B8 → Scope Resolver →
+        Kiểm tra B8 verified scope →
+        Scope Resolver →
         STEP 8.3B boundary.
-        Diagnostic only · ZERO WRITE.
+        Đây chỉ là diagnostic boundary gate,
+        không cấp quyền ghi.
       </div>
 
 
@@ -1096,15 +1112,14 @@
           border-radius:13px;
           background:rgba(0,0,0,.16);
           line-height:1.6;
+          word-break:break-word;
         "
       >
 
-        Mobile Version:
+        Mobile UI Version:
 
-        <b>
-          ${escape83BGateMobile(
-            VERSION
-          )}
+        <b style="color:#9ff0c8;">
+          ${VERSION}
         </b>
 
         <br>
@@ -1231,6 +1246,11 @@
 
 
   window
+    .FIX03D59_STEP83B_INTEGRATION_GATE_MOBILE_VERSION =
+    VERSION;
+
+
+  window
     .FIX03D59_STEP83B_INTEGRATION_GATE_MOBILE_LOADED =
     true;
 
@@ -1270,7 +1290,7 @@
 
 
   console.log(
-    '🛡️ FIX-03D5.9 STEP 8.3B Integration Gate Mobile V3-B8PATH loaded / READ ONLY / ZERO WRITE / BOUNDARY ONLY'
+    '🧬 FIX-03D5.9 STEP 8.3B Integration Gate Mobile V3-B8PATH loaded / BOUNDARY READY AWARE / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
