@@ -1,11 +1,20 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE MOBILE V1
+   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE MOBILE V2-B8PATH
    FILE:
    modules/fix03d59-83b-integration-gate-mobile.js
 
    PURPOSE:
-   - Run STEP 8.3B Integration Gate from mobile.
-   - Display Production -> Resolver -> Current 8.3B -> Gate.
+   - Run STEP 8.3B Integration Gate V3-B8PATH from mobile.
+   - Display:
+       Production
+       -> Scope Resolver
+       -> B8 Verified Path
+       -> Current STEP 8.3B
+       -> Comparison
+       -> Boundary Gate
+       -> Safety Contract
+   - Distinguish PRE-PRODUCTION boundary readiness from
+     Production integration/write authorization.
    - No DevTools required.
 
    IMPORTANT:
@@ -22,6 +31,10 @@
 (function () {
 
   'use strict';
+
+
+  const VERSION =
+    '83B-INTEGRATION-GATE-MOBILE-V2-B8PATH';
 
 
   const PANEL_ID =
@@ -105,6 +118,15 @@
   }
 
 
+  function safeNo83BGateMobile(value) {
+
+    return value
+      ? 'YES ❌'
+      : 'NO ✅';
+
+  }
+
+
   /* =========================================================
      RESOLVE GATE FUNCTION
      ========================================================= */
@@ -137,6 +159,7 @@
     } catch (error) {
 
       // FAIL CLOSED
+
     }
 
 
@@ -189,6 +212,13 @@
         : {};
 
 
+    const b8Path =
+      result &&
+      result.b8Path
+        ? result.b8Path
+        : {};
+
+
     const current83B =
       result &&
       result.current83B
@@ -217,6 +247,97 @@
         : {};
 
 
+    const boundaryReady =
+      gate.boundaryReady === true;
+
+
+    const productionPathReady =
+      production.pathReady === true;
+
+
+    const b8PreProductionReady =
+      b8Path.preProductionPathReady ===
+      true;
+
+
+    let boundaryTitle =
+      '🔴 BOUNDARY BLOCKED';
+
+
+    let boundaryColor =
+      '#ffaaaa';
+
+
+    let boundaryBackground =
+      'rgba(248,113,113,.16)';
+
+
+    let boundaryBorder =
+      '#f87171';
+
+
+    if (
+      boundaryReady &&
+      productionPathReady
+    ) {
+
+      boundaryTitle =
+        '🟢 PRODUCTION BOUNDARY READY';
+
+
+      boundaryColor =
+        '#9ff0c8';
+
+
+      boundaryBackground =
+        'rgba(52,211,153,.16)';
+
+
+      boundaryBorder =
+        '#34d399';
+
+    } else if (
+      boundaryReady &&
+      b8PreProductionReady
+    ) {
+
+      boundaryTitle =
+        '🟢 B8 PRE-PRODUCTION BOUNDARY READY';
+
+
+      boundaryColor =
+        '#9ff0c8';
+
+
+      boundaryBackground =
+        'rgba(52,211,153,.16)';
+
+
+      boundaryBorder =
+        '#34d399';
+
+    } else if (
+      boundaryReady
+    ) {
+
+      boundaryTitle =
+        '🟢 BOUNDARY READY';
+
+
+      boundaryColor =
+        '#9ff0c8';
+
+
+      boundaryBackground =
+        'rgba(52,211,153,.16)';
+
+
+      boundaryBorder =
+        '#34d399';
+
+    }
+
+
     let html = `
 
       <div
@@ -226,6 +347,7 @@
           border-radius:18px;
           background:rgba(0,0,0,.16);
           line-height:1.6;
+          word-break:break-word;
         "
       >
 
@@ -249,11 +371,30 @@
         </div>
 
         <div>
-          Version:
+          Gate Version:
           <b>
             ${escape83BGateMobile(
               result &&
               result.version
+            )}
+          </b>
+        </div>
+
+        <div>
+          Mobile UI:
+          <b>
+            ${escape83BGateMobile(
+              VERSION
+            )}
+          </b>
+        </div>
+
+        <div>
+          Selected Province:
+          <b>
+            ${escape83BGateMobile(
+              result &&
+              result.selectedProvince
             )}
           </b>
         </div>
@@ -299,6 +440,25 @@
           </b>
         </div>
 
+        <div>
+          Selected = Production:
+          <b>
+            ${yesNo83BGateMobile(
+              production
+                .selectedMatchesProduction
+            )}
+          </b>
+        </div>
+
+        <div>
+          Production Path Ready:
+          <b>
+            ${yesNo83BGateMobile(
+              production.pathReady
+            )}
+          </b>
+        </div>
+
       </div>
 
 
@@ -309,6 +469,7 @@
           border-radius:18px;
           background:rgba(59,130,246,.10);
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -332,6 +493,15 @@
         </div>
 
         <div>
+          Resolver Version:
+          <b>
+            ${escape83BGateMobile(
+              resolver.version
+            )}
+          </b>
+        </div>
+
+        <div>
           Ready:
           <b>
             ${yesNo83BGateMobile(
@@ -345,15 +515,6 @@
           <b>
             ${escape83BGateMobile(
               resolver.resolvedScope
-            )}
-          </b>
-        </div>
-
-        <div>
-          Resolved = Production:
-          <b>
-            ${yesNo83BGateMobile(
-              resolver.resolvedToProduction
             )}
           </b>
         </div>
@@ -381,6 +542,105 @@
           <b>
             ${escape83BGateMobile(
               resolver.error
+            )}
+          </b>
+        </div>
+
+      </div>
+
+
+      <div
+        style="
+          margin-top:14px;
+          padding:16px;
+          border-radius:18px;
+          background:rgba(52,211,153,.11);
+          border:1px solid rgba(52,211,153,.24);
+          line-height:1.65;
+          word-break:break-word;
+        "
+      >
+
+        <div
+          style="
+            color:#ffbd3c;
+            font-size:17px;
+            font-weight:900;
+          "
+        >
+          🧬 B8 VERIFIED PATH
+        </div>
+
+        <div style="margin-top:8px;">
+          Trusted Source:
+          <b>
+            ${escape83BGateMobile(
+              b8Path.trustedSource
+            )}
+          </b>
+        </div>
+
+        <div>
+          Resolver Source:
+          <b>
+            ${escape83BGateMobile(
+              b8Path.resolverSource
+            )}
+          </b>
+        </div>
+
+        <div>
+          Source Trusted:
+          <b>
+            ${yesNo83BGateMobile(
+              b8Path.sourceTrusted
+            )}
+          </b>
+        </div>
+
+        <div>
+          Selected Province:
+          <b>
+            ${escape83BGateMobile(
+              b8Path.selectedProvince
+            )}
+          </b>
+        </div>
+
+        <div>
+          Resolved Province:
+          <b>
+            ${escape83BGateMobile(
+              b8Path.resolvedProvince
+            )}
+          </b>
+        </div>
+
+        <div>
+          Selected = Resolved:
+          <b>
+            ${yesNo83BGateMobile(
+              b8Path
+                .selectedMatchesResolved
+            )}
+          </b>
+        </div>
+
+        <div>
+          B8 Verified:
+          <b>
+            ${yesNo83BGateMobile(
+              b8Path.verified
+            )}
+          </b>
+        </div>
+
+        <div>
+          Pre-Production Path Ready:
+          <b>
+            ${yesNo83BGateMobile(
+              b8Path
+                .preProductionPathReady
             )}
           </b>
         </div>
@@ -479,21 +739,31 @@
         </div>
 
         <div style="margin-top:8px;">
-          Current 8.3B = Production:
+          Current 8.3B = Resolved:
           <b>
             ${yesNo83BGateMobile(
               comparison
-                .current83BMatchesProduction
+                .current83BMatchesResolved
             )}
           </b>
         </div>
 
         <div>
-          Legacy Divergence Confirmed:
+          Current 8.3B Contains Resolved:
           <b>
             ${yesNo83BGateMobile(
               comparison
-                .legacyDivergenceConfirmed
+                .current83BContainsResolved
+            )}
+          </b>
+        </div>
+
+        <div>
+          Legacy Divergence Observed:
+          <b>
+            ${yesNo83BGateMobile(
+              comparison
+                .legacyDivergenceObserved
             )}
           </b>
         </div>
@@ -509,31 +779,16 @@
 
       </div>
 
-    `;
-
-
-    const gateReady =
-      gate.integrationReady === true;
-
-
-    html += `
 
       <div
         style="
           margin-top:16px;
           padding:18px;
           border-radius:20px;
-          background:${
-            gateReady
-              ? 'rgba(52,211,153,.16)'
-              : 'rgba(248,113,113,.16)'
-          };
-          border:2px solid ${
-            gateReady
-              ? '#34d399'
-              : '#f87171'
-          };
+          background:${boundaryBackground};
+          border:2px solid ${boundaryBorder};
           line-height:1.65;
+          word-break:break-word;
         "
       >
 
@@ -541,25 +796,36 @@
           style="
             font-size:19px;
             font-weight:900;
-            color:${
-              gateReady
-                ? '#9ff0c8'
-                : '#ffaaaa'
-            };
+            color:${boundaryColor};
           "
         >
-          ${
-            gateReady
-              ? '🟢 INTEGRATION READY'
-              : '🔴 INTEGRATION BLOCKED'
-          }
+          ${boundaryTitle}
         </div>
 
         <div style="margin-top:9px;">
-          Integration Ready:
+          Boundary Ready:
           <b>
             ${yesNo83BGateMobile(
-              gate.integrationReady
+              gate.boundaryReady
+            )}
+          </b>
+        </div>
+
+        <div>
+          Production Path Ready:
+          <b>
+            ${yesNo83BGateMobile(
+              production.pathReady
+            )}
+          </b>
+        </div>
+
+        <div>
+          B8 Pre-Production Path Ready:
+          <b>
+            ${yesNo83BGateMobile(
+              b8Path
+                .preProductionPathReady
             )}
           </b>
         </div>
@@ -569,6 +835,24 @@
           <b>
             ${escape83BGateMobile(
               gate.reason
+            )}
+          </b>
+        </div>
+
+        <div>
+          Integration Executed:
+          <b>
+            ${safeNo83BGateMobile(
+              gate.integrationExecuted
+            )}
+          </b>
+        </div>
+
+        <div>
+          Write Authorized:
+          <b>
+            ${safeNo83BGateMobile(
+              gate.writeAuthorized
             )}
           </b>
         </div>
@@ -598,66 +882,66 @@
 
         <br>
 
+        Boundary Only:
+        ${yesNo83BGateMobile(
+          safety.boundaryOnly
+        )}
+
+        <br>
+
         Write Authorized:
-        ${
+        ${safeNo83BGateMobile(
           safety.writeAuthorized
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         Production Write:
-        ${
+        ${safeNo83BGateMobile(
           safety.productionWrite
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         Storage Write:
-        ${
+        ${safeNo83BGateMobile(
           safety.storageWrite
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         Engine Executed:
-        ${
+        ${safeNo83BGateMobile(
           safety.engineExecuted
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         savePrediction Called:
-        ${
+        ${safeNo83BGateMobile(
           safety.savePredictionCalled
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         LAST_FORECAST Modified:
-        ${
+        ${safeNo83BGateMobile(
           safety.lastForecastModified
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
 
         <br>
 
         Candidates Modified:
-        ${
+        ${safeNo83BGateMobile(
           safety.candidatesModified
-            ? 'YES ❌'
-            : 'NO ✅'
-        }
+        )}
+
+        <br>
+
+        STEP 8.3B Modified:
+        ${safeNo83BGateMobile(
+          safety.step83BModified
+        )}
 
       </div>
 
@@ -849,9 +1133,12 @@
           opacity:.78;
         "
       >
-        Kiểm tra Production → Resolver →
-        Current STEP 8.3B trước khi cho phép
-        bước sang integration patch.
+        Kiểm tra B8 Verification Path →
+        Scope Resolver →
+        STEP 8.3B boundary.
+        Boundary Ready chỉ là trạng thái
+        pre-production diagnostic,
+        không phải quyền ghi Production.
       </div>
 
 
@@ -891,6 +1178,14 @@
           ${escape83BGateMobile(
             gate.name
           )}
+        </b>
+
+        <br>
+
+        Mobile UI:
+
+        <b>
+          ${VERSION}
         </b>
 
       </div>
@@ -1026,8 +1321,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Integration Gate Mobile V1 loaded / READ ONLY / ZERO WRITE'
+    '📱 FIX-03D5.9 STEP 8.3B Integration Gate Mobile V2-B8PATH loaded / READ ONLY / ZERO WRITE / BOUNDARY UI'
   );
 
 })();
-
