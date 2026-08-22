@@ -438,15 +438,27 @@
 
     const names = [
 
-      'buildStep83Boundary03D59',
+  /*
+   * REAL STEP 8.3B boundary builder
+   * confirmed from app.js.
+   */
 
-      'buildStep83Boundary',
+  'buildProductionCandidateBoundaryV26',
 
-      'build83Boundary03D59',
+  /*
+   * Compatibility fallbacks only.
+   */
 
-      'build83Boundary'
+  'buildStep83Boundary03D59',
 
-    ];
+  'buildStep83Boundary',
+
+  'build83Boundary03D59',
+
+  'build83Boundary'
+
+];
+
 
 
     for (
