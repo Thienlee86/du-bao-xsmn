@@ -1,5 +1,5 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE MOBILE V2-B8PATH
+   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE MOBILE V3-B8PATH
    FILE:
    modules/fix03d59-83b-integration-gate-mobile.js
 
@@ -13,19 +13,19 @@
        -> Comparison
        -> Boundary Gate
        -> Safety Contract
-   - Distinguish PRE-PRODUCTION boundary readiness from
-     Production integration/write authorization.
    - No DevTools required.
 
    IMPORTANT:
    - READ ONLY.
    - ZERO WRITE.
+   - BOUNDARY ONLY.
    - NO ENGINE EXECUTION.
    - Does NOT rebuild STEP 8.3B.
    - Does NOT modify STEP 8.3B candidates.
    - Does NOT modify LAST_FORECAST.
    - Does NOT call savePrediction().
    - Does NOT write storage.
+   - FAIL CLOSED.
    ========================================================================= */
 
 (function () {
@@ -34,7 +34,7 @@
 
 
   const VERSION =
-    '83B-INTEGRATION-GATE-MOBILE-V2-B8PATH';
+    '83B-GATE-MOBILE-V3-B8PATH';
 
 
   const PANEL_ID =
@@ -255,7 +255,7 @@
       production.pathReady === true;
 
 
-    const b8PreProductionReady =
+    const b8PreProductionPathReady =
       b8Path.preProductionPathReady ===
       true;
 
@@ -264,76 +264,28 @@
       '🔴 BOUNDARY BLOCKED';
 
 
-    let boundaryColor =
-      '#ffaaaa';
+    if (boundaryReady) {
 
+      if (
+        b8PreProductionPathReady
+      ) {
 
-    let boundaryBackground =
-      'rgba(248,113,113,.16)';
+        boundaryTitle =
+          '🟢 B8 PRE-PRODUCTION BOUNDARY READY';
 
+      } else if (
+        productionPathReady
+      ) {
 
-    let boundaryBorder =
-      '#f87171';
+        boundaryTitle =
+          '🟢 PRODUCTION BOUNDARY READY';
 
+      } else {
 
-    if (
-      boundaryReady &&
-      productionPathReady
-    ) {
+        boundaryTitle =
+          '🟢 BOUNDARY READY';
 
-      boundaryTitle =
-        '🟢 PRODUCTION BOUNDARY READY';
-
-
-      boundaryColor =
-        '#9ff0c8';
-
-
-      boundaryBackground =
-        'rgba(52,211,153,.16)';
-
-
-      boundaryBorder =
-        '#34d399';
-
-    } else if (
-      boundaryReady &&
-      b8PreProductionReady
-    ) {
-
-      boundaryTitle =
-        '🟢 B8 PRE-PRODUCTION BOUNDARY READY';
-
-
-      boundaryColor =
-        '#9ff0c8';
-
-
-      boundaryBackground =
-        'rgba(52,211,153,.16)';
-
-
-      boundaryBorder =
-        '#34d399';
-
-    } else if (
-      boundaryReady
-    ) {
-
-      boundaryTitle =
-        '🟢 BOUNDARY READY';
-
-
-      boundaryColor =
-        '#9ff0c8';
-
-
-      boundaryBackground =
-        'rgba(52,211,153,.16)';
-
-
-      boundaryBorder =
-        '#34d399';
+      }
 
     }
 
@@ -347,7 +299,6 @@
           border-radius:18px;
           background:rgba(0,0,0,.16);
           line-height:1.6;
-          word-break:break-word;
         "
       >
 
@@ -362,6 +313,15 @@
         </div>
 
         <div style="margin-top:10px;">
+          Mobile Version:
+          <b>
+            ${escape83BGateMobile(
+              VERSION
+            )}
+          </b>
+        </div>
+
+        <div>
           Gate Function:
           <b>
             ${escape83BGateMobile(
@@ -376,25 +336,6 @@
             ${escape83BGateMobile(
               result &&
               result.version
-            )}
-          </b>
-        </div>
-
-        <div>
-          Mobile UI:
-          <b>
-            ${escape83BGateMobile(
-              VERSION
-            )}
-          </b>
-        </div>
-
-        <div>
-          Selected Province:
-          <b>
-            ${escape83BGateMobile(
-              result &&
-              result.selectedProvince
             )}
           </b>
         </div>
@@ -469,7 +410,6 @@
           border-radius:18px;
           background:rgba(59,130,246,.10);
           line-height:1.65;
-          word-break:break-word;
         "
       >
 
@@ -554,10 +494,9 @@
           margin-top:14px;
           padding:16px;
           border-radius:18px;
-          background:rgba(52,211,153,.11);
-          border:1px solid rgba(52,211,153,.24);
+          background:rgba(168,85,247,.12);
+          border:1px solid rgba(196,181,253,.24);
           line-height:1.65;
-          word-break:break-word;
         "
       >
 
@@ -785,10 +724,17 @@
           margin-top:16px;
           padding:18px;
           border-radius:20px;
-          background:${boundaryBackground};
-          border:2px solid ${boundaryBorder};
+          background:${
+            boundaryReady
+              ? 'rgba(52,211,153,.16)'
+              : 'rgba(248,113,113,.16)'
+          };
+          border:2px solid ${
+            boundaryReady
+              ? '#34d399'
+              : '#f87171'
+          };
           line-height:1.65;
-          word-break:break-word;
         "
       >
 
@@ -796,7 +742,11 @@
           style="
             font-size:19px;
             font-weight:900;
-            color:${boundaryColor};
+            color:${
+              boundaryReady
+                ? '#9ff0c8'
+                : '#ffaaaa'
+            };
           "
         >
           ${boundaryTitle}
@@ -1133,12 +1083,9 @@
           opacity:.78;
         "
       >
-        Kiểm tra B8 Verification Path →
-        Scope Resolver →
+        Kiểm tra B8 → Scope Resolver →
         STEP 8.3B boundary.
-        Boundary Ready chỉ là trạng thái
-        pre-production diagnostic,
-        không phải quyền ghi Production.
+        Diagnostic only · ZERO WRITE.
       </div>
 
 
@@ -1151,6 +1098,16 @@
           line-height:1.6;
         "
       >
+
+        Mobile Version:
+
+        <b>
+          ${escape83BGateMobile(
+            VERSION
+          )}
+        </b>
+
+        <br>
 
         Integration Gate Script:
 
@@ -1180,14 +1137,6 @@
           )}
         </b>
 
-        <br>
-
-        Mobile UI:
-
-        <b>
-          ${VERSION}
-        </b>
-
       </div>
 
 
@@ -1214,7 +1163,7 @@
           user-select:none;
         "
       >
-        🚦 RUN 8.3B INTEGRATION GATE
+        🚦 RUN 8.3B B8 BOUNDARY GATE
       </div>
 
 
@@ -1321,7 +1270,7 @@
 
 
   console.log(
-    '📱 FIX-03D5.9 STEP 8.3B Integration Gate Mobile V2-B8PATH loaded / READ ONLY / ZERO WRITE / BOUNDARY UI'
+    '🛡️ FIX-03D5.9 STEP 8.3B Integration Gate Mobile V3-B8PATH loaded / READ ONLY / ZERO WRITE / BOUNDARY ONLY'
   );
 
 })();
