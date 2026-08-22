@@ -1,12 +1,12 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW MOBILE UI
+   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW MOBILE UI V2
    FILE:
    modules/fix03d59-83b-source-shadow-mobile.js
 
    PURPOSE:
-   - Confirm STEP 8.3B Source Shadow is loaded.
-   - Run Source Shadow manually from mobile.
-   - Display result inside Settings tab.
+   - Run STEP 8.3B Source Shadow manually from mobile.
+   - Display Source Shadow result inside Settings.
+   - Rebuild stale/incomplete mobile panel safely.
    - Never modify the real STEP 8.3B result.
 
    SAFETY:
@@ -26,20 +26,40 @@
   'use strict';
 
 
+  const VERSION =
+    '83B-SOURCE-SHADOW-MOBILE-V2';
+
+
   const PANEL_ID =
     'fix03d59-83b-source-shadow-mobile-panel';
+
 
   const OUTPUT_ID =
     'fix03d59-83b-source-shadow-mobile-output';
 
 
-  function yesNo(
-    value
-  ) {
+  const CONTROL_ID =
+    'fix03d59-83b-source-shadow-mobile-control';
+
+
+  /* =========================================================
+     HELPERS
+     ========================================================= */
+
+  function yesNo(value) {
 
     return value === true
       ? 'YES ✅'
       : 'NO ❌';
+
+  }
+
+
+  function safeNo(value) {
+
+    return value === true
+      ? 'YES ❌'
+      : 'NO ✅';
 
   }
 
@@ -59,16 +79,28 @@
 
     }
 
-    return String(
-      value
-    );
+
+    return String(value);
 
   }
 
 
-  function getCandidateCount(
-    result
-  ) {
+  function escapeHtml(value) {
+
+    return safeText(
+      value,
+      '--'
+    )
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+
+  }
+
+
+  function getCandidateCount(result) {
 
     if (
       Number.isFinite(
@@ -104,9 +136,7 @@
   }
 
 
-  function getBoundaryCount(
-    result
-  ) {
+  function getBoundaryCount(result) {
 
     if (
       Number.isFinite(
@@ -146,9 +176,62 @@
   }
 
 
-  function renderResult(
-    result
-  ) {
+  /* =========================================================
+     RESOLVE SOURCE SHADOW
+     ========================================================= */
+
+  function resolveSourceShadow() {
+
+    try {
+
+      if (
+        typeof window
+          .build83BSourceShadow ===
+        'function'
+      ) {
+
+        return {
+
+          ready: true,
+
+          name:
+            'build83BSourceShadow',
+
+          fn:
+            window
+              .build83BSourceShadow
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // FAIL CLOSED
+
+    }
+
+
+    return {
+
+      ready: false,
+
+      name:
+        'build83BSourceShadow',
+
+      fn:
+        null
+
+    };
+
+  }
+
+
+  /* =========================================================
+     RENDER RESULT
+     ========================================================= */
+
+  function renderResult(result) {
 
     const output =
       document.getElementById(
@@ -164,13 +247,17 @@
 
 
     const ready =
-      result &&
-      result.ready === true;
+      Boolean(
+        result &&
+        result.ready === true
+      );
 
 
     const passed =
-      result &&
-      result.passed === true;
+      Boolean(
+        result &&
+        result.passed === true
+      );
 
 
     const sourceCount =
@@ -185,6 +272,12 @@
       );
 
 
+    const countMatch =
+      sourceCount > 0 &&
+      sourceCount ===
+        boundaryCount;
+
+
     output.innerHTML = `
 
       <div
@@ -192,8 +285,8 @@
           margin-top:18px;
           padding:20px;
           border-radius:22px;
-          background:
-            rgba(22,34,72,.92);
+          background:rgba(22,34,72,.92);
+          line-height:1.7;
         "
       >
 
@@ -209,64 +302,45 @@
         </div>
 
 
-        <div
+        Ready:
+        <b>${yesNo(ready)}</b>
+
+        <br>
+
+        Passed:
+        <b>${yesNo(passed)}</b>
+
+        <br><br>
+
+        Reason:
+        <br>
+
+        <b
           style="
-            font-size:17px;
-            line-height:1.7;
+            overflow-wrap:anywhere;
           "
         >
+          ${escapeHtml(
+            result &&
+            result.reason
+          )}
+        </b>
 
-          Ready:
-          <b>
-            ${yesNo(ready)}
-          </b>
+        <br><br>
 
-          <br>
+        Source:
+        <br>
 
-          Passed:
-          <b>
-            ${yesNo(passed)}
-          </b>
-
-          <br><br>
-
-          Reason:
-          <br>
-
-          <b
-            style="
-              overflow-wrap:anywhere;
-            "
-          >
-            ${
-              safeText(
-                result &&
-                result.reason,
-                'UNKNOWN'
-              )
-            }
-          </b>
-
-          <br><br>
-
-          Source:
-          <br>
-
-          <b
-            style="
-              overflow-wrap:anywhere;
-            "
-          >
-            ${
-              safeText(
-                result &&
-                result.sourceName,
-                'NONE'
-              )
-            }
-          </b>
-
-        </div>
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escapeHtml(
+            result &&
+            result.sourceName
+          )}
+        </b>
 
       </div>
 
@@ -276,8 +350,8 @@
           margin-top:16px;
           padding:20px;
           border-radius:22px;
-          background:
-            rgba(42,57,111,.92);
+          background:rgba(42,57,111,.92);
+          line-height:1.7;
         "
       >
 
@@ -293,39 +367,18 @@
         </div>
 
 
-        <div
-          style="
-            font-size:17px;
-            line-height:1.7;
-          "
-        >
+        Source Candidates:
+        <b>${sourceCount}</b>
 
-          Source Candidates:
-          <b>
-            ${sourceCount}
-          </b>
+        <br>
 
-          <br>
+        Boundary Candidates:
+        <b>${boundaryCount}</b>
 
-          Boundary Candidates:
-          <b>
-            ${boundaryCount}
-          </b>
+        <br>
 
-          <br>
-
-          Candidate Count Match:
-          <b>
-            ${
-              yesNo(
-                sourceCount > 0 &&
-                sourceCount ===
-                  boundaryCount
-              )
-            }
-          </b>
-
-        </div>
+        Candidate Count Match:
+        <b>${yesNo(countMatch)}</b>
 
       </div>
 
@@ -335,26 +388,23 @@
           margin-top:16px;
           padding:20px;
           border-radius:22px;
-          border:
-            2px solid
-            ${
-              passed
-                ? '#42d6a4'
-                : '#ff6b7a'
-            };
-          background:
-            rgba(31,68,89,.92);
+          border:2px solid ${
+            passed
+              ? '#42d6a4'
+              : '#ff6b7a'
+          };
+          background:rgba(31,68,89,.92);
+          line-height:1.7;
         "
       >
 
         <div
           style="
-            color:
-              ${
-                passed
-                  ? '#76efbd'
-                  : '#ff8994'
-              };
+            color:${
+              passed
+                ? '#76efbd'
+                : '#ff8994'
+            };
             font-size:22px;
             font-weight:900;
             margin-bottom:15px;
@@ -370,40 +420,23 @@
         </div>
 
 
-        <div
-          style="
-            font-size:17px;
-            line-height:1.7;
-          "
-        >
+        Shadow Ready:
+        <b>${yesNo(passed)}</b>
 
-          Shadow Ready:
-          <b>
-            ${yesNo(passed)}
-          </b>
+        <br>
 
-          <br>
+        Real 8.3B Modified:
+        <b>NO ✅</b>
 
-          Real 8.3B Modified:
-          <b>
-            NO ✅
-          </b>
+        <br>
 
-          <br>
-
-          Promotion Performed:
-          <b>
-            ${
-              yesNo(
-                result &&
-                result
-                  .promotionPerformed ===
-                  true
-              )
-            }
-          </b>
-
-        </div>
+        Promotion Performed:
+        <b>
+          ${safeNo(
+            result &&
+            result.promotionPerformed
+          )}
+        </b>
 
       </div>
 
@@ -413,8 +446,9 @@
           margin-top:16px;
           padding:20px;
           border-radius:22px;
-          background:
-            rgba(25,72,103,.92);
+          background:rgba(25,72,103,.92);
+          line-height:1.75;
+          font-weight:700;
         "
       >
 
@@ -430,90 +464,58 @@
         </div>
 
 
-        <div
-          style="
-            font-size:16px;
-            line-height:1.75;
-            font-weight:700;
-          "
-        >
+        Read Only:
+        ${yesNo(
+          result &&
+          result.readOnly
+        )}
 
-          Read Only:
-          ${
-            yesNo(
-              result &&
-              result.readOnly
-            )
-          }
+        <br>
 
-          <br>
+        Shadow Only:
+        YES ✅
 
-          Shadow Only:
-          YES ✅
+        <br>
 
-          <br>
+        Canonical Write:
+        ${safeNo(
+          result &&
+          result.canonicalWrite
+        )}
 
-          Canonical Write:
-          ${
-            (
-              !result ||
-              result.canonicalWrite !==
-                true
-            )
-              ? 'NO ✅'
-              : 'YES ❌'
-          }
+        <br>
 
-          <br>
+        Production Write:
+        ${safeNo(
+          result &&
+          result.productionWrite
+        )}
 
-          Production Write:
-          ${
-            (
-              !result ||
-              result.productionWrite !==
-                true
-            )
-              ? 'NO ✅'
-              : 'YES ❌'
-          }
+        <br>
 
-          <br>
+        Storage Write:
+        ${safeNo(
+          result &&
+          result.storageWrite
+        )}
 
-          Storage Write:
-          ${
-            (
-              !result ||
-              result.storageWrite !==
-                true
-            )
-              ? 'NO ✅'
-              : 'YES ❌'
-          }
+        <br>
 
-          <br>
+        Auto Promotion:
+        ${safeNo(
+          result &&
+          result.autoPromotion
+        )}
 
-          Auto Promotion:
-          ${
-            (
-              !result ||
-              result.autoPromotion !==
-                true
-            )
-              ? 'NO ✅'
-              : 'YES ❌'
-          }
+        <br>
 
-          <br>
+        savePrediction Called:
+        NO ✅
 
-          savePrediction Called:
-          NO ✅
+        <br>
 
-          <br>
-
-          LAST_FORECAST Modified:
-          NO ✅
-
-        </div>
+        LAST_FORECAST Modified:
+        NO ✅
 
       </div>
 
@@ -521,15 +523,16 @@
 
 
     output.scrollIntoView({
-      behavior:
-        'smooth',
-
-      block:
-        'start'
+      behavior: 'smooth',
+      block: 'start'
     });
 
   }
 
+
+  /* =========================================================
+     RUN
+     ========================================================= */
 
   function runSourceShadow() {
 
@@ -539,74 +542,76 @@
       );
 
 
-    if (
-      typeof
-        window
-          .build83BSourceShadow !==
-        'function'
-    ) {
+    if (!output) {
 
-      if (output) {
-
-        output.innerHTML = `
-
-          <div
-            style="
-              margin-top:18px;
-              padding:20px;
-              border-radius:20px;
-              border:
-                2px solid #ff6b7a;
-              color:#ff9ba5;
-            "
-          >
-
-            ❌ Source Shadow function
-            <b>
-              build83BSourceShadow
-            </b>
-            is not available.
-
-          </div>
-
-        `;
-
-      }
-
-
-      return;
+      return null;
 
     }
 
 
-    let result;
+    const sourceShadow =
+      resolveSourceShadow();
+
+
+    if (!sourceShadow.ready) {
+
+      output.innerHTML = `
+
+        <div
+          style="
+            margin-top:18px;
+            padding:20px;
+            border-radius:20px;
+            border:2px solid #ff6b7a;
+            color:#ff9ba5;
+            line-height:1.6;
+          "
+        >
+
+          ❌ SOURCE SHADOW NOT AVAILABLE
+
+          <br><br>
+
+          Function:
+
+          <b>
+            build83BSourceShadow
+          </b>
+
+        </div>
+
+      `;
+
+
+      return null;
+
+    }
 
 
     try {
 
+      const result =
+        sourceShadow.fn();
+
+
+      if (!result) {
+
+        throw new Error(
+          'SOURCE_SHADOW_RETURNED_EMPTY_RESULT'
+        );
+
+      }
+
+
       /*
-       * Call builder directly instead of
-       * inspect83BSourceShadow().
-       *
-       * This avoids the alert() popup
-       * and renders the result directly
-       * inside the mobile panel.
-       */
-
-      result =
-        window
-          .build83BSourceShadow();
-
-
-      /*
-       * Diagnostic result only.
-       * This mirrors the inspector result
-       * and does NOT alter STEP 8.3B.
+       * Diagnostic shadow result only.
+       * Does NOT modify the canonical
+       * STEP 8.3B result.
        */
 
       window
         .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
-          result;
+        result;
 
 
       renderResult(
@@ -615,76 +620,65 @@
 
 
       console.log(
-        'FIX-03D5.9 STEP 8.3B SOURCE SHADOW MOBILE',
+        'FIX-03D5.9 STEP 8.3B SOURCE SHADOW MOBILE V2',
         result
       );
 
 
-    } catch (
-      error
-    ) {
+      return result;
+
+    } catch (error) {
 
       console.error(
-        '83B Source Shadow Mobile:',
+        '83B Source Shadow Mobile V2:',
         error
       );
 
 
-      if (output) {
+      output.innerHTML = `
 
-        output.innerHTML = `
+        <div
+          style="
+            margin-top:18px;
+            padding:20px;
+            border-radius:20px;
+            border:2px solid #ff6b7a;
+            color:#ff9ba5;
+            line-height:1.6;
+            overflow-wrap:anywhere;
+          "
+        >
 
-          <div
-            style="
-              margin-top:18px;
-              padding:20px;
-              border-radius:20px;
-              border:
-                2px solid #ff6b7a;
-              color:#ff9ba5;
-              overflow-wrap:anywhere;
-            "
-          >
+          ❌ SOURCE SHADOW ERROR
 
-            ❌ Source Shadow Mobile Error:
+          <br><br>
 
-            <br><br>
+          <b>
+            ${escapeHtml(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )}
+          </b>
 
-            <b>
-              ${
-                safeText(
-                  error &&
-                  error.message
-                    ? error.message
-                    : error,
-                  'UNKNOWN'
-                )
-              }
-            </b>
+        </div>
 
-          </div>
+      `;
 
-        `;
 
-      }
+      return null;
 
     }
 
   }
 
 
+  /* =========================================================
+     BUILD / REBUILD MOBILE PANEL
+     ========================================================= */
+
   function buildPanel() {
-
-    if (
-      document.getElementById(
-        PANEL_ID
-      )
-    ) {
-
-      return;
-
-    }
-
 
     const settings =
       document.getElementById(
@@ -695,12 +689,39 @@
     if (!settings) {
 
       console.warn(
-        '83B Source Shadow Mobile: tab-settings not found'
+        '83B Source Shadow Mobile V2: tab-settings not found'
       );
 
       return;
 
     }
+
+
+    /*
+     * V2 SELF-HEAL:
+     *
+     * Remove any stale/incomplete panel
+     * with the same ID and rebuild it.
+     *
+     * UI only.
+     * No production state is modified.
+     */
+
+    const oldPanel =
+      document.getElementById(
+        PANEL_ID
+      );
+
+
+    if (oldPanel) {
+
+      oldPanel.remove();
+
+    }
+
+
+    const sourceShadow =
+      resolveSourceShadow();
 
 
     const panel =
@@ -713,119 +734,137 @@
       PANEL_ID;
 
 
+    panel.style.cssText = [
+      'margin:24px',
+      'padding:26px',
+      'border-radius:28px',
+      'background:linear-gradient(145deg,rgba(38,47,101,.98),rgba(27,34,78,.98))',
+      'border:1px solid rgba(170,110,255,.35)',
+      'color:#fff',
+      'box-sizing:border-box'
+    ].join(';');
+
+
     panel.innerHTML = `
 
       <div
         style="
-          margin:24px;
-          padding:26px;
-          border-radius:28px;
-          background:
-            linear-gradient(
-              145deg,
-              rgba(38,47,101,.98),
-              rgba(27,34,78,.98)
-            );
-          border:
-            1px solid
-            rgba(170,110,255,.35);
-          color:#fff;
+          font-size:27px;
+          font-weight:900;
+          margin-bottom:14px;
+        "
+      >
+        🔎 8.3B SOURCE SHADOW
+      </div>
+
+
+      <div
+        style="
+          color:#c1c6e0;
+          font-size:17px;
+          line-height:1.6;
+          margin-bottom:20px;
         "
       >
 
-        <div
-          style="
-            font-size:27px;
-            font-weight:900;
-            margin-bottom:14px;
-          "
-        >
-          🔎 8.3B SOURCE SHADOW
-        </div>
-
-
-        <div
-          style="
-            color:#c1c6e0;
-            font-size:17px;
-            line-height:1.6;
-            margin-bottom:20px;
-          "
-        >
-          Kiểm tra B8 Verified Scope
-          bằng REAL STEP 8.3 boundary
-          builder trong Shadow Mode,
-          trước khi thay đổi STEP 8.3B thật.
-        </div>
-
-
-        <div
-          style="
-            padding:18px;
-            border-radius:18px;
-            background:
-              rgba(0,0,0,.14);
-            font-size:17px;
-            line-height:1.65;
-          "
-        >
-
-          Source Shadow Script:
-          <b>
-            ${
-              window
-                .FIX03D59_STEP83B_SOURCE_SHADOW_LOADED ===
-                true
-                  ? 'YES ✅'
-                  : 'NO ❌'
-            }
-          </b>
-
-          <br>
-
-          Function:
-          <br>
-
-          <b
-            style="
-              overflow-wrap:anywhere;
-            "
-          >
-            build83BSourceShadow
-          </b>
-
-        </div>
-
-
-        <button
-          type="button"
-          id="fix03d59-83b-source-shadow-run"
-          style="
-            width:100%;
-            margin-top:22px;
-            padding:19px 12px;
-            border:0;
-            border-radius:20px;
-            font-size:19px;
-            font-weight:900;
-            color:#fff;
-            background:
-              linear-gradient(
-                90deg,
-                #a85ff4,
-                #7552ff
-              );
-          "
-        >
-          🔎 RUN 8.3B SOURCE SHADOW
-        </button>
-
-
-        <div
-          id="${OUTPUT_ID}">
-        </div>
+        Kiểm tra B8 Verified Scope bằng
+        REAL STEP 8.3 boundary builder
+        trong Shadow Mode, trước khi thay
+        đổi STEP 8.3B thật.
 
       </div>
+
+
+      <div
+        style="
+          padding:18px;
+          border-radius:18px;
+          background:rgba(0,0,0,.14);
+          font-size:17px;
+          line-height:1.65;
+        "
+      >
+
+        Mobile Version:
+        <b>
+          ${VERSION}
+        </b>
+
+        <br>
+
+        Source Shadow Script:
+
+        <b
+          style="
+            color:${
+              sourceShadow.ready
+                ? '#9ff0c8'
+                : '#ff9b9b'
+            };
+          "
+        >
+          ${
+            sourceShadow.ready
+              ? 'YES ✅'
+              : 'NO ❌'
+          }
+        </b>
+
+        <br>
+
+        Function:
+        <br>
+
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escapeHtml(
+            sourceShadow.name
+          )}
+        </b>
+
+      </div>
+
+
+      <div
+        id="${CONTROL_ID}"
+        role="button"
+        tabindex="0"
+        style="
+          display:flex;
+          align-items:center;
+          justify-content:center;
+          width:100%;
+          min-height:64px;
+          margin-top:22px;
+          padding:16px 12px;
+          border-radius:18px;
+          background:
+            linear-gradient(
+              90deg,
+              #c084fc,
+              #8b5cf6
+            );
+          color:#ffffff;
+          font-size:18px;
+          font-weight:900;
+          text-align:center;
+          box-sizing:border-box;
+          cursor:pointer;
+          user-select:none;
+        "
+      >
+
+        🔎 RUN 8.3B SOURCE SHADOW
+
+      </div>
+
+
+      <div
+        id="${OUTPUT_ID}"
+      ></div>
 
     `;
 
@@ -835,20 +874,95 @@
     );
 
 
-    const button =
+    const control =
       document.getElementById(
-        'fix03d59-83b-source-shadow-run'
+        CONTROL_ID
       );
 
 
-    if (button) {
+    if (control) {
 
-      button.addEventListener(
+      control.addEventListener(
         'click',
         runSourceShadow
       );
 
+
+      control.addEventListener(
+        'keydown',
+        function (event) {
+
+          if (
+            event.key === 'Enter' ||
+            event.key === ' '
+          ) {
+
+            event.preventDefault();
+
+            runSourceShadow();
+
+          }
+
+        }
+      );
+
     }
+
+
+    console.log(
+      '83B Source Shadow Mobile V2 panel built',
+      {
+        panel: true,
+        control:
+          Boolean(control),
+        sourceShadowReady:
+          sourceShadow.ready
+      }
+    );
+
+  }
+
+
+  /* =========================================================
+     PUBLIC API
+     ========================================================= */
+
+  window
+    .run83BSourceShadowMobile03D59 =
+    runSourceShadow;
+
+
+  window
+    .rebuild83BSourceShadowMobile03D59 =
+    buildPanel;
+
+
+  window
+    .FIX03D59_STEP83B_SOURCE_SHADOW_MOBILE_LOADED =
+    true;
+
+
+  window
+    .FIX03D59_STEP83B_SOURCE_SHADOW_MOBILE_VERSION =
+    VERSION;
+
+
+  /* =========================================================
+     INITIALIZE
+     ========================================================= */
+
+  function initialize() {
+
+    /*
+     * Delay slightly so all older Settings
+     * panels finish initialization first.
+     * Then V2 rebuilds its own panel.
+     */
+
+    window.setTimeout(
+      buildPanel,
+      1000
+    );
 
   }
 
@@ -860,23 +974,21 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      buildPanel
+      initialize,
+      {
+        once: true
+      }
     );
 
   } else {
 
-    buildPanel();
+    initialize();
 
   }
 
 
-  window
-    .FIX03D59_STEP83B_SOURCE_SHADOW_MOBILE_LOADED =
-      true;
-
-
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow Mobile loaded'
+    'FIX-03D5.9 STEP 8.3B Source Shadow Mobile V2 loaded / READ ONLY / SHADOW ONLY / ZERO WRITE'
   );
 
 })();
