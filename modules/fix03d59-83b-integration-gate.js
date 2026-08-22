@@ -1,16 +1,18 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE V2
+   FIX-03D5.9 — STEP 8.3B INTEGRATION GATE V3-B8PATH
    FILE:
    modules/fix03d59-83b-integration-gate.js
 
    PURPOSE:
-   - Validate the boundary between Production Forecast,
-     STEP 8.3B Scope Resolver, and current STEP 8.3B.
-   - Use STEP 8.3B Scope Resolver as the canonical observable
-     source for the current Production province.
-   - Preserve current STEP 8.3B candidates for comparison only.
-   - Determine whether STEP 8.3B is ready for a future
-     integration patch.
+   - Validate the boundary:
+       B8 Verification Path
+         -> STEP 8.3B Scope Resolver V2-B8PATH
+         -> future STEP 8.3B integration.
+   - Accept B8-verified selected province as a valid PRE-PRODUCTION
+     boundary source even when LAST_FORECAST does not yet exist.
+   - Keep Production Forecast observation available when present.
+   - Keep current STEP 8.3B candidates for comparison only.
+   - NEVER interpret boundaryReady as write authorization.
 
    IMPORTANT:
    - READ ONLY.
@@ -30,7 +32,11 @@
 
 
   const VERSION =
-    '83B-INTEGRATION-GATE-V2';
+    '83B-INTEGRATION-GATE-V3-B8PATH';
+
+
+  const TRUSTED_B8_SOURCE =
+    'B8_VERIFIED_SELECTED_PROVINCE';
 
 
   const LEGACY_PROVINCES = [
@@ -63,10 +69,70 @@
     return Array.from(
       new Set(
         (values || [])
-          .map(normalize83BGate)
+          .map(
+            normalize83BGate
+          )
           .filter(Boolean)
       )
     );
+
+  }
+
+
+  /* =========================================================
+     SELECTED PROVINCE
+     ========================================================= */
+
+  function getSelectedProvince83BGate() {
+
+    try {
+
+      const select =
+        document.getElementById(
+          'provinceSelect'
+        );
+
+
+      if (
+        select &&
+        select.value
+      ) {
+
+        return normalize83BGate(
+          select.value
+        );
+
+      }
+
+    } catch (error) {
+
+      // READ ONLY
+
+    }
+
+
+    try {
+
+      if (
+        typeof SELECTED_PROVINCE !==
+          'undefined' &&
+        SELECTED_PROVINCE
+      ) {
+
+        return normalize83BGate(
+          SELECTED_PROVINCE
+        );
+
+      }
+
+    } catch (error) {
+
+      // READ ONLY
+
+    }
+
+
+    return null;
 
   }
 
@@ -151,8 +217,15 @@
       legacyMatches,
 
       carriesFullLegacyScope:
-        legacyMatches.length ===
-        LEGACY_PROVINCES.length
+        LEGACY_PROVINCES.every(
+          function (province) {
+
+            return provinces.includes(
+              province
+            );
+
+          }
+        )
 
     };
 
@@ -267,13 +340,19 @@
       of possibleValues
     ) {
 
-      if (Array.isArray(value)) {
+      if (
+        Array.isArray(value)
+      ) {
 
         const normalized =
-          unique83BGate(value);
+          unique83BGate(
+            value
+          );
 
 
-        if (normalized.length) {
+        if (
+          normalized.length
+        ) {
 
           return normalized;
 
@@ -288,10 +367,14 @@
       ) {
 
         const normalized =
-          normalize83BGate(value);
+          normalize83BGate(
+            value
+          );
 
 
-        if (normalized) {
+        if (
+          normalized
+        ) {
 
           return [
             normalized
@@ -310,10 +393,10 @@
 
 
   /* =========================================================
-     CANONICAL PRODUCTION VIEW
+     PRODUCTION OBSERVATION
      ========================================================= */
 
-  function getCanonicalProduction83BGate(
+  function getProductionView83BGate(
     resolverResult
   ) {
 
@@ -325,9 +408,8 @@
 
         province: null,
 
-        source: null,
-
-        trusted: false
+        selectedMatchesProduction:
+          false
 
       };
 
@@ -347,24 +429,10 @@
       ) || null;
 
 
-    const source =
-      resolverResult.source ||
-      null;
-
-
-    /*
-     * Fail closed:
-     *
-     * Production is trusted only when the resolver
-     * explicitly observed a Production Forecast AND
-     * explicitly resolved its province.
-     */
-
-    const trusted =
-      Boolean(
-        forecastExists &&
-        province
-      );
+    const selectedMatchesProduction =
+      resolverResult
+        .selectedMatchesProduction ===
+      true;
 
 
     return {
@@ -373,9 +441,90 @@
 
       province,
 
-      source,
+      selectedMatchesProduction
 
-      trusted
+    };
+
+  }
+
+
+  /* =========================================================
+     B8 VERIFIED RESOLVER VIEW
+     ========================================================= */
+
+  function inspectB8ResolverView83BGate(
+    resolverResult,
+    selectedProvince,
+    resolvedScope
+  ) {
+
+    const resolverReady =
+      Boolean(
+        resolverResult &&
+        resolverResult.ready === true
+      );
+
+
+    const resolverSource =
+      resolverResult &&
+      resolverResult.source
+        ? String(
+            resolverResult.source
+          )
+        : null;
+
+
+    const sourceTrusted =
+      resolverSource ===
+      TRUSTED_B8_SOURCE;
+
+
+    const singleResolvedProvince =
+      resolvedScope.length === 1
+        ? resolvedScope[0]
+        : null;
+
+
+    const selectedMatchesResolved =
+      Boolean(
+        selectedProvince &&
+        singleResolvedProvince &&
+        selectedProvince ===
+          singleResolvedProvince
+      );
+
+
+    /*
+     * IMPORTANT:
+     *
+     * We trust B8 only through the Scope Resolver's
+     * explicit READY + SOURCE contract.
+     *
+     * We do NOT independently manufacture or infer
+     * a B8 verified province here.
+     */
+
+    const verified =
+      Boolean(
+        resolverReady &&
+        sourceTrusted &&
+        selectedMatchesResolved
+      );
+
+
+    return {
+
+      resolverReady,
+
+      resolverSource,
+
+      sourceTrusted,
+
+      singleResolvedProvince,
+
+      selectedMatchesResolved,
+
+      verified
 
     };
 
@@ -387,6 +536,10 @@
      ========================================================= */
 
   function inspectStep83BIntegrationGate03D59() {
+
+    const selectedProvince =
+      getSelectedProvince83BGate();
+
 
     const current83B =
       inspectCurrent83BGate();
@@ -406,93 +559,135 @@
       );
 
 
-    const canonicalProduction =
-      getCanonicalProduction83BGate(
+    const production =
+      getProductionView83BGate(
         resolverResult
       );
 
 
-    const productionForecastExists =
-      canonicalProduction
-        .forecastExists;
-
-
-    const productionProvince =
-      canonicalProduction
-        .province;
-
-
-    const resolverReady =
-      Boolean(
-        resolverResult &&
-        resolverResult.ready === true
+    const b8View =
+      inspectB8ResolverView83BGate(
+        resolverResult,
+        selectedProvince,
+        resolvedScope
       );
 
+
+    /*
+     * ---------------------------------------------------------
+     * PRODUCTION PATH
+     * ---------------------------------------------------------
+     *
+     * If Production Forecast exists, we preserve the stricter
+     * Production comparison.
+     */
 
     const resolvedToProduction =
       Boolean(
-        productionProvince &&
+        production.province &&
         resolvedScope.length === 1 &&
         resolvedScope[0] ===
-          productionProvince
+          production.province
       );
 
 
-    const current83BMatchesProduction =
+    const productionPathReady =
       Boolean(
-        productionProvince &&
+        production.forecastExists &&
+        production.province &&
+        resolverResult &&
+        resolverResult.ready === true &&
+        resolvedToProduction
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * B8 PRE-PRODUCTION PATH
+     * ---------------------------------------------------------
+     *
+     * LAST_FORECAST is NOT required here.
+     *
+     * The selected province must have already passed the
+     * Scope Resolver's B8 verified contract.
+     */
+
+    const b8PreProductionPathReady =
+      Boolean(
+        !production.forecastExists &&
+        b8View.verified
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * BOUNDARY READY
+     * ---------------------------------------------------------
+     *
+     * This means ONLY:
+     *
+     * "The observed scope boundary is internally consistent
+     *  enough for us to design/test a future integration patch."
+     *
+     * It NEVER means:
+     * - write is authorized
+     * - candidates may be changed
+     * - STEP 8.3B may be rebuilt
+     * - LAST_FORECAST may be modified
+     */
+
+    const boundaryReady =
+      Boolean(
+        resolverEnvelope.available &&
+        !resolverEnvelope.error &&
+        resolverResult &&
+        resolvedScope.length === 1 &&
+        (
+          productionPathReady ||
+          b8PreProductionPathReady
+        )
+      );
+
+
+    const current83BMatchesResolved =
+      Boolean(
+        resolvedScope.length === 1 &&
         current83B.provinces.length === 1 &&
         current83B.provinces[0] ===
-          productionProvince
+          resolvedScope[0]
       );
 
 
-    const legacyDivergenceConfirmed =
+    const current83BContainsResolved =
+      Boolean(
+        resolvedScope.length === 1 &&
+        current83B.provinces.includes(
+          resolvedScope[0]
+        )
+      );
+
+
+    const legacyDivergenceObserved =
       Boolean(
         current83B.exists &&
         current83B.carriesFullLegacyScope &&
-        productionProvince &&
-        !current83B.provinces.includes(
-          productionProvince
-        )
+        resolvedScope.length === 1 &&
+        !current83BContainsResolved
       );
 
 
     const scopeWouldChange =
       Boolean(
-        productionProvince &&
-        !current83BMatchesProduction
+        resolvedScope.length === 1 &&
+        !current83BMatchesResolved
       );
 
 
     /*
-     * FUTURE INTEGRATION MAY PROCEED ONLY WHEN:
-     *
-     * 1. Resolver exists.
-     * 2. Resolver executes without error.
-     * 3. Resolver explicitly observed Production Forecast.
-     * 4. Production province is observable.
-     * 5. Resolver says ready.
-     * 6. Resolver resolves exactly one province.
-     * 7. Resolved province equals Production province.
-     * 8. Current STEP 8.3B exists.
-     *
-     * This gate DOES NOT perform integration.
+     * ---------------------------------------------------------
+     * FAIL-CLOSED REASON
+     * ---------------------------------------------------------
      */
-
-    const integrationReady =
-      Boolean(
-        resolverEnvelope.available &&
-        !resolverEnvelope.error &&
-        productionForecastExists &&
-        productionProvince &&
-        canonicalProduction.trusted &&
-        resolverReady &&
-        resolvedScope.length === 1 &&
-        resolvedToProduction &&
-        current83B.exists
-      );
-
 
     let reason;
 
@@ -519,31 +714,11 @@
         'NO_RESOLVER_RESULT';
 
     } else if (
-      !productionForecastExists
+      resolverResult.ready !== true
     ) {
 
       reason =
-        'NO_PRODUCTION_FORECAST';
-
-    } else if (
-      !productionProvince
-    ) {
-
-      reason =
-        'NO_PRODUCTION_PROVINCE';
-
-    } else if (
-      !canonicalProduction.trusted
-    ) {
-
-      reason =
-        'PRODUCTION_VIEW_NOT_TRUSTED';
-
-    } else if (
-      !resolverReady
-    ) {
-
-      reason =
+        resolverResult.reason ||
         'RESOLVER_NOT_READY';
 
     } else if (
@@ -554,37 +729,67 @@
         'RESOLVED_SCOPE_NOT_SINGLE';
 
     } else if (
+      production.forecastExists &&
+      !production.province
+    ) {
+
+      reason =
+        'NO_PRODUCTION_PROVINCE';
+
+    } else if (
+      production.forecastExists &&
       !resolvedToProduction
     ) {
 
       reason =
-        'RESOLVED_SCOPE_MISMATCH';
+        'RESOLVED_SCOPE_PRODUCTION_MISMATCH';
 
     } else if (
-      !current83B.exists
+      !production.forecastExists &&
+      !b8View.sourceTrusted
     ) {
 
       reason =
-        'STEP83B_NOT_AVAILABLE';
+        'B8_VERIFIED_SOURCE_REQUIRED';
 
     } else if (
-      current83BMatchesProduction
+      !production.forecastExists &&
+      !b8View.selectedMatchesResolved
     ) {
 
       reason =
-        'STEP83B_ALREADY_MATCHES_PRODUCTION';
+        'SELECTED_PROVINCE_RESOLVED_SCOPE_MISMATCH';
 
     } else if (
-      legacyDivergenceConfirmed
+      !production.forecastExists &&
+      !b8View.verified
     ) {
 
       reason =
-        'LEGACY_83B_DIVERGENCE_CONFIRMED';
+        'B8_VERIFICATION_NOT_CONFIRMED';
+
+    } else if (
+      productionPathReady
+    ) {
+
+      reason =
+        current83BMatchesResolved
+          ? 'PRODUCTION_BOUNDARY_ALREADY_MATCHED'
+          : 'PRODUCTION_BOUNDARY_READY';
+
+    } else if (
+      b8PreProductionPathReady
+    ) {
+
+      reason =
+        current83BMatchesResolved
+          ? 'B8_BOUNDARY_ALREADY_MATCHED'
+          : 'B8_PREPRODUCTION_BOUNDARY_READY';
 
     } else {
 
       reason =
-        'INTEGRATION_BOUNDARY_READY';
+        'BOUNDARY_NOT_READY';
 
     }
 
@@ -598,22 +803,22 @@
         new Date()
           .toISOString(),
 
+      selectedProvince,
+
       production: {
 
         forecastExists:
-          productionForecastExists,
+          production.forecastExists,
 
         province:
-          productionProvince,
+          production.province,
 
-        trusted:
-          canonicalProduction.trusted,
+        selectedMatchesProduction:
+          production
+            .selectedMatchesProduction,
 
-        observationSource:
-          'STEP83B_SCOPE_RESOLVER',
-
-        resolverSource:
-          canonicalProduction.source
+        pathReady:
+          productionPathReady
 
       },
 
@@ -625,12 +830,17 @@
         error:
           resolverEnvelope.error,
 
+        version:
+          resolverResult &&
+          resolverResult.version
+            ? resolverResult.version
+            : null,
+
         ready:
-          resolverReady,
-
-        resolvedScope,
-
-        resolvedToProduction,
+          Boolean(
+            resolverResult &&
+            resolverResult.ready === true
+          ),
 
         source:
           resolverResult &&
@@ -642,7 +852,37 @@
           resolverResult &&
           resolverResult.reason
             ? resolverResult.reason
-            : null
+            : null,
+
+        resolvedScope:
+          resolvedScope.slice()
+
+      },
+
+      b8Path: {
+
+        trustedSource:
+          TRUSTED_B8_SOURCE,
+
+        resolverSource:
+          b8View.resolverSource,
+
+        sourceTrusted:
+          b8View.sourceTrusted,
+
+        selectedProvince,
+
+        resolvedProvince:
+          b8View.singleResolvedProvince,
+
+        selectedMatchesResolved:
+          b8View.selectedMatchesResolved,
+
+        verified:
+          b8View.verified,
+
+        preProductionPathReady:
+          b8PreProductionPathReady
 
       },
 
@@ -650,9 +890,11 @@
 
       comparison: {
 
-        current83BMatchesProduction,
+        current83BMatchesResolved,
 
-        legacyDivergenceConfirmed,
+        current83BContainsResolved,
+
+        legacyDivergenceObserved,
 
         scopeWouldChange
 
@@ -660,29 +902,55 @@
 
       gate: {
 
-        integrationReady,
+        boundaryReady,
 
-        reason
+        reason,
+
+        /*
+         * Explicitly FALSE.
+         *
+         * boundaryReady is diagnostic readiness only.
+         */
+
+        integrationExecuted:
+          false,
+
+        writeAuthorized:
+          false
 
       },
 
       safety: {
 
-        readOnly: true,
+        readOnly:
+          true,
 
-        writeAuthorized: false,
+        boundaryOnly:
+          true,
 
-        productionWrite: false,
+        writeAuthorized:
+          false,
 
-        storageWrite: false,
+        productionWrite:
+          false,
 
-        engineExecuted: false,
+        storageWrite:
+          false,
 
-        savePredictionCalled: false,
+        engineExecuted:
+          false,
 
-        lastForecastModified: false,
+        savePredictionCalled:
+          false,
 
-        candidatesModified: false
+        lastForecastModified:
+          false,
+
+        candidatesModified:
+          false,
+
+        step83BModified:
+          false
 
       }
 
@@ -690,13 +958,16 @@
 
 
     /*
-     * Diagnostic RAM result only.
+     * RAM DIAGNOSTIC RESULT ONLY.
      *
-     * Does NOT modify:
-     * - Production Forecast
+     * This is the ONLY assignment performed by this module.
+     *
+     * It does NOT modify:
+     * - LAST_FORECAST
      * - STEP 8.3B
      * - candidates
-     * - storage
+     * - localStorage
+     * - Production Forecast
      */
 
     window
@@ -710,7 +981,125 @@
 
 
   /* =========================================================
-     PUBLIC API
+     CONSOLE PRINT
+     ========================================================= */
+
+  function printStep83BIntegrationGate03D59() {
+
+    const result =
+      inspectStep83BIntegrationGate03D59();
+
+
+    console.log(
+      '=========================================='
+    );
+
+    console.log(
+      'FIX-03D5.9 STEP 8.3B INTEGRATION GATE V3-B8PATH'
+    );
+
+    console.log(
+      'READ ONLY · ZERO WRITE · BOUNDARY ONLY'
+    );
+
+    console.log(
+      '=========================================='
+    );
+
+
+    console.log(
+      'Selected Province:',
+      result.selectedProvince
+    );
+
+
+    console.log(
+      'Production Forecast Exists:',
+      result.production
+        .forecastExists
+    );
+
+
+    console.log(
+      'Production Province:',
+      result.production
+        .province
+    );
+
+
+    console.log(
+      'Resolver Version:',
+      result.resolver.version
+    );
+
+
+    console.log(
+      'Resolver Source:',
+      result.resolver.source
+    );
+
+
+    console.log(
+      'Resolved Scope:',
+      result.resolver
+        .resolvedScope
+    );
+
+
+    console.log(
+      'B8 Source Trusted:',
+      result.b8Path
+        .sourceTrusted
+    );
+
+
+    console.log(
+      'B8 Verified:',
+      result.b8Path
+        .verified
+    );
+
+
+    console.log(
+      'B8 Pre-Production Path Ready:',
+      result.b8Path
+        .preProductionPathReady
+    );
+
+
+    console.log(
+      'Boundary Ready:',
+      result.gate
+        .boundaryReady
+    );
+
+
+    console.log(
+      'Reason:',
+      result.gate.reason
+    );
+
+
+    console.log(
+      'Write Authorized:',
+      result.gate
+        .writeAuthorized
+    );
+
+
+    console.log(
+      'Safety:',
+      result.safety
+    );
+
+
+    return result;
+
+  }
+
+
+  /* =========================================================
+     PUBLIC READ-ONLY API
      ========================================================= */
 
   window
@@ -719,13 +1108,17 @@
 
 
   window
+    .printStep83BIntegrationGate03D59 =
+    printStep83BIntegrationGate03D59;
+
+
+  window
     .FIX03D59_STEP83B_INTEGRATION_GATE_LOADED =
     true;
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Integration Gate V2 loaded / CANONICAL RESOLVER VIEW / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    '🛡️ FIX-03D5.9 STEP 8.3B Integration Gate V3-B8PATH loaded / READ ONLY / ZERO WRITE / BOUNDARY ONLY / FAIL CLOSED'
   );
 
 })();
-
