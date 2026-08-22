@@ -1,15 +1,24 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SCOPE RESOLVER V1
+   FIX-03D5.9 — STEP 8.3B SCOPE RESOLVER V2
    FILE:
    modules/fix-03d5-9-83b-scope-resolver.js
 
    PURPOSE:
-   - Resolve the intended province scope for STEP 8.3B.
-   - Compare current Production Forecast province with legacy/test scope.
-   - Produce a READ-ONLY scope preview for later integration.
+   - Resolve intended province scope for STEP 8.3B.
+   - Read confirmed B8 verified runtime scope.
+   - Compare B8 verified scope with Production / selected province.
+   - Produce READ-ONLY scope preview for later integration.
    - Do NOT modify STEP 8.3B.
    - Do NOT modify candidates.
    - Do NOT execute forecast/certification engines.
+
+   CONFIRMED B8 PATH:
+   window
+     .LAST_V26_B8_STARTUP_VERIFY
+     ?.verification
+     ?.guard
+     ?.lifecycle
+     ?.verifiedDetails
 
    IMPORTANT:
    - READ ONLY
@@ -26,6 +35,10 @@
   'use strict';
 
 
+  const VERSION =
+    '83B-SCOPE-RESOLVER-V2-B8PATH';
+
+
   const LEGACY_SCOPE_83B = [
     'tp-hcm',
     'tay-ninh',
@@ -40,20 +53,49 @@
    * =========================================================
    */
 
-  function normalizeProvince83BScope(value) {
+  function normalizeProvince83BScope(
+    value
+  ) {
 
-    return String(
-      value == null
-        ? ''
-        : value
-    )
-      .trim()
-      .toLowerCase();
+    const normalized =
+      String(
+        value == null
+          ? ''
+          : value
+      )
+        .trim()
+        .toLowerCase();
+
+
+    if (
+      !normalized ||
+      normalized.length > 40
+    ) {
+
+      return '';
+
+    }
+
+
+    if (
+      !/^[a-z0-9-]+$/.test(
+        normalized
+      )
+    ) {
+
+      return '';
+
+    }
+
+
+    return normalized;
 
   }
 
 
-  function uniqueProvinceScope83B(values) {
+  function uniqueProvinceScope83B(
+    values
+  ) {
 
     return Array.from(
       new Set(
@@ -133,8 +175,11 @@
       envelope.forecast.province
     ) {
 
-      return normalizeProvince83BScope(
-        envelope.forecast.province
+      return (
+        normalizeProvince83BScope(
+          envelope.forecast.province
+        ) ||
+        null
       );
 
     }
@@ -148,8 +193,11 @@
       envelope.province
     ) {
 
-      return normalizeProvince83BScope(
-        envelope.province
+      return (
+        normalizeProvince83BScope(
+          envelope.province
+        ) ||
+        null
       );
 
     }
@@ -181,8 +229,11 @@
         select.value
       ) {
 
-        return normalizeProvince83BScope(
-          select.value
+        return (
+          normalizeProvince83BScope(
+            select.value
+          ) ||
+          null
         );
 
       }
@@ -198,12 +249,15 @@
 
       if (
         typeof SELECTED_PROVINCE !==
-        'undefined' &&
+          'undefined' &&
         SELECTED_PROVINCE
       ) {
 
-        return normalizeProvince83BScope(
-          SELECTED_PROVINCE
+        return (
+          normalizeProvince83BScope(
+            SELECTED_PROVINCE
+          ) ||
+          null
         );
 
       }
@@ -216,6 +270,116 @@
 
 
     return null;
+
+  }
+
+
+  /*
+   * =========================================================
+   * VERIFIED B8 RUNTIME SCOPE
+   * =========================================================
+   *
+   * Confirmed by B8PATH diagnostic.
+   *
+   * Source:
+   *
+   * LAST_V26_B8_STARTUP_VERIFY
+   *   .verification
+   *   .guard
+   *   .lifecycle
+   *   .verifiedDetails
+   *
+   * IMPORTANT:
+   * This function only READS the existing B8 result.
+   * It does not run B8 verification.
+   * It does not modify B8.
+   * =========================================================
+   */
+
+  function getVerifiedB8Scope83BScope() {
+
+    let verifiedDetails = null;
+
+
+    try {
+
+      verifiedDetails =
+        window
+          .LAST_V26_B8_STARTUP_VERIFY
+          ?.verification
+          ?.guard
+          ?.lifecycle
+          ?.verifiedDetails ||
+        null;
+
+    } catch (error) {
+
+      verifiedDetails = null;
+
+    }
+
+
+    if (
+      !Array.isArray(
+        verifiedDetails
+      )
+    ) {
+
+      return {
+
+        exists: false,
+
+        recordCount: 0,
+
+        provinceCount: 0,
+
+        provinces: []
+
+      };
+
+    }
+
+
+    const provinces =
+      uniqueProvinceScope83B(
+        verifiedDetails.map(
+          item => {
+
+            if (
+              !item ||
+              typeof item !==
+                'object'
+            ) {
+
+              return null;
+
+            }
+
+
+            return (
+              item.province ||
+              null
+            );
+
+          }
+        )
+      );
+
+
+    return {
+
+      exists: true,
+
+      recordCount:
+        verifiedDetails.length,
+
+      provinceCount:
+        provinces.length,
+
+      provinces:
+        provinces.slice()
+
+    };
 
   }
 
@@ -298,7 +462,8 @@
       candidateCount:
         candidates.length,
 
-      provinces
+      provinces:
+        provinces.slice()
 
     };
 
@@ -327,6 +492,10 @@
       getSelectedProvince83BScope();
 
 
+    const verifiedB8 =
+      getVerifiedB8Scope83BScope();
+
+
     const current83B =
       getCurrent83BScope();
 
@@ -353,24 +522,75 @@
       );
 
 
+    const b8MatchesLegacyScope =
+      (
+        verifiedB8.provinces.length ===
+          LEGACY_SCOPE_83B.length
+      ) &&
+      LEGACY_SCOPE_83B.every(
+        province =>
+          verifiedB8
+            .provinces
+            .includes(
+              province
+            )
+      );
+
+
+    const selectedInB8Scope =
+      Boolean(
+        selectedProvince &&
+        verifiedB8
+          .provinces
+          .includes(
+            selectedProvince
+          )
+      );
+
+
+    const productionInB8Scope =
+      Boolean(
+        productionProvince &&
+        verifiedB8
+          .provinces
+          .includes(
+            productionProvince
+          )
+      );
+
+
     /*
      * ---------------------------------------------------------
      * FAIL-CLOSED RESOLUTION
      * ---------------------------------------------------------
      *
-     * We do NOT manufacture 21 provinces here.
+     * Priority:
      *
-     * V1 only proves that runtime Production province can be
-     * resolved independently from the legacy 8.3B test scope.
+     * 1. Production + selected agree.
+     *
+     * 2. Production exists and is confirmed by B8.
+     *
+     * 3. No Production Forecast, but selected province is
+     *    already present in VERIFIED B8 runtime scope.
+     *
+     * 4. B8 verified scope exists, but selected province is
+     *    outside it -> expose B8 scope as diagnostic only.
+     *
+     * 5. Selected province alone -> preview only.
+     *
+     * Nothing here authorizes Production write.
+     * Nothing here modifies STEP 8.3B candidates.
      */
+
 
     let resolvedScope = [];
 
-    let source = null;
+    let source = 'NONE';
 
     let ready = false;
 
-    let reason = null;
+    let reason =
+      'NO_RUNTIME_PROVINCE_AVAILABLE';
 
 
     if (
@@ -396,7 +616,8 @@
         'CURRENT_PRODUCTION_PROVINCE_RESOLVED';
 
     } else if (
-      productionProvince
+      productionProvince &&
+      productionInB8Scope
     ) {
 
       resolvedScope = [
@@ -405,24 +626,103 @@
 
 
       source =
-        'PRODUCTION_FORECAST';
+        'PRODUCTION_FORECAST_CONFIRMED_BY_B8';
 
 
       ready = true;
 
 
       reason =
-        'PRODUCTION_PROVINCE_RESOLVED_SELECTED_MISMATCH';
+        'PRODUCTION_PROVINCE_VERIFIED_IN_B8';
+
+    } else if (
+      productionProvince
+    ) {
+
+      /*
+       * Production exists, but B8 does not confirm it.
+       *
+       * FAIL CLOSED:
+       * observable, but not ready for integration.
+       */
+
+      resolvedScope = [
+        productionProvince
+      ];
+
+
+      source =
+        'PRODUCTION_FORECAST_UNCONFIRMED_BY_B8';
+
+
+      ready = false;
+
+
+      reason =
+        'PRODUCTION_PROVINCE_NOT_VERIFIED_IN_B8';
+
+    } else if (
+      selectedProvince &&
+      selectedInB8Scope
+    ) {
+
+      /*
+       * Selected province has no current Production Forecast,
+       * but B8 has actual verified historical records for it.
+       *
+       * This makes the scope usable as a READ-ONLY
+       * integration preview.
+       *
+       * It does NOT authorize Production write.
+       */
+
+      resolvedScope = [
+        selectedProvince
+      ];
+
+
+      source =
+        'B8_VERIFIED_SELECTED_PROVINCE';
+
+
+      ready = true;
+
+
+      reason =
+        'SELECTED_PROVINCE_CONFIRMED_BY_B8';
+
+    } else if (
+      verifiedB8.provinces.length > 0
+    ) {
+
+      /*
+       * B8 scope is known, but selected province is not
+       * currently represented in it.
+       *
+       * Expose B8 scope for diagnostics only.
+       */
+
+      resolvedScope =
+        verifiedB8
+          .provinces
+          .slice();
+
+
+      source =
+        'B8_VERIFIED_SCOPE_PREVIEW_ONLY';
+
+
+      ready = false;
+
+
+      reason =
+        selectedProvince
+          ? 'SELECTED_PROVINCE_NOT_IN_B8_VERIFIED_SCOPE'
+          : 'B8_SCOPE_AVAILABLE_NO_SELECTED_PROVINCE';
 
     } else if (
       selectedProvince
     ) {
-
-      /*
-       * Selected province is observable,
-       * but without Production Forecast this is NOT
-       * authorized for future Production integration.
-       */
 
       resolvedScope = [
         selectedProvince
@@ -437,22 +737,7 @@
 
 
       reason =
-        'NO_PRODUCTION_FORECAST';
-
-    } else {
-
-      resolvedScope = [];
-
-
-      source =
-        'NONE';
-
-
-      ready = false;
-
-
-      reason =
-        'NO_RUNTIME_PROVINCE_AVAILABLE';
+        'NO_PRODUCTION_OR_B8_VERIFICATION';
 
     }
 
@@ -460,7 +745,7 @@
     const result = {
 
       version:
-        '83B-SCOPE-RESOLVER-V1',
+        VERSION,
 
       timestamp:
         new Date()
@@ -472,12 +757,22 @@
 
       source,
 
+
+      /*
+       * Production state
+       */
+
       productionForecastExists:
         Boolean(
           productionForecast
         ),
 
       productionProvince,
+
+
+      /*
+       * UI state
+       */
 
       selectedProvince,
 
@@ -488,6 +783,43 @@
           productionProvince ===
             selectedProvince
         ),
+
+
+      /*
+       * Confirmed B8 runtime state
+       */
+
+      verifiedB8: {
+
+        exists:
+          verifiedB8.exists,
+
+        recordCount:
+          verifiedB8.recordCount,
+
+        provinceCount:
+          verifiedB8.provinceCount,
+
+        provinces:
+          verifiedB8
+            .provinces
+            .slice(),
+
+        selectedInScope:
+          selectedInB8Scope,
+
+        productionInScope:
+          productionInB8Scope,
+
+        matchesLegacyScope:
+          b8MatchesLegacyScope
+
+      },
+
+
+      /*
+       * Existing STEP 8.3B state
+       */
 
       current83B: {
 
@@ -504,12 +836,22 @@
 
       },
 
+
+      /*
+       * Historical comparison only.
+       */
+
       legacyScope:
         LEGACY_SCOPE_83B.slice(),
 
       legacyMatches,
 
       carriesFullLegacyScope,
+
+
+      /*
+       * Proposed READ-ONLY scope.
+       */
 
       resolvedScope:
         resolvedScope.slice(),
@@ -521,6 +863,7 @@
         JSON.stringify(
           resolvedScope
         ),
+
 
       /*
        * Explicit safety contract.
@@ -550,6 +893,9 @@
           false,
 
         step83BModified:
+          false,
+
+        b8Modified:
           false
 
       }
@@ -560,8 +906,14 @@
     /*
      * RAM diagnostic result only.
      *
-     * This does NOT modify Production Forecast,
-     * STEP 8.3B candidates or storage.
+     * NEW diagnostic alias.
+     *
+     * Does NOT modify:
+     * - Production Forecast
+     * - STEP 8.3B
+     * - candidates
+     * - B8 verification
+     * - storage
      */
 
     window
@@ -591,7 +943,7 @@
     );
 
     console.log(
-      'FIX-03D5.9 STEP 8.3B SCOPE RESOLVER V1'
+      'FIX-03D5.9 STEP 8.3B SCOPE RESOLVER V2 B8PATH'
     );
 
     console.log(
@@ -602,40 +954,78 @@
       '=========================================='
     );
 
+
     console.log(
       'Production Province:',
       result.productionProvince
     );
+
 
     console.log(
       'Selected Province:',
       result.selectedProvince
     );
 
+
+    console.log(
+      'B8 Verified Records:',
+      result.verifiedB8.recordCount
+    );
+
+
+    console.log(
+      'B8 Verified Scope:',
+      result.verifiedB8.provinces
+    );
+
+
+    console.log(
+      'Selected In B8:',
+      result.verifiedB8.selectedInScope
+    );
+
+
+    console.log(
+      'Production In B8:',
+      result.verifiedB8.productionInScope
+    );
+
+
+    console.log(
+      'B8 Matches Legacy:',
+      result.verifiedB8.matchesLegacyScope
+    );
+
+
     console.log(
       'Current 8.3B Scope:',
       result.current83B.provinces
     );
 
-    console.log(
-      'Legacy Scope:',
-      result.legacyScope
-    );
 
     console.log(
       'Resolved Scope:',
       result.resolvedScope
     );
 
+
+    console.log(
+      'Source:',
+      result.source
+    );
+
+
     console.log(
       'Ready:',
       result.ready
     );
 
+
     console.log(
       'Reason:',
       result.reason
     );
+
 
     console.log(
       'Safety:',
@@ -654,6 +1044,10 @@
    * =========================================================
    */
 
+  window.getVerifiedB8Scope83BScope =
+    getVerifiedB8Scope83BScope;
+
+
   window.resolveStep83BScope03D59 =
     resolveStep83BScope03D59;
 
@@ -662,13 +1056,18 @@
     printStep83BScope03D59;
 
 
-  window.FIX03D59_STEP83B_SCOPE_RESOLVER_LOADED =
+  window
+    .FIX03D59_STEP83B_SCOPE_RESOLVER_LOADED =
     true;
 
 
+  window
+    .FIX03D59_STEP83B_SCOPE_RESOLVER_VERSION =
+    VERSION;
+
+
   console.log(
-    '🧭 FIX-03D5.9 STEP 8.3B Scope Resolver V1 loaded / READ ONLY / ZERO WRITE'
+    '🧭 FIX-03D5.9 STEP 8.3B Scope Resolver V2 B8PATH loaded / READ ONLY / ZERO WRITE'
   );
 
 })();
-
