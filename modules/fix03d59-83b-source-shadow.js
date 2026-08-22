@@ -1,32 +1,30 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW V3
+   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW V4
    FILE:
    modules/fix03d59-83b-source-shadow.js
 
    PURPOSE:
-   - Build STEP 8.3B source scope in SHADOW MODE.
-   - Reuse the already verified B8 Scope Resolver path.
-   - Verify the verified single-province source against the REAL
-     Production Candidate Boundary builder.
-   - Never modify the real STEP 8.3B result.
-
-   VERIFIED PATH:
-   B8 VERIFIED SELECTED PROVINCE
-        ↓
-   STEP 8.3B SCOPE RESOLVER
-        ↓
-   SOURCE SHADOW
-        ↓
-   buildProductionCandidateBoundaryV26()
+   - Reuse the verified B8 selected-province scope.
+   - Read the REAL STEP 8.2C RAM result.
+   - Filter REAL 8.2C eligible records to exactly the verified province.
+   - Preserve canonical identity:
+       index
+       province
+       prize
+   - Feed the filtered READ-ONLY shadow source into the REAL
+     STEP 8.3 boundary builder:
+       buildProductionCandidateBoundaryV26()
+   - Verify boundary count / identity / province isolation.
+   - Never replace or modify the REAL STEP 8.2C / STEP 8.3B result.
 
    SAFETY:
    - MANUAL / DIAGNOSTIC ONLY
    - READ ONLY
    - SHADOW ONLY
-   - ZERO WRITE
-   - NO PRODUCTION WRITE
-   - NO STORAGE WRITE
-   - NO AUTO PROMOTION
+   - ZERO CANONICAL WRITE
+   - ZERO PRODUCTION WRITE
+   - ZERO STORAGE WRITE
+   - ZERO PROMOTION
    - NO savePrediction()
    - NO LAST_FORECAST modification
    - NO canonical candidate modification
@@ -38,14 +36,14 @@
 
 
   const VERSION =
-    '83B-SOURCE-SHADOW-V3-REAL-PRODUCTION-BOUNDARY';
+    '83B-SOURCE-SHADOW-V4-REAL82C-FILTER';
 
 
   /* =========================================================
      HELPERS
      ========================================================= */
 
-  function safeClone83BSourceShadow(
+  function clone83BSourceShadowV4(
     value
   ) {
 
@@ -69,14 +67,14 @@
 
     } catch (error) {
 
-      return value;
+      return null;
 
     }
 
   }
 
 
-  function normalizeProvince83BSourceShadow(
+  function normalizeProvince83BSourceShadowV4(
     value
   ) {
 
@@ -92,26 +90,10 @@
 
     if (
       typeof value ===
-        'string'
-    ) {
-
-      const trimmed =
-        value
-          .trim()
-          .toLowerCase();
-
-
-      return trimmed || null;
-
-    }
-
-
-    if (
-      typeof value ===
         'object'
     ) {
 
-      const possible =
+      value =
         value.province ||
         value.provinceSlug ||
         value.slug ||
@@ -119,187 +101,236 @@
         value.value ||
         null;
 
-
-      if (
-        typeof possible ===
-          'string'
-      ) {
-
-        const trimmed =
-          possible
-            .trim()
-            .toLowerCase();
+    }
 
 
-        return trimmed || null;
+    if (
+      typeof value !==
+        'string'
+    ) {
 
-      }
+      return null;
 
     }
 
 
-    return null;
+    const normalized =
+      value
+        .trim()
+        .toLowerCase();
+
+
+    return normalized || null;
+
+  }
+
+
+  function normalizePrize83BSourceShadowV4(
+    value
+  ) {
+
+    if (
+      value === undefined ||
+      value === null
+    ) {
+
+      return null;
+
+    }
+
+
+    const normalized =
+      String(value)
+        .trim()
+        .toLowerCase();
+
+
+    return normalized || null;
+
+  }
+
+
+  function identity83BSourceShadowV4(
+    record
+  ) {
+
+    if (
+      !record ||
+      typeof record !==
+        'object'
+    ) {
+
+      return null;
+
+    }
+
+
+    const index =
+      Number(
+        record.index
+      );
+
+
+    const province =
+      normalizeProvince83BSourceShadowV4(
+        record.province
+      );
+
+
+    const prize =
+      normalizePrize83BSourceShadowV4(
+        record.prize
+      );
+
+
+    if (
+      !Number.isFinite(index) ||
+      !province ||
+      !prize
+    ) {
+
+      return null;
+
+    }
+
+
+    return (
+      String(index) +
+      '|' +
+      province +
+      '|' +
+      prize
+    );
+
+  }
+
+
+  function unique83BSourceShadowV4(
+    values
+  ) {
+
+    return Array.from(
+      new Set(
+        Array.isArray(values)
+          ? values
+          : []
+      )
+    );
 
   }
 
 
   /* =========================================================
-     RESOLVE VERIFIED B8 SCOPE
+     VERIFIED B8 PROVINCE
      ========================================================= */
 
-  function resolveVerifiedB8Scope83BSourceShadow() {
+  function resolveVerifiedProvince83BSourceShadowV4() {
 
-    const resolverNames = [
+    /*
+     * PRIMARY PATH:
+     * existing STEP 8.3B scope resolver.
+     */
 
-      'resolveStep83BScope03D59',
+    try {
 
-      'resolve83BScope03D59',
-
-      'resolveStep83BScope',
-
-      'resolve83BScope'
-
-    ];
-
-
-    for (
-      const name
-      of resolverNames
-    ) {
-
-      try {
-
-        if (
-          typeof window[name] !==
-            'function'
-        ) {
-
-          continue;
-
-        }
-
+      if (
+        typeof window
+          .resolveStep83BScope03D59 ===
+        'function'
+      ) {
 
         const result =
-          window[name]();
+          window
+            .resolveStep83BScope03D59();
 
 
-        if (!result) {
+        if (result) {
 
-          continue;
+          const province =
+            normalizeProvince83BSourceShadowV4(
 
-        }
+              result.resolvedScope ||
 
+              result.resolvedProvince ||
 
-        const province =
-          normalizeProvince83BSourceShadow(
+              result.province ||
 
-            result.province ||
+              (
+                result.resolved &&
+                result.resolved.province
+              ) ||
 
-            (
-              result.resolved &&
-              result.resolved.province
-            ) ||
-
-            result.resolvedProvince ||
-
-            result.selectedProvince ||
-
-            result.resolvedScope ||
-
-            (
-              result.scope &&
-              result.scope.province
-            )
-
-          );
-
-
-        const source =
-          result.source ||
-
-          (
-            result.resolver &&
-            result.resolver.source
-          ) ||
-
-          null;
-
-
-        const sourceTrusted =
-          result.sourceTrusted === true ||
-
-          (
-            result.resolver &&
-            result.resolver.sourceTrusted ===
-              true
-          ) ||
-
-          source ===
-            'B8_VERIFIED_SELECTED_PROVINCE';
-
-
-        const ready =
-          result.ready === true ||
-
-          (
-            result.resolver &&
-            result.resolver.ready ===
-              true
-          );
-
-
-        if (
-          province &&
-          ready &&
-          sourceTrusted
-        ) {
-
-          return {
-
-            ready: true,
-
-            reason:
-              'B8_VERIFIED_SCOPE_RESOLVED',
-
-            resolverName:
-              name,
-
-            province:
-              province,
-
-            source:
-              source ||
-              'B8_VERIFIED_SELECTED_PROVINCE',
-
-            sourceTrusted:
-              true,
-
-            raw:
-              safeClone83BSourceShadow(
-                result
+              (
+                result.scope &&
+                result.scope.province
               )
 
-          };
+            );
+
+
+          const source =
+            result.source ||
+            (
+              result.resolver &&
+              result.resolver.source
+            ) ||
+            null;
+
+
+          const trusted =
+            source ===
+              'B8_VERIFIED_SELECTED_PROVINCE' ||
+            result.sourceTrusted ===
+              true ||
+            (
+              result.resolver &&
+              result.resolver.sourceTrusted ===
+                true
+            );
+
+
+          if (
+            result.ready === true &&
+            province &&
+            trusted
+          ) {
+
+            return {
+
+              ready: true,
+
+              province,
+
+              source:
+                source ||
+                'B8_VERIFIED_SELECTED_PROVINCE',
+
+              resolverName:
+                'resolveStep83BScope03D59',
+
+              raw:
+                clone83BSourceShadowV4(
+                  result
+                )
+
+            };
+
+          }
 
         }
 
-      } catch (error) {
-
-        /*
-         * FAIL CLOSED.
-         * Try next known resolver.
-         */
-
       }
+
+    } catch (error) {
+
+      // FAIL CLOSED
 
     }
 
 
     /*
-     * ---------------------------------------------------------
-     * FALLBACK:
-     * verified Integration Shadow path
-     * ---------------------------------------------------------
+     * SECONDARY PATH:
+     * already verified Integration Shadow.
      */
 
     try {
@@ -315,17 +346,21 @@
             .buildStep83BIntegrationShadow03D59();
 
 
+        const province =
+          normalizeProvince83BSourceShadowV4(
+            integration &&
+            integration.resolved
+              ? integration
+                  .resolved
+                  .province
+              : null
+          );
+
+
         const resolver =
           integration &&
           integration.resolver
             ? integration.resolver
-            : {};
-
-
-        const resolved =
-          integration &&
-          integration.resolved
-            ? integration.resolved
             : {};
 
 
@@ -336,41 +371,28 @@
             : {};
 
 
-        const province =
-          normalizeProvince83BSourceShadow(
-            resolved.province
-          );
-
-
         if (
           resolver.ready === true &&
           resolver.sourceTrusted === true &&
-          province &&
-          shadow.b8Verified === true
+          shadow.b8Verified === true &&
+          province
         ) {
 
           return {
 
             ready: true,
 
-            reason:
-              'B8_VERIFIED_SCOPE_FROM_INTEGRATION_SHADOW',
-
-            resolverName:
-              'buildStep83BIntegrationShadow03D59',
-
-            province:
-              province,
+            province,
 
             source:
               resolver.source ||
               'B8_VERIFIED_SELECTED_PROVINCE',
 
-            sourceTrusted:
-              true,
+            resolverName:
+              'buildStep83BIntegrationShadow03D59',
 
             raw:
-              safeClone83BSourceShadow(
+              clone83BSourceShadowV4(
                 integration
               )
 
@@ -391,23 +413,13 @@
 
       ready: false,
 
-      reason:
-        'B8_VERIFIED_SCOPE_NOT_AVAILABLE',
+      province: null,
 
-      resolverName:
-        null,
+      source: 'NONE',
 
-      province:
-        null,
+      resolverName: null,
 
-      source:
-        'NONE',
-
-      sourceTrusted:
-        false,
-
-      raw:
-        null
+      raw: null
 
     };
 
@@ -415,69 +427,254 @@
 
 
   /* =========================================================
-     RESOLVE REAL PRODUCTION BOUNDARY BUILDER
+     READ REAL STEP 8.2C
      ========================================================= */
 
-  function resolveBoundaryBuilder83BSourceShadow() {
+  function readReal82C83BSourceShadowV4() {
+
+    let source;
+
+
+    try {
+
+      source =
+        window
+          .LAST_FIX03D59_STEP82C_RESULT;
+
+    } catch (error) {
+
+      source = null;
+
+    }
+
+
+    if (
+      !source ||
+      typeof source !==
+        'object'
+    ) {
+
+      return {
+
+        available: false,
+
+        validated: false,
+
+        reason:
+          'REAL_STEP82C_NOT_AVAILABLE',
+
+        source: null
+
+      };
+
+    }
+
+
+    const eligible =
+      Array.isArray(
+        source.eligible
+      )
+        ? source.eligible
+        : null;
+
+
+    const ineligible =
+      Array.isArray(
+        source.ineligible
+      )
+        ? source.ineligible
+        : null;
+
+
+    const validated =
+      source.ready === true &&
+      source.passed === true &&
+      eligible !== null &&
+      ineligible !== null;
+
+
+    return {
+
+      available: true,
+
+      validated,
+
+      reason:
+        validated
+          ? 'REAL_STEP82C_VALIDATED'
+          : 'REAL_STEP82C_NOT_VALIDATED',
+
+      source
+
+    };
+
+  }
+
+
+  /* =========================================================
+     FILTER REAL 8.2C ELIGIBLE RECORDS
+     ========================================================= */
+
+  function buildFiltered82CSource83BSourceShadowV4(
+    real82C,
+    verifiedProvince
+  ) {
+
+    const eligible =
+      Array.isArray(
+        real82C.eligible
+      )
+        ? real82C.eligible
+        : [];
+
+
+    const filtered =
+      eligible.filter(
+        function (record) {
+
+          return (
+            normalizeProvince83BSourceShadowV4(
+              record &&
+              record.province
+            ) ===
+            verifiedProvince
+          );
+
+        }
+      );
+
+
+    const foreign =
+      filtered.filter(
+        function (record) {
+
+          return (
+            normalizeProvince83BSourceShadowV4(
+              record &&
+              record.province
+            ) !==
+            verifiedProvince
+          );
+
+        }
+      );
+
+
+    const identities =
+      filtered.map(
+        identity83BSourceShadowV4
+      );
+
+
+    const validIdentities =
+      identities.filter(
+        Boolean
+      );
+
+
+    const identityComplete =
+      filtered.length > 0 &&
+      validIdentities.length ===
+        filtered.length;
+
+
+    const identityUnique =
+      identityComplete &&
+      unique83BSourceShadowV4(
+        validIdentities
+      ).length ===
+        validIdentities.length;
+
 
     /*
      * IMPORTANT:
      *
-     * app.js real builder:
+     * Build a NEW object.
+     * Never mutate LAST_FIX03D59_STEP82C_RESULT.
      *
-     * function buildProductionCandidateBoundaryV26(
-     *   sourceResult
-     * )
+     * The REAL STEP 8.3 builder expects:
      *
-     * This is the FIRST and preferred builder.
+     * ready
+     * passed
+     * eligible[]
+     * ineligible[]
      */
 
-    const names = [
+    const shadowSource = {
 
-      'buildProductionCandidateBoundaryV26',
+      ready: true,
 
-      'buildStep83Boundary03D59',
+      passed: true,
 
-      'buildStep83Boundary',
+      eligible:
+        clone83BSourceShadowV4(
+          filtered
+        ) || [],
 
-      'build83Boundary03D59',
+      /*
+       * Intentionally empty.
+       *
+       * We are validating the boundary for the
+       * B8-selected province only.
+       */
 
-      'build83Boundary'
+      ineligible: []
 
-    ];
+    };
 
 
-    for (
-      const name
-      of names
-    ) {
+    return {
 
-      try {
+      filtered,
 
-        if (
-          typeof window[name] ===
-            'function'
-        ) {
+      foreign,
 
-          return {
+      identities:
+        validIdentities,
 
-            ready: true,
+      identityComplete,
 
-            name:
-              name,
+      identityUnique,
 
-            fn:
-              window[name]
+      shadowSource
 
-          };
+    };
 
-        }
+  }
 
-      } catch (error) {
 
-        // FAIL CLOSED
+  /* =========================================================
+     REAL STEP 8.3 BOUNDARY BUILDER
+     ========================================================= */
+
+  function resolveBoundaryBuilder83BSourceShadowV4() {
+
+    try {
+
+      if (
+        typeof window
+          .buildProductionCandidateBoundaryV26 ===
+        'function'
+      ) {
+
+        return {
+
+          ready: true,
+
+          name:
+            'buildProductionCandidateBoundaryV26',
+
+          fn:
+            window
+              .buildProductionCandidateBoundaryV26
+
+        };
 
       }
+
+    } catch (error) {
+
+      // FAIL CLOSED
 
     }
 
@@ -496,126 +693,49 @@
 
 
   /* =========================================================
-     BUILD SHADOW SOURCE
+     BOUNDARY CANDIDATES
      ========================================================= */
 
-  function buildShadowInput83BSourceShadow(
-    province
+  function extractBoundaryCandidates83BSourceShadowV4(
+    result
   ) {
 
-    /*
-     * IMPORTANT:
-     *
-     * New object only.
-     * Never reuse or mutate canonical upstream objects.
-     *
-     * We provide compatible read-only source shapes
-     * for the real boundary builder.
-     */
-
-    return {
-
-      ready:
-        true,
-
-      passed:
-        true,
-
-      province:
-        province,
-
-      selectedProvince:
-        province,
-
-      resolvedProvince:
-        province,
-
-      provinces: [
-        province
-      ],
-
-      eligible: [
-        province
-      ],
-
-      candidates: [
-        province
-      ],
-
-      scope: {
-
-        province:
-          province,
-
-        provinces: [
-          province
-        ],
-
-        eligible: [
-          province
-        ]
-
-      },
-
-      source:
-        'B8_VERIFIED_SELECTED_PROVINCE',
-
-      sourceTrusted:
-        true,
-
-      shadow:
-        true,
-
-      readOnly:
-        true
-
-    };
-
-  }
-
-
-  /* =========================================================
-     EXTRACT BOUNDARY CANDIDATES
-     ========================================================= */
-
-  function extractBoundaryCandidates83BSourceShadow(
-    boundaryResult
-  ) {
-
-    if (!boundaryResult) {
+    if (
+      !result ||
+      typeof result !==
+        'object'
+    ) {
 
       return [];
 
     }
 
 
-    const possibleArrays = [
+    const possible = [
 
-      boundaryResult.candidates,
+      result.candidates,
 
-      boundaryResult.eligible,
+      result.eligible,
 
-      boundaryResult.provinces,
+      result.items,
 
-      boundaryResult.items,
+      result.results,
 
-      boundaryResult.results
+      result.productionCandidates
 
     ];
 
 
     for (
       const value
-      of possibleArrays
+      of possible
     ) {
 
       if (
         Array.isArray(value)
       ) {
 
-        return safeClone83BSourceShadow(
-          value
-        );
+        return value;
 
       }
 
@@ -623,50 +743,15 @@
 
 
     if (
+      result.boundary &&
       Array.isArray(
-        boundaryResult.scope
+        result.boundary.candidates
       )
     ) {
 
-      return safeClone83BSourceShadow(
-        boundaryResult.scope
-      );
-
-    }
-
-
-    if (
-      boundaryResult.scope &&
-      Array.isArray(
-        boundaryResult
-          .scope
-          .candidates
-      )
-    ) {
-
-      return safeClone83BSourceShadow(
-        boundaryResult
-          .scope
-          .candidates
-      );
-
-    }
-
-
-    if (
-      boundaryResult.boundary &&
-      Array.isArray(
-        boundaryResult
-          .boundary
-          .candidates
-      )
-    ) {
-
-      return safeClone83BSourceShadow(
-        boundaryResult
-          .boundary
-          .candidates
-      );
+      return result
+        .boundary
+        .candidates;
 
     }
 
@@ -676,279 +761,282 @@
   }
 
 
-  /* =========================================================
-     EXTRACT BOUNDARY COUNT
-     ========================================================= */
-
-  function extractBoundaryCount83BSourceShadow(
-    boundaryResult,
-    boundaryCandidates
+  function extractRejected83BSourceShadowV4(
+    result
   ) {
 
     if (
-      Array.isArray(
-        boundaryCandidates
-      ) &&
-      boundaryCandidates.length > 0
+      !result ||
+      typeof result !==
+        'object'
     ) {
 
-      return boundaryCandidates.length;
+      return [];
 
     }
 
 
-    const possibleCounts = [
+    const possible = [
 
-      boundaryResult &&
-      boundaryResult.candidateCount,
+      result.rejected,
 
-      boundaryResult &&
-      boundaryResult.count,
+      result.rejectedCandidates,
 
-      boundaryResult &&
-      boundaryResult.total,
-
-      boundaryResult &&
-      boundaryResult.counts &&
-      boundaryResult.counts.candidates,
-
-      boundaryResult &&
-      boundaryResult.counts &&
-      boundaryResult.counts.eligible,
-
-      boundaryResult &&
-      boundaryResult.boundary &&
-      boundaryResult.boundary.candidateCount
+      result.invalid
 
     ];
 
 
     for (
       const value
-      of possibleCounts
+      of possible
     ) {
 
-      const number =
-        Number(value);
-
-
       if (
-        Number.isFinite(number) &&
-        number >= 0
+        Array.isArray(value)
       ) {
 
-        return number;
+        return value;
 
       }
 
     }
 
 
-    return 0;
+    return [];
+
+  }
+
+
+  function candidateIdentity83BSourceShadowV4(
+    candidate
+  ) {
+
+    if (
+      !candidate ||
+      typeof candidate !==
+        'object'
+    ) {
+
+      return null;
+
+    }
+
+
+    const record =
+      candidate.record &&
+      typeof candidate.record ===
+        'object'
+        ? candidate.record
+        : candidate;
+
+
+    const indexValue =
+      candidate.canonicalIndex !==
+        undefined
+        ? candidate.canonicalIndex
+        : record.index;
+
+
+    const provinceValue =
+      candidate.province ||
+      record.province;
+
+
+    const prizeValue =
+      candidate.prize ||
+      record.prize;
+
+
+    const index =
+      Number(
+        indexValue
+      );
+
+
+    const province =
+      normalizeProvince83BSourceShadowV4(
+        provinceValue
+      );
+
+
+    const prize =
+      normalizePrize83BSourceShadowV4(
+        prizeValue
+      );
+
+
+    if (
+      !Number.isFinite(index) ||
+      !province ||
+      !prize
+    ) {
+
+      return null;
+
+    }
+
+
+    return (
+      String(index) +
+      '|' +
+      province +
+      '|' +
+      prize
+    );
 
   }
 
 
   /* =========================================================
-     BUILD SOURCE SHADOW
+     MAIN BUILD
      ========================================================= */
 
   function build83BSourceShadow() {
 
     const verified =
-      resolveVerifiedB8Scope83BSourceShadow();
+      resolveVerifiedProvince83BSourceShadowV4();
 
-
-    /*
-     * FAIL CLOSED:
-     * no verified B8 scope = no boundary execution.
-     */
 
     if (!verified.ready) {
 
-      return {
-
-        version:
-          VERSION,
-
-        ready:
-          false,
-
-        passed:
-          false,
-
-        reason:
-          verified.reason,
-
-        sourceName:
-          verified.source,
-
-        sourceTrusted:
-          false,
-
-        resolverName:
-          verified.resolverName,
-
-        verifiedProvince:
-          null,
-
-        sourceCandidateCount:
-          0,
-
-        boundaryCandidateCount:
-          0,
-
-        candidateCountMatch:
-          false,
-
-        shadowSource: {
-
-          eligible: []
-
-        },
-
-        boundaryBuilderAvailable:
-          false,
-
-        boundaryBuilderName:
-          null,
-
-        boundaryResult:
-          null,
-
-        readOnly:
-          true,
-
-        shadowOnly:
-          true,
-
-        canonicalWrite:
-          false,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        autoPromotion:
-          false,
-
-        promotionPerformed:
-          false,
-
-        engineExecuted:
-          false,
-
-        savePredictionCalled:
-          false,
-
-        lastForecastModified:
-          false,
-
-        candidatesModified:
-          false
-
-      };
+      return buildFailure83BSourceShadowV4(
+        'B8_VERIFIED_SCOPE_NOT_AVAILABLE',
+        verified
+      );
 
     }
 
 
-    const shadowSource =
-      buildShadowInput83BSourceShadow(
+    const real82C =
+      readReal82C83BSourceShadowV4();
+
+
+    if (!real82C.available) {
+
+      return buildFailure83BSourceShadowV4(
+        'REAL_STEP82C_NOT_AVAILABLE',
+        verified
+      );
+
+    }
+
+
+    if (!real82C.validated) {
+
+      return buildFailure83BSourceShadowV4(
+        'REAL_STEP82C_NOT_VALIDATED',
+        verified
+      );
+
+    }
+
+
+    const filtered =
+      buildFiltered82CSource83BSourceShadowV4(
+        real82C.source,
         verified.province
       );
 
 
+    const shadowEligibleCount =
+      filtered.filtered.length;
+
+
+    if (
+      shadowEligibleCount === 0
+    ) {
+
+      return buildFailure83BSourceShadowV4(
+        'NO_REAL82C_ELIGIBLE_RECORDS_FOR_VERIFIED_PROVINCE',
+        verified,
+        {
+
+          real82CAvailable:
+            true,
+
+          real82CValidated:
+            true,
+
+          real82CEligibleCount:
+            real82C
+              .source
+              .eligible
+              .length,
+
+          shadowEligibleCount:
+            0
+
+        }
+      );
+
+    }
+
+
+    if (
+      filtered.foreign.length !==
+        0
+    ) {
+
+      return buildFailure83BSourceShadowV4(
+        'FOREIGN_PROVINCE_LEAKAGE',
+        verified
+      );
+
+    }
+
+
+    if (
+      !filtered.identityComplete ||
+      !filtered.identityUnique
+    ) {
+
+      return buildFailure83BSourceShadowV4(
+        'SHADOW_IDENTITY_INVALID',
+        verified,
+        {
+
+          shadowEligibleCount,
+
+          identityComplete:
+            filtered.identityComplete,
+
+          identityUnique:
+            filtered.identityUnique
+
+        }
+      );
+
+    }
+
+
     const boundary =
-      resolveBoundaryBuilder83BSourceShadow();
+      resolveBoundaryBuilder83BSourceShadowV4();
 
 
     if (!boundary.ready) {
 
-      return {
+      return buildFailure83BSourceShadowV4(
+        'REAL_STEP83_BOUNDARY_BUILDER_NOT_AVAILABLE',
+        verified,
+        {
 
-        version:
-          VERSION,
+          real82CAvailable:
+            true,
 
-        ready:
-          false,
+          real82CValidated:
+            true,
 
-        passed:
-          false,
+          shadowEligibleCount,
 
-        reason:
-          'REAL_STEP83_BOUNDARY_BUILDER_NOT_AVAILABLE',
+          identityComplete:
+            filtered.identityComplete,
 
-        sourceName:
-          verified.source,
+          identityUnique:
+            filtered.identityUnique
 
-        sourceTrusted:
-          verified.sourceTrusted,
-
-        resolverName:
-          verified.resolverName,
-
-        verifiedProvince:
-          verified.province,
-
-        sourceCandidateCount:
-          1,
-
-        boundaryCandidateCount:
-          0,
-
-        candidateCountMatch:
-          false,
-
-        shadowSource:
-          safeClone83BSourceShadow(
-            shadowSource
-          ),
-
-        boundaryBuilderAvailable:
-          false,
-
-        boundaryBuilderName:
-          null,
-
-        boundaryResult:
-          null,
-
-        readOnly:
-          true,
-
-        shadowOnly:
-          true,
-
-        canonicalWrite:
-          false,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        autoPromotion:
-          false,
-
-        promotionPerformed:
-          false,
-
-        engineExecuted:
-          false,
-
-        savePredictionCalled:
-          false,
-
-        lastForecastModified:
-          false,
-
-        candidatesModified:
-          false
-
-      };
+        }
+      );
 
     }
 
@@ -959,75 +1047,335 @@
     try {
 
       /*
-       * Execute ONLY the boundary builder
-       * against a newly-created shadow source.
+       * IMPORTANT:
        *
-       * This is NOT forecast-engine execution.
+       * The REAL builder receives only a NEW cloned
+       * shadow source.
+       *
+       * LAST_FIX03D59_STEP82C_RESULT is untouched.
        */
 
       boundaryResult =
         boundary.fn(
-          safeClone83BSourceShadow(
-            shadowSource
+          clone83BSourceShadowV4(
+            filtered.shadowSource
           )
         );
 
     } catch (error) {
 
-      return {
+      return buildFailure83BSourceShadowV4(
+        'REAL_STEP83_BOUNDARY_BUILDER_ERROR',
+        verified,
+        {
 
-        version:
-          VERSION,
+          error:
+            error &&
+            error.message
+              ? error.message
+              : String(error),
+
+          real82CAvailable:
+            true,
+
+          real82CValidated:
+            true,
+
+          shadowEligibleCount,
+
+          boundaryBuilderName:
+            boundary.name
+
+        }
+      );
+
+    }
+
+
+    const boundaryCandidates =
+      extractBoundaryCandidates83BSourceShadowV4(
+        boundaryResult
+      );
+
+
+    const rejected =
+      extractRejected83BSourceShadowV4(
+        boundaryResult
+      );
+
+
+    const sourceIdentities =
+      filtered.identities;
+
+
+    const boundaryIdentities =
+      boundaryCandidates
+        .map(
+          candidateIdentity83BSourceShadowV4
+        )
+        .filter(
+          Boolean
+        );
+
+
+    const boundaryIdentityComplete =
+      boundaryCandidates.length > 0 &&
+      boundaryIdentities.length ===
+        boundaryCandidates.length;
+
+
+    const boundaryIdentityUnique =
+      boundaryIdentityComplete &&
+      unique83BSourceShadowV4(
+        boundaryIdentities
+      ).length ===
+        boundaryIdentities.length;
+
+
+    const sourceIdentitySet =
+      new Set(
+        sourceIdentities
+      );
+
+
+    const everyBoundaryIdentityFromSource =
+      boundaryIdentityComplete &&
+      boundaryIdentities.every(
+        function (identity) {
+
+          return sourceIdentitySet.has(
+            identity
+          );
+
+        }
+      );
+
+
+    const provinceMatch =
+      boundaryCandidates.every(
+        function (candidate) {
+
+          const record =
+            candidate &&
+            candidate.record
+              ? candidate.record
+              : candidate;
+
+
+          return (
+            normalizeProvince83BSourceShadowV4(
+              candidate &&
+              candidate.province
+                ? candidate.province
+                : record &&
+                  record.province
+            ) ===
+            verified.province
+          );
+
+        }
+      );
+
+
+    const sourceCount =
+      shadowEligibleCount;
+
+
+    const boundaryCount =
+      boundaryCandidates.length;
+
+
+    const rejectedCount =
+      rejected.length;
+
+
+    const countsBalanced =
+      boundaryCount +
+      rejectedCount ===
+      sourceCount;
+
+
+    const countMatches =
+      boundaryCount ===
+        sourceCount;
+
+
+    const boundaryPassed =
+      Boolean(
+        boundaryResult &&
+        boundaryResult.ready === true &&
+        boundaryResult.passed === true
+      );
+
+
+    const passed =
+      verified.ready === true &&
+      real82C.validated === true &&
+      sourceCount > 0 &&
+      filtered.foreign.length === 0 &&
+      filtered.identityComplete === true &&
+      filtered.identityUnique === true &&
+      boundaryPassed === true &&
+      rejectedCount === 0 &&
+      countsBalanced === true &&
+      countMatches === true &&
+      boundaryIdentityComplete === true &&
+      boundaryIdentityUnique === true &&
+      everyBoundaryIdentityFromSource === true &&
+      provinceMatch === true;
+
+
+    const result = {
+
+      version:
+        VERSION,
+
+      ready:
+        passed,
+
+      passed,
+
+      reason:
+        passed
+          ? 'B8_REAL82C_SOURCE_BOUNDARY_SHADOW_READY'
+          : 'SOURCE_BOUNDARY_SCOPE_MISMATCH',
+
+      verifiedScope: {
 
         ready:
-          false,
+          verified.ready,
 
-        passed:
-          false,
-
-        reason:
-          'REAL_STEP83_BOUNDARY_BUILDER_ERROR',
-
-        error:
-          error &&
-          error.message
-            ? error.message
-            : String(error),
-
-        sourceName:
-          verified.source,
-
-        sourceTrusted:
-          verified.sourceTrusted,
-
-        resolverName:
-          verified.resolverName,
-
-        verifiedProvince:
+        province:
           verified.province,
 
-        sourceCandidateCount:
-          1,
+        source:
+          verified.source,
 
-        boundaryCandidateCount:
-          0,
+        resolverName:
+          verified.resolverName
 
-        candidateCountMatch:
-          false,
+      },
 
-        shadowSource:
-          safeClone83BSourceShadow(
-            shadowSource
-          ),
+      real82C: {
 
-        boundaryBuilderAvailable:
+        available:
           true,
 
-        boundaryBuilderName:
+        validated:
+          real82C.validated,
+
+        ready:
+          real82C.source.ready ===
+            true,
+
+        passed:
+          real82C.source.passed ===
+            true,
+
+        eligibleCount:
+          real82C
+            .source
+            .eligible
+            .length,
+
+        ineligibleCount:
+          real82C
+            .source
+            .ineligible
+            .length
+
+      },
+
+      provinceFilter: {
+
+        province:
+          verified.province,
+
+        shadowEligibleCount:
+          sourceCount,
+
+        foreignProvinceLeakage:
+          filtered.foreign.length,
+
+        passed:
+          filtered.foreign.length ===
+            0 &&
+          sourceCount > 0
+
+      },
+
+      identity: {
+
+        sourceIdentityComplete:
+          filtered.identityComplete,
+
+        sourceIdentityUnique:
+          filtered.identityUnique,
+
+        boundaryIdentityComplete,
+
+        boundaryIdentityUnique,
+
+        everyBoundaryIdentityFromSource,
+
+        preserved:
+          filtered.identityComplete &&
+          filtered.identityUnique &&
+          boundaryIdentityComplete &&
+          boundaryIdentityUnique &&
+          everyBoundaryIdentityFromSource
+
+      },
+
+      boundary: {
+
+        builderAvailable:
+          true,
+
+        builderName:
           boundary.name,
 
-        boundaryResult:
-          null,
+        ready:
+          Boolean(
+            boundaryResult &&
+            boundaryResult.ready ===
+              true
+          ),
+
+        passed:
+          Boolean(
+            boundaryResult &&
+            boundaryResult.passed ===
+              true
+          ),
+
+        sourceCount,
+
+        candidateCount:
+          boundaryCount,
+
+        rejectedCount,
+
+        countsBalanced,
+
+        candidateCountMatch:
+          countMatches,
+
+        provinceMatch
+
+      },
+
+      shadowSource:
+        clone83BSourceShadowV4(
+          filtered.shadowSource
+        ),
+
+      boundaryResult:
+        clone83BSourceShadowV4(
+          boundaryResult
+        ),
+
+      safety: {
 
         readOnly:
           true,
@@ -1050,7 +1398,7 @@
         promotionPerformed:
           false,
 
-        engineExecuted:
+        forecastEngineExecuted:
           false,
 
         savePredictionCalled:
@@ -1059,131 +1407,243 @@
         lastForecastModified:
           false,
 
-        candidatesModified:
+        canonicalCandidatesModified:
           false
 
-      };
+      }
 
-    }
+    };
 
 
-    const boundaryCandidates =
-      extractBoundaryCandidates83BSourceShadow(
-        boundaryResult
+    /*
+     * Diagnostic RAM alias only.
+     */
+
+    window
+      .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
+      clone83BSourceShadowV4(
+        result
       );
 
 
-    const boundaryCandidateCount =
-      extractBoundaryCount83BSourceShadow(
-        boundaryResult,
-        boundaryCandidates
-      );
+    return result;
+
+  }
 
 
-    const countMatches =
-      boundaryCandidateCount === 1;
+  /* =========================================================
+     FAILURE RESULT
+     ========================================================= */
 
+  function buildFailure83BSourceShadowV4(
+    reason,
+    verified,
+    extra
+  ) {
 
-    const passed =
-      verified.sourceTrusted === true &&
-      shadowSource.eligible.length === 1 &&
-      countMatches;
-
-
-    return {
+    const result = {
 
       version:
         VERSION,
 
       ready:
-        passed,
+        false,
 
       passed:
-        passed,
-
-      reason:
-        passed
-          ? 'B8_VERIFIED_SOURCE_SHADOW_READY'
-          : 'SOURCE_BOUNDARY_SCOPE_MISMATCH',
-
-      sourceName:
-        verified.source,
-
-      sourceTrusted:
-        verified.sourceTrusted,
-
-      resolverName:
-        verified.resolverName,
-
-      verifiedProvince:
-        verified.province,
-
-      sourceCandidateCount:
-        shadowSource
-          .eligible
-          .length,
-
-      boundaryCandidateCount:
-        boundaryCandidateCount,
-
-      candidateCountMatch:
-        countMatches,
-
-      shadowSource:
-        safeClone83BSourceShadow(
-          shadowSource
-        ),
-
-      boundaryBuilderAvailable:
-        true,
-
-      boundaryBuilderName:
-        boundary.name,
-
-      boundaryResult:
-        safeClone83BSourceShadow(
-          boundaryResult
-        ),
-
-      readOnly:
-        true,
-
-      shadowOnly:
-        true,
-
-      canonicalWrite:
         false,
 
-      productionWrite:
-        false,
+      reason,
 
-      storageWrite:
-        false,
+      verifiedScope: {
 
-      autoPromotion:
-        false,
+        ready:
+          Boolean(
+            verified &&
+            verified.ready
+          ),
 
-      promotionPerformed:
-        false,
+        province:
+          verified
+            ? verified.province
+            : null,
 
-      /*
-       * Boundary verification is not
-       * Production Forecast Engine execution.
-       */
+        source:
+          verified
+            ? verified.source
+            : 'NONE',
 
-      engineExecuted:
-        false,
+        resolverName:
+          verified
+            ? verified.resolverName
+            : null
 
-      savePredictionCalled:
-        false,
+      },
 
-      lastForecastModified:
-        false,
+      real82C: {
 
-      candidatesModified:
-        false
+        available:
+          extra &&
+          extra.real82CAvailable ===
+            true,
+
+        validated:
+          extra &&
+          extra.real82CValidated ===
+            true
+
+      },
+
+      provinceFilter: {
+
+        shadowEligibleCount:
+          extra &&
+          Number.isFinite(
+            Number(
+              extra.shadowEligibleCount
+            )
+          )
+            ? Number(
+                extra.shadowEligibleCount
+              )
+            : 0,
+
+        foreignProvinceLeakage:
+          0,
+
+        passed:
+          false
+
+      },
+
+      identity: {
+
+        sourceIdentityComplete:
+          extra &&
+          extra.identityComplete ===
+            true,
+
+        sourceIdentityUnique:
+          extra &&
+          extra.identityUnique ===
+            true,
+
+        boundaryIdentityComplete:
+          false,
+
+        boundaryIdentityUnique:
+          false,
+
+        everyBoundaryIdentityFromSource:
+          false,
+
+        preserved:
+          false
+
+      },
+
+      boundary: {
+
+        builderAvailable:
+          Boolean(
+            extra &&
+            extra.boundaryBuilderName
+          ),
+
+        builderName:
+          extra &&
+          extra.boundaryBuilderName
+            ? extra.boundaryBuilderName
+            : null,
+
+        ready:
+          false,
+
+        passed:
+          false,
+
+        sourceCount:
+          extra &&
+          Number.isFinite(
+            Number(
+              extra.shadowEligibleCount
+            )
+          )
+            ? Number(
+                extra.shadowEligibleCount
+              )
+            : 0,
+
+        candidateCount:
+          0,
+
+        rejectedCount:
+          0,
+
+        countsBalanced:
+          false,
+
+        candidateCountMatch:
+          false,
+
+        provinceMatch:
+          false
+
+      },
+
+      error:
+        extra &&
+        extra.error
+          ? extra.error
+          : null,
+
+      safety: {
+
+        readOnly:
+          true,
+
+        shadowOnly:
+          true,
+
+        canonicalWrite:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        autoPromotion:
+          false,
+
+        promotionPerformed:
+          false,
+
+        forecastEngineExecuted:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        lastForecastModified:
+          false,
+
+        canonicalCandidatesModified:
+          false
+
+      }
 
     };
+
+
+    window
+      .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
+      clone83BSourceShadowV4(
+        result
+      );
+
+
+    return result;
 
   }
 
@@ -1203,7 +1663,11 @@
     );
 
     console.log(
-      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V3'
+      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V4'
+    );
+
+    console.log(
+      'REAL 8.2C FILTERED SOURCE'
     );
 
     console.log(
@@ -1213,6 +1677,22 @@
     console.log(
       result
     );
+
+
+    if (
+      result &&
+      result.boundaryResult
+    ) {
+
+      console.log(
+        'REAL STEP 8.3 BOUNDARY RESULT:'
+      );
+
+      console.log(
+        result.boundaryResult
+      );
+
+    }
 
 
     return result;
@@ -1245,7 +1725,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow V3 loaded / REAL PRODUCTION BOUNDARY / READ ONLY / SHADOW ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.3B Source Shadow V4 loaded / REAL 8.2C FILTER / REAL 8.3 BOUNDARY / READ ONLY / ZERO WRITE'
   );
 
 })();
