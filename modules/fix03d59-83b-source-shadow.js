@@ -1,22 +1,35 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW
+   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW V2
+   FILE:
+   modules/fix03d59-83b-source-shadow.js
 
    PURPOSE:
-   - Inspect whether B8 Verified Scope can safely feed the existing
-     STEP 8.3 production candidate boundary engine.
-   - Reuse the REAL buildProductionCandidateBoundaryV26() engine.
-   - DO NOT replace or modify the existing STEP 8.3B runner.
-   - DO NOT modify LAST_FIX03D59_STEP83B_RESULT.
+   - Build STEP 8.3B source scope in SHADOW MODE.
+   - Reuse the already verified B8 Scope Resolver path.
+   - Verify that the REAL STEP 8.3 boundary builder can consume
+     exactly the same verified province scope.
+   - Never modify the real STEP 8.3B result.
+
+   VERIFIED UPSTREAM PATH:
+   B8 VERIFIED SELECTED PROVINCE
+        ↓
+   STEP 8.3B SCOPE RESOLVER
+        ↓
+   SOURCE SHADOW
+        ↓
+   REAL STEP 8.3 BOUNDARY BUILDER
 
    SAFETY:
-   - MANUAL RUN ONLY
+   - MANUAL / DIAGNOSTIC ONLY
    - READ ONLY
+   - SHADOW ONLY
    - ZERO WRITE
    - NO PRODUCTION WRITE
    - NO STORAGE WRITE
    - NO AUTO PROMOTION
    - NO savePrediction()
    - NO LAST_FORECAST modification
+   - NO candidate modification
    ========================================================================= */
 
 (function () {
@@ -24,64 +37,447 @@
   'use strict';
 
 
-  function getVerifiedScope83BShadow() {
+  const VERSION =
+    '83B-SOURCE-SHADOW-V2-RESOLVER';
+
+
+  /* =========================================================
+     HELPERS
+     ========================================================= */
+
+  function safeClone83BSourceShadow(
+    value
+  ) {
+
+    if (
+      value === undefined ||
+      value === null
+    ) {
+
+      return value;
+
+    }
+
+
+    try {
+
+      return JSON.parse(
+        JSON.stringify(
+          value
+        )
+      );
+
+    } catch (error) {
+
+      return value;
+
+    }
+
+  }
+
+
+  function normalizeProvince83BSourceShadow(
+    value
+  ) {
+
+    if (
+      value === undefined ||
+      value === null
+    ) {
+
+      return null;
+
+    }
+
+
+    if (
+      typeof value ===
+        'string'
+    ) {
+
+      const trimmed =
+        value.trim();
+
+
+      return trimmed || null;
+
+    }
+
+
+    if (
+      typeof value ===
+        'object'
+    ) {
+
+      const possible =
+        value.province ||
+        value.provinceSlug ||
+        value.slug ||
+        value.id ||
+        value.value ||
+        null;
+
+
+      if (
+        typeof possible ===
+          'string'
+      ) {
+
+        const trimmed =
+          possible.trim();
+
+
+        return trimmed || null;
+
+      }
+
+    }
+
+
+    return null;
+
+  }
+
+
+  /* =========================================================
+     RESOLVE VERIFIED B8 SCOPE
+     ========================================================= */
+
+  function resolveVerifiedB8Scope83BSourceShadow() {
 
     /*
-     * ---------------------------------------------------------
-     * 1. RESOLVE B8 VERIFIED SCOPE
-     * ---------------------------------------------------------
+     * IMPORTANT:
+     *
+     * Do NOT guess old B8 global variables first.
+     *
+     * Integration Shadow has already verified that
+     * the STEP 8.3B Scope Resolver exposes the trusted
+     * B8 path:
+     *
+     * B8_VERIFIED_SELECTED_PROVINCE
+     *
+     * Therefore Source Shadow V2 must reuse that
+     * resolver path.
      */
 
-    const candidates = [
 
-      {
-        name:
-          'LAST_FIX03D59_STEP84FLH_B8_VERIFIED_SCOPE',
+    const resolverNames = [
 
-        value:
-          window
-            .LAST_FIX03D59_STEP84FLH_B8_VERIFIED_SCOPE
-      },
+      'resolveStep83BScope03D59',
 
-      {
-        name:
-          'LAST_FIX03D59_B8_VERIFIED_SCOPE',
+      'resolve83BScope03D59',
 
-        value:
-          window
-            .LAST_FIX03D59_B8_VERIFIED_SCOPE
-      },
+      'resolveStep83BScope',
 
-      {
-        name:
-          'FIX03D59_B8_VERIFIED_SCOPE',
-
-        value:
-          window
-            .FIX03D59_B8_VERIFIED_SCOPE
-      }
+      'resolve83BScope'
 
     ];
 
 
     for (
-      const candidate of
-      candidates
+      const name
+      of resolverNames
     ) {
 
+      try {
+
+        if (
+          typeof window[name] !==
+            'function'
+        ) {
+
+          continue;
+
+        }
+
+
+        const result =
+          window[name]();
+
+
+        if (!result) {
+
+          continue;
+
+        }
+
+
+        /*
+         * Resolver result shapes may differ
+         * slightly between diagnostic versions.
+         *
+         * Read only.
+         * Never mutate resolver result.
+         */
+
+        const province =
+          normalizeProvince83BSourceShadow(
+
+            result.province ||
+
+            (
+              result.resolved &&
+              result.resolved.province
+            ) ||
+
+            result.selectedProvince ||
+
+            (
+              result.scope &&
+              result.scope.province
+            )
+
+          );
+
+
+        const source =
+          result.source ||
+
+          (
+            result.resolver &&
+            result.resolver.source
+          ) ||
+
+          null;
+
+
+        const sourceTrusted =
+          result.sourceTrusted === true ||
+
+          (
+            result.resolver &&
+            result.resolver.sourceTrusted ===
+              true
+          );
+
+
+        const ready =
+          result.ready === true ||
+
+          (
+            result.resolver &&
+            result.resolver.ready ===
+              true
+          );
+
+
+        if (
+          province &&
+          ready &&
+          sourceTrusted
+        ) {
+
+          return {
+
+            ready: true,
+
+            reason:
+              'B8_VERIFIED_SCOPE_RESOLVED',
+
+            resolverName:
+              name,
+
+            province:
+              province,
+
+            source:
+              source ||
+              'B8_VERIFIED_SCOPE_RESOLVER',
+
+            sourceTrusted:
+              true,
+
+            raw:
+              safeClone83BSourceShadow(
+                result
+              )
+
+          };
+
+        }
+
+      } catch (error) {
+
+        /*
+         * FAIL CLOSED.
+         * Try next known resolver name.
+         */
+
+      }
+
+    }
+
+
+    /*
+     * Fallback:
+     *
+     * Reuse the already verified Integration Shadow
+     * result if available.
+     *
+     * This remains READ ONLY.
+     */
+
+
+    try {
+
       if (
-        candidate.value &&
-        typeof candidate.value ===
-          'object'
+        typeof window
+          .buildStep83BIntegrationShadow03D59 ===
+        'function'
       ) {
 
-        return {
-          ready: true,
-          sourceName:
-            candidate.name,
-          source:
-            candidate.value
-        };
+        const integration =
+          window
+            .buildStep83BIntegrationShadow03D59();
+
+
+        const resolver =
+          integration &&
+          integration.resolver
+            ? integration.resolver
+            : {};
+
+
+        const resolved =
+          integration &&
+          integration.resolved
+            ? integration.resolved
+            : {};
+
+
+        const shadow =
+          integration &&
+          integration.shadow
+            ? integration.shadow
+            : {};
+
+
+        const province =
+          normalizeProvince83BSourceShadow(
+            resolved.province
+          );
+
+
+        if (
+          resolver.ready === true &&
+          resolver.sourceTrusted === true &&
+          province &&
+          shadow.b8Verified === true
+        ) {
+
+          return {
+
+            ready: true,
+
+            reason:
+              'B8_VERIFIED_SCOPE_FROM_INTEGRATION_SHADOW',
+
+            resolverName:
+              'buildStep83BIntegrationShadow03D59',
+
+            province:
+              province,
+
+            source:
+              resolver.source ||
+              'B8_VERIFIED_SCOPE_RESOLVER',
+
+            sourceTrusted:
+              true,
+
+            raw:
+              safeClone83BSourceShadow(
+                integration
+              )
+
+          };
+
+        }
+
+      }
+
+    } catch (error) {
+
+      // FAIL CLOSED
+
+    }
+
+
+    return {
+
+      ready: false,
+
+      reason:
+        'B8_VERIFIED_SCOPE_NOT_AVAILABLE',
+
+      resolverName:
+        null,
+
+      province:
+        null,
+
+      source:
+        'NONE',
+
+      sourceTrusted:
+        false,
+
+      raw:
+        null
+
+    };
+
+  }
+
+
+  /* =========================================================
+     RESOLVE REAL STEP 8.3 BOUNDARY BUILDER
+     ========================================================= */
+
+  function resolveBoundaryBuilder83BSourceShadow() {
+
+    const names = [
+
+      'buildStep83Boundary03D59',
+
+      'buildStep83Boundary',
+
+      'build83Boundary03D59',
+
+      'build83Boundary'
+
+    ];
+
+
+    for (
+      const name
+      of names
+    ) {
+
+      try {
+
+        if (
+          typeof window[name] ===
+            'function'
+        ) {
+
+          return {
+
+            ready: true,
+
+            name:
+              name,
+
+            fn:
+              window[name]
+
+          };
+
+        }
+
+      } catch (error) {
+
+        // FAIL CLOSED
 
       }
 
@@ -89,380 +485,545 @@
 
 
     return {
+
       ready: false,
-      sourceName:
-        'NONE',
-      source:
-        null
+
+      name: null,
+
+      fn: null
+
     };
 
   }
 
 
-  function build83BSourceShadow() {
+  /* =========================================================
+     EXTRACT BOUNDARY CANDIDATES
+     ========================================================= */
 
-    /*
-     * ---------------------------------------------------------
-     * 2. ENGINE MUST EXIST
-     * ---------------------------------------------------------
-     */
+  function extractBoundaryCandidates83BSourceShadow(
+    boundaryResult
+  ) {
 
-    if (
-      typeof
-        window
-          .buildProductionCandidateBoundaryV26 !==
-        'function' &&
-      typeof
-        buildProductionCandidateBoundaryV26 !==
-        'function'
-    ) {
+    if (!boundaryResult) {
 
-      return {
-        ready: false,
-        passed: false,
-
-        reason:
-          'STEP_83_BOUNDARY_ENGINE_NOT_AVAILABLE',
-
-        readOnly: true,
-        productionWrite: false,
-        storageWrite: false,
-        promotionPerformed: false
-      };
+      return [];
 
     }
 
 
-    /*
-     * ---------------------------------------------------------
-     * 3. GET VERIFIED SCOPE
-     * ---------------------------------------------------------
-     */
+    const possibleArrays = [
 
-    const resolved =
-      getVerifiedScope83BShadow();
+      boundaryResult.candidates,
+
+      boundaryResult.eligible,
+
+      boundaryResult.provinces,
+
+      boundaryResult.scope,
+
+      boundaryResult.items,
+
+      boundaryResult.results
+
+    ];
 
 
-    if (
-      resolved.ready !== true ||
-      !resolved.source
+    for (
+      const value
+      of possibleArrays
     ) {
 
-      return {
-        ready: false,
-        passed: false,
+      if (
+        Array.isArray(value)
+      ) {
 
-        reason:
-          'B8_VERIFIED_SCOPE_NOT_AVAILABLE',
+        return safeClone83BSourceShadow(
+          value
+        );
 
-        sourceName:
-          resolved.sourceName,
-
-        readOnly: true,
-        productionWrite: false,
-        storageWrite: false,
-        promotionPerformed: false
-      };
+      }
 
     }
 
 
-    const scope =
-      resolved.source;
-
-
-    /*
-     * ---------------------------------------------------------
-     * 4. NORMALIZE SHADOW SOURCE
-     * ---------------------------------------------------------
-     *
-     * Existing 8.3 boundary expects the 8.2C contract:
-     *
-     * {
-     *   ready: true,
-     *   passed: true,
-     *   eligible: [],
-     *   ineligible: []
-     * }
-     *
-     * This adapter exists ONLY IN RAM.
-     * It does not modify B8 or 8.2C.
-     * ---------------------------------------------------------
-     */
-
-    const rawCandidates =
+    if (
+      boundaryResult.boundary &&
       Array.isArray(
-        scope.candidates
+        boundaryResult
+          .boundary
+          .candidates
       )
-        ? scope.candidates
-        : (
-            Array.isArray(
-              scope.eligible
-            )
-              ? scope.eligible
-              : []
-          );
+    ) {
 
-
-    const eligible =
-      rawCandidates.map(
-        function (
-          item,
-          index
-        ) {
-
-          const record =
-            (
-              item &&
-              typeof item ===
-                'object' &&
-              item.record &&
-              typeof item.record ===
-                'object'
-            )
-              ? item.record
-              : item;
-
-
-          const canonicalIndex =
-            Number.isInteger(
-              item &&
-              item.canonicalIndex
-            )
-              ? item.canonicalIndex
-              : (
-                  Number.isInteger(
-                    item &&
-                    item.index
-                  )
-                    ? item.index
-                    : index
-                );
-
-
-          const province =
-            item &&
-            (
-              item.province ||
-              item.provinceSlug
-            );
-
-
-          const prize =
-            item &&
-            (
-              item.prize ||
-              item.prizeKey
-            );
-
-
-          return {
-
-            index:
-              canonicalIndex,
-
-            province:
-              province || null,
-
-            prize:
-              prize || null,
-
-            record,
-
-            eligible: true,
-
-            source:
-              'B8_VERIFIED_SCOPE_SHADOW',
-
-            shadowOnly:
-              true
-
-          };
-
-        }
+      return safeClone83BSourceShadow(
+        boundaryResult
+          .boundary
+          .candidates
       );
 
-
-    const shadowSource = {
-
-      ready: true,
-
-      passed:
-        eligible.length > 0,
-
-      eligible,
-
-      ineligible: [],
-
-      source:
-        'B8_VERIFIED_SCOPE_SHADOW',
-
-      sourceName:
-        resolved.sourceName,
-
-      shadowOnly:
-        true,
-
-      readOnly:
-        true
-
-    };
+    }
 
 
-    if (
-      shadowSource.passed !== true
-    ) {
+    return [];
+
+  }
+
+
+  /* =========================================================
+     BUILD SOURCE SHADOW
+     ========================================================= */
+
+  function build83BSourceShadow() {
+
+    const verified =
+      resolveVerifiedB8Scope83BSourceShadow();
+
+
+    /*
+     * FAIL CLOSED:
+     * no verified B8 scope = no boundary execution.
+     */
+
+    if (!verified.ready) {
 
       return {
-        ready: true,
-        passed: false,
+
+        version:
+          VERSION,
+
+        ready:
+          false,
+
+        passed:
+          false,
 
         reason:
-          'B8_VERIFIED_SCOPE_EMPTY',
+          verified.reason,
 
         sourceName:
-          resolved.sourceName,
+          verified.source,
 
-        candidateCount: 0,
+        sourceTrusted:
+          false,
 
-        shadowSource,
+        resolverName:
+          verified.resolverName,
+
+        verifiedProvince:
+          null,
+
+        sourceCandidateCount:
+          0,
+
+        boundaryCandidateCount:
+          0,
+
+        shadowSource: {
+
+          eligible: []
+
+        },
 
         boundaryResult:
           null,
 
-        readOnly: true,
-        productionWrite: false,
-        storageWrite: false,
-        promotionPerformed: false
+        readOnly:
+          true,
+
+        shadowOnly:
+          true,
+
+        canonicalWrite:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        autoPromotion:
+          false,
+
+        promotionPerformed:
+          false,
+
+        engineExecuted:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        lastForecastModified:
+          false,
+
+        candidatesModified:
+          false
+
       };
 
     }
 
 
     /*
-     * ---------------------------------------------------------
-     * 5. RUN REAL 8.3 BOUNDARY ENGINE AGAINST SHADOW SOURCE
-     * ---------------------------------------------------------
-     *
-     * IMPORTANT:
-     * We call ONLY the read-only boundary builder.
-     *
-     * We DO NOT call:
-     * runFix03D59Step83BProductionCandidateBoundaryV26()
-     *
-     * Therefore the real:
-     * LAST_FIX03D59_STEP83B_RESULT
-     *
-     * remains untouched.
-     * ---------------------------------------------------------
+     * Shadow source contains exactly ONE
+     * verified province.
      */
 
-    let boundaryResult = null;
+    const shadowSource = {
+
+      eligible: [
+        verified.province
+      ]
+
+    };
+
+
+    const boundary =
+      resolveBoundaryBuilder83BSourceShadow();
+
+
+    if (!boundary.ready) {
+
+      return {
+
+        version:
+          VERSION,
+
+        ready:
+          false,
+
+        passed:
+          false,
+
+        reason:
+          'REAL_STEP83_BOUNDARY_BUILDER_NOT_AVAILABLE',
+
+        sourceName:
+          verified.source,
+
+        sourceTrusted:
+          verified.sourceTrusted,
+
+        resolverName:
+          verified.resolverName,
+
+        verifiedProvince:
+          verified.province,
+
+        sourceCandidateCount:
+          1,
+
+        boundaryCandidateCount:
+          0,
+
+        shadowSource:
+          shadowSource,
+
+        boundaryBuilderName:
+          null,
+
+        boundaryResult:
+          null,
+
+        readOnly:
+          true,
+
+        shadowOnly:
+          true,
+
+        canonicalWrite:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        autoPromotion:
+          false,
+
+        promotionPerformed:
+          false,
+
+        engineExecuted:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        lastForecastModified:
+          false,
+
+        candidatesModified:
+          false
+
+      };
+
+    }
+
+
+    let boundaryResult;
 
 
     try {
 
+      /*
+       * IMPORTANT:
+       *
+       * Pass a NEW shadow object.
+       * Never pass or mutate the canonical B8 object.
+       */
+
+      const input = {
+
+        eligible: [
+          verified.province
+        ]
+
+      };
+
+
       boundaryResult =
-        buildProductionCandidateBoundaryV26(
-          shadowSource
+        boundary.fn(
+          input
         );
 
     } catch (error) {
 
       return {
-        ready: true,
-        passed: false,
+
+        version:
+          VERSION,
+
+        ready:
+          false,
+
+        passed:
+          false,
 
         reason:
-          'STEP_83_SHADOW_ENGINE_EXCEPTION',
+          'REAL_STEP83_BOUNDARY_BUILDER_ERROR',
 
         error:
-          String(
-            error &&
-            error.message
-              ? error.message
-              : error
-          ),
+          error &&
+          error.message
+            ? error.message
+            : String(error),
 
         sourceName:
-          resolved.sourceName,
+          verified.source,
 
-        shadowSource,
+        sourceTrusted:
+          verified.sourceTrusted,
+
+        resolverName:
+          verified.resolverName,
+
+        verifiedProvince:
+          verified.province,
+
+        sourceCandidateCount:
+          1,
+
+        boundaryCandidateCount:
+          0,
+
+        shadowSource:
+          shadowSource,
+
+        boundaryBuilderName:
+          boundary.name,
 
         boundaryResult:
           null,
 
-        readOnly: true,
-        productionWrite: false,
-        storageWrite: false,
-        promotionPerformed: false
+        readOnly:
+          true,
+
+        shadowOnly:
+          true,
+
+        canonicalWrite:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        autoPromotion:
+          false,
+
+        promotionPerformed:
+          false,
+
+        engineExecuted:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        lastForecastModified:
+          false,
+
+        candidatesModified:
+          false
+
       };
 
     }
 
 
+    const boundaryCandidates =
+      extractBoundaryCandidates83BSourceShadow(
+        boundaryResult
+      );
+
+
     /*
-     * ---------------------------------------------------------
-     * 6. FINAL SHADOW VERDICT
-     * ---------------------------------------------------------
+     * Some STEP 8.3 boundary versions expose
+     * count metadata rather than candidate array.
      */
 
+    let boundaryCandidateCount =
+      boundaryCandidates.length;
+
+
+    if (
+      boundaryCandidateCount === 0 &&
+      boundaryResult &&
+      boundaryResult.counts &&
+      Number.isFinite(
+        Number(
+          boundaryResult
+            .counts
+            .candidates
+        )
+      )
+    ) {
+
+      boundaryCandidateCount =
+        Number(
+          boundaryResult
+            .counts
+            .candidates
+        );
+
+    }
+
+
+    const countMatches =
+      boundaryCandidateCount === 1;
+
+
     const passed =
-      Boolean(
-        boundaryResult &&
-        boundaryResult.ready === true &&
-        boundaryResult.passed === true
-      );
+      verified.sourceTrusted === true &&
+      shadowSource.eligible.length === 1 &&
+      countMatches;
 
 
     return {
 
-      ready: true,
+      version:
+        VERSION,
 
-      passed,
+      ready:
+        passed,
+
+      passed:
+        passed,
 
       reason:
         passed
-          ? 'B8_TO_STEP83_BOUNDARY_SHADOW_VALID'
-          : 'B8_TO_STEP83_BOUNDARY_SHADOW_INVALID',
+          ? 'B8_VERIFIED_SOURCE_SHADOW_READY'
+          : 'SOURCE_BOUNDARY_SCOPE_MISMATCH',
 
       sourceName:
-        resolved.sourceName,
+        verified.source,
+
+      sourceTrusted:
+        verified.sourceTrusted,
+
+      resolverName:
+        verified.resolverName,
+
+      verifiedProvince:
+        verified.province,
 
       sourceCandidateCount:
-        eligible.length,
+        shadowSource
+          .eligible
+          .length,
 
       boundaryCandidateCount:
-        boundaryResult &&
-        boundaryResult.counts &&
-        Number.isFinite(
-          boundaryResult.counts.candidates
-        )
-          ? boundaryResult.counts.candidates
-          : 0,
+        boundaryCandidateCount,
 
-      shadowSource,
+      candidateCountMatch:
+        countMatches,
 
-      boundaryResult,
+      shadowSource:
+        safeClone83BSourceShadow(
+          shadowSource
+        ),
 
-      readOnly: true,
+      boundaryBuilderName:
+        boundary.name,
 
-      canonicalWrite: false,
-      productionWrite: false,
-      storageWrite: false,
-      promotionPerformed: false,
-      autoPromotion: false
+      boundaryResult:
+        safeClone83BSourceShadow(
+          boundaryResult
+        ),
+
+      readOnly:
+        true,
+
+      shadowOnly:
+        true,
+
+      canonicalWrite:
+        false,
+
+      productionWrite:
+        false,
+
+      storageWrite:
+        false,
+
+      autoPromotion:
+        false,
+
+      promotionPerformed:
+        false,
+
+      /*
+       * Boundary verification is not
+       * Production Forecast Engine execution.
+       */
+
+      engineExecuted:
+        false,
+
+      savePredictionCalled:
+        false,
+
+      lastForecastModified:
+        false,
+
+      candidatesModified:
+        false
 
     };
 
   }
 
 
-  /*
-   * ---------------------------------------------------------
-   * 7. MANUAL INSPECTOR
-   * ---------------------------------------------------------
-   */
+  /* =========================================================
+     INSPECTOR
+     ========================================================= */
 
   function inspect83BSourceShadow() {
 
@@ -470,87 +1031,19 @@
       build83BSourceShadow();
 
 
-    window
-      .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
-        result;
-
-
-    const yesNo =
-      function (value) {
-
-        return value === true
-          ? 'YES ✅'
-          : 'NO ❌';
-
-      };
-
-
-    const lines = [
-
-      'FIX-03D5.9',
-      'STEP 8.3B SOURCE SHADOW',
-      '',
-
-      'Ready: ' +
-        yesNo(
-          result.ready
-        ),
-
-      'Passed: ' +
-        yesNo(
-          result.passed
-        ),
-
-      'Reason:',
-      result.reason ||
-        'UNKNOWN',
-
-      '',
-
-      'Source:',
-      result.sourceName ||
-        'NONE',
-
-      '',
-
-      'Source Candidates: ' +
-        (
-          Number.isFinite(
-            result.sourceCandidateCount
-          )
-            ? result.sourceCandidateCount
-            : '-'
-        ),
-
-      'Boundary Candidates: ' +
-        (
-          Number.isFinite(
-            result.boundaryCandidateCount
-          )
-            ? result.boundaryCandidateCount
-            : '-'
-        ),
-
-      '',
-
-      '====================',
-      'SHADOW ONLY',
-      'READ ONLY',
-      'Canonical Write: NO',
-      'Production Write: NO',
-      'Storage Write: NO',
-      'Promotion: NO'
-
-    ];
-
-
-    alert(
-      lines.join('\n')
+    console.log(
+      '=========================================='
     );
 
+    console.log(
+      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V2'
+    );
 
     console.log(
-      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW',
+      '=========================================='
+    );
+
+    console.log(
       result
     );
 
@@ -560,11 +1053,9 @@
   }
 
 
-  /*
-   * ---------------------------------------------------------
-   * 8. EXPORT
-   * ---------------------------------------------------------
-   */
+  /* =========================================================
+     PUBLIC API
+     ========================================================= */
 
   window
     .build83BSourceShadow =
@@ -581,9 +1072,13 @@
       true;
 
 
+  window
+    .FIX03D59_STEP83B_SOURCE_SHADOW_VERSION =
+      VERSION;
+
+
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow loaded — READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.3B Source Shadow V2 loaded / RESOLVER PATH / READ ONLY / SHADOW ONLY / ZERO WRITE'
   );
 
 })();
-
