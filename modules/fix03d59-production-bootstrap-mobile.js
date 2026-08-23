@@ -1,16 +1,16 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION BOOTSTRAP — MOBILE V4
-   DIRECT DOM REFERENCE + DUPLICATE DOM DETECTOR
+   PRODUCTION BOOTSTRAP — MOBILE V5
+   GEOMETRY TRUTH PROBE
 
    PURPOSE:
-   - Build Production Bootstrap mobile inspector.
-   - Keep DIRECT references to newly-created DOM nodes.
-   - Detect duplicate IDs in the current runtime DOM.
-   - Compare direct-reference geometry with document lookup geometry.
-   - Call ONLY inspectFix03D59ProductionBootstrap() when user presses Inspect.
-   - Never execute any production stage.
+   - Determine why visible Bootstrap DOM was reported as 0 x 0.
+   - Compare multiple browser geometry APIs.
+   - Inspect real ancestor geometry.
+   - Inspect the actual painted element at screen coordinates.
+   - Compare direct references with document lookup.
 
+   IMPORTANT:
    READ ONLY
    ZERO WRITE
    ZERO PROMOTION
@@ -23,7 +23,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V4';
+    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V5';
 
 
   const PANEL_ID =
@@ -46,25 +46,6 @@
 
   const DIAGNOSTIC_ID =
     'fix03d59-production-bootstrap-diagnostic';
-
-
-  /*
-   * =========================================================
-   * DIRECT REFERENCES
-   * =========================================================
-   */
-
-  let directPanel =
-    null;
-
-  let directCard =
-    null;
-
-  let directWrapper =
-    null;
-
-  let directButton =
-    null;
 
 
   /*
@@ -102,156 +83,756 @@
   }
 
 
-  function findFirstMissing(
-    result
+  function round(
+    value
   ) {
 
+    const number =
+      Number(
+        value
+      );
+
+
     if (
-      !result ||
-      typeof result !== 'object'
+      !Number.isFinite(
+        number
+      )
     ) {
 
+      return 0;
+
+    }
+
+
+    return Math.round(
+      number
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * GEOMETRY READER
+   * =========================================================
+   */
+
+  function inspectGeometry(
+    element
+  ) {
+
+    if (!element) {
+
       return {
-        type: 'BOOTSTRAP',
-        stage: '--'
+        exists: false
       };
 
     }
 
 
-    const functionOrder = [
-
-      'step83B',
-      'step83C',
-      'step83D',
-      'step83E',
-      'step83F',
-      'step83R',
-      'step84A',
-      'step84B',
-      'step84C',
-      'step84D',
-      'step84F'
-
-    ];
+    const rect =
+      element.getBoundingClientRect();
 
 
-    for (
-      const stage
-      of functionOrder
-    ) {
-
-      if (
-        !result.functions ||
-        result.functions[stage] !== true
-      ) {
-
-        return {
-          type: 'FUNCTION',
-          stage: stage
-        };
-
-      }
-
-    }
+    const rects =
+      Array.from(
+        element.getClientRects()
+      );
 
 
-    const ramOrder = [
-
-      'step82C',
-      'step83B',
-      'step83C',
-      'step83Q',
-      'step83R',
-      'step84A',
-      'step84B',
-      'step84C',
-      'step84D',
-      'step84E',
-      'step84F'
-
-    ];
-
-
-    for (
-      const stage
-      of ramOrder
-    ) {
-
-      if (
-        !result.ram ||
-        result.ram[stage] !== true
-      ) {
-
-        return {
-          type: 'RAM',
-          stage: stage
-        };
-
-      }
-
-    }
+    const style =
+      window.getComputedStyle(
+        element
+      );
 
 
     return {
-      type: 'NONE',
-      stage: 'ALL_AVAILABLE'
+
+      exists:
+        true,
+
+      connected:
+        element.isConnected === true,
+
+      tag:
+        element.tagName || '--',
+
+      id:
+        element.id || '--',
+
+      className:
+        typeof element.className ===
+          'string'
+          ? element.className
+          : '--',
+
+      boundingWidth:
+        round(
+          rect.width
+        ),
+
+      boundingHeight:
+        round(
+          rect.height
+        ),
+
+      boundingTop:
+        round(
+          rect.top
+        ),
+
+      boundingLeft:
+        round(
+          rect.left
+        ),
+
+      offsetWidth:
+        round(
+          element.offsetWidth
+        ),
+
+      offsetHeight:
+        round(
+          element.offsetHeight
+        ),
+
+      clientWidth:
+        round(
+          element.clientWidth
+        ),
+
+      clientHeight:
+        round(
+          element.clientHeight
+        ),
+
+      scrollWidth:
+        round(
+          element.scrollWidth
+        ),
+
+      scrollHeight:
+        round(
+          element.scrollHeight
+        ),
+
+      clientRectCount:
+        rects.length,
+
+      firstClientRect:
+        rects.length
+          ? {
+              width:
+                round(
+                  rects[0].width
+                ),
+
+              height:
+                round(
+                  rects[0].height
+                ),
+
+              top:
+                round(
+                  rects[0].top
+                ),
+
+              left:
+                round(
+                  rects[0].left
+                )
+            }
+          : null,
+
+      display:
+        style.display,
+
+      visibility:
+        style.visibility,
+
+      position:
+        style.position,
+
+      opacity:
+        style.opacity,
+
+      widthCSS:
+        style.width,
+
+      heightCSS:
+        style.height,
+
+      overflow:
+        style.overflow,
+
+      transform:
+        style.transform,
+
+      contain:
+        style.contain,
+
+      contentVisibility:
+        style.contentVisibility ||
+
+        '--'
+
     };
 
   }
 
 
-  function buildRows(
-    values
+  /*
+   * =========================================================
+   * GEOMETRY HTML
+   * =========================================================
+   */
+
+  function geometryHtml(
+    title,
+    geometry
   ) {
 
     if (
-      !values ||
-      typeof values !== 'object'
+      !geometry ||
+      !geometry.exists
     ) {
 
       return `
-        <div class="pb-empty">
-          No runtime information.
+
+        <div class="pb-v5-block">
+
+          <div class="pb-v5-block-title">
+            ${escapeHtml(title)}
+          </div>
+
+          <div class="pb-v5-fail">
+            DOM: NO ❌
+          </div>
+
         </div>
+
       `;
 
     }
 
 
-    return Object
-      .entries(
-        values
-      )
+    return `
+
+      <div class="pb-v5-block">
+
+        <div class="pb-v5-block-title">
+          ${escapeHtml(title)}
+        </div>
+
+
+        <div>
+          DOM:
+          <b class="pb-v5-ok">
+            YES ✅
+          </b>
+
+          · Connected:
+          <b>
+            ${yesNo(
+              geometry.connected
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          Tag:
+          <b>
+            ${escapeHtml(
+              geometry.tag
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          Bounding:
+          <b class="${
+            geometry.boundingWidth > 0 &&
+            geometry.boundingHeight > 0
+              ? 'pb-v5-ok'
+              : 'pb-v5-fail'
+          }">
+
+            ${geometry.boundingWidth}
+            ×
+            ${geometry.boundingHeight}px
+
+          </b>
+        </div>
+
+
+        <div>
+          Position:
+          <b>
+            ${geometry.boundingLeft},
+            ${geometry.boundingTop}
+          </b>
+        </div>
+
+
+        <div>
+          offset:
+          <b>
+            ${geometry.offsetWidth}
+            ×
+            ${geometry.offsetHeight}
+          </b>
+        </div>
+
+
+        <div>
+          client:
+          <b>
+            ${geometry.clientWidth}
+            ×
+            ${geometry.clientHeight}
+          </b>
+        </div>
+
+
+        <div>
+          scroll:
+          <b>
+            ${geometry.scrollWidth}
+            ×
+            ${geometry.scrollHeight}
+          </b>
+        </div>
+
+
+        <div>
+          getClientRects():
+          <b>
+            ${geometry.clientRectCount}
+          </b>
+        </div>
+
+
+        <div>
+          CSS:
+          <b>
+            ${escapeHtml(
+              geometry.display
+            )}
+          </b>
+
+          ·
+
+          <b>
+            ${escapeHtml(
+              geometry.visibility
+            )}
+          </b>
+
+          · opacity
+
+          <b>
+            ${escapeHtml(
+              geometry.opacity
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          CSS width:
+          <b>
+            ${escapeHtml(
+              geometry.widthCSS
+            )}
+          </b>
+
+          · height:
+
+          <b>
+            ${escapeHtml(
+              geometry.heightCSS
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          position:
+          <b>
+            ${escapeHtml(
+              geometry.position
+            )}
+          </b>
+
+          · overflow:
+
+          <b>
+            ${escapeHtml(
+              geometry.overflow
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          transform:
+          <b>
+            ${escapeHtml(
+              geometry.transform
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          contain:
+          <b>
+            ${escapeHtml(
+              geometry.contain
+            )}
+          </b>
+        </div>
+
+
+        <div>
+          content-visibility:
+          <b>
+            ${escapeHtml(
+              geometry.contentVisibility
+            )}
+          </b>
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /*
+   * =========================================================
+   * ANCESTOR CHAIN
+   * =========================================================
+   */
+
+  function inspectAncestors(
+    element
+  ) {
+
+    const rows =
+      [];
+
+
+    let current =
+      element;
+
+
+    let level =
+      0;
+
+
+    while (
+      current &&
+      level < 10
+    ) {
+
+      const geometry =
+        inspectGeometry(
+          current
+        );
+
+
+      rows.push({
+
+        level:
+          level,
+
+        tag:
+          current.tagName ||
+          '--',
+
+        id:
+          current.id ||
+          '--',
+
+        width:
+          geometry.boundingWidth ||
+          0,
+
+        height:
+          geometry.boundingHeight ||
+          0,
+
+        display:
+          geometry.display ||
+          '--',
+
+        position:
+          geometry.position ||
+          '--'
+
+      });
+
+
+      current =
+        current.parentElement;
+
+
+      level += 1;
+
+    }
+
+
+    return rows;
+
+  }
+
+
+  function ancestorsHtml(
+    rows
+  ) {
+
+    return rows
       .map(
         function (
-          entry
+          row
         ) {
-
-          const key =
-            entry[0];
-
-          const value =
-            entry[1];
-
 
           return `
 
-            <div class="pb-row">
+            <div class="pb-v5-ancestor">
 
-              <span class="pb-key">
-                ${escapeHtml(key)}
-              </span>
+              <b>
+                #${row.level}
+              </b>
 
-              <strong class="${
-                value
-                  ? 'pb-ok'
-                  : 'pb-fail'
+              ${escapeHtml(
+                row.tag
+              )}
+
+              ${
+                row.id !== '--'
+                  ? '#' +
+                    escapeHtml(
+                      row.id
+                    )
+                  : ''
+              }
+
+              <br>
+
+              Size:
+              <b class="${
+                row.width > 0 &&
+                row.height > 0
+                  ? 'pb-v5-ok'
+                  : 'pb-v5-fail'
               }">
 
-                ${yesNo(value)}
+                ${row.width}
+                ×
+                ${row.height}
 
-              </strong>
+              </b>
+
+              ·
+
+              ${escapeHtml(
+                row.display
+              )}
+
+              ·
+
+              ${escapeHtml(
+                row.position
+              )}
+
+            </div>
+
+          `;
+
+        }
+      )
+      .join('');
+
+  }
+
+
+  /*
+   * =========================================================
+   * PAINTED ELEMENT PROBE
+   * =========================================================
+   */
+
+  function inspectPaintedElement() {
+
+    const viewportWidth =
+      window.innerWidth ||
+      document.documentElement
+        .clientWidth ||
+      0;
+
+
+    const viewportHeight =
+      window.innerHeight ||
+      document.documentElement
+        .clientHeight ||
+      0;
+
+
+    /*
+     * Probe several safe points in the visible content area.
+     */
+
+    const points = [
+
+      {
+        x:
+          Math.round(
+            viewportWidth * 0.5
+          ),
+
+        y:
+          Math.round(
+            viewportHeight * 0.35
+          )
+      },
+
+      {
+        x:
+          Math.round(
+            viewportWidth * 0.5
+          ),
+
+        y:
+          Math.round(
+            viewportHeight * 0.50
+          )
+      },
+
+      {
+        x:
+          Math.round(
+            viewportWidth * 0.5
+          ),
+
+        y:
+          Math.round(
+            viewportHeight * 0.65
+          )
+      }
+
+    ];
+
+
+    return points.map(
+      function (
+        point
+      ) {
+
+        const element =
+          document.elementFromPoint(
+            point.x,
+            point.y
+          );
+
+
+        return {
+
+          x:
+            point.x,
+
+          y:
+            point.y,
+
+          tag:
+            element
+              ? element.tagName
+              : '--',
+
+          id:
+            element &&
+            element.id
+              ? element.id
+              : '--',
+
+          className:
+            element &&
+            typeof
+              element.className ===
+              'string'
+              ? element.className
+              : '--',
+
+          geometry:
+            inspectGeometry(
+              element
+            )
+
+        };
+
+      }
+    );
+
+  }
+
+
+  function paintedHtml(
+    probes
+  ) {
+
+    return probes
+      .map(
+        function (
+          probe
+        ) {
+
+          return `
+
+            <div class="pb-v5-probe">
+
+              Point:
+              <b>
+                ${probe.x},
+                ${probe.y}
+              </b>
+
+              <br>
+
+              Element:
+              <b>
+                ${escapeHtml(
+                  probe.tag
+                )}
+
+                ${
+                  probe.id !== '--'
+                    ? '#' +
+                      escapeHtml(
+                        probe.id
+                      )
+                    : ''
+                }
+              </b>
+
+              <br>
+
+              Size:
+              <b>
+                ${
+                  probe.geometry &&
+                  probe.geometry.exists
+                    ? probe.geometry
+                        .boundingWidth +
+                      ' × ' +
+                      probe.geometry
+                        .boundingHeight
+                    : '--'
+                }
+              </b>
 
             </div>
 
@@ -272,15 +853,15 @@
 
   function installStyles() {
 
-    const oldStyle =
+    const old =
       document.getElementById(
         'fix03d59-production-bootstrap-style'
       );
 
 
-    if (oldStyle) {
+    if (old) {
 
-      oldStyle.remove();
+      old.remove();
 
     }
 
@@ -298,87 +879,74 @@
     style.textContent = `
 
       #${PANEL_ID} {
-        display: block !important;
-        position: relative !important;
-        width: auto !important;
-        min-width: 0 !important;
-        height: auto !important;
-        margin: 24px 0 34px !important;
-        overflow: visible !important;
+        display: block;
+        position: relative;
+        width: auto;
+        margin: 24px;
+        padding: 0;
+        color: white;
       }
 
 
       #${CARD_ID} {
-        display: block !important;
-        position: relative !important;
-        width: auto !important;
-        min-width: 0 !important;
-        height: auto !important;
+        display: block;
+        position: relative;
+        width: auto;
+        min-height: 1px;
+
+        padding: 22px;
+
+        border-radius: 24px;
 
         background:
           linear-gradient(
             145deg,
-            rgba(28,38,82,.98),
-            rgba(20,29,66,.98)
+            rgba(30,43,93,.98),
+            rgba(23,34,77,.98)
           );
 
         border:
           1px solid
-          rgba(129,140,248,.35);
-
-        border-radius: 24px;
-
-        padding: 20px;
-
-        margin-bottom: 16px;
-
-        color: #fff;
-
-        overflow: visible !important;
+          rgba(129,140,248,.34);
       }
 
 
-      #${PANEL_ID} .pb-title {
-        font-size: 23px;
-        line-height: 1.3;
+      #${PANEL_ID} .pb-v5-title {
+        font-size: 26px;
         font-weight: 900;
-        margin-bottom: 10px;
+        line-height: 1.35;
       }
 
 
-      #${PANEL_ID} .pb-sub {
+      #${PANEL_ID} .pb-v5-sub {
+        margin-top: 18px;
+
         color:
           rgba(255,255,255,.68);
 
-        font-size: 14px;
-        line-height: 1.55;
+        font-size: 16px;
+
+        line-height: 1.65;
       }
 
 
-      #${PANEL_ID} .pb-safety {
-        margin-top: 12px;
+      #${PANEL_ID} .pb-v5-safety {
+        margin-top: 20px;
+
         color: #72e6ae;
-        font-weight: 800;
-        line-height: 1.5;
+
+        font-size: 17px;
+
+        font-weight: 900;
       }
 
 
       #${WRAPPER_ID} {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-
-        position: relative !important;
-
-        width: 100% !important;
-        min-width: 1px !important;
-        min-height: 70px !important;
-
-        margin: 18px 0 0 !important;
-
-        padding: 0 !important;
-
-        overflow: visible !important;
+        display: block;
+        position: relative;
+        width: 100%;
+        min-height: 64px;
+        margin-top: 22px;
       }
 
 
@@ -389,19 +957,20 @@
 
         position: relative !important;
 
+        box-sizing: border-box !important;
+
         width: 100% !important;
-        min-width: 1px !important;
+        min-width: 100% !important;
 
-        height: auto !important;
-        min-height: 58px !important;
+        height: 64px !important;
+        min-height: 64px !important;
 
+        padding: 0 14px !important;
         margin: 0 !important;
-
-        padding: 17px 10px !important;
 
         border: 0 !important;
 
-        border-radius: 17px !important;
+        border-radius: 18px !important;
 
         background:
           linear-gradient(
@@ -414,30 +983,31 @@
 
         font-size: 17px !important;
         font-weight: 900 !important;
-        line-height: 1.3 !important;
 
         pointer-events: auto !important;
 
-        z-index: 30 !important;
+        z-index: 10 !important;
       }
 
 
-      #${PANEL_ID} .pb-status {
-        margin-top: 15px;
+      #${STATUS_ID} {
+        margin-top: 20px;
 
         color:
-          rgba(255,255,255,.75);
+          rgba(255,255,255,.72);
 
-        line-height: 1.55;
+        font-size: 16px;
+
+        line-height: 1.5;
       }
 
 
-      #${PANEL_ID} .pb-diagnostic {
-        margin-top: 14px;
+      #${DIAGNOSTIC_ID} {
+        margin-top: 18px;
 
-        padding: 14px;
+        padding: 16px;
 
-        border-radius: 14px;
+        border-radius: 18px;
 
         background:
           rgba(59,130,246,.08);
@@ -446,100 +1016,69 @@
           1px solid
           rgba(96,165,250,.30);
 
-        color:
-          rgba(255,255,255,.84);
-
-        font-size: 13px;
-
         line-height: 1.65;
 
         overflow-wrap: anywhere;
       }
 
 
-      #${PANEL_ID} .pb-diag-block {
-        padding: 10px 0;
+      #${PANEL_ID} .pb-v5-diagnostic-title {
+        font-size: 18px;
+        font-weight: 900;
+        margin-bottom: 12px;
+      }
+
+
+      #${PANEL_ID} .pb-v5-block {
+        padding: 14px 0;
 
         border-bottom:
           1px solid
-          rgba(255,255,255,.08);
+          rgba(255,255,255,.10);
       }
 
 
-      #${PANEL_ID} .pb-diag-block:last-child {
-        border-bottom: 0;
-      }
-
-
-      #${PANEL_ID} .pb-diag-title {
+      #${PANEL_ID} .pb-v5-block-title {
         font-weight: 900;
-
+        margin-bottom: 8px;
         color: #fff;
-
-        margin-bottom: 4px;
       }
 
 
-      #${PANEL_ID} .pb-ok {
+      #${PANEL_ID} .pb-v5-ok {
         color: #72e6ae;
       }
 
 
-      #${PANEL_ID} .pb-fail {
+      #${PANEL_ID} .pb-v5-fail {
         color: #ff7185;
       }
 
 
-      #${PANEL_ID} .pb-warn {
-        color: #ffbd3c;
-      }
+      #${PANEL_ID} .pb-v5-section-title {
+        margin-top: 20px;
+        margin-bottom: 8px;
 
-
-      #${PANEL_ID} .pb-section {
-        margin-top: 18px;
-      }
-
-
-      #${PANEL_ID} .pb-section-title {
         color: #ffbd3c;
 
-        font-size: 18px;
+        font-size: 17px;
 
         font-weight: 900;
-
-        margin-bottom: 10px;
       }
 
 
-      #${PANEL_ID} .pb-row {
-        display: flex;
-
-        justify-content:
-          space-between;
-
-        align-items:
-          flex-start;
-
-        gap: 12px;
-
-        padding: 11px 0;
+      #${PANEL_ID} .pb-v5-ancestor,
+      #${PANEL_ID} .pb-v5-probe {
+        padding: 9px 0;
 
         border-bottom:
-          1px solid
+          1px dashed
           rgba(255,255,255,.08);
       }
 
 
-      #${PANEL_ID} .pb-key {
-        font-weight: 700;
-
-        color:
-          rgba(255,255,255,.88);
-      }
-
-
-      #${PANEL_ID} .pb-first-missing {
-        margin-top: 18px;
+      #${PANEL_ID} .pb-v5-conclusion {
+        margin-top: 20px;
 
         padding: 15px;
 
@@ -552,18 +1091,14 @@
           1px solid
           rgba(255,189,60,.30);
 
-        line-height: 1.55;
-      }
-
-
-      #${PANEL_ID} .pb-first-missing strong {
         color: #ffbd3c;
+
+        font-weight: 900;
       }
 
 
-      #${PANEL_ID} .pb-empty {
-        color:
-          rgba(255,255,255,.55);
+      #${RESULT_ID} {
+        margin-top: 16px;
       }
 
     `;
@@ -578,235 +1113,24 @@
 
   /*
    * =========================================================
-   * GEOMETRY
+   * RUN GEOMETRY TRUTH PROBE
    * =========================================================
    */
 
-  function inspectElement(
-    element
+  function runGeometryProbe(
+    refs
   ) {
-
-    if (!element) {
-
-      return {
-        exists: false
-      };
-
-    }
-
-
-    const rect =
-      element.getBoundingClientRect();
-
-
-    const computed =
-      window.getComputedStyle(
-        element
-      );
-
-
-    return {
-
-      exists: true,
-
-      connected:
-        element.isConnected,
-
-      width:
-        Math.round(
-          rect.width
-        ),
-
-      height:
-        Math.round(
-          rect.height
-        ),
-
-      top:
-        Math.round(
-          rect.top
-        ),
-
-      left:
-        Math.round(
-          rect.left
-        ),
-
-      display:
-        computed.display,
-
-      visibility:
-        computed.visibility,
-
-      opacity:
-        computed.opacity,
-
-      position:
-        computed.position
-
-    };
-
-  }
-
-
-  function countId(
-    id
-  ) {
-
-    try {
-
-      return document
-        .querySelectorAll(
-          '#' + id
-        )
-        .length;
-
-    } catch (
-      error
-    ) {
-
-      return -1;
-
-    }
-
-  }
-
-
-  function sameNode(
-    direct,
-    lookup
-  ) {
-
-    return Boolean(
-      direct &&
-      lookup &&
-      direct === lookup
-    );
-
-  }
-
-
-  function formatGeometry(
-    info
-  ) {
-
-    if (
-      !info ||
-      !info.exists
-    ) {
-
-      return `
-        <span class="pb-fail">
-          DOM NO ❌
-        </span>
-      `;
-
-    }
-
-
-    const sizeGood =
-      info.width > 0 &&
-      info.height > 0;
-
-
-    return `
-
-      DOM:
-      <span class="pb-ok">
-        YES ✅
-      </span>
-
-      · Connected:
-      <b>
-        ${info.connected ? 'YES' : 'NO'}
-      </b>
-
-      <br>
-
-      Size:
-      <b class="${
-        sizeGood
-          ? 'pb-ok'
-          : 'pb-fail'
-      }">
-
-        ${info.width}
-        ×
-        ${info.height}px
-
-      </b>
-
-      <br>
-
-      Position:
-      <b>
-        ${info.left},
-        ${info.top}
-      </b>
-
-      <br>
-
-      Display:
-      <b>
-        ${escapeHtml(
-          info.display
-        )}
-      </b>
-
-      · Visibility:
-      <b>
-        ${escapeHtml(
-          info.visibility
-        )}
-      </b>
-
-      <br>
-
-      CSS position:
-      <b>
-        ${escapeHtml(
-          info.position
-        )}
-      </b>
-
-      · Opacity:
-      <b>
-        ${escapeHtml(
-          info.opacity
-        )}
-      </b>
-
-    `;
-
-  }
-
-
-  /*
-   * =========================================================
-   * V4 DUPLICATE DOM DIAGNOSTIC
-   * =========================================================
-   */
-
-  function inspectDomV4() {
 
     const diagnostic =
-      document.getElementById(
-        DIAGNOSTIC_ID
-      );
+      refs.diagnostic;
 
 
     if (!diagnostic) {
 
-      return null;
+      return;
 
     }
 
-
-    /*
-     * IMPORTANT:
-     * direct* variables refer to the exact nodes
-     * created by THIS V4 instance.
-     */
 
     const lookupPanel =
       document.getElementById(
@@ -832,412 +1156,281 @@
       );
 
 
-    const counts = {
+    const panelGeometry =
+      inspectGeometry(
+        refs.panel
+      );
+
+
+    const cardGeometry =
+      inspectGeometry(
+        refs.card
+      );
+
+
+    const wrapperGeometry =
+      inspectGeometry(
+        refs.wrapper
+      );
+
+
+    const buttonGeometry =
+      inspectGeometry(
+        refs.button
+      );
+
+
+    const ancestors =
+      inspectAncestors(
+        refs.button
+      );
+
+
+    const painted =
+      inspectPaintedElement();
+
+
+    const sameReferences = {
 
       panel:
-        countId(
-          PANEL_ID
-        ),
+        refs.panel ===
+        lookupPanel,
 
       card:
-        countId(
-          CARD_ID
-        ),
+        refs.card ===
+        lookupCard,
 
       wrapper:
-        countId(
-          WRAPPER_ID
-        ),
+        refs.wrapper ===
+        lookupWrapper,
 
       button:
-        countId(
-          BUTTON_ID
-        )
+        refs.button ===
+        lookupButton
 
     };
-
-
-    const directGeometry = {
-
-      panel:
-        inspectElement(
-          directPanel
-        ),
-
-      card:
-        inspectElement(
-          directCard
-        ),
-
-      wrapper:
-        inspectElement(
-          directWrapper
-        ),
-
-      button:
-        inspectElement(
-          directButton
-        )
-
-    };
-
-
-    const lookupGeometry = {
-
-      panel:
-        inspectElement(
-          lookupPanel
-        ),
-
-      card:
-        inspectElement(
-          lookupCard
-        ),
-
-      wrapper:
-        inspectElement(
-          lookupWrapper
-        ),
-
-      button:
-        inspectElement(
-          lookupButton
-        )
-
-    };
-
-
-    const identity = {
-
-      panel:
-        sameNode(
-          directPanel,
-          lookupPanel
-        ),
-
-      card:
-        sameNode(
-          directCard,
-          lookupCard
-        ),
-
-      wrapper:
-        sameNode(
-          directWrapper,
-          lookupWrapper
-        ),
-
-      button:
-        sameNode(
-          directButton,
-          lookupButton
-        )
-
-    };
-
-
-    const duplicateDetected =
-      counts.panel !== 1 ||
-      counts.card !== 1 ||
-      counts.wrapper !== 1 ||
-      counts.button !== 1;
-
-
-    const identityMismatch =
-      !identity.panel ||
-      !identity.card ||
-      !identity.wrapper ||
-      !identity.button;
-
-
-    const directSizeFailure =
-      directGeometry.panel.width <= 0 ||
-      directGeometry.panel.height <= 0 ||
-      directGeometry.card.width <= 0 ||
-      directGeometry.card.height <= 0 ||
-      directGeometry.wrapper.width <= 0 ||
-      directGeometry.wrapper.height <= 0 ||
-      directGeometry.button.width <= 0 ||
-      directGeometry.button.height <= 0;
 
 
     let conclusion =
-      'DIRECT DOM GEOMETRY OK';
+      'GEOMETRY RESULT REQUIRES REVIEW';
 
 
-    if (duplicateDetected) {
-
-      conclusion =
-        'DUPLICATE DOM ID DETECTED';
-
-    } else if (identityMismatch) {
+    if (
+      buttonGeometry.boundingWidth > 0 &&
+      buttonGeometry.boundingHeight > 0
+    ) {
 
       conclusion =
-        'DOCUMENT LOOKUP DOES NOT MATCH V4 DIRECT NODE';
+        'BUTTON HAS REAL GEOMETRY ✅';
 
-    } else if (directSizeFailure) {
+    } else if (
+      buttonGeometry.offsetWidth > 0 ||
+      buttonGeometry.clientWidth > 0 ||
+      buttonGeometry.clientRectCount > 0
+    ) {
 
       conclusion =
-        'DIRECT V4 NODE STILL HAS ZERO GEOMETRY';
+        'BOUNDING RECT DISAGREES WITH OTHER GEOMETRY APIs';
+
+    } else if (
+      cardGeometry.boundingWidth > 0 &&
+      cardGeometry.boundingHeight > 0
+    ) {
+
+      conclusion =
+        'CARD HAS GEOMETRY BUT BUTTON BRANCH COLLAPSES';
+
+    } else {
+
+      conclusion =
+        'DIRECT BRANCH STILL REPORTS ZERO GEOMETRY';
 
     }
 
 
     diagnostic.innerHTML = `
 
-      <b>
-        🧪 MOBILE V4 DUPLICATE DOM DIAGNOSTIC
-      </b>
+      <div class="pb-v5-diagnostic-title">
+        🧪 MOBILE V5 GEOMETRY TRUTH PROBE
+      </div>
 
 
-      <div class="pb-diag-block">
+      <div class="pb-v5-section-title">
+        DIRECT REFERENCES
+      </div>
 
-        <div class="pb-diag-title">
-          ID COUNTS
-        </div>
 
+      ${geometryHtml(
+        'BUTTON',
+        buttonGeometry
+      )}
+
+
+      ${geometryHtml(
+        'BUTTON WRAPPER',
+        wrapperGeometry
+      )}
+
+
+      ${geometryHtml(
+        'CARD',
+        cardGeometry
+      )}
+
+
+      ${geometryHtml(
+        'PANEL',
+        panelGeometry
+      )}
+
+
+      <div class="pb-v5-section-title">
+        DIRECT REF = DOCUMENT LOOKUP
+      </div>
+
+
+      <div>
         PANEL:
         <b class="${
-          counts.panel === 1
-            ? 'pb-ok'
-            : 'pb-fail'
+          sameReferences.panel
+            ? 'pb-v5-ok'
+            : 'pb-v5-fail'
         }">
-          ${counts.panel}
-        </b>
-
-        <br>
-
-        CARD:
-        <b class="${
-          counts.card === 1
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${counts.card}
-        </b>
-
-        <br>
-
-        WRAPPER:
-        <b class="${
-          counts.wrapper === 1
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${counts.wrapper}
-        </b>
-
-        <br>
-
-        BUTTON:
-        <b class="${
-          counts.button === 1
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${counts.button}
-        </b>
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          DIRECT NODE = DOCUMENT LOOKUP
-        </div>
-
-        PANEL:
-        <b class="${
-          identity.panel
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${identity.panel ? 'YES ✅' : 'NO ❌'}
-        </b>
-
-        <br>
-
-        CARD:
-        <b class="${
-          identity.card
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${identity.card ? 'YES ✅' : 'NO ❌'}
-        </b>
-
-        <br>
-
-        WRAPPER:
-        <b class="${
-          identity.wrapper
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${identity.wrapper ? 'YES ✅' : 'NO ❌'}
-        </b>
-
-        <br>
-
-        BUTTON:
-        <b class="${
-          identity.button
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${identity.button ? 'YES ✅' : 'NO ❌'}
-        </b>
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          DIRECT V4 BUTTON
-        </div>
-
-        ${formatGeometry(
-          directGeometry.button
-        )}
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          DIRECT V4 WRAPPER
-        </div>
-
-        ${formatGeometry(
-          directGeometry.wrapper
-        )}
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          DIRECT V4 CARD
-        </div>
-
-        ${formatGeometry(
-          directGeometry.card
-        )}
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          DIRECT V4 PANEL
-        </div>
-
-        ${formatGeometry(
-          directGeometry.panel
-        )}
-
-      </div>
-
-
-      <div class="pb-diag-block">
-
-        <div class="pb-diag-title">
-          V4 CONCLUSION
-        </div>
-
-        <b class="${
-          conclusion ===
-          'DIRECT DOM GEOMETRY OK'
-            ? 'pb-ok'
-            : 'pb-warn'
-        }">
-
-          ${escapeHtml(
-            conclusion
+          ${yesNo(
+            sameReferences.panel
           )}
-
         </b>
+      </div>
 
+
+      <div>
+        CARD:
+        <b class="${
+          sameReferences.card
+            ? 'pb-v5-ok'
+            : 'pb-v5-fail'
+        }">
+          ${yesNo(
+            sameReferences.card
+          )}
+        </b>
+      </div>
+
+
+      <div>
+        WRAPPER:
+        <b class="${
+          sameReferences.wrapper
+            ? 'pb-v5-ok'
+            : 'pb-v5-fail'
+        }">
+          ${yesNo(
+            sameReferences.wrapper
+          )}
+        </b>
+      </div>
+
+
+      <div>
+        BUTTON:
+        <b class="${
+          sameReferences.button
+            ? 'pb-v5-ok'
+            : 'pb-v5-fail'
+        }">
+          ${yesNo(
+            sameReferences.button
+          )}
+        </b>
+      </div>
+
+
+      <div class="pb-v5-section-title">
+        BUTTON ANCESTOR CHAIN
+      </div>
+
+
+      ${ancestorsHtml(
+        ancestors
+      )}
+
+
+      <div class="pb-v5-section-title">
+        ACTUAL PAINTED ELEMENTS
+      </div>
+
+
+      ${paintedHtml(
+        painted
+      )}
+
+
+      <div class="pb-v5-conclusion">
+        V5 CONCLUSION
+        <br>
+        ${escapeHtml(
+          conclusion
+        )}
       </div>
 
     `;
 
 
-    const result = {
-
-      version:
-        VERSION,
-
-      counts:
-        counts,
-
-      identity:
-        identity,
-
-      directGeometry:
-        directGeometry,
-
-      lookupGeometry:
-        lookupGeometry,
-
-      duplicateDetected:
-        duplicateDetected,
-
-      identityMismatch:
-        identityMismatch,
-
-      directSizeFailure:
-        directSizeFailure,
-
-      conclusion:
-        conclusion
-
-    };
-
-
     window
-      .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_DOM_V4 =
-      result;
+      .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_V5_GEOMETRY =
+      {
 
+        version:
+          VERSION,
 
-    return result;
+        panel:
+          panelGeometry,
+
+        card:
+          cardGeometry,
+
+        wrapper:
+          wrapperGeometry,
+
+        button:
+          buttonGeometry,
+
+        sameReferences:
+          sameReferences,
+
+        ancestors:
+          ancestors,
+
+        painted:
+          painted,
+
+        conclusion:
+          conclusion
+
+      };
 
   }
 
 
   /*
    * =========================================================
-   * RUN BOOTSTRAP INSPECTION
+   * OPTIONAL BOOTSTRAP INSPECTION
+   *
+   * IMPORTANT:
+   * This ONLY runs when the visible button is pressed.
    * =========================================================
    */
 
-  function runInspection() {
+  function runInspection(
+    refs
+  ) {
 
     const status =
-      document.getElementById(
-        STATUS_ID
-      );
+      refs.status;
 
 
     const output =
-      document.getElementById(
-        RESULT_ID
-      );
-
-
-    if (
-      !status ||
-      !output
-    ) {
-
-      return;
-
-    }
+      refs.result;
 
 
     if (
@@ -1247,27 +1440,7 @@
     ) {
 
       status.innerHTML =
-        '❌ Production Bootstrap Inspector chưa có trong runtime.';
-
-
-      output.innerHTML = `
-
-        <div id="${CARD_ID}-result">
-
-          <div class="pb-first-missing">
-
-            <strong>
-              FIRST MISSING:
-            </strong>
-
-            BOOTSTRAP INSPECTOR FUNCTION
-
-          </div>
-
-        </div>
-
-      `;
-
+        '❌ Production Bootstrap Inspector function chưa có trong runtime.';
 
       return;
 
@@ -1281,14 +1454,8 @@
           .inspectFix03D59ProductionBootstrap();
 
 
-      const missing =
-        findFirstMissing(
-          result
-        );
-
-
       status.innerHTML =
-        '✅ Runtime inspection completed.';
+        '✅ Production Runtime inspection completed.';
 
 
       output.innerHTML = `
@@ -1296,180 +1463,52 @@
         <div
           style="
             margin-top:16px;
-            padding:20px;
-            border-radius:22px;
-            background:rgba(28,38,82,.98);
-            border:1px solid rgba(129,140,248,.35);
-            color:#fff;
+            padding:16px;
+            border-radius:16px;
+            background:rgba(255,255,255,.06);
+            line-height:1.6;
           "
         >
 
-          <div class="pb-title">
-            📡 PRODUCTION RUNTIME RESULT
-          </div>
+          <b>
+            📡 PRODUCTION INSPECTOR RESULT
+          </b>
 
+          <br>
 
-          <div class="pb-sub">
+          Version:
+          ${escapeHtml(
+            result &&
+            result.version
+              ? result.version
+              : '--'
+          )}
 
-            Bootstrap:
-            <b>
-              ${escapeHtml(
-                result.version
-              )}
-            </b>
+          <br>
 
-            <br>
+          Mode:
+          ${escapeHtml(
+            result &&
+            result.mode
+              ? result.mode
+              : '--'
+          )}
 
-            Mode:
-            <b>
-              ${escapeHtml(
-                result.mode
-              )}
-            </b>
+          <br><br>
 
-          </div>
-
-
-          <div class="pb-section">
-
-            <div class="pb-section-title">
-              🧠 ENGINE FUNCTIONS
-            </div>
-
-            ${buildRows(
-              result.functions
-            )}
-
-          </div>
-
-
-          <div class="pb-section">
-
-            <div class="pb-section-title">
-              💾 RAM RESULTS
-            </div>
-
-            ${buildRows(
-              result.ram
-            )}
-
-          </div>
-
-
-          <div class="pb-first-missing">
-
-            <strong>
-              FIRST MISSING:
-            </strong>
-
-            ${
-              missing.type ===
-              'NONE'
-                ? 'NONE ✅ — runtime chain is present'
-                : escapeHtml(
-                    missing.type +
-                    ' / ' +
-                    missing.stage
-                  )
-            }
-
-          </div>
-
-
-          <div class="pb-section">
-
-            <div class="pb-section-title">
-              🔒 SAFETY
-            </div>
-
-            ${buildRows({
-
-              executionPerformed:
-                !(
-                  result.safety &&
-                  result.safety
-                    .executionPerformed
-                ),
-
-              candidateCreated:
-                !(
-                  result.safety &&
-                  result.safety
-                    .candidateCreated
-                ),
-
-              canonicalWrite:
-                !(
-                  result.safety &&
-                  result.safety
-                    .canonicalWrite
-                ),
-
-              productionWrite:
-                !(
-                  result.safety &&
-                  result.safety
-                    .productionWrite
-                ),
-
-              storageWrite:
-                !(
-                  result.safety &&
-                  result.safety
-                    .storageWrite
-                ),
-
-              forecastModified:
-                !(
-                  result.safety &&
-                  result.safety
-                    .forecastModified
-                ),
-
-              savePredictionCalled:
-                !(
-                  result.safety &&
-                  result.safety
-                    .savePredictionCalled
-                )
-
-            })}
-
-          </div>
+          Inspector executed by
+          <b>
+            manual button press only
+          </b>.
 
         </div>
 
       `;
 
 
-      window
-        .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE =
-        {
-
-          version:
-            VERSION,
-
-          inspection:
-            result,
-
-          firstMissing:
-            missing,
-
-          domDiagnostic:
-            inspectDomV4()
-
-        };
-
-
     } catch (
       error
     ) {
-
-      console.error(
-        'Production Bootstrap Mobile V4:',
-        error
-      );
-
 
       status.innerHTML =
         '❌ Inspection failed: ' +
@@ -1487,11 +1526,24 @@
 
   /*
    * =========================================================
-   * BUILD PANEL USING DIRECT REFERENCES
+   * BUILD PANEL
    * =========================================================
    */
 
   function buildPanel() {
+
+    const oldPanel =
+      document.getElementById(
+        PANEL_ID
+      );
+
+
+    if (oldPanel) {
+
+      oldPanel.remove();
+
+    }
+
 
     installStyles();
 
@@ -1505,7 +1557,7 @@
     if (!settings) {
 
       console.warn(
-        'Production Bootstrap Mobile V4: tab-settings not found'
+        'Production Bootstrap Mobile V5: tab-settings not found'
       );
 
       return;
@@ -1513,229 +1565,138 @@
     }
 
 
-    /*
-     * IMPORTANT:
-     *
-     * Remove every existing panel with this ID,
-     * not only the first getElementById result.
-     */
-
-    const existingPanels =
-      document.querySelectorAll(
-        '#' + PANEL_ID
+    const panel =
+      document.createElement(
+        'section'
       );
 
 
-    existingPanels.forEach(
-      function (
-        node
-      ) {
+    panel.id =
+      PANEL_ID;
 
-        node.remove();
+
+    panel.innerHTML = `
+
+      <div id="${CARD_ID}">
+
+        <div class="pb-v5-title">
+          🚦 PRODUCTION BOOTSTRAP V5
+        </div>
+
+
+        <div class="pb-v5-sub">
+
+          Geometry Truth Probe.
+
+          <br><br>
+
+          So sánh nhiều API layout để xác định
+          nguyên nhân V4 báo DOM
+          <b>0 × 0px</b>
+          dù nội dung vẫn xuất hiện trên màn hình.
+
+        </div>
+
+
+        <div class="pb-v5-safety">
+          🔒 READ ONLY · ZERO WRITE
+        </div>
+
+
+        <div id="${WRAPPER_ID}">
+
+          <button
+            type="button"
+            id="${BUTTON_ID}"
+          >
+            🔬 INSPECT PRODUCTION RUNTIME
+          </button>
+
+        </div>
+
+
+        <div id="${STATUS_ID}">
+          V5 loaded · Geometry probe pending.
+        </div>
+
+
+        <div id="${DIAGNOSTIC_ID}">
+          🧪 Waiting for browser layout...
+        </div>
+
+
+        <div id="${RESULT_ID}">
+        </div>
+
+      </div>
+
+    `;
+
+
+    settings.appendChild(
+      panel
+    );
+
+
+    /*
+     * IMPORTANT:
+     * Keep DIRECT references.
+     */
+
+    const refs = {
+
+      panel:
+        panel,
+
+      card:
+        panel.querySelector(
+          '#' + CARD_ID
+        ),
+
+      wrapper:
+        panel.querySelector(
+          '#' + WRAPPER_ID
+        ),
+
+      button:
+        panel.querySelector(
+          '#' + BUTTON_ID
+        ),
+
+      status:
+        panel.querySelector(
+          '#' + STATUS_ID
+        ),
+
+      diagnostic:
+        panel.querySelector(
+          '#' + DIAGNOSTIC_ID
+        ),
+
+      result:
+        panel.querySelector(
+          '#' + RESULT_ID
+        )
+
+    };
+
+
+    refs.button.addEventListener(
+      'click',
+      function () {
+
+        runInspection(
+          refs
+        );
 
       }
     );
 
 
     /*
-     * Create PANEL directly.
-     */
-
-    directPanel =
-      document.createElement(
-        'section'
-      );
-
-
-    directPanel.id =
-      PANEL_ID;
-
-
-    directPanel.setAttribute(
-      'data-bootstrap-mobile-version',
-      VERSION
-    );
-
-
-    /*
-     * Create CARD directly.
-     */
-
-    directCard =
-      document.createElement(
-        'div'
-      );
-
-
-    directCard.id =
-      CARD_ID;
-
-
-    /*
-     * Header content.
-     */
-
-    directCard.innerHTML = `
-
-      <div class="pb-title">
-        🚦 PRODUCTION BOOTSTRAP V4
-      </div>
-
-
-      <div class="pb-sub">
-
-        Direct DOM Reference +
-        Duplicate DOM Detector.
-
-        <br><br>
-
-        Không chạy STEP.
-        Không thay đổi Forecast.
-        Không ghi Storage.
-
-      </div>
-
-
-      <div class="pb-safety">
-        🔒 INSPECTION ONLY · ZERO WRITE
-      </div>
-
-    `;
-
-
-    /*
-     * Create WRAPPER directly.
-     */
-
-    directWrapper =
-      document.createElement(
-        'div'
-      );
-
-
-    directWrapper.id =
-      WRAPPER_ID;
-
-
-    /*
-     * Create BUTTON directly.
-     */
-
-    directButton =
-      document.createElement(
-        'button'
-      );
-
-
-    directButton.id =
-      BUTTON_ID;
-
-
-    directButton.type =
-      'button';
-
-
-    directButton.textContent =
-      '🔬 INSPECT PRODUCTION RUNTIME';
-
-
-    /*
-     * Assemble using direct references.
-     */
-
-    directWrapper.appendChild(
-      directButton
-    );
-
-
-    directCard.appendChild(
-      directWrapper
-    );
-
-
-    const status =
-      document.createElement(
-        'div'
-      );
-
-
-    status.id =
-      STATUS_ID;
-
-
-    status.className =
-      'pb-status';
-
-
-    status.textContent =
-      'V4 loaded · Direct DOM reference active.';
-
-
-    directCard.appendChild(
-      status
-    );
-
-
-    const diagnostic =
-      document.createElement(
-        'div'
-      );
-
-
-    diagnostic.id =
-      DIAGNOSTIC_ID;
-
-
-    diagnostic.className =
-      'pb-diagnostic';
-
-
-    diagnostic.textContent =
-      '🧪 Đang kiểm tra duplicate DOM...';
-
-
-    directCard.appendChild(
-      diagnostic
-    );
-
-
-    directPanel.appendChild(
-      directCard
-    );
-
-
-    const result =
-      document.createElement(
-        'div'
-      );
-
-
-    result.id =
-      RESULT_ID;
-
-
-    directPanel.appendChild(
-      result
-    );
-
-
-    settings.appendChild(
-      directPanel
-    );
-
-
-    /*
-     * Event attached DIRECTLY to exact V4 button.
-     */
-
-    directButton.addEventListener(
-      'click',
-      runInspection
-    );
-
-
-    /*
-     * Wait for browser layout.
+     * Geometry probe is automatic.
+     *
+     * Production inspector is NOT automatic.
      */
 
     window.requestAnimationFrame(
@@ -1744,12 +1705,30 @@
         window.requestAnimationFrame(
           function () {
 
-            inspectDomV4();
+            runGeometryProbe(
+              refs
+            );
 
           }
         );
 
       }
+    );
+
+
+    /*
+     * Second measurement after layout settles.
+     */
+
+    window.setTimeout(
+      function () {
+
+        runGeometryProbe(
+          refs
+        );
+
+      },
+      500
     );
 
   }
@@ -1794,7 +1773,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Bootstrap Mobile V4 loaded — DIRECT DOM DIAGNOSTIC'
+    'FIX-03D5.9 Production Bootstrap Mobile V5 loaded — GEOMETRY TRUTH PROBE'
   );
 
 })();
