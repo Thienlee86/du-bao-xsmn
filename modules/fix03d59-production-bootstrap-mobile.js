@@ -1,15 +1,15 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION BOOTSTRAP — MOBILE V3
-   RUNTIME CHAIN INSPECTOR + LAYOUT ISOLATION DIAGNOSTIC
+   PRODUCTION BOOTSTRAP — MOBILE V4
+   DIRECT DOM REFERENCE + DUPLICATE DOM DETECTOR
 
    PURPOSE:
-   - Show Production Bootstrap inspection directly in Settings.
-   - Call ONLY inspectFix03D59ProductionBootstrap().
-   - Display function availability and RAM availability separately.
-   - Identify the first missing runtime dependency.
-   - Diagnose button / wrapper / card / panel dimensions.
-   - Isolate Inspect button from external collapsing layout rules.
+   - Build Production Bootstrap mobile inspector.
+   - Keep DIRECT references to newly-created DOM nodes.
+   - Detect duplicate IDs in the current runtime DOM.
+   - Compare direct-reference geometry with document lookup geometry.
+   - Call ONLY inspectFix03D59ProductionBootstrap() when user presses Inspect.
+   - Never execute any production stage.
 
    READ ONLY
    ZERO WRITE
@@ -23,7 +23,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V3';
+    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V4';
 
 
   const PANEL_ID =
@@ -32,8 +32,8 @@
   const CARD_ID =
     'fix03d59-production-bootstrap-card';
 
-  const BUTTON_WRAP_ID =
-    'fix03d59-production-bootstrap-button-wrap';
+  const WRAPPER_ID =
+    'fix03d59-production-bootstrap-button-wrapper';
 
   const BUTTON_ID =
     'fix03d59-production-bootstrap-run';
@@ -50,20 +50,28 @@
 
   /*
    * =========================================================
-   * HELPERS
+   * DIRECT REFERENCES
    * =========================================================
    */
 
-  function yesNo(
-    value
-  ) {
+  let directPanel =
+    null;
 
-    return value
-      ? 'YES ✅'
-      : 'NO ❌';
+  let directCard =
+    null;
 
-  }
+  let directWrapper =
+    null;
 
+  let directButton =
+    null;
+
+
+  /*
+   * =========================================================
+   * HELPERS
+   * =========================================================
+   */
 
   function escapeHtml(
     value
@@ -79,6 +87,17 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#039;');
+
+  }
+
+
+  function yesNo(
+    value
+  ) {
+
+    return value
+      ? 'YES ✅'
+      : 'NO ❌';
 
   }
 
@@ -101,6 +120,7 @@
 
 
     const functionOrder = [
+
       'step83B',
       'step83C',
       'step83D',
@@ -112,6 +132,7 @@
       'step84C',
       'step84D',
       'step84F'
+
     ];
 
 
@@ -136,6 +157,7 @@
 
 
     const ramOrder = [
+
       'step82C',
       'step83B',
       'step83C',
@@ -147,6 +169,7 @@
       'step84D',
       'step84E',
       'step84F'
+
     ];
 
 
@@ -213,6 +236,7 @@
 
 
           return `
+
             <div class="pb-row">
 
               <span class="pb-key">
@@ -224,10 +248,13 @@
                   ? 'pb-ok'
                   : 'pb-fail'
               }">
+
                 ${yesNo(value)}
+
               </strong>
 
             </div>
+
           `;
 
         }
@@ -272,114 +299,93 @@
 
       #${PANEL_ID} {
         display: block !important;
-        visibility: visible !important;
         position: relative !important;
-
-        width: 100% !important;
+        width: auto !important;
         min-width: 0 !important;
         height: auto !important;
-        min-height: 1px !important;
-
         margin: 24px 0 34px !important;
-        padding: 0 !important;
-
         overflow: visible !important;
-
-        box-sizing: border-box !important;
-      }
-
-
-      #${PANEL_ID},
-      #${PANEL_ID} * {
-        box-sizing: border-box !important;
       }
 
 
       #${CARD_ID} {
         display: block !important;
-        visibility: visible !important;
-
         position: relative !important;
-
-        width: 100% !important;
+        width: auto !important;
         min-width: 0 !important;
-
         height: auto !important;
-        min-height: 1px !important;
-
-        overflow: visible !important;
 
         background:
           linear-gradient(
             145deg,
             rgba(28,38,82,.98),
             rgba(20,29,66,.98)
-          ) !important;
+          );
 
         border:
           1px solid
-          rgba(129,140,248,.35) !important;
+          rgba(129,140,248,.35);
 
-        border-radius: 24px !important;
+        border-radius: 24px;
 
-        padding: 20px !important;
+        padding: 20px;
 
-        margin: 0 0 16px !important;
+        margin-bottom: 16px;
 
-        color: #fff !important;
+        color: #fff;
+
+        overflow: visible !important;
       }
 
 
       #${PANEL_ID} .pb-title {
-        display: block !important;
-
-        font-size: 23px !important;
-        line-height: 1.3 !important;
-        font-weight: 900 !important;
-
-        margin: 0 0 10px !important;
-
-        color: #fff !important;
+        font-size: 23px;
+        line-height: 1.3;
+        font-weight: 900;
+        margin-bottom: 10px;
       }
 
 
       #${PANEL_ID} .pb-sub {
-        display: block !important;
-
         color:
-          rgba(255,255,255,.68) !important;
+          rgba(255,255,255,.68);
 
-        font-size: 14px !important;
-
-        line-height: 1.55 !important;
+        font-size: 14px;
+        line-height: 1.55;
       }
 
 
       #${PANEL_ID} .pb-safety {
-        display: block !important;
-
-        margin-top: 12px !important;
-
-        color: #72e6ae !important;
-
-        font-weight: 800 !important;
-
-        line-height: 1.5 !important;
+        margin-top: 12px;
+        color: #72e6ae;
+        font-weight: 800;
+        line-height: 1.5;
       }
 
 
-      /*
-       * ---------------------------------------------------------
-       * V3 BUTTON LAYOUT ISOLATION
-       * ---------------------------------------------------------
-       *
-       * The wrapper gives the button its own normal block layout.
-       * We deliberately force non-zero dimensions at both levels.
-       */
-
-      #${BUTTON_WRAP_ID} {
+      #${WRAPPER_ID} {
         display: block !important;
         visibility: visible !important;
+        opacity: 1 !important;
+
+        position: relative !important;
+
+        width: 100% !important;
+        min-width: 1px !important;
+        min-height: 70px !important;
+
+        margin: 18px 0 0 !important;
+
+        padding: 0 !important;
+
+        overflow: visible !important;
+      }
+
+
+      #${BUTTON_ID} {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
 
         position: relative !important;
 
@@ -387,49 +393,11 @@
         min-width: 1px !important;
 
         height: auto !important;
-        min-height: 64px !important;
-
-        margin: 18px 0 0 !important;
-        padding: 0 !important;
-
-        overflow: visible !important;
-
-        opacity: 1 !important;
-
-        transform: none !important;
-
-        flex: none !important;
-
-        align-self: stretch !important;
-
-        pointer-events: auto !important;
-
-        z-index: 50 !important;
-      }
-
-
-      #${BUTTON_ID} {
-        display: block !important;
-        visibility: visible !important;
-
-        position: relative !important;
-
-        left: auto !important;
-        right: auto !important;
-        top: auto !important;
-        bottom: auto !important;
-
-        width: 100% !important;
-        min-width: 1px !important;
-        max-width: none !important;
-
-        height: 60px !important;
-        min-height: 60px !important;
-        max-height: none !important;
+        min-height: 58px !important;
 
         margin: 0 !important;
 
-        padding: 14px 12px !important;
+        padding: 17px 10px !important;
 
         border: 0 !important;
 
@@ -444,72 +412,86 @@
 
         color: #17182a !important;
 
-        font-family: inherit !important;
-
         font-size: 17px !important;
-
         font-weight: 900 !important;
-
-        line-height: 1.25 !important;
-
-        text-align: center !important;
-
-        white-space: normal !important;
-
-        opacity: 1 !important;
-
-        overflow: visible !important;
-
-        transform: none !important;
-
-        clip: auto !important;
-
-        clip-path: none !important;
+        line-height: 1.3 !important;
 
         pointer-events: auto !important;
 
-        flex: none !important;
-
-        z-index: 51 !important;
+        z-index: 30 !important;
       }
 
 
-      #${STATUS_ID} {
-        display: block !important;
-
-        margin-top: 15px !important;
+      #${PANEL_ID} .pb-status {
+        margin-top: 15px;
 
         color:
-          rgba(255,255,255,.75) !important;
+          rgba(255,255,255,.75);
 
-        line-height: 1.55 !important;
+        line-height: 1.55;
       }
 
 
-      #${DIAGNOSTIC_ID} {
-        display: block !important;
+      #${PANEL_ID} .pb-diagnostic {
+        margin-top: 14px;
 
-        margin-top: 14px !important;
+        padding: 14px;
 
-        padding: 13px !important;
-
-        border-radius: 14px !important;
+        border-radius: 14px;
 
         background:
-          rgba(59,130,246,.08) !important;
+          rgba(59,130,246,.08);
 
         border:
           1px solid
-          rgba(96,165,250,.30) !important;
+          rgba(96,165,250,.30);
 
         color:
-          rgba(255,255,255,.82) !important;
+          rgba(255,255,255,.84);
 
-        font-size: 13px !important;
+        font-size: 13px;
 
-        line-height: 1.6 !important;
+        line-height: 1.65;
 
-        overflow-wrap: anywhere !important;
+        overflow-wrap: anywhere;
+      }
+
+
+      #${PANEL_ID} .pb-diag-block {
+        padding: 10px 0;
+
+        border-bottom:
+          1px solid
+          rgba(255,255,255,.08);
+      }
+
+
+      #${PANEL_ID} .pb-diag-block:last-child {
+        border-bottom: 0;
+      }
+
+
+      #${PANEL_ID} .pb-diag-title {
+        font-weight: 900;
+
+        color: #fff;
+
+        margin-bottom: 4px;
+      }
+
+
+      #${PANEL_ID} .pb-ok {
+        color: #72e6ae;
+      }
+
+
+      #${PANEL_ID} .pb-fail {
+        color: #ff7185;
+      }
+
+
+      #${PANEL_ID} .pb-warn {
+        color: #ffbd3c;
       }
 
 
@@ -556,20 +538,6 @@
       }
 
 
-      #${PANEL_ID} .pb-ok {
-        color: #72e6ae;
-
-        white-space: nowrap;
-      }
-
-
-      #${PANEL_ID} .pb-fail {
-        color: #ff7185;
-
-        white-space: nowrap;
-      }
-
-
       #${PANEL_ID} .pb-first-missing {
         margin-top: 18px;
 
@@ -610,7 +578,7 @@
 
   /*
    * =========================================================
-   * LAYOUT DIAGNOSTIC
+   * GEOMETRY
    * =========================================================
    */
 
@@ -627,19 +595,42 @@
     }
 
 
+    const rect =
+      element.getBoundingClientRect();
+
+
     const computed =
       window.getComputedStyle(
         element
       );
 
 
-    const rect =
-      element.getBoundingClientRect();
-
-
     return {
 
       exists: true,
+
+      connected:
+        element.isConnected,
+
+      width:
+        Math.round(
+          rect.width
+        ),
+
+      height:
+        Math.round(
+          rect.height
+        ),
+
+      top:
+        Math.round(
+          rect.top
+        ),
+
+      left:
+        Math.round(
+          rect.left
+        ),
 
       display:
         computed.display,
@@ -651,25 +642,51 @@
         computed.opacity,
 
       position:
-        computed.position,
-
-      width:
-        Math.round(
-          rect.width
-        ),
-
-      height:
-        Math.round(
-          rect.height
-        )
+        computed.position
 
     };
 
   }
 
 
-  function diagnosticRow(
-    label,
+  function countId(
+    id
+  ) {
+
+    try {
+
+      return document
+        .querySelectorAll(
+          '#' + id
+        )
+        .length;
+
+    } catch (
+      error
+    ) {
+
+      return -1;
+
+    }
+
+  }
+
+
+  function sameNode(
+    direct,
+    lookup
+  ) {
+
+    return Boolean(
+      direct &&
+      lookup &&
+      direct === lookup
+    );
+
+  }
+
+
+  function formatGeometry(
     info
   ) {
 
@@ -679,92 +696,98 @@
     ) {
 
       return `
-        <div style="margin-top:10px;">
-
-          <b>
-            ${escapeHtml(label)}
-          </b>
-
-          <br>
-
-          DOM:
-          <strong class="pb-fail">
-            NO ❌
-          </strong>
-
-        </div>
+        <span class="pb-fail">
+          DOM NO ❌
+        </span>
       `;
 
     }
 
 
-    const hasSize =
+    const sizeGood =
       info.width > 0 &&
       info.height > 0;
 
 
     return `
-      <div style="margin-top:10px;">
 
-        <b>
-          ${escapeHtml(label)}
-        </b>
+      DOM:
+      <span class="pb-ok">
+        YES ✅
+      </span>
 
-        <br>
+      · Connected:
+      <b>
+        ${info.connected ? 'YES' : 'NO'}
+      </b>
 
-        DOM:
-        <strong class="pb-ok">
-          YES ✅
-        </strong>
+      <br>
 
-        · Size:
-        <strong class="${
-          hasSize
-            ? 'pb-ok'
-            : 'pb-fail'
-        }">
-          ${info.width} × ${info.height}px
-        </strong>
+      Size:
+      <b class="${
+        sizeGood
+          ? 'pb-ok'
+          : 'pb-fail'
+      }">
 
-        <br>
+        ${info.width}
+        ×
+        ${info.height}px
 
-        Display:
-        <b>
-          ${escapeHtml(
-            info.display
-          )}
-        </b>
+      </b>
 
-        · Visibility:
-        <b>
-          ${escapeHtml(
-            info.visibility
-          )}
-        </b>
+      <br>
 
-        <br>
+      Position:
+      <b>
+        ${info.left},
+        ${info.top}
+      </b>
 
-        Position:
-        <b>
-          ${escapeHtml(
-            info.position
-          )}
-        </b>
+      <br>
 
-        · Opacity:
-        <b>
-          ${escapeHtml(
-            info.opacity
-          )}
-        </b>
+      Display:
+      <b>
+        ${escapeHtml(
+          info.display
+        )}
+      </b>
 
-      </div>
+      · Visibility:
+      <b>
+        ${escapeHtml(
+          info.visibility
+        )}
+      </b>
+
+      <br>
+
+      CSS position:
+      <b>
+        ${escapeHtml(
+          info.position
+        )}
+      </b>
+
+      · Opacity:
+      <b>
+        ${escapeHtml(
+          info.opacity
+        )}
+      </b>
+
     `;
 
   }
 
 
-  function inspectLayout() {
+  /*
+   * =========================================================
+   * V4 DUPLICATE DOM DIAGNOSTIC
+   * =========================================================
+   */
+
+  function inspectDomV4() {
 
     const diagnostic =
       document.getElementById(
@@ -779,86 +802,407 @@
     }
 
 
-    const button =
-      document.getElementById(
-        BUTTON_ID
-      );
+    /*
+     * IMPORTANT:
+     * direct* variables refer to the exact nodes
+     * created by THIS V4 instance.
+     */
 
-
-    const wrapper =
-      document.getElementById(
-        BUTTON_WRAP_ID
-      );
-
-
-    const card =
-      document.getElementById(
-        CARD_ID
-      );
-
-
-    const panel =
+    const lookupPanel =
       document.getElementById(
         PANEL_ID
       );
 
 
-    const result = {
+    const lookupCard =
+      document.getElementById(
+        CARD_ID
+      );
 
-      button:
-        inspectElement(
-          button
-        ),
 
-      wrapper:
-        inspectElement(
-          wrapper
+    const lookupWrapper =
+      document.getElementById(
+        WRAPPER_ID
+      );
+
+
+    const lookupButton =
+      document.getElementById(
+        BUTTON_ID
+      );
+
+
+    const counts = {
+
+      panel:
+        countId(
+          PANEL_ID
         ),
 
       card:
-        inspectElement(
-          card
+        countId(
+          CARD_ID
         ),
 
-      panel:
-        inspectElement(
-          panel
+      wrapper:
+        countId(
+          WRAPPER_ID
+        ),
+
+      button:
+        countId(
+          BUTTON_ID
         )
 
     };
 
 
+    const directGeometry = {
+
+      panel:
+        inspectElement(
+          directPanel
+        ),
+
+      card:
+        inspectElement(
+          directCard
+        ),
+
+      wrapper:
+        inspectElement(
+          directWrapper
+        ),
+
+      button:
+        inspectElement(
+          directButton
+        )
+
+    };
+
+
+    const lookupGeometry = {
+
+      panel:
+        inspectElement(
+          lookupPanel
+        ),
+
+      card:
+        inspectElement(
+          lookupCard
+        ),
+
+      wrapper:
+        inspectElement(
+          lookupWrapper
+        ),
+
+      button:
+        inspectElement(
+          lookupButton
+        )
+
+    };
+
+
+    const identity = {
+
+      panel:
+        sameNode(
+          directPanel,
+          lookupPanel
+        ),
+
+      card:
+        sameNode(
+          directCard,
+          lookupCard
+        ),
+
+      wrapper:
+        sameNode(
+          directWrapper,
+          lookupWrapper
+        ),
+
+      button:
+        sameNode(
+          directButton,
+          lookupButton
+        )
+
+    };
+
+
+    const duplicateDetected =
+      counts.panel !== 1 ||
+      counts.card !== 1 ||
+      counts.wrapper !== 1 ||
+      counts.button !== 1;
+
+
+    const identityMismatch =
+      !identity.panel ||
+      !identity.card ||
+      !identity.wrapper ||
+      !identity.button;
+
+
+    const directSizeFailure =
+      directGeometry.panel.width <= 0 ||
+      directGeometry.panel.height <= 0 ||
+      directGeometry.card.width <= 0 ||
+      directGeometry.card.height <= 0 ||
+      directGeometry.wrapper.width <= 0 ||
+      directGeometry.wrapper.height <= 0 ||
+      directGeometry.button.width <= 0 ||
+      directGeometry.button.height <= 0;
+
+
+    let conclusion =
+      'DIRECT DOM GEOMETRY OK';
+
+
+    if (duplicateDetected) {
+
+      conclusion =
+        'DUPLICATE DOM ID DETECTED';
+
+    } else if (identityMismatch) {
+
+      conclusion =
+        'DOCUMENT LOOKUP DOES NOT MATCH V4 DIRECT NODE';
+
+    } else if (directSizeFailure) {
+
+      conclusion =
+        'DIRECT V4 NODE STILL HAS ZERO GEOMETRY';
+
+    }
+
+
     diagnostic.innerHTML = `
 
       <b>
-        🧪 MOBILE V3 LAYOUT DIAGNOSTIC
+        🧪 MOBILE V4 DUPLICATE DOM DIAGNOSTIC
       </b>
 
 
-      ${diagnosticRow(
-        'BUTTON',
-        result.button
-      )}
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          ID COUNTS
+        </div>
+
+        PANEL:
+        <b class="${
+          counts.panel === 1
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${counts.panel}
+        </b>
+
+        <br>
+
+        CARD:
+        <b class="${
+          counts.card === 1
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${counts.card}
+        </b>
+
+        <br>
+
+        WRAPPER:
+        <b class="${
+          counts.wrapper === 1
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${counts.wrapper}
+        </b>
+
+        <br>
+
+        BUTTON:
+        <b class="${
+          counts.button === 1
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${counts.button}
+        </b>
+
+      </div>
 
 
-      ${diagnosticRow(
-        'BUTTON WRAPPER',
-        result.wrapper
-      )}
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          DIRECT NODE = DOCUMENT LOOKUP
+        </div>
+
+        PANEL:
+        <b class="${
+          identity.panel
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${identity.panel ? 'YES ✅' : 'NO ❌'}
+        </b>
+
+        <br>
+
+        CARD:
+        <b class="${
+          identity.card
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${identity.card ? 'YES ✅' : 'NO ❌'}
+        </b>
+
+        <br>
+
+        WRAPPER:
+        <b class="${
+          identity.wrapper
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${identity.wrapper ? 'YES ✅' : 'NO ❌'}
+        </b>
+
+        <br>
+
+        BUTTON:
+        <b class="${
+          identity.button
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${identity.button ? 'YES ✅' : 'NO ❌'}
+        </b>
+
+      </div>
 
 
-      ${diagnosticRow(
-        'CARD',
-        result.card
-      )}
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          DIRECT V4 BUTTON
+        </div>
+
+        ${formatGeometry(
+          directGeometry.button
+        )}
+
+      </div>
 
 
-      ${diagnosticRow(
-        'PANEL',
-        result.panel
-      )}
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          DIRECT V4 WRAPPER
+        </div>
+
+        ${formatGeometry(
+          directGeometry.wrapper
+        )}
+
+      </div>
+
+
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          DIRECT V4 CARD
+        </div>
+
+        ${formatGeometry(
+          directGeometry.card
+        )}
+
+      </div>
+
+
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          DIRECT V4 PANEL
+        </div>
+
+        ${formatGeometry(
+          directGeometry.panel
+        )}
+
+      </div>
+
+
+      <div class="pb-diag-block">
+
+        <div class="pb-diag-title">
+          V4 CONCLUSION
+        </div>
+
+        <b class="${
+          conclusion ===
+          'DIRECT DOM GEOMETRY OK'
+            ? 'pb-ok'
+            : 'pb-warn'
+        }">
+
+          ${escapeHtml(
+            conclusion
+          )}
+
+        </b>
+
+      </div>
 
     `;
+
+
+    const result = {
+
+      version:
+        VERSION,
+
+      counts:
+        counts,
+
+      identity:
+        identity,
+
+      directGeometry:
+        directGeometry,
+
+      lookupGeometry:
+        lookupGeometry,
+
+      duplicateDetected:
+        duplicateDetected,
+
+      identityMismatch:
+        identityMismatch,
+
+      directSizeFailure:
+        directSizeFailure,
+
+      conclusion:
+        conclusion
+
+    };
+
+
+    window
+      .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_DOM_V4 =
+      result;
 
 
     return result;
@@ -868,7 +1212,7 @@
 
   /*
    * =========================================================
-   * RUN INSPECTION
+   * RUN BOOTSTRAP INSPECTION
    * =========================================================
    */
 
@@ -908,7 +1252,7 @@
 
       output.innerHTML = `
 
-        <div class="pb-card">
+        <div id="${CARD_ID}-result">
 
           <div class="pb-first-missing">
 
@@ -949,7 +1293,16 @@
 
       output.innerHTML = `
 
-        <div class="pb-card">
+        <div
+          style="
+            margin-top:16px;
+            padding:20px;
+            border-radius:22px;
+            background:rgba(28,38,82,.98);
+            border:1px solid rgba(129,140,248,.35);
+            color:#fff;
+          "
+        >
 
           <div class="pb-title">
             📡 PRODUCTION RUNTIME RESULT
@@ -1102,8 +1455,8 @@
           firstMissing:
             missing,
 
-          layoutDiagnostic:
-            inspectLayout()
+          domDiagnostic:
+            inspectDomV4()
 
         };
 
@@ -1113,7 +1466,7 @@
     ) {
 
       console.error(
-        'Production Bootstrap Mobile V3:',
+        'Production Bootstrap Mobile V4:',
         error
       );
 
@@ -1134,24 +1487,11 @@
 
   /*
    * =========================================================
-   * BUILD MOBILE PANEL
+   * BUILD PANEL USING DIRECT REFERENCES
    * =========================================================
    */
 
   function buildPanel() {
-
-    const oldPanel =
-      document.getElementById(
-        PANEL_ID
-      );
-
-
-    if (oldPanel) {
-
-      oldPanel.remove();
-
-    }
-
 
     installStyles();
 
@@ -1165,7 +1505,7 @@
     if (!settings) {
 
       console.warn(
-        'Production Bootstrap Mobile V3: tab-settings not found'
+        'Production Bootstrap Mobile V4: tab-settings not found'
       );
 
       return;
@@ -1173,154 +1513,238 @@
     }
 
 
-    const panel =
+    /*
+     * IMPORTANT:
+     *
+     * Remove every existing panel with this ID,
+     * not only the first getElementById result.
+     */
+
+    const existingPanels =
+      document.querySelectorAll(
+        '#' + PANEL_ID
+      );
+
+
+    existingPanels.forEach(
+      function (
+        node
+      ) {
+
+        node.remove();
+
+      }
+    );
+
+
+    /*
+     * Create PANEL directly.
+     */
+
+    directPanel =
       document.createElement(
         'section'
       );
 
 
-    panel.id =
+    directPanel.id =
       PANEL_ID;
 
 
-    panel.setAttribute(
+    directPanel.setAttribute(
       'data-bootstrap-mobile-version',
       VERSION
     );
 
 
-    panel.innerHTML = `
+    /*
+     * Create CARD directly.
+     */
 
-      <div
-        class="pb-card"
-        id="${CARD_ID}"
-      >
-
-        <div class="pb-title">
-          🚦 PRODUCTION BOOTSTRAP V3
-        </div>
+    directCard =
+      document.createElement(
+        'div'
+      );
 
 
-        <div class="pb-sub">
-
-          Kiểm tra toàn bộ runtime chain hiện có
-          trước khi nối Production Execution.
-
-          <br><br>
-
-          Không chạy STEP.
-          Không thay đổi Forecast.
-          Không ghi Storage.
-
-        </div>
+    directCard.id =
+      CARD_ID;
 
 
-        <div class="pb-safety">
-          🔒 INSPECTION ONLY · ZERO WRITE
-        </div>
+    /*
+     * Header content.
+     */
+
+    directCard.innerHTML = `
+
+      <div class="pb-title">
+        🚦 PRODUCTION BOOTSTRAP V4
+      </div>
 
 
-        <div
-          id="${BUTTON_WRAP_ID}"
-        >
+      <div class="pb-sub">
 
-          <button
-            type="button"
-            id="${BUTTON_ID}"
-          >
-            🔬 INSPECT PRODUCTION RUNTIME
-          </button>
+        Direct DOM Reference +
+        Duplicate DOM Detector.
 
-        </div>
+        <br><br>
 
-
-        <div
-          class="pb-status"
-          id="${STATUS_ID}"
-        >
-          V3 loaded · Sẵn sàng kiểm tra runtime.
-        </div>
-
-
-        <div
-          class="pb-diagnostic"
-          id="${DIAGNOSTIC_ID}"
-        >
-          🧪 Đang kiểm tra V3 layout...
-        </div>
+        Không chạy STEP.
+        Không thay đổi Forecast.
+        Không ghi Storage.
 
       </div>
 
 
-      <div
-        id="${RESULT_ID}"
-      ></div>
+      <div class="pb-safety">
+        🔒 INSPECTION ONLY · ZERO WRITE
+      </div>
 
     `;
 
 
-    settings.appendChild(
-      panel
+    /*
+     * Create WRAPPER directly.
+     */
+
+    directWrapper =
+      document.createElement(
+        'div'
+      );
+
+
+    directWrapper.id =
+      WRAPPER_ID;
+
+
+    /*
+     * Create BUTTON directly.
+     */
+
+    directButton =
+      document.createElement(
+        'button'
+      );
+
+
+    directButton.id =
+      BUTTON_ID;
+
+
+    directButton.type =
+      'button';
+
+
+    directButton.textContent =
+      '🔬 INSPECT PRODUCTION RUNTIME';
+
+
+    /*
+     * Assemble using direct references.
+     */
+
+    directWrapper.appendChild(
+      directButton
     );
 
 
-    const button =
-      document.getElementById(
-        BUTTON_ID
+    directCard.appendChild(
+      directWrapper
+    );
+
+
+    const status =
+      document.createElement(
+        'div'
       );
 
 
-    if (!button) {
+    status.id =
+      STATUS_ID;
 
-      console.error(
-        'Production Bootstrap Mobile V3: button creation failed'
+
+    status.className =
+      'pb-status';
+
+
+    status.textContent =
+      'V4 loaded · Direct DOM reference active.';
+
+
+    directCard.appendChild(
+      status
+    );
+
+
+    const diagnostic =
+      document.createElement(
+        'div'
       );
 
-      inspectLayout();
 
-      return;
-
-    }
+    diagnostic.id =
+      DIAGNOSTIC_ID;
 
 
-    button.addEventListener(
+    diagnostic.className =
+      'pb-diagnostic';
+
+
+    diagnostic.textContent =
+      '🧪 Đang kiểm tra duplicate DOM...';
+
+
+    directCard.appendChild(
+      diagnostic
+    );
+
+
+    directPanel.appendChild(
+      directCard
+    );
+
+
+    const result =
+      document.createElement(
+        'div'
+      );
+
+
+    result.id =
+      RESULT_ID;
+
+
+    directPanel.appendChild(
+      result
+    );
+
+
+    settings.appendChild(
+      directPanel
+    );
+
+
+    /*
+     * Event attached DIRECTLY to exact V4 button.
+     */
+
+    directButton.addEventListener(
       'click',
       runInspection
     );
 
 
     /*
-     * First layout pass.
+     * Wait for browser layout.
      */
 
     window.requestAnimationFrame(
       function () {
 
-        inspectLayout();
-
-
-        /*
-         * Second measurement after layout settles.
-         */
-
         window.requestAnimationFrame(
           function () {
 
-            const layout =
-              inspectLayout();
-
-
-            window
-              .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE =
-              {
-
-                version:
-                  VERSION,
-
-                layoutDiagnostic:
-                  layout
-
-              };
+            inspectDomV4();
 
           }
         );
@@ -1370,8 +1794,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Bootstrap Mobile V3 loaded — LAYOUT DIAGNOSTIC ONLY'
+    'FIX-03D5.9 Production Bootstrap Mobile V4 loaded — DIRECT DOM DIAGNOSTIC'
   );
 
 })();
-
