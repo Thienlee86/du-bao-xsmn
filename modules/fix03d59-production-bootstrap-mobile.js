@@ -1,18 +1,17 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION BOOTSTRAP — MOBILE V5
-   GEOMETRY TRUTH PROBE
+   PRODUCTION BOOTSTRAP — MOBILE V6
+   LIVE DOM IDENTITY TRACE
 
    PURPOSE:
-   - Determine why visible Bootstrap DOM was reported as 0 x 0.
-   - Compare multiple browser geometry APIs.
-   - Inspect real ancestor geometry.
-   - Inspect the actual painted element at screen coordinates.
-   - Compare direct references with document lookup.
+   - Trace the real DOM identity of the Bootstrap inspect button.
+   - Detect detached / replaced nodes.
+   - Compare direct references with live document lookup.
+   - Observe DOM replacement after panel insertion.
+   - Identify whether another runtime rebuild removes/replaces the button.
 
-   IMPORTANT:
    READ ONLY
-   ZERO WRITE
+   ZERO WRITE TO PRODUCTION
    ZERO PROMOTION
    ZERO PRODUCTION EXECUTION
    ========================================================================= */
@@ -23,26 +22,28 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V5';
+    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V6';
 
 
   const PANEL_ID =
     'fix03d59-production-bootstrap-panel';
 
+
   const CARD_ID =
     'fix03d59-production-bootstrap-card';
+
 
   const WRAPPER_ID =
     'fix03d59-production-bootstrap-button-wrapper';
 
+
   const BUTTON_ID =
     'fix03d59-production-bootstrap-run';
+
 
   const STATUS_ID =
     'fix03d59-production-bootstrap-status';
 
-  const RESULT_ID =
-    'fix03d59-production-bootstrap-result';
 
   const DIAGNOSTIC_ID =
     'fix03d59-production-bootstrap-diagnostic';
@@ -83,29 +84,163 @@
   }
 
 
-  function round(
-    value
+  /*
+   * Give each DOM node a temporary diagnostic identity.
+   *
+   * This does NOT write application data.
+   * WeakMap exists only in this V6 runtime.
+   */
+
+  const nodeIds =
+    new WeakMap();
+
+
+  let nodeSequence =
+    0;
+
+
+  function getNodeIdentity(
+    node
   ) {
 
-    const number =
-      Number(
-        value
-      );
+    if (!node) {
 
-
-    if (
-      !Number.isFinite(
-        number
-      )
-    ) {
-
-      return 0;
+      return '--';
 
     }
 
 
-    return Math.round(
-      number
+    if (
+      !nodeIds.has(
+        node
+      )
+    ) {
+
+      nodeSequence += 1;
+
+
+      nodeIds.set(
+        node,
+        'NODE-' + nodeSequence
+      );
+
+    }
+
+
+    return nodeIds.get(
+      node
+    );
+
+  }
+
+
+  function describeNode(
+    node
+  ) {
+
+    if (!node) {
+
+      return {
+
+        exists: false,
+
+        identity:
+          '--',
+
+        tag:
+          '--',
+
+        id:
+          '--',
+
+        connected:
+          false,
+
+        parentTag:
+          '--',
+
+        parentId:
+          '--',
+
+        width:
+          0,
+
+        height:
+          0
+
+      };
+
+    }
+
+
+    const rect =
+      node.getBoundingClientRect();
+
+
+    const parent =
+      node.parentElement;
+
+
+    return {
+
+      exists: true,
+
+      identity:
+        getNodeIdentity(
+          node
+        ),
+
+      tag:
+        node.tagName ||
+        '--',
+
+      id:
+        node.id ||
+        '--',
+
+      connected:
+        node.isConnected === true,
+
+      parentTag:
+        parent
+          ? (
+              parent.tagName ||
+              '--'
+            )
+          : '--',
+
+      parentId:
+        parent
+          ? (
+              parent.id ||
+              '--'
+            )
+          : '--',
+
+      width:
+        Math.round(
+          rect.width
+        ),
+
+      height:
+        Math.round(
+          rect.height
+        )
+
+    };
+
+  }
+
+
+  function sameNode(
+    a,
+    b
+  ) {
+
+    return Boolean(
+      a &&
+      b &&
+      a === b
     );
 
   }
@@ -113,396 +248,515 @@
 
   /*
    * =========================================================
-   * GEOMETRY READER
+   * V6 TRACE STATE
    * =========================================================
    */
 
-  function inspectGeometry(
-    element
+  const traceState = {
+
+    createdAt:
+      new Date().toISOString(),
+
+    direct: {},
+
+    snapshots: [],
+
+    mutations: [],
+
+    observerStarted:
+      false
+
+  };
+
+
+  function addSnapshot(
+    label,
+    directPanel,
+    directCard,
+    directWrapper,
+    directButton
   ) {
 
-    if (!element) {
-
-      return {
-        exists: false
-      };
-
-    }
-
-
-    const rect =
-      element.getBoundingClientRect();
-
-
-    const rects =
-      Array.from(
-        element.getClientRects()
+    const livePanel =
+      document.getElementById(
+        PANEL_ID
       );
 
 
-    const style =
-      window.getComputedStyle(
-        element
+    const liveCard =
+      document.getElementById(
+        CARD_ID
       );
 
 
-    return {
+    const liveWrapper =
+      document.getElementById(
+        WRAPPER_ID
+      );
 
-      exists:
-        true,
 
-      connected:
-        element.isConnected === true,
+    const liveButton =
+      document.getElementById(
+        BUTTON_ID
+      );
 
-      tag:
-        element.tagName || '--',
 
-      id:
-        element.id || '--',
+    traceState.snapshots.push({
 
-      className:
-        typeof element.className ===
-          'string'
-          ? element.className
-          : '--',
+      label:
+        label,
 
-      boundingWidth:
-        round(
-          rect.width
-        ),
+      time:
+        new Date().toISOString(),
 
-      boundingHeight:
-        round(
-          rect.height
-        ),
+      direct: {
 
-      boundingTop:
-        round(
-          rect.top
-        ),
+        panel:
+          describeNode(
+            directPanel
+          ),
 
-      boundingLeft:
-        round(
-          rect.left
-        ),
+        card:
+          describeNode(
+            directCard
+          ),
 
-      offsetWidth:
-        round(
-          element.offsetWidth
-        ),
+        wrapper:
+          describeNode(
+            directWrapper
+          ),
 
-      offsetHeight:
-        round(
-          element.offsetHeight
-        ),
+        button:
+          describeNode(
+            directButton
+          )
 
-      clientWidth:
-        round(
-          element.clientWidth
-        ),
+      },
 
-      clientHeight:
-        round(
-          element.clientHeight
-        ),
+      live: {
 
-      scrollWidth:
-        round(
-          element.scrollWidth
-        ),
+        panel:
+          describeNode(
+            livePanel
+          ),
 
-      scrollHeight:
-        round(
-          element.scrollHeight
-        ),
+        card:
+          describeNode(
+            liveCard
+          ),
 
-      clientRectCount:
-        rects.length,
+        wrapper:
+          describeNode(
+            liveWrapper
+          ),
 
-      firstClientRect:
-        rects.length
-          ? {
-              width:
-                round(
-                  rects[0].width
-                ),
+        button:
+          describeNode(
+            liveButton
+          )
 
-              height:
-                round(
-                  rects[0].height
-                ),
+      },
 
-              top:
-                round(
-                  rects[0].top
-                ),
+      identityMatch: {
 
-              left:
-                round(
-                  rects[0].left
-                )
-            }
-          : null,
+        panel:
+          sameNode(
+            directPanel,
+            livePanel
+          ),
 
-      display:
-        style.display,
+        card:
+          sameNode(
+            directCard,
+            liveCard
+          ),
 
-      visibility:
-        style.visibility,
+        wrapper:
+          sameNode(
+            directWrapper,
+            liveWrapper
+          ),
 
-      position:
-        style.position,
+        button:
+          sameNode(
+            directButton,
+            liveButton
+          )
 
-      opacity:
-        style.opacity,
+      }
 
-      widthCSS:
-        style.width,
+    });
 
-      heightCSS:
-        style.height,
 
-      overflow:
-        style.overflow,
-
-      transform:
-        style.transform,
-
-      contain:
-        style.contain,
-
-      contentVisibility:
-        style.contentVisibility ||
-
-        '--'
-
-    };
+    renderDiagnostic();
 
   }
 
 
   /*
    * =========================================================
-   * GEOMETRY HTML
+   * MUTATION OBSERVER
    * =========================================================
    */
 
-  function geometryHtml(
-    title,
-    geometry
+  function nodeContainsTarget(
+    node
   ) {
 
     if (
-      !geometry ||
-      !geometry.exists
+      !node ||
+      node.nodeType !== 1
     ) {
 
-      return `
-
-        <div class="pb-v5-block">
-
-          <div class="pb-v5-block-title">
-            ${escapeHtml(title)}
-          </div>
-
-          <div class="pb-v5-fail">
-            DOM: NO ❌
-          </div>
-
-        </div>
-
-      `;
+      return false;
 
     }
 
 
+    if (
+      node.id === PANEL_ID ||
+      node.id === CARD_ID ||
+      node.id === WRAPPER_ID ||
+      node.id === BUTTON_ID
+    ) {
+
+      return true;
+
+    }
+
+
+    if (
+      typeof node.querySelector !==
+      'function'
+    ) {
+
+      return false;
+
+    }
+
+
+    return Boolean(
+
+      node.querySelector(
+        '#' + PANEL_ID
+      ) ||
+
+      node.querySelector(
+        '#' + CARD_ID
+      ) ||
+
+      node.querySelector(
+        '#' + WRAPPER_ID
+      ) ||
+
+      node.querySelector(
+        '#' + BUTTON_ID
+      )
+
+    );
+
+  }
+
+
+  function describeMutationNode(
+    node
+  ) {
+
+    if (
+      !node ||
+      node.nodeType !== 1
+    ) {
+
+      return null;
+
+    }
+
+
+    return {
+
+      identity:
+        getNodeIdentity(
+          node
+        ),
+
+      tag:
+        node.tagName ||
+        '--',
+
+      id:
+        node.id ||
+        '--',
+
+      connected:
+        node.isConnected === true
+
+    };
+
+  }
+
+
+  function startObserver() {
+
+    if (
+      traceState.observerStarted
+    ) {
+
+      return;
+
+    }
+
+
+    if (
+      typeof MutationObserver !==
+      'function'
+    ) {
+
+      return;
+
+    }
+
+
+    traceState.observerStarted =
+      true;
+
+
+    const observer =
+      new MutationObserver(
+        function (
+          mutations
+        ) {
+
+          let importantChange =
+            false;
+
+
+          mutations.forEach(
+            function (
+              mutation
+            ) {
+
+              const removed =
+                Array.from(
+                  mutation.removedNodes ||
+                  []
+                )
+                  .filter(
+                    nodeContainsTarget
+                  )
+                  .map(
+                    describeMutationNode
+                  )
+                  .filter(Boolean);
+
+
+              const added =
+                Array.from(
+                  mutation.addedNodes ||
+                  []
+                )
+                  .filter(
+                    nodeContainsTarget
+                  )
+                  .map(
+                    describeMutationNode
+                  )
+                  .filter(Boolean);
+
+
+              if (
+                removed.length ||
+                added.length
+              ) {
+
+                importantChange =
+                  true;
+
+
+                traceState
+                  .mutations
+                  .push({
+
+                    time:
+                      new Date()
+                        .toISOString(),
+
+                    target:
+                      describeMutationNode(
+                        mutation.target
+                      ),
+
+                    removed:
+                      removed,
+
+                    added:
+                      added
+
+                  });
+
+              }
+
+            }
+          );
+
+
+          if (
+            importantChange
+          ) {
+
+            addSnapshot(
+              'MUTATION DETECTED',
+              traceState.direct.panel,
+              traceState.direct.card,
+              traceState.direct.wrapper,
+              traceState.direct.button
+            );
+
+          }
+
+        }
+      );
+
+
+    observer.observe(
+      document.documentElement,
+      {
+
+        childList: true,
+
+        subtree: true
+
+      }
+    );
+
+
+    window
+      .FIX03D59_PRODUCTION_BOOTSTRAP_V6_OBSERVER =
+      observer;
+
+  }
+
+
+  /*
+   * =========================================================
+   * RENDER DIAGNOSTIC
+   * =========================================================
+   */
+
+  function renderNodeBlock(
+    title,
+    directInfo,
+    liveInfo,
+    match
+  ) {
+
     return `
 
-      <div class="pb-v5-block">
+      <div class="v6-node">
 
-        <div class="pb-v5-block-title">
-          ${escapeHtml(title)}
+        <div class="v6-node-title">
+          ${escapeHtml(
+            title
+          )}
         </div>
 
 
         <div>
-          DOM:
-          <b class="pb-v5-ok">
-            YES ✅
+          DIRECT:
+          <b>
+            ${escapeHtml(
+              directInfo.identity
+            )}
           </b>
 
           · Connected:
-          <b>
-            ${yesNo(
-              geometry.connected
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          Tag:
-          <b>
-            ${escapeHtml(
-              geometry.tag
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          Bounding:
-          <b class="${
-            geometry.boundingWidth > 0 &&
-            geometry.boundingHeight > 0
-              ? 'pb-v5-ok'
-              : 'pb-v5-fail'
+          <strong class="${
+            directInfo.connected
+              ? 'v6-ok'
+              : 'v6-fail'
           }">
+            ${yesNo(
+              directInfo.connected
+            )}
+          </strong>
+        </div>
 
-            ${geometry.boundingWidth}
+
+        <div>
+          LIVE LOOKUP:
+          <b>
+            ${escapeHtml(
+              liveInfo.identity
+            )}
+          </b>
+
+          · Connected:
+          <strong class="${
+            liveInfo.connected
+              ? 'v6-ok'
+              : 'v6-fail'
+          }">
+            ${yesNo(
+              liveInfo.connected
+            )}
+          </strong>
+        </div>
+
+
+        <div>
+          SAME NODE:
+          <strong class="${
+            match
+              ? 'v6-ok'
+              : 'v6-fail'
+          }">
+            ${yesNo(
+              match
+            )}
+          </strong>
+        </div>
+
+
+        <div>
+          Direct size:
+          <b>
+            ${directInfo.width}
             ×
-            ${geometry.boundingHeight}px
-
+            ${directInfo.height}px
           </b>
         </div>
 
 
         <div>
-          Position:
+          Live size:
           <b>
-            ${geometry.boundingLeft},
-            ${geometry.boundingTop}
-          </b>
-        </div>
-
-
-        <div>
-          offset:
-          <b>
-            ${geometry.offsetWidth}
+            ${liveInfo.width}
             ×
-            ${geometry.offsetHeight}
+            ${liveInfo.height}px
           </b>
         </div>
 
 
-        <div>
-          client:
-          <b>
-            ${geometry.clientWidth}
-            ×
-            ${geometry.clientHeight}
-          </b>
+        <div class="v6-small">
+          Direct parent:
+          ${escapeHtml(
+            directInfo.parentTag
+          )}
+          #
+          ${escapeHtml(
+            directInfo.parentId
+          )}
         </div>
 
 
-        <div>
-          scroll:
-          <b>
-            ${geometry.scrollWidth}
-            ×
-            ${geometry.scrollHeight}
-          </b>
-        </div>
-
-
-        <div>
-          getClientRects():
-          <b>
-            ${geometry.clientRectCount}
-          </b>
-        </div>
-
-
-        <div>
-          CSS:
-          <b>
-            ${escapeHtml(
-              geometry.display
-            )}
-          </b>
-
-          ·
-
-          <b>
-            ${escapeHtml(
-              geometry.visibility
-            )}
-          </b>
-
-          · opacity
-
-          <b>
-            ${escapeHtml(
-              geometry.opacity
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          CSS width:
-          <b>
-            ${escapeHtml(
-              geometry.widthCSS
-            )}
-          </b>
-
-          · height:
-
-          <b>
-            ${escapeHtml(
-              geometry.heightCSS
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          position:
-          <b>
-            ${escapeHtml(
-              geometry.position
-            )}
-          </b>
-
-          · overflow:
-
-          <b>
-            ${escapeHtml(
-              geometry.overflow
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          transform:
-          <b>
-            ${escapeHtml(
-              geometry.transform
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          contain:
-          <b>
-            ${escapeHtml(
-              geometry.contain
-            )}
-          </b>
-        </div>
-
-
-        <div>
-          content-visibility:
-          <b>
-            ${escapeHtml(
-              geometry.contentVisibility
-            )}
-          </b>
+        <div class="v6-small">
+          Live parent:
+          ${escapeHtml(
+            liveInfo.parentTag
+          )}
+          #
+          ${escapeHtml(
+            liveInfo.parentId
+          )}
         </div>
 
       </div>
@@ -512,335 +766,244 @@
   }
 
 
-  /*
-   * =========================================================
-   * ANCESTOR CHAIN
-   * =========================================================
-   */
+  function renderDiagnostic() {
 
-  function inspectAncestors(
-    element
-  ) {
-
-    const rows =
-      [];
+    const diagnostic =
+      document.getElementById(
+        DIAGNOSTIC_ID
+      );
 
 
-    let current =
-      element;
+    if (!diagnostic) {
 
-
-    let level =
-      0;
-
-
-    while (
-      current &&
-      level < 10
-    ) {
-
-      const geometry =
-        inspectGeometry(
-          current
-        );
-
-
-      rows.push({
-
-        level:
-          level,
-
-        tag:
-          current.tagName ||
-          '--',
-
-        id:
-          current.id ||
-          '--',
-
-        width:
-          geometry.boundingWidth ||
-          0,
-
-        height:
-          geometry.boundingHeight ||
-          0,
-
-        display:
-          geometry.display ||
-          '--',
-
-        position:
-          geometry.position ||
-          '--'
-
-      });
-
-
-      current =
-        current.parentElement;
-
-
-      level += 1;
+      return;
 
     }
 
 
-    return rows;
+    const latest =
+      traceState.snapshots[
+        traceState.snapshots.length - 1
+      ];
 
-  }
+
+    if (!latest) {
+
+      diagnostic.innerHTML =
+        'V6 trace waiting...';
+
+      return;
+
+    }
 
 
-  function ancestorsHtml(
-    rows
-  ) {
+    const d =
+      latest.direct;
 
-    return rows
-      .map(
-        function (
-          row
-        ) {
 
-          return `
+    const l =
+      latest.live;
 
-            <div class="pb-v5-ancestor">
 
-              <b>
-                #${row.level}
-              </b>
+    const m =
+      latest.identityMatch;
 
-              ${escapeHtml(
-                row.tag
-              )}
 
-              ${
-                row.id !== '--'
-                  ? '#' +
-                    escapeHtml(
-                      row.id
-                    )
-                  : ''
+    let conclusion =
+      'NO IDENTITY BREAK DETECTED';
+
+
+    if (
+      !m.button
+    ) {
+
+      conclusion =
+        'BUTTON IDENTITY CHANGED / REPLACED';
+
+    } else if (
+      !d.button.connected
+    ) {
+
+      conclusion =
+        'DIRECT BUTTON DETACHED';
+
+    } else if (
+      !l.button.connected
+    ) {
+
+      conclusion =
+        'LIVE BUTTON NOT CONNECTED';
+
+    }
+
+
+    const mutationHtml =
+      traceState.mutations.length
+        ? traceState.mutations
+            .slice(-5)
+            .map(
+              function (
+                item,
+                index
+              ) {
+
+                return `
+
+                  <div class="v6-mutation">
+
+                    <b>
+                      Mutation ${
+                        traceState
+                          .mutations
+                          .length -
+                        Math.min(
+                          5,
+                          traceState
+                            .mutations
+                            .length
+                        ) +
+                        index +
+                        1
+                      }
+                    </b>
+
+                    <br>
+
+                    Removed targets:
+                    ${
+                      item.removed.length
+                    }
+
+                    <br>
+
+                    Added targets:
+                    ${
+                      item.added.length
+                    }
+
+                    <br>
+
+                    Mutation parent:
+                    ${
+                      item.target
+                        ? escapeHtml(
+                            item.target.tag +
+                            '#' +
+                            item.target.id
+                          )
+                        : '--'
+                    }
+
+                  </div>
+
+                `;
+
               }
-
-              <br>
-
-              Size:
-              <b class="${
-                row.width > 0 &&
-                row.height > 0
-                  ? 'pb-v5-ok'
-                  : 'pb-v5-fail'
-              }">
-
-                ${row.width}
-                ×
-                ${row.height}
-
-              </b>
-
-              ·
-
-              ${escapeHtml(
-                row.display
-              )}
-
-              ·
-
-              ${escapeHtml(
-                row.position
-              )}
-
-            </div>
-
-          `;
-
-        }
-      )
-      .join('');
-
-  }
-
-
-  /*
-   * =========================================================
-   * PAINTED ELEMENT PROBE
-   * =========================================================
-   */
-
-  function inspectPaintedElement() {
-
-    const viewportWidth =
-      window.innerWidth ||
-      document.documentElement
-        .clientWidth ||
-      0;
-
-
-    const viewportHeight =
-      window.innerHeight ||
-      document.documentElement
-        .clientHeight ||
-      0;
-
-
-    /*
-     * Probe several safe points in the visible content area.
-     */
-
-    const points = [
-
-      {
-        x:
-          Math.round(
-            viewportWidth * 0.5
-          ),
-
-        y:
-          Math.round(
-            viewportHeight * 0.35
-          )
-      },
-
-      {
-        x:
-          Math.round(
-            viewportWidth * 0.5
-          ),
-
-        y:
-          Math.round(
-            viewportHeight * 0.50
-          )
-      },
-
-      {
-        x:
-          Math.round(
-            viewportWidth * 0.5
-          ),
-
-        y:
-          Math.round(
-            viewportHeight * 0.65
-          )
-      }
-
-    ];
-
-
-    return points.map(
-      function (
-        point
-      ) {
-
-        const element =
-          document.elementFromPoint(
-            point.x,
-            point.y
-          );
-
-
-        return {
-
-          x:
-            point.x,
-
-          y:
-            point.y,
-
-          tag:
-            element
-              ? element.tagName
-              : '--',
-
-          id:
-            element &&
-            element.id
-              ? element.id
-              : '--',
-
-          className:
-            element &&
-            typeof
-              element.className ===
-              'string'
-              ? element.className
-              : '--',
-
-          geometry:
-            inspectGeometry(
-              element
             )
+            .join('')
+        : `
 
-        };
-
-      }
-    );
-
-  }
-
-
-  function paintedHtml(
-    probes
-  ) {
-
-    return probes
-      .map(
-        function (
-          probe
-        ) {
-
-          return `
-
-            <div class="pb-v5-probe">
-
-              Point:
-              <b>
-                ${probe.x},
-                ${probe.y}
-              </b>
-
-              <br>
-
-              Element:
-              <b>
-                ${escapeHtml(
-                  probe.tag
-                )}
-
-                ${
-                  probe.id !== '--'
-                    ? '#' +
-                      escapeHtml(
-                        probe.id
-                      )
-                    : ''
-                }
-              </b>
-
-              <br>
-
-              Size:
-              <b>
-                ${
-                  probe.geometry &&
-                  probe.geometry.exists
-                    ? probe.geometry
-                        .boundingWidth +
-                      ' × ' +
-                      probe.geometry
-                        .boundingHeight
-                    : '--'
-                }
-              </b>
-
+            <div class="v6-small">
+              No target replacement mutation
+              detected yet.
             </div>
 
           `;
 
-        }
-      )
-      .join('');
+
+    diagnostic.innerHTML = `
+
+      <div class="v6-diagnostic-title">
+        🧬 MOBILE V6 LIVE DOM IDENTITY TRACE
+      </div>
+
+
+      <div class="v6-snapshot">
+
+        Snapshot:
+        <b>
+          ${escapeHtml(
+            latest.label
+          )}
+        </b>
+
+      </div>
+
+
+      ${renderNodeBlock(
+        'PANEL',
+        d.panel,
+        l.panel,
+        m.panel
+      )}
+
+
+      ${renderNodeBlock(
+        'CARD',
+        d.card,
+        l.card,
+        m.card
+      )}
+
+
+      ${renderNodeBlock(
+        'BUTTON WRAPPER',
+        d.wrapper,
+        l.wrapper,
+        m.wrapper
+      )}
+
+
+      ${renderNodeBlock(
+        'BUTTON',
+        d.button,
+        l.button,
+        m.button
+      )}
+
+
+      <div class="v6-section-title">
+        MUTATION TRACE
+      </div>
+
+
+      ${mutationHtml}
+
+
+      <div class="v6-conclusion">
+
+        <b>
+          V6 CONCLUSION
+        </b>
+
+        <br>
+
+        ${escapeHtml(
+          conclusion
+        )}
+
+      </div>
+
+    `;
+
+
+    window
+      .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE =
+      {
+
+        version:
+          VERSION,
+
+        trace:
+          traceState,
+
+        latest:
+          latest,
+
+        conclusion:
+          conclusion
+
+      };
 
   }
 
@@ -879,63 +1042,53 @@
     style.textContent = `
 
       #${PANEL_ID} {
-        display: block;
-        position: relative;
-        width: auto;
-        margin: 24px;
-        padding: 0;
-        color: white;
+        margin: 24px 0 34px;
       }
 
 
-      #${CARD_ID} {
-        display: block;
-        position: relative;
-        width: auto;
-        min-height: 1px;
-
-        padding: 22px;
-
-        border-radius: 24px;
-
+      #${PANEL_ID} .v6-card {
         background:
           linear-gradient(
             145deg,
-            rgba(30,43,93,.98),
-            rgba(23,34,77,.98)
+            rgba(28,38,82,.98),
+            rgba(20,29,66,.98)
           );
 
         border:
           1px solid
-          rgba(129,140,248,.34);
+          rgba(129,140,248,.35);
+
+        border-radius: 24px;
+
+        padding: 20px;
+
+        color: #fff;
       }
 
 
-      #${PANEL_ID} .pb-v5-title {
-        font-size: 26px;
+      #${PANEL_ID} .v6-title {
+        font-size: 23px;
+
         font-weight: 900;
+
         line-height: 1.35;
       }
 
 
-      #${PANEL_ID} .pb-v5-sub {
-        margin-top: 18px;
+      #${PANEL_ID} .v6-sub {
+        margin-top: 14px;
 
         color:
           rgba(255,255,255,.68);
 
-        font-size: 16px;
-
-        line-height: 1.65;
+        line-height: 1.6;
       }
 
 
-      #${PANEL_ID} .pb-v5-safety {
-        margin-top: 20px;
+      #${PANEL_ID} .v6-safety {
+        margin-top: 16px;
 
         color: #72e6ae;
-
-        font-size: 17px;
 
         font-weight: 900;
       }
@@ -943,62 +1096,46 @@
 
       #${WRAPPER_ID} {
         display: block;
-        position: relative;
+
         width: 100%;
-        min-height: 64px;
-        margin-top: 22px;
+
+        margin-top: 20px;
       }
 
 
       #${BUTTON_ID} {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
+        display: block;
 
-        position: relative !important;
+        width: 100%;
 
-        box-sizing: border-box !important;
+        min-height: 56px;
 
-        width: 100% !important;
-        min-width: 100% !important;
+        padding: 16px;
 
-        height: 64px !important;
-        min-height: 64px !important;
+        border: 0;
 
-        padding: 0 14px !important;
-        margin: 0 !important;
-
-        border: 0 !important;
-
-        border-radius: 18px !important;
+        border-radius: 17px;
 
         background:
           linear-gradient(
             90deg,
             #ffbd3c,
             #ff913d
-          ) !important;
+          );
 
-        color: #17182a !important;
+        color: #17182a;
 
-        font-size: 17px !important;
-        font-weight: 900 !important;
+        font-size: 17px;
 
-        pointer-events: auto !important;
-
-        z-index: 10 !important;
+        font-weight: 900;
       }
 
 
       #${STATUS_ID} {
-        margin-top: 20px;
+        margin-top: 16px;
 
         color:
-          rgba(255,255,255,.72);
-
-        font-size: 16px;
-
-        line-height: 1.5;
+          rgba(255,255,255,.75);
       }
 
 
@@ -1022,14 +1159,26 @@
       }
 
 
-      #${PANEL_ID} .pb-v5-diagnostic-title {
+      #${PANEL_ID}
+      .v6-diagnostic-title {
         font-size: 18px;
+
         font-weight: 900;
-        margin-bottom: 12px;
+
+        margin-bottom: 14px;
       }
 
 
-      #${PANEL_ID} .pb-v5-block {
+      #${PANEL_ID}
+      .v6-snapshot {
+        color: #ffbd3c;
+
+        margin-bottom: 16px;
+      }
+
+
+      #${PANEL_ID}
+      .v6-node {
         padding: 14px 0;
 
         border-bottom:
@@ -1038,67 +1187,80 @@
       }
 
 
-      #${PANEL_ID} .pb-v5-block-title {
+      #${PANEL_ID}
+      .v6-node-title {
         font-weight: 900;
+
+        font-size: 17px;
+
         margin-bottom: 8px;
-        color: #fff;
       }
 
 
-      #${PANEL_ID} .pb-v5-ok {
+      #${PANEL_ID}
+      .v6-ok {
         color: #72e6ae;
       }
 
 
-      #${PANEL_ID} .pb-v5-fail {
+      #${PANEL_ID}
+      .v6-fail {
         color: #ff7185;
       }
 
 
-      #${PANEL_ID} .pb-v5-section-title {
+      #${PANEL_ID}
+      .v6-small {
+        color:
+          rgba(255,255,255,.65);
+
+        font-size: 13px;
+      }
+
+
+      #${PANEL_ID}
+      .v6-section-title {
         margin-top: 20px;
-        margin-bottom: 8px;
 
         color: #ffbd3c;
 
-        font-size: 17px;
+        font-size: 18px;
 
         font-weight: 900;
       }
 
 
-      #${PANEL_ID} .pb-v5-ancestor,
-      #${PANEL_ID} .pb-v5-probe {
-        padding: 9px 0;
+      #${PANEL_ID}
+      .v6-mutation {
+        margin-top: 12px;
 
-        border-bottom:
-          1px dashed
-          rgba(255,255,255,.08);
+        padding: 12px;
+
+        border-radius: 12px;
+
+        background:
+          rgba(255,255,255,.05);
       }
 
 
-      #${PANEL_ID} .pb-v5-conclusion {
+      #${PANEL_ID}
+      .v6-conclusion {
         margin-top: 20px;
 
         padding: 15px;
 
         border-radius: 15px;
 
+        border:
+          1px solid
+          rgba(255,189,60,.35);
+
         background:
           rgba(255,189,60,.08);
 
-        border:
-          1px solid
-          rgba(255,189,60,.30);
-
         color: #ffbd3c;
 
-        font-weight: 900;
-      }
-
-
-      #${RESULT_ID} {
-        margin-top: 16px;
+        font-weight: 800;
       }
 
     `;
@@ -1113,424 +1275,14 @@
 
   /*
    * =========================================================
-   * RUN GEOMETRY TRUTH PROBE
-   * =========================================================
-   */
-
-  function runGeometryProbe(
-    refs
-  ) {
-
-    const diagnostic =
-      refs.diagnostic;
-
-
-    if (!diagnostic) {
-
-      return;
-
-    }
-
-
-    const lookupPanel =
-      document.getElementById(
-        PANEL_ID
-      );
-
-
-    const lookupCard =
-      document.getElementById(
-        CARD_ID
-      );
-
-
-    const lookupWrapper =
-      document.getElementById(
-        WRAPPER_ID
-      );
-
-
-    const lookupButton =
-      document.getElementById(
-        BUTTON_ID
-      );
-
-
-    const panelGeometry =
-      inspectGeometry(
-        refs.panel
-      );
-
-
-    const cardGeometry =
-      inspectGeometry(
-        refs.card
-      );
-
-
-    const wrapperGeometry =
-      inspectGeometry(
-        refs.wrapper
-      );
-
-
-    const buttonGeometry =
-      inspectGeometry(
-        refs.button
-      );
-
-
-    const ancestors =
-      inspectAncestors(
-        refs.button
-      );
-
-
-    const painted =
-      inspectPaintedElement();
-
-
-    const sameReferences = {
-
-      panel:
-        refs.panel ===
-        lookupPanel,
-
-      card:
-        refs.card ===
-        lookupCard,
-
-      wrapper:
-        refs.wrapper ===
-        lookupWrapper,
-
-      button:
-        refs.button ===
-        lookupButton
-
-    };
-
-
-    let conclusion =
-      'GEOMETRY RESULT REQUIRES REVIEW';
-
-
-    if (
-      buttonGeometry.boundingWidth > 0 &&
-      buttonGeometry.boundingHeight > 0
-    ) {
-
-      conclusion =
-        'BUTTON HAS REAL GEOMETRY ✅';
-
-    } else if (
-      buttonGeometry.offsetWidth > 0 ||
-      buttonGeometry.clientWidth > 0 ||
-      buttonGeometry.clientRectCount > 0
-    ) {
-
-      conclusion =
-        'BOUNDING RECT DISAGREES WITH OTHER GEOMETRY APIs';
-
-    } else if (
-      cardGeometry.boundingWidth > 0 &&
-      cardGeometry.boundingHeight > 0
-    ) {
-
-      conclusion =
-        'CARD HAS GEOMETRY BUT BUTTON BRANCH COLLAPSES';
-
-    } else {
-
-      conclusion =
-        'DIRECT BRANCH STILL REPORTS ZERO GEOMETRY';
-
-    }
-
-
-    diagnostic.innerHTML = `
-
-      <div class="pb-v5-diagnostic-title">
-        🧪 MOBILE V5 GEOMETRY TRUTH PROBE
-      </div>
-
-
-      <div class="pb-v5-section-title">
-        DIRECT REFERENCES
-      </div>
-
-
-      ${geometryHtml(
-        'BUTTON',
-        buttonGeometry
-      )}
-
-
-      ${geometryHtml(
-        'BUTTON WRAPPER',
-        wrapperGeometry
-      )}
-
-
-      ${geometryHtml(
-        'CARD',
-        cardGeometry
-      )}
-
-
-      ${geometryHtml(
-        'PANEL',
-        panelGeometry
-      )}
-
-
-      <div class="pb-v5-section-title">
-        DIRECT REF = DOCUMENT LOOKUP
-      </div>
-
-
-      <div>
-        PANEL:
-        <b class="${
-          sameReferences.panel
-            ? 'pb-v5-ok'
-            : 'pb-v5-fail'
-        }">
-          ${yesNo(
-            sameReferences.panel
-          )}
-        </b>
-      </div>
-
-
-      <div>
-        CARD:
-        <b class="${
-          sameReferences.card
-            ? 'pb-v5-ok'
-            : 'pb-v5-fail'
-        }">
-          ${yesNo(
-            sameReferences.card
-          )}
-        </b>
-      </div>
-
-
-      <div>
-        WRAPPER:
-        <b class="${
-          sameReferences.wrapper
-            ? 'pb-v5-ok'
-            : 'pb-v5-fail'
-        }">
-          ${yesNo(
-            sameReferences.wrapper
-          )}
-        </b>
-      </div>
-
-
-      <div>
-        BUTTON:
-        <b class="${
-          sameReferences.button
-            ? 'pb-v5-ok'
-            : 'pb-v5-fail'
-        }">
-          ${yesNo(
-            sameReferences.button
-          )}
-        </b>
-      </div>
-
-
-      <div class="pb-v5-section-title">
-        BUTTON ANCESTOR CHAIN
-      </div>
-
-
-      ${ancestorsHtml(
-        ancestors
-      )}
-
-
-      <div class="pb-v5-section-title">
-        ACTUAL PAINTED ELEMENTS
-      </div>
-
-
-      ${paintedHtml(
-        painted
-      )}
-
-
-      <div class="pb-v5-conclusion">
-        V5 CONCLUSION
-        <br>
-        ${escapeHtml(
-          conclusion
-        )}
-      </div>
-
-    `;
-
-
-    window
-      .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_V5_GEOMETRY =
-      {
-
-        version:
-          VERSION,
-
-        panel:
-          panelGeometry,
-
-        card:
-          cardGeometry,
-
-        wrapper:
-          wrapperGeometry,
-
-        button:
-          buttonGeometry,
-
-        sameReferences:
-          sameReferences,
-
-        ancestors:
-          ancestors,
-
-        painted:
-          painted,
-
-        conclusion:
-          conclusion
-
-      };
-
-  }
-
-
-  /*
-   * =========================================================
-   * OPTIONAL BOOTSTRAP INSPECTION
-   *
-   * IMPORTANT:
-   * This ONLY runs when the visible button is pressed.
-   * =========================================================
-   */
-
-  function runInspection(
-    refs
-  ) {
-
-    const status =
-      refs.status;
-
-
-    const output =
-      refs.result;
-
-
-    if (
-      typeof
-        window.inspectFix03D59ProductionBootstrap !==
-      'function'
-    ) {
-
-      status.innerHTML =
-        '❌ Production Bootstrap Inspector function chưa có trong runtime.';
-
-      return;
-
-    }
-
-
-    try {
-
-      const result =
-        window
-          .inspectFix03D59ProductionBootstrap();
-
-
-      status.innerHTML =
-        '✅ Production Runtime inspection completed.';
-
-
-      output.innerHTML = `
-
-        <div
-          style="
-            margin-top:16px;
-            padding:16px;
-            border-radius:16px;
-            background:rgba(255,255,255,.06);
-            line-height:1.6;
-          "
-        >
-
-          <b>
-            📡 PRODUCTION INSPECTOR RESULT
-          </b>
-
-          <br>
-
-          Version:
-          ${escapeHtml(
-            result &&
-            result.version
-              ? result.version
-              : '--'
-          )}
-
-          <br>
-
-          Mode:
-          ${escapeHtml(
-            result &&
-            result.mode
-              ? result.mode
-              : '--'
-          )}
-
-          <br><br>
-
-          Inspector executed by
-          <b>
-            manual button press only
-          </b>.
-
-        </div>
-
-      `;
-
-
-    } catch (
-      error
-    ) {
-
-      status.innerHTML =
-        '❌ Inspection failed: ' +
-        escapeHtml(
-          error &&
-          error.message
-            ? error.message
-            : error
-        );
-
-    }
-
-  }
-
-
-  /*
-   * =========================================================
    * BUILD PANEL
    * =========================================================
    */
 
   function buildPanel() {
+
+    installStyles();
+
 
     const oldPanel =
       document.getElementById(
@@ -1545,9 +1297,6 @@
     }
 
 
-    installStyles();
-
-
     const settings =
       document.getElementById(
         'tab-settings'
@@ -1557,12 +1306,19 @@
     if (!settings) {
 
       console.warn(
-        'Production Bootstrap Mobile V5: tab-settings not found'
+        'Production Bootstrap V6: tab-settings not found'
       );
 
       return;
 
     }
+
+
+    /*
+     * Start observer BEFORE inserting V6.
+     */
+
+    startObserver();
 
 
     const panel =
@@ -1575,62 +1331,199 @@
       PANEL_ID;
 
 
-    panel.innerHTML = `
-
-      <div id="${CARD_ID}">
-
-        <div class="pb-v5-title">
-          🚦 PRODUCTION BOOTSTRAP V5
-        </div>
+    const card =
+      document.createElement(
+        'div'
+      );
 
 
-        <div class="pb-v5-sub">
-
-          Geometry Truth Probe.
-
-          <br><br>
-
-          So sánh nhiều API layout để xác định
-          nguyên nhân V4 báo DOM
-          <b>0 × 0px</b>
-          dù nội dung vẫn xuất hiện trên màn hình.
-
-        </div>
+    card.id =
+      CARD_ID;
 
 
-        <div class="pb-v5-safety">
-          🔒 READ ONLY · ZERO WRITE
-        </div>
+    card.className =
+      'v6-card';
 
 
-        <div id="${WRAPPER_ID}">
-
-          <button
-            type="button"
-            id="${BUTTON_ID}"
-          >
-            🔬 INSPECT PRODUCTION RUNTIME
-          </button>
-
-        </div>
+    const title =
+      document.createElement(
+        'div'
+      );
 
 
-        <div id="${STATUS_ID}">
-          V5 loaded · Geometry probe pending.
-        </div>
+    title.className =
+      'v6-title';
 
 
-        <div id="${DIAGNOSTIC_ID}">
-          🧪 Waiting for browser layout...
-        </div>
+    title.textContent =
+      '🧬 PRODUCTION BOOTSTRAP V6';
 
 
-        <div id="${RESULT_ID}">
-        </div>
+    const sub =
+      document.createElement(
+        'div'
+      );
 
-      </div>
+
+    sub.className =
+      'v6-sub';
+
+
+    sub.innerHTML = `
+
+      Live DOM Identity Trace.
+
+      <br><br>
+
+      Kiểm tra node nào thực sự tồn tại
+      trong document và node nào bị
+      detach hoặc replace sau khi tạo.
 
     `;
+
+
+    const safety =
+      document.createElement(
+        'div'
+      );
+
+
+    safety.className =
+      'v6-safety';
+
+
+    safety.textContent =
+      '🔒 READ ONLY · ZERO WRITE';
+
+
+    const wrapper =
+      document.createElement(
+        'div'
+      );
+
+
+    wrapper.id =
+      WRAPPER_ID;
+
+
+    const button =
+      document.createElement(
+        'button'
+      );
+
+
+    button.id =
+      BUTTON_ID;
+
+
+    button.type =
+      'button';
+
+
+    button.textContent =
+      '🔬 INSPECT PRODUCTION RUNTIME';
+
+
+    const status =
+      document.createElement(
+        'div'
+      );
+
+
+    status.id =
+      STATUS_ID;
+
+
+    status.textContent =
+      'V6 loaded · Live identity trace active.';
+
+
+    const diagnostic =
+      document.createElement(
+        'div'
+      );
+
+
+    diagnostic.id =
+      DIAGNOSTIC_ID;
+
+
+    diagnostic.textContent =
+      'V6 trace starting...';
+
+
+    wrapper.appendChild(
+      button
+    );
+
+
+    card.appendChild(
+      title
+    );
+
+
+    card.appendChild(
+      sub
+    );
+
+
+    card.appendChild(
+      safety
+    );
+
+
+    card.appendChild(
+      wrapper
+    );
+
+
+    card.appendChild(
+      status
+    );
+
+
+    card.appendChild(
+      diagnostic
+    );
+
+
+    panel.appendChild(
+      card
+    );
+
+
+    /*
+     * Save DIRECT references BEFORE insertion.
+     */
+
+    traceState.direct = {
+
+      panel:
+        panel,
+
+      card:
+        card,
+
+      wrapper:
+        wrapper,
+
+      button:
+        button
+
+    };
+
+
+    /*
+     * Snapshot before insertion.
+     */
+
+    addSnapshot(
+      'BEFORE APPEND',
+      panel,
+      card,
+      wrapper,
+      button
+    );
 
 
     settings.appendChild(
@@ -1639,74 +1532,43 @@
 
 
     /*
-     * IMPORTANT:
-     * Keep DIRECT references.
+     * Snapshot immediately after insertion.
      */
 
-    const refs = {
-
-      panel:
-        panel,
-
-      card:
-        panel.querySelector(
-          '#' + CARD_ID
-        ),
-
-      wrapper:
-        panel.querySelector(
-          '#' + WRAPPER_ID
-        ),
-
-      button:
-        panel.querySelector(
-          '#' + BUTTON_ID
-        ),
-
-      status:
-        panel.querySelector(
-          '#' + STATUS_ID
-        ),
-
-      diagnostic:
-        panel.querySelector(
-          '#' + DIAGNOSTIC_ID
-        ),
-
-      result:
-        panel.querySelector(
-          '#' + RESULT_ID
-        )
-
-    };
-
-
-    refs.button.addEventListener(
-      'click',
-      function () {
-
-        runInspection(
-          refs
-        );
-
-      }
+    addSnapshot(
+      'IMMEDIATELY AFTER APPEND',
+      panel,
+      card,
+      wrapper,
+      button
     );
 
 
     /*
-     * Geometry probe is automatic.
-     *
-     * Production inspector is NOT automatic.
+     * Snapshot next browser frame.
      */
 
     window.requestAnimationFrame(
       function () {
 
+        addSnapshot(
+          'REQUEST ANIMATION FRAME 1',
+          panel,
+          card,
+          wrapper,
+          button
+        );
+
+
         window.requestAnimationFrame(
           function () {
 
-            runGeometryProbe(
-              refs
+            addSnapshot(
+              'REQUEST ANIMATION FRAME 2',
+              panel,
+              card,
+              wrapper,
+              button
             );
 
           }
@@ -1717,18 +1579,78 @@
 
 
     /*
-     * Second measurement after layout settles.
+     * Delayed snapshots.
      */
 
     window.setTimeout(
       function () {
 
-        runGeometryProbe(
-          refs
+        addSnapshot(
+          'AFTER 250MS',
+          panel,
+          card,
+          wrapper,
+          button
         );
 
       },
-      500
+      250
+    );
+
+
+    window.setTimeout(
+      function () {
+
+        addSnapshot(
+          'AFTER 1000MS',
+          panel,
+          card,
+          wrapper,
+          button
+        );
+
+      },
+      1000
+    );
+
+
+    window.setTimeout(
+      function () {
+
+        addSnapshot(
+          'AFTER 3000MS',
+          panel,
+          card,
+          wrapper,
+          button
+        );
+
+      },
+      3000
+    );
+
+
+    /*
+     * IMPORTANT:
+     * Button is intentionally NOT connected to
+     * Production execution in V6.
+     *
+     * Clicking it only records another identity snapshot.
+     */
+
+    button.addEventListener(
+      'click',
+      function () {
+
+        addSnapshot(
+          'MANUAL BUTTON CLICK',
+          panel,
+          card,
+          wrapper,
+          button
+        );
+
+      }
     );
 
   }
@@ -1773,7 +1695,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Bootstrap Mobile V5 loaded — GEOMETRY TRUTH PROBE'
+    'FIX-03D5.9 Production Bootstrap Mobile V6 loaded — LIVE DOM IDENTITY TRACE'
   );
 
 })();
