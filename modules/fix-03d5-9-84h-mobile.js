@@ -1,23 +1,21 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION BOUNDARY + BOOTSTRAP — MOBILE V3
-   STABLE HOST INTEGRATION
+   MOBILE RUNTIME CONTROL V4
 
    PURPOSE:
-   - Keep STEP 8.4H mobile inspector.
-   - Host Production Bootstrap Inspector inside the stable 8.4H panel.
-   - Avoid separate Bootstrap mobile panels.
-   - Inspect Production runtime chain from mobile.
-   - Avoid native BUTTON elements.
+   - Keep STEP 8.4H inspector.
+   - Keep Production Bootstrap inspector.
+   - Add verified manual runner:
+       STEP 8.2C -> STEP 8.3B
+   - Stop immediately if an upstream stage cannot produce RAM.
+   - Display the exact runtime result on mobile.
 
-   IMPORTANT:
-   - READ ONLY.
-   - ZERO PRODUCTION WRITE.
-   - ZERO STORAGE WRITE.
-   - ZERO PROMOTION.
-   - Does NOT modify LAST_FORECAST.
-   - Does NOT modify candidates.
-   - Does NOT call savePrediction().
+   SAFETY:
+   - MANUAL ONLY.
+   - FAIL CLOSED.
+   - NO AUTO PROMOTION.
+   - NO savePrediction().
+   - This mobile layer does not directly modify LAST_FORECAST.
    ========================================================================= */
 
 (function () {
@@ -26,20 +24,27 @@
 
 
   const VERSION =
-    '84H-MOBILE-BOOTSTRAP-HOST-V3';
+    '84H-MOBILE-RUNTIME-CONTROL-V4';
 
 
   const PANEL_ID =
     'fix03d59-84h-mobile-panel';
 
+
   const OUTPUT_ID =
     'fix03d59-84h-mobile-output';
+
 
   const CONTROL_84H_ID =
     'fix03d59-84h-mobile-run';
 
+
   const CONTROL_BOOTSTRAP_ID =
     'fix03d59-bootstrap-mobile-run';
+
+
+  const CONTROL_RUNNER_ID =
+    'fix03d59-82c-83b-mobile-run';
 
 
   /*
@@ -108,6 +113,30 @@
     }
 
 
+    if (
+      typeof value ===
+      'object'
+    ) {
+
+      try {
+
+        return escapeHtml(
+          JSON.stringify(
+            value
+          )
+        );
+
+      } catch (
+        error
+      ) {
+
+        return '[OBJECT]';
+
+      }
+
+    }
+
+
     return escapeHtml(
       value
     );
@@ -126,6 +155,7 @@
         style="
           display:flex;
           justify-content:space-between;
+          align-items:flex-start;
           gap:14px;
           padding:9px 0;
           border-bottom:
@@ -137,6 +167,7 @@
           style="
             color:rgba(255,255,255,.65);
             font-size:13px;
+            flex:0 0 43%;
           "
         >
           ${escapeHtml(label)}
@@ -148,6 +179,7 @@
             text-align:right;
             font-size:13px;
             word-break:break-word;
+            flex:1;
           "
         >
           ${value}
@@ -184,6 +216,31 @@
   }
 
 
+  function reasonOf(
+    result
+  ) {
+
+    if (
+      !result ||
+      typeof result !==
+      'object'
+    ) {
+
+      return '--';
+
+    }
+
+
+    return (
+      result.reason ||
+      result.error ||
+      result.status ||
+      '--'
+    );
+
+  }
+
+
   /*
    * =========================================================
    * GENERIC DIV CONTROL
@@ -193,7 +250,8 @@
   function createControl(
     id,
     text,
-    handler
+    handler,
+    variant
   ) {
 
     const control =
@@ -222,6 +280,28 @@
       text;
 
 
+    let background =
+      'linear-gradient(90deg,#ffc13d,#ff963d)';
+
+
+    let color =
+      '#17192f';
+
+
+    if (
+      variant ===
+      'runner'
+    ) {
+
+      background =
+        'linear-gradient(90deg,#72e6ae,#46cfa0)';
+
+      color =
+        '#10251d';
+
+    }
+
+
     control.style.cssText = [
       'display:flex',
       'width:100%',
@@ -229,8 +309,8 @@
       'margin-top:12px',
       'padding:15px 12px',
       'border-radius:16px',
-      'background:linear-gradient(90deg,#ffc13d,#ff963d)',
-      'color:#17192f',
+      'background:' + background,
+      'color:' + color,
       'font-size:16px',
       'font-weight:900',
       'align-items:center',
@@ -241,7 +321,8 @@
       'visibility:visible',
       'opacity:1',
       'position:relative',
-      'z-index:100'
+      'z-index:100',
+      'user-select:none'
     ].join(';');
 
 
@@ -279,11 +360,24 @@
 
   /*
    * =========================================================
-   * STEP 8.4H INSPECTOR
+   * STEP 8.4H
    * =========================================================
    */
 
-  function inspect84H() {
+  function render84H() {
+
+    const output =
+      document.getElementById(
+        OUTPUT_ID
+      );
+
+
+    if (!output) {
+
+      return;
+
+    }
+
 
     const loaded =
       window
@@ -313,10 +407,6 @@
 
       try {
 
-        /*
-         * STEP 8.4H is a READ-ONLY boundary adapter.
-         */
-
         result =
           builder();
 
@@ -335,44 +425,8 @@
     }
 
 
-    return {
-
-      loaded,
-
-      builderAvailable:
-        typeof builder ===
-        'function',
-
-      executionError,
-
-      result
-
-    };
-
-  }
-
-
-  function render84H() {
-
-    const output =
-      document.getElementById(
-        OUTPUT_ID
-      );
-
-
-    if (!output) {
-
-      return;
-
-    }
-
-
-    const inspection =
-      inspect84H();
-
-
     if (
-      inspection.executionError
+      executionError
     ) {
 
       output.innerHTML = `
@@ -384,14 +438,15 @@
         ${row(
           'Module Loaded',
           yesNo(
-            inspection.loaded
+            loaded
           )
         )}
 
         ${row(
           'Builder Available',
           yesNo(
-            inspection.builderAvailable
+            typeof builder ===
+            'function'
           )
         )}
 
@@ -403,7 +458,7 @@
         ${row(
           'Error',
           displayValue(
-            inspection.executionError
+            executionError
           )
         )}
 
@@ -412,10 +467,6 @@
       return;
 
     }
-
-
-    const result =
-      inspection.result;
 
 
     if (!result) {
@@ -429,14 +480,15 @@
         ${row(
           'Module Loaded',
           yesNo(
-            inspection.loaded
+            loaded
           )
         )}
 
         ${row(
           'Builder Available',
           yesNo(
-            inspection.builderAvailable
+            typeof builder ===
+            'function'
           )
         )}
 
@@ -461,14 +513,15 @@
       ${row(
         'Module Loaded',
         yesNo(
-          inspection.loaded
+          loaded
         )
       )}
 
       ${row(
         'Builder Available',
         yesNo(
-          inspection.builderAvailable
+          typeof builder ===
+          'function'
         )
       )}
 
@@ -525,32 +578,6 @@
         'Production Candidate Count',
         displayValue(
           result.productionCandidateCount
-        )
-      )}
-
-      ${row(
-        'Source Candidate Provinces',
-        displayValue(
-          Array.isArray(
-            result.sourceCandidateProvinces
-          )
-            ? result
-                .sourceCandidateProvinces
-                .join(', ')
-            : '--'
-        )
-      )}
-
-      ${row(
-        'Production Candidate Provinces',
-        displayValue(
-          Array.isArray(
-            result.productionCandidateProvinces
-          )
-            ? result
-                .productionCandidateProvinces
-                .join(', ')
-            : '--'
         )
       )}
 
@@ -637,13 +664,6 @@
         )
       )}
 
-      ${row(
-        'Source Candidates Modified',
-        yesNo(
-          result.sourceCandidatesModified
-        )
-      )}
-
     `;
 
   }
@@ -651,7 +671,7 @@
 
   /*
    * =========================================================
-   * PRODUCTION BOOTSTRAP INSPECTOR
+   * BOOTSTRAP INSPECTOR
    * =========================================================
    */
 
@@ -691,11 +711,6 @@
           'NOT LOADED ❌'
         )}
 
-        ${row(
-          'Expected Function',
-          'inspectFix03D59ProductionBootstrap'
-        )}
-
       `;
 
       return;
@@ -722,7 +737,7 @@
         )}
 
         ${row(
-          'Bootstrap Inspector',
+          'Inspector',
           'ERROR ❌'
         )}
 
@@ -743,39 +758,25 @@
     }
 
 
-    if (!result) {
-
-      output.innerHTML = `
-
-        ${sectionTitle(
-          'PRODUCTION BOOTSTRAP'
-        )}
-
-        ${row(
-          'Result',
-          'NO RESULT ❌'
-        )}
-
-      `;
-
-      return;
-
-    }
-
-
     const f =
-      result.functions ||
-      {};
+      result &&
+      result.functions
+        ? result.functions
+        : {};
 
 
     const r =
-      result.ram ||
-      {};
+      result &&
+      result.ram
+        ? result.ram
+        : {};
 
 
     const s =
-      result.safety ||
-      {};
+      result &&
+      result.safety
+        ? result.safety
+        : {};
 
 
     output.innerHTML = `
@@ -792,14 +793,8 @@
       ${row(
         'Mode',
         displayValue(
+          result &&
           result.mode
-        )
-      )}
-
-      ${row(
-        'Version',
-        displayValue(
-          result.version
         )
       )}
 
@@ -808,168 +803,38 @@
         'FUNCTION CHAIN'
       )}
 
-      ${row(
-        '8.3B',
-        yesNo(
-          f.step83B
-        )
-      )}
-
-      ${row(
-        '8.3C',
-        yesNo(
-          f.step83C
-        )
-      )}
-
-      ${row(
-        '8.3D',
-        yesNo(
-          f.step83D
-        )
-      )}
-
-      ${row(
-        '8.3E',
-        yesNo(
-          f.step83E
-        )
-      )}
-
-      ${row(
-        '8.3F',
-        yesNo(
-          f.step83F
-        )
-      )}
-
-      ${row(
-        '8.3R',
-        yesNo(
-          f.step83R
-        )
-      )}
-
-      ${row(
-        '8.4A',
-        yesNo(
-          f.step84A
-        )
-      )}
-
-      ${row(
-        '8.4B',
-        yesNo(
-          f.step84B
-        )
-      )}
-
-      ${row(
-        '8.4C',
-        yesNo(
-          f.step84C
-        )
-      )}
-
-      ${row(
-        '8.4D',
-        yesNo(
-          f.step84D
-        )
-      )}
-
-      ${row(
-        '8.4F',
-        yesNo(
-          f.step84F
-        )
-      )}
+      ${row('8.3B', yesNo(f.step83B))}
+      ${row('8.3C', yesNo(f.step83C))}
+      ${row('8.3D', yesNo(f.step83D))}
+      ${row('8.3E', yesNo(f.step83E))}
+      ${row('8.3F', yesNo(f.step83F))}
+      ${row('8.3R', yesNo(f.step83R))}
+      ${row('8.4A', yesNo(f.step84A))}
+      ${row('8.4B', yesNo(f.step84B))}
+      ${row('8.4C', yesNo(f.step84C))}
+      ${row('8.4D', yesNo(f.step84D))}
+      ${row('8.4F', yesNo(f.step84F))}
 
 
       ${sectionTitle(
         'RAM STATE'
       )}
 
-      ${row(
-        'RAM 8.2C',
-        yesNo(
-          r.step82C
-        )
-      )}
-
-      ${row(
-        'RAM 8.3B',
-        yesNo(
-          r.step83B
-        )
-      )}
-
-      ${row(
-        'RAM 8.3C',
-        yesNo(
-          r.step83C
-        )
-      )}
-
-      ${row(
-        'RAM 8.3Q',
-        yesNo(
-          r.step83Q
-        )
-      )}
-
-      ${row(
-        'RAM 8.3R',
-        yesNo(
-          r.step83R
-        )
-      )}
-
-      ${row(
-        'RAM 8.4A',
-        yesNo(
-          r.step84A
-        )
-      )}
-
-      ${row(
-        'RAM 8.4B',
-        yesNo(
-          r.step84B
-        )
-      )}
-
-      ${row(
-        'RAM 8.4C',
-        yesNo(
-          r.step84C
-        )
-      )}
-
-      ${row(
-        'RAM 8.4D',
-        yesNo(
-          r.step84D
-        )
-      )}
-
-      ${row(
-        'RAM 8.4E',
-        yesNo(
-          r.step84E
-        )
-      )}
-
-      ${row(
-        'RAM 8.4F',
-        yesNo(
-          r.step84F
-        )
-      )}
+      ${row('RAM 8.2C', yesNo(r.step82C))}
+      ${row('RAM 8.3B', yesNo(r.step83B))}
+      ${row('RAM 8.3C', yesNo(r.step83C))}
+      ${row('RAM 8.3Q', yesNo(r.step83Q))}
+      ${row('RAM 8.3R', yesNo(r.step83R))}
+      ${row('RAM 8.4A', yesNo(r.step84A))}
+      ${row('RAM 8.4B', yesNo(r.step84B))}
+      ${row('RAM 8.4C', yesNo(r.step84C))}
+      ${row('RAM 8.4D', yesNo(r.step84D))}
+      ${row('RAM 8.4E', yesNo(r.step84E))}
+      ${row('RAM 8.4F', yesNo(r.step84F))}
 
 
       ${sectionTitle(
-        'BOOTSTRAP SAFETY',
+        'SAFETY',
         '#72e6ae'
       )}
 
@@ -984,13 +849,6 @@
         'Candidate Created',
         yesNo(
           s.candidateCreated
-        )
-      )}
-
-      ${row(
-        'Canonical Write',
-        yesNo(
-          s.canonicalWrite
         )
       )}
 
@@ -1024,17 +882,528 @@
 
     `;
 
+  }
+
+
+  /*
+   * =========================================================
+   * VERIFIED RUNNER:
+   * STEP 8.2C -> STEP 8.3B
+   * =========================================================
+   */
+
+  function run82C83B() {
+
+    const output =
+      document.getElementById(
+        OUTPUT_ID
+      );
+
+
+    if (!output) {
+
+      return;
+
+    }
+
+
+    const runner82C =
+      window
+        .runFix03D59Step82CEligibilityDiagnosticV26;
+
+
+    const runner83B =
+      window
+        .runFix03D59Step83BProductionCandidateBoundaryV26;
+
+
+    /*
+     * ---------------------------------------------------------
+     * PRE-FLIGHT
+     * ---------------------------------------------------------
+     */
+
+    if (
+      typeof runner82C !==
+      'function'
+    ) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'RUNTIME RUNNER 8.2C → 8.3B'
+        )}
+
+        ${row(
+          'STEP 8.2C Runner',
+          'NOT AVAILABLE ❌'
+        )}
+
+        ${row(
+          'Expected Function',
+          'runFix03D59Step82CEligibilityDiagnosticV26'
+        )}
+
+        ${row(
+          '8.3B Executed',
+          'NO ❌'
+        )}
+
+        ${row(
+          'STOP',
+          'FAIL CLOSED 🔒'
+        )}
+
+      `;
+
+      return;
+
+    }
+
+
+    if (
+      typeof runner83B !==
+      'function'
+    ) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'RUNTIME RUNNER 8.2C → 8.3B'
+        )}
+
+        ${row(
+          'STEP 8.2C Runner',
+          'AVAILABLE ✅'
+        )}
+
+        ${row(
+          'STEP 8.3B Runner',
+          'NOT AVAILABLE ❌'
+        )}
+
+        ${row(
+          'Expected Function',
+          'runFix03D59Step83BProductionCandidateBoundaryV26'
+        )}
+
+        ${row(
+          'Execution',
+          'NOT STARTED'
+        )}
+
+        ${row(
+          'STOP',
+          'FAIL CLOSED 🔒'
+        )}
+
+      `;
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * RUN STEP 8.2C
+     * ---------------------------------------------------------
+     */
+
+    let returned82C =
+      null;
+
+
+    let error82C =
+      null;
+
+
+    try {
+
+      returned82C =
+        runner82C();
+
+    } catch (
+      error
+    ) {
+
+      error82C =
+        error &&
+        error.message
+          ? error.message
+          : String(error);
+
+    }
+
+
+    const ram82C =
+      window
+        .LAST_FIX03D59_STEP82C_RESULT ||
+      null;
+
+
+    if (
+      error82C
+    ) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'RUNTIME RUNNER 8.2C → 8.3B'
+        )}
+
+        ${row(
+          'STEP 8.2C',
+          'ERROR ❌'
+        )}
+
+        ${row(
+          'Error',
+          displayValue(
+            error82C
+          )
+        )}
+
+        ${row(
+          'RAM 8.2C Created',
+          yesNo(
+            Boolean(
+              ram82C
+            )
+          )
+        )}
+
+        ${row(
+          'STEP 8.3B Executed',
+          'NO ❌'
+        )}
+
+        ${row(
+          'STOP',
+          'FAIL CLOSED 🔒'
+        )}
+
+      `;
+
+      return;
+
+    }
+
+
+    /*
+     * The RAM object is the authoritative hand-off.
+     *
+     * Do not fabricate or substitute an upstream object
+     * when 8.2C did not publish one.
+     */
+
+    if (!ram82C) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'RUNTIME RUNNER 8.2C → 8.3B'
+        )}
+
+        ${row(
+          'STEP 8.2C Function',
+          'EXECUTED ✅'
+        )}
+
+        ${row(
+          'Returned Result',
+          yesNo(
+            Boolean(
+              returned82C
+            )
+          )
+        )}
+
+        ${row(
+          'Return Reason',
+          displayValue(
+            reasonOf(
+              returned82C
+            )
+          )
+        )}
+
+        ${row(
+          'RAM 8.2C Created',
+          'NO ❌'
+        )}
+
+        ${row(
+          'STEP 8.3B Executed',
+          'NO ❌'
+        )}
+
+        ${row(
+          'STOP',
+          '8.2C RAM NOT AVAILABLE 🔒'
+        )}
+
+      `;
+
+
+      window
+        .LAST_FIX03D59_MOBILE_RUNNER_82C83B =
+        {
+
+          version:
+            VERSION,
+
+          stoppedAt:
+            '8.2C',
+
+          reason:
+            'STEP82C_RAM_NOT_AVAILABLE',
+
+          returned82C:
+            returned82C,
+
+          ram82C:
+            null,
+
+          ran83B:
+            false
+
+        };
+
+
+      return;
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * RUN STEP 8.3B
+     * ---------------------------------------------------------
+     */
+
+    let returned83B =
+      null;
+
+
+    let error83B =
+      null;
+
+
+    try {
+
+      returned83B =
+        runner83B();
+
+    } catch (
+      error
+    ) {
+
+      error83B =
+        error &&
+        error.message
+          ? error.message
+          : String(error);
+
+    }
+
+
+    const ram83B =
+      window
+        .LAST_FIX03D59_STEP83B_RESULT ||
+      window
+        .LAST_FIX03D59_STEP83_RESULT ||
+      null;
+
+
+    /*
+     * ---------------------------------------------------------
+     * SAVE DIAGNOSTIC RESULT ONLY
+     * ---------------------------------------------------------
+     */
 
     window
-      .LAST_FIX03D59_BOOTSTRAP_MOBILE_HOST_RESULT =
-      result;
+      .LAST_FIX03D59_MOBILE_RUNNER_82C83B =
+      {
+
+        version:
+          VERSION,
+
+        returned82C:
+          returned82C,
+
+        ram82C:
+          ram82C,
+
+        returned83B:
+          returned83B,
+
+        ram83B:
+          ram83B,
+
+        error83B:
+          error83B,
+
+        stoppedAt:
+          error83B ||
+          !ram83B
+            ? '8.3B'
+            : null,
+
+        completed:
+          Boolean(
+            !error83B &&
+            ram83B
+          ),
+
+        executedAt:
+          new Date()
+            .toISOString()
+
+      };
+
+
+    output.innerHTML = `
+
+      ${sectionTitle(
+        'RUNTIME RUNNER 8.2C → 8.3B'
+      )}
+
+
+      ${sectionTitle(
+        'STEP 8.2C',
+        '#72e6ae'
+      )}
+
+      ${row(
+        'Runner',
+        'EXECUTED ✅'
+      )}
+
+      ${row(
+        'RAM Created',
+        'YES ✅'
+      )}
+
+      ${row(
+        'Ready',
+        yesNo(
+          ram82C.ready
+        )
+      )}
+
+      ${row(
+        'Passed',
+        yesNo(
+          ram82C.passed
+        )
+      )}
+
+      ${row(
+        'Reason',
+        displayValue(
+          reasonOf(
+            ram82C
+          )
+        )
+      )}
+
+
+      ${sectionTitle(
+        'STEP 8.3B',
+        error83B
+          ? '#ff7185'
+          : '#72e6ae'
+      )}
+
+      ${row(
+        'Runner',
+        error83B
+          ? 'ERROR ❌'
+          : 'EXECUTED ✅'
+      )}
+
+      ${row(
+        'Error',
+        displayValue(
+          error83B
+        )
+      )}
+
+      ${row(
+        'RAM Created',
+        yesNo(
+          Boolean(
+            ram83B
+          )
+        )
+      )}
+
+      ${row(
+        'Ready',
+        ram83B
+          ? yesNo(
+              ram83B.ready
+            )
+          : '--'
+      )}
+
+      ${row(
+        'Passed',
+        ram83B
+          ? yesNo(
+              ram83B.passed
+            )
+          : '--'
+      )}
+
+      ${row(
+        'Reason',
+        displayValue(
+          ram83B
+            ? reasonOf(
+                ram83B
+              )
+            : reasonOf(
+                returned83B
+              )
+        )
+      )}
+
+
+      ${sectionTitle(
+        'RUNNER RESULT'
+      )}
+
+      ${row(
+        '8.2C RAM',
+        'AVAILABLE ✅'
+      )}
+
+      ${row(
+        '8.3B RAM',
+        yesNo(
+          Boolean(
+            ram83B
+          )
+        )
+      )}
+
+      ${row(
+        'Next Stage',
+        ram83B
+          ? 'READY FOR 8.3C INSPECTION'
+          : 'STOP AT 8.3B 🔒'
+      )}
+
+    `;
 
   }
 
 
   /*
    * =========================================================
-   * BUILD STABLE HOST PANEL
+   * BUILD PANEL
    * =========================================================
    */
 
@@ -1062,7 +1431,7 @@
     if (!settings) {
 
       console.warn(
-        'FIX-03D5.9 8.4H Mobile V3: tab-settings not found'
+        '84H Mobile V4: tab-settings not found'
       );
 
       return;
@@ -1098,7 +1467,7 @@
 
 
     title.textContent =
-      '🧭 STEP 8.4H — Production Boundary';
+      '🧭 FIX-03D5.9 — Runtime Control V4';
 
 
     title.style.cssText = `
@@ -1121,12 +1490,13 @@
 
     description.innerHTML = `
 
-      Stable Mobile Runtime Inspector
+      Mobile runtime inspection +
+      verified 8.2C → 8.3B runner.
 
       <br>
 
       <b style="color:#72e6ae;">
-        READ ONLY · ZERO WRITE
+        MANUAL · FAIL CLOSED
       </b>
 
     `;
@@ -1145,43 +1515,33 @@
     );
 
 
-    /*
-     * 8.4H CONTROL
-     */
-
-    const control84H =
+    panel.appendChild(
       createControl(
         CONTROL_84H_ID,
         '🔍 INSPECT STEP 8.4H',
         render84H
-      );
-
-
-    panel.appendChild(
-      control84H
+      )
     );
 
 
-    /*
-     * BOOTSTRAP CONTROL
-     */
-
-    const bootstrapControl =
+    panel.appendChild(
       createControl(
         CONTROL_BOOTSTRAP_ID,
         '🧬 INSPECT PRODUCTION CHAIN',
         renderBootstrap
-      );
-
-
-    panel.appendChild(
-      bootstrapControl
+      )
     );
 
 
-    /*
-     * OUTPUT
-     */
+    panel.appendChild(
+      createControl(
+        CONTROL_RUNNER_ID,
+        '▶ RUN STEP 8.2C → 8.3B',
+        run82C83B,
+        'runner'
+      )
+    );
+
 
     const output =
       document.createElement(
@@ -1193,9 +1553,8 @@
       OUTPUT_ID;
 
 
-    output.style.cssText = `
-      margin-top:18px;
-    `;
+    output.style.cssText =
+      'margin-top:18px;';
 
 
     panel.appendChild(
@@ -1209,18 +1568,15 @@
 
 
     /*
-     * Initial view remains 8.4H.
+     * Initial screen remains inspection only.
      */
 
     render84H();
 
 
-    /*
-     * Diagnostic only.
-     */
-
     window
-      .FIX03D59_STEP84H_MOBILE_DOM_STATUS = {
+      .FIX03D59_STEP84H_MOBILE_DOM_STATUS =
+      {
 
         version:
           VERSION,
@@ -1232,55 +1588,38 @@
             )
           ),
 
-        control84HExists:
+        inspect84HExists:
           Boolean(
             document.getElementById(
               CONTROL_84H_ID
             )
           ),
 
-        bootstrapControlExists:
+        inspectBootstrapExists:
           Boolean(
             document.getElementById(
               CONTROL_BOOTSTRAP_ID
             )
           ),
 
-        outputExists:
+        runner82C83BExists:
           Boolean(
             document.getElementById(
-              OUTPUT_ID
+              CONTROL_RUNNER_ID
             )
           ),
 
-        control84HTag:
-          document.getElementById(
-            CONTROL_84H_ID
-          )
-            ?.tagName ||
-          null,
+        runner82C:
+          typeof window
+            .runFix03D59Step82CEligibilityDiagnosticV26 ===
+          'function',
 
-        bootstrapControlTag:
-          document.getElementById(
-            CONTROL_BOOTSTRAP_ID
-          )
-            ?.tagName ||
-          null,
-
-        readOnly:
-          true,
-
-        writeAuthorized:
-          false
+        runner83B:
+          typeof window
+            .runFix03D59Step83BProductionCandidateBoundaryV26 ===
+          'function'
 
       };
-
-
-    console.log(
-      'FIX-03D5.9 8.4H Mobile V3 built',
-      window
-        .FIX03D59_STEP84H_MOBILE_DOM_STATUS
-    );
 
   }
 
@@ -1299,6 +1638,11 @@
   window
     .inspectProductionBootstrapMobile =
     renderBootstrap;
+
+
+  window
+    .runFix03D59Mobile82C83B =
+    run82C83B;
 
 
   window
@@ -1353,7 +1697,7 @@
 
 
   console.log(
-    'FIX-03D5.9 8.4H Mobile V3 loaded — STABLE BOOTSTRAP HOST / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 84H Mobile Runtime Control V4 loaded'
   );
 
 })();
