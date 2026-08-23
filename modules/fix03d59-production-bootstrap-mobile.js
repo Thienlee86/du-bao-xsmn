@@ -1,14 +1,15 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION BOOTSTRAP — MOBILE V2
-   RUNTIME CHAIN INSPECTOR + DOM DIAGNOSTIC
+   PRODUCTION BOOTSTRAP — MOBILE V3
+   RUNTIME CHAIN INSPECTOR + LAYOUT ISOLATION DIAGNOSTIC
 
    PURPOSE:
    - Show Production Bootstrap inspection directly in Settings.
    - Call ONLY inspectFix03D59ProductionBootstrap().
    - Display function availability and RAM availability separately.
    - Identify the first missing runtime dependency.
-   - Verify the Inspect button exists and is visible on mobile.
+   - Diagnose button / wrapper / card / panel dimensions.
+   - Isolate Inspect button from external collapsing layout rules.
 
    READ ONLY
    ZERO WRITE
@@ -22,24 +23,26 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V2';
+    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V3';
 
 
   const PANEL_ID =
     'fix03d59-production-bootstrap-panel';
 
+  const CARD_ID =
+    'fix03d59-production-bootstrap-card';
+
+  const BUTTON_WRAP_ID =
+    'fix03d59-production-bootstrap-button-wrap';
 
   const BUTTON_ID =
     'fix03d59-production-bootstrap-run';
 
-
   const STATUS_ID =
     'fix03d59-production-bootstrap-status';
 
-
   const RESULT_ID =
     'fix03d59-production-bootstrap-result';
-
 
   const DIAGNOSTIC_ID =
     'fix03d59-production-bootstrap-diagnostic';
@@ -268,81 +271,165 @@
     style.textContent = `
 
       #${PANEL_ID} {
-        margin: 24px 0 34px;
+        display: block !important;
+        visibility: visible !important;
+        position: relative !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+        height: auto !important;
+        min-height: 1px !important;
+
+        margin: 24px 0 34px !important;
+        padding: 0 !important;
+
+        overflow: visible !important;
+
+        box-sizing: border-box !important;
       }
 
 
-      #${PANEL_ID} .pb-card {
+      #${PANEL_ID},
+      #${PANEL_ID} * {
+        box-sizing: border-box !important;
+      }
+
+
+      #${CARD_ID} {
+        display: block !important;
+        visibility: visible !important;
+
+        position: relative !important;
+
+        width: 100% !important;
+        min-width: 0 !important;
+
+        height: auto !important;
+        min-height: 1px !important;
+
+        overflow: visible !important;
+
         background:
           linear-gradient(
             145deg,
             rgba(28,38,82,.98),
             rgba(20,29,66,.98)
-          );
+          ) !important;
 
         border:
           1px solid
-          rgba(129,140,248,.35);
+          rgba(129,140,248,.35) !important;
 
-        border-radius: 24px;
+        border-radius: 24px !important;
 
-        padding: 20px;
+        padding: 20px !important;
 
-        margin-bottom: 16px;
+        margin: 0 0 16px !important;
 
-        color: #fff;
+        color: #fff !important;
       }
 
 
       #${PANEL_ID} .pb-title {
-        font-size: 23px;
-        line-height: 1.3;
-        font-weight: 900;
-        margin-bottom: 10px;
+        display: block !important;
+
+        font-size: 23px !important;
+        line-height: 1.3 !important;
+        font-weight: 900 !important;
+
+        margin: 0 0 10px !important;
+
+        color: #fff !important;
       }
 
 
       #${PANEL_ID} .pb-sub {
+        display: block !important;
+
         color:
-          rgba(255,255,255,.68);
+          rgba(255,255,255,.68) !important;
 
-        font-size: 14px;
+        font-size: 14px !important;
 
-        line-height: 1.55;
+        line-height: 1.55 !important;
       }
 
 
       #${PANEL_ID} .pb-safety {
-        margin-top: 12px;
+        display: block !important;
 
-        color: #72e6ae;
+        margin-top: 12px !important;
 
-        font-weight: 800;
+        color: #72e6ae !important;
 
-        line-height: 1.5;
+        font-weight: 800 !important;
+
+        line-height: 1.5 !important;
       }
 
 
       /*
-       * IMPORTANT:
-       * Force button visibility during diagnostic.
+       * ---------------------------------------------------------
+       * V3 BUTTON LAYOUT ISOLATION
+       * ---------------------------------------------------------
+       *
+       * The wrapper gives the button its own normal block layout.
+       * We deliberately force non-zero dimensions at both levels.
        */
 
-      #${PANEL_ID} #${BUTTON_ID} {
+      #${BUTTON_WRAP_ID} {
         display: block !important;
         visibility: visible !important;
-        opacity: 1 !important;
 
         position: relative !important;
 
         width: 100% !important;
+        min-width: 1px !important;
 
         height: auto !important;
-        min-height: 56px !important;
+        min-height: 64px !important;
 
         margin: 18px 0 0 !important;
+        padding: 0 !important;
 
-        padding: 17px 10px !important;
+        overflow: visible !important;
+
+        opacity: 1 !important;
+
+        transform: none !important;
+
+        flex: none !important;
+
+        align-self: stretch !important;
+
+        pointer-events: auto !important;
+
+        z-index: 50 !important;
+      }
+
+
+      #${BUTTON_ID} {
+        display: block !important;
+        visibility: visible !important;
+
+        position: relative !important;
+
+        left: auto !important;
+        right: auto !important;
+        top: auto !important;
+        bottom: auto !important;
+
+        width: 100% !important;
+        min-width: 1px !important;
+        max-width: none !important;
+
+        height: 60px !important;
+        min-height: 60px !important;
+        max-height: none !important;
+
+        margin: 0 !important;
+
+        padding: 14px 12px !important;
 
         border: 0 !important;
 
@@ -357,50 +444,72 @@
 
         color: #17182a !important;
 
+        font-family: inherit !important;
+
         font-size: 17px !important;
 
         font-weight: 900 !important;
 
-        line-height: 1.3 !important;
+        line-height: 1.25 !important;
+
+        text-align: center !important;
+
+        white-space: normal !important;
+
+        opacity: 1 !important;
+
+        overflow: visible !important;
+
+        transform: none !important;
+
+        clip: auto !important;
+
+        clip-path: none !important;
 
         pointer-events: auto !important;
 
-        z-index: 20 !important;
+        flex: none !important;
+
+        z-index: 51 !important;
       }
 
 
-      #${PANEL_ID} .pb-status {
-        margin-top: 15px;
+      #${STATUS_ID} {
+        display: block !important;
+
+        margin-top: 15px !important;
 
         color:
-          rgba(255,255,255,.75);
+          rgba(255,255,255,.75) !important;
 
-        line-height: 1.55;
+        line-height: 1.55 !important;
       }
 
 
-      #${PANEL_ID} .pb-diagnostic {
-        margin-top: 14px;
+      #${DIAGNOSTIC_ID} {
+        display: block !important;
 
-        padding: 13px;
+        margin-top: 14px !important;
 
-        border-radius: 14px;
+        padding: 13px !important;
+
+        border-radius: 14px !important;
 
         background:
-          rgba(59,130,246,.08);
+          rgba(59,130,246,.08) !important;
 
         border:
           1px solid
-          rgba(96,165,250,.30);
+          rgba(96,165,250,.30) !important;
 
         color:
-          rgba(255,255,255,.82);
+          rgba(255,255,255,.82) !important;
 
-        font-size: 13px;
+        font-size: 13px !important;
 
-        line-height: 1.6;
+        line-height: 1.6 !important;
 
-        overflow-wrap: anywhere;
+        overflow-wrap: anywhere !important;
       }
 
 
@@ -501,11 +610,161 @@
 
   /*
    * =========================================================
-   * BUTTON DOM DIAGNOSTIC
+   * LAYOUT DIAGNOSTIC
    * =========================================================
    */
 
-  function inspectButtonDom() {
+  function inspectElement(
+    element
+  ) {
+
+    if (!element) {
+
+      return {
+        exists: false
+      };
+
+    }
+
+
+    const computed =
+      window.getComputedStyle(
+        element
+      );
+
+
+    const rect =
+      element.getBoundingClientRect();
+
+
+    return {
+
+      exists: true,
+
+      display:
+        computed.display,
+
+      visibility:
+        computed.visibility,
+
+      opacity:
+        computed.opacity,
+
+      position:
+        computed.position,
+
+      width:
+        Math.round(
+          rect.width
+        ),
+
+      height:
+        Math.round(
+          rect.height
+        )
+
+    };
+
+  }
+
+
+  function diagnosticRow(
+    label,
+    info
+  ) {
+
+    if (
+      !info ||
+      !info.exists
+    ) {
+
+      return `
+        <div style="margin-top:10px;">
+
+          <b>
+            ${escapeHtml(label)}
+          </b>
+
+          <br>
+
+          DOM:
+          <strong class="pb-fail">
+            NO ❌
+          </strong>
+
+        </div>
+      `;
+
+    }
+
+
+    const hasSize =
+      info.width > 0 &&
+      info.height > 0;
+
+
+    return `
+      <div style="margin-top:10px;">
+
+        <b>
+          ${escapeHtml(label)}
+        </b>
+
+        <br>
+
+        DOM:
+        <strong class="pb-ok">
+          YES ✅
+        </strong>
+
+        · Size:
+        <strong class="${
+          hasSize
+            ? 'pb-ok'
+            : 'pb-fail'
+        }">
+          ${info.width} × ${info.height}px
+        </strong>
+
+        <br>
+
+        Display:
+        <b>
+          ${escapeHtml(
+            info.display
+          )}
+        </b>
+
+        · Visibility:
+        <b>
+          ${escapeHtml(
+            info.visibility
+          )}
+        </b>
+
+        <br>
+
+        Position:
+        <b>
+          ${escapeHtml(
+            info.position
+          )}
+        </b>
+
+        · Opacity:
+        <b>
+          ${escapeHtml(
+            info.opacity
+          )}
+        </b>
+
+      </div>
+    `;
+
+  }
+
+
+  function inspectLayout() {
 
     const diagnostic =
       document.getElementById(
@@ -526,56 +785,44 @@
       );
 
 
-    if (!button) {
-
-      diagnostic.innerHTML = `
-        <b>🧪 MOBILE DOM DIAGNOSTIC</b>
-        <br>
-        Button DOM:
-        <strong class="pb-fail">
-          NO ❌
-        </strong>
-      `;
-
-
-      return {
-        exists: false
-      };
-
-    }
-
-
-    const computed =
-      window.getComputedStyle(
-        button
+    const wrapper =
+      document.getElementById(
+        BUTTON_WRAP_ID
       );
 
 
-    const rect =
-      button.getBoundingClientRect();
+    const card =
+      document.getElementById(
+        CARD_ID
+      );
+
+
+    const panel =
+      document.getElementById(
+        PANEL_ID
+      );
 
 
     const result = {
 
-      exists: true,
-
-      display:
-        computed.display,
-
-      visibility:
-        computed.visibility,
-
-      opacity:
-        computed.opacity,
-
-      width:
-        Math.round(
-          rect.width
+      button:
+        inspectElement(
+          button
         ),
 
-      height:
-        Math.round(
-          rect.height
+      wrapper:
+        inspectElement(
+          wrapper
+        ),
+
+      card:
+        inspectElement(
+          card
+        ),
+
+      panel:
+        inspectElement(
+          panel
         )
 
     };
@@ -584,51 +831,32 @@
     diagnostic.innerHTML = `
 
       <b>
-        🧪 MOBILE DOM DIAGNOSTIC
+        🧪 MOBILE V3 LAYOUT DIAGNOSTIC
       </b>
 
-      <br>
 
-      Button DOM:
-      <strong class="pb-ok">
-        YES ✅
-      </strong>
+      ${diagnosticRow(
+        'BUTTON',
+        result.button
+      )}
 
-      <br>
 
-      Display:
-      <b>
-        ${escapeHtml(
-          result.display
-        )}
-      </b>
+      ${diagnosticRow(
+        'BUTTON WRAPPER',
+        result.wrapper
+      )}
 
-      <br>
 
-      Visibility:
-      <b>
-        ${escapeHtml(
-          result.visibility
-        )}
-      </b>
+      ${diagnosticRow(
+        'CARD',
+        result.card
+      )}
 
-      <br>
 
-      Opacity:
-      <b>
-        ${escapeHtml(
-          result.opacity
-        )}
-      </b>
-
-      <br>
-
-      Size:
-      <b>
-        ${result.width}
-        ×
-        ${result.height}px
-      </b>
+      ${diagnosticRow(
+        'PANEL',
+        result.panel
+      )}
 
     `;
 
@@ -874,8 +1102,8 @@
           firstMissing:
             missing,
 
-          buttonDiagnostic:
-            inspectButtonDom()
+          layoutDiagnostic:
+            inspectLayout()
 
         };
 
@@ -885,7 +1113,7 @@
     ) {
 
       console.error(
-        'Production Bootstrap Mobile V2:',
+        'Production Bootstrap Mobile V3:',
         error
       );
 
@@ -912,14 +1140,6 @@
 
   function buildPanel() {
 
-    /*
-     * Remove an existing Bootstrap panel.
-     *
-     * This is intentional for V2 diagnostic:
-     * it prevents an older runtime panel from blocking
-     * creation of the current V2 panel.
-     */
-
     const oldPanel =
       document.getElementById(
         PANEL_ID
@@ -945,7 +1165,7 @@
     if (!settings) {
 
       console.warn(
-        'Production Bootstrap Mobile V2: tab-settings not found'
+        'Production Bootstrap Mobile V3: tab-settings not found'
       );
 
       return;
@@ -971,10 +1191,13 @@
 
     panel.innerHTML = `
 
-      <div class="pb-card">
+      <div
+        class="pb-card"
+        id="${CARD_ID}"
+      >
 
         <div class="pb-title">
-          🚦 PRODUCTION BOOTSTRAP V2
+          🚦 PRODUCTION BOOTSTRAP V3
         </div>
 
 
@@ -997,20 +1220,25 @@
         </div>
 
 
-        <button
-          type="button"
-          class="pb-button"
-          id="${BUTTON_ID}"
+        <div
+          id="${BUTTON_WRAP_ID}"
         >
-          🔬 INSPECT PRODUCTION RUNTIME
-        </button>
+
+          <button
+            type="button"
+            id="${BUTTON_ID}"
+          >
+            🔬 INSPECT PRODUCTION RUNTIME
+          </button>
+
+        </div>
 
 
         <div
           class="pb-status"
           id="${STATUS_ID}"
         >
-          V2 loaded · Sẵn sàng kiểm tra runtime.
+          V3 loaded · Sẵn sàng kiểm tra runtime.
         </div>
 
 
@@ -1018,7 +1246,7 @@
           class="pb-diagnostic"
           id="${DIAGNOSTIC_ID}"
         >
-          🧪 Đang kiểm tra Button DOM...
+          🧪 Đang kiểm tra V3 layout...
         </div>
 
       </div>
@@ -1045,10 +1273,10 @@
     if (!button) {
 
       console.error(
-        'Production Bootstrap Mobile V2: button creation failed'
+        'Production Bootstrap Mobile V3: button creation failed'
       );
 
-      inspectButtonDom();
+      inspectLayout();
 
       return;
 
@@ -1062,13 +1290,40 @@
 
 
     /*
-     * Run diagnostic after browser layout.
+     * First layout pass.
      */
 
     window.requestAnimationFrame(
       function () {
 
-        inspectButtonDom();
+        inspectLayout();
+
+
+        /*
+         * Second measurement after layout settles.
+         */
+
+        window.requestAnimationFrame(
+          function () {
+
+            const layout =
+              inspectLayout();
+
+
+            window
+              .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE =
+              {
+
+                version:
+                  VERSION,
+
+                layoutDiagnostic:
+                  layout
+
+              };
+
+          }
+        );
 
       }
     );
@@ -1115,7 +1370,8 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Bootstrap Mobile V2 loaded — INSPECTION ONLY'
+    'FIX-03D5.9 Production Bootstrap Mobile V3 loaded — LAYOUT DIAGNOSTIC ONLY'
   );
 
 })();
+
