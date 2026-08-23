@@ -1,19 +1,24 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION BOOTSTRAP — MOBILE V6
-   LIVE DOM IDENTITY TRACE
+   PRODUCTION BOOTSTRAP — MOBILE V7
+   STABLE MOUNT + MANUAL INSPECTION
 
    PURPOSE:
-   - Trace the real DOM identity of the Bootstrap inspect button.
-   - Detect detached / replaced nodes.
-   - Compare direct references with live document lookup.
-   - Observe DOM replacement after panel insertion.
-   - Identify whether another runtime rebuild removes/replaces the button.
+   - Mount Production Bootstrap diagnostic safely inside Settings.
+   - Never remove an existing panel before tab-settings is available.
+   - Keep the diagnostic collapsed until the user presses the button.
+   - Verify that the mounted panel/button are the live DOM nodes.
+   - Detect duplicate IDs.
+   - Provide a small read-only Production Bootstrap inspection entry point.
 
-   READ ONLY
-   ZERO WRITE TO PRODUCTION
-   ZERO PROMOTION
-   ZERO PRODUCTION EXECUTION
+   IMPORTANT:
+   - READ ONLY.
+   - ZERO WRITE TO PRODUCTION.
+   - ZERO PROMOTION.
+   - DOES NOT MODIFY LAST_FORECAST.
+   - DOES NOT MODIFY CANDIDATES.
+   - DOES NOT CALL savePrediction().
+   - DOES NOT EXECUTE PRODUCTION FORECAST.
    ========================================================================= */
 
 (function () {
@@ -22,7 +27,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V6';
+    'FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE_V7';
 
 
   const PANEL_ID =
@@ -47,6 +52,30 @@
 
   const DIAGNOSTIC_ID =
     'fix03d59-production-bootstrap-diagnostic';
+
+
+  const SETTINGS_ID =
+    'tab-settings';
+
+
+  const MAX_MOUNT_ATTEMPTS =
+    20;
+
+
+  const RETRY_DELAY_MS =
+    250;
+
+
+  let mountAttempts =
+    0;
+
+
+  let mountedPanel =
+    null;
+
+
+  let mountedButton =
+    null;
 
 
   /*
@@ -84,57 +113,20 @@
   }
 
 
-  /*
-   * Give each DOM node a temporary diagnostic identity.
-   *
-   * This does NOT write application data.
-   * WeakMap exists only in this V6 runtime.
-   */
-
-  const nodeIds =
-    new WeakMap();
-
-
-  let nodeSequence =
-    0;
-
-
-  function getNodeIdentity(
-    node
+  function countId(
+    id
   ) {
 
-    if (!node) {
-
-      return '--';
-
-    }
-
-
-    if (
-      !nodeIds.has(
-        node
+    return document
+      .querySelectorAll(
+        '[id="' + id + '"]'
       )
-    ) {
-
-      nodeSequence += 1;
-
-
-      nodeIds.set(
-        node,
-        'NODE-' + nodeSequence
-      );
-
-    }
-
-
-    return nodeIds.get(
-      node
-    );
+      .length;
 
   }
 
 
-  function describeNode(
+  function getGeometry(
     node
   ) {
 
@@ -142,31 +134,15 @@
 
       return {
 
-        exists: false,
+        width: 0,
 
-        identity:
-          '--',
+        height: 0,
 
-        tag:
-          '--',
+        top: 0,
 
-        id:
-          '--',
+        left: 0,
 
-        connected:
-          false,
-
-        parentTag:
-          '--',
-
-        parentId:
-          '--',
-
-        width:
-          0,
-
-        height:
-          0
+        rects: 0
 
       };
 
@@ -177,6 +153,67 @@
       node.getBoundingClientRect();
 
 
+    return {
+
+      width:
+        Math.round(
+          rect.width
+        ),
+
+      height:
+        Math.round(
+          rect.height
+        ),
+
+      top:
+        Math.round(
+          rect.top
+        ),
+
+      left:
+        Math.round(
+          rect.left
+        ),
+
+      rects:
+        node.getClientRects()
+          .length
+
+    };
+
+  }
+
+
+  function inspectNode(
+    node
+  ) {
+
+    if (!node) {
+
+      return {
+
+        exists: false,
+
+        connected: false,
+
+        tag: '--',
+
+        id: '--',
+
+        parentTag: '--',
+
+        parentId: '--',
+
+        geometry:
+          getGeometry(
+            null
+          )
+
+      };
+
+    }
+
+
     const parent =
       node.parentElement;
 
@@ -185,10 +222,8 @@
 
       exists: true,
 
-      identity:
-        getNodeIdentity(
-          node
-        ),
+      connected:
+        node.isConnected === true,
 
       tag:
         node.tagName ||
@@ -197,9 +232,6 @@
       id:
         node.id ||
         '--',
-
-      connected:
-        node.isConnected === true,
 
       parentTag:
         parent
@@ -217,14 +249,9 @@
             )
           : '--',
 
-      width:
-        Math.round(
-          rect.width
-        ),
-
-      height:
-        Math.round(
-          rect.height
+      geometry:
+        getGeometry(
+          node
         )
 
     };
@@ -232,50 +259,299 @@
   }
 
 
-  function sameNode(
-    a,
-    b
-  ) {
+  /*
+   * =========================================================
+   * STYLES
+   * =========================================================
+   */
 
-    return Boolean(
-      a &&
-      b &&
-      a === b
-    );
+  function installStyles() {
+
+    let style =
+      document.getElementById(
+        'fix03d59-production-bootstrap-style'
+      );
+
+
+    if (!style) {
+
+      style =
+        document.createElement(
+          'style'
+        );
+
+
+      style.id =
+        'fix03d59-production-bootstrap-style';
+
+
+      document.head.appendChild(
+        style
+      );
+
+    }
+
+
+    style.textContent = `
+
+      #${PANEL_ID} {
+        display: block !important;
+        width: auto !important;
+        height: auto !important;
+        margin: 24px 0 34px !important;
+        position: relative !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+        transform: none !important;
+        contain: none !important;
+        content-visibility: visible !important;
+      }
+
+
+      #${CARD_ID} {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 1px !important;
+        position: relative !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+
+        box-sizing: border-box;
+
+        background:
+          linear-gradient(
+            145deg,
+            rgba(28,38,82,.98),
+            rgba(20,29,66,.98)
+          );
+
+        border:
+          1px solid
+          rgba(129,140,248,.35);
+
+        border-radius: 24px;
+
+        padding: 20px;
+
+        color: #fff;
+      }
+
+
+      #${PANEL_ID} .v7-title {
+        font-size: 23px;
+        font-weight: 900;
+        line-height: 1.35;
+      }
+
+
+      #${PANEL_ID} .v7-sub {
+        margin-top: 13px;
+
+        color:
+          rgba(255,255,255,.68);
+
+        line-height: 1.6;
+      }
+
+
+      #${PANEL_ID} .v7-safety {
+        margin-top: 16px;
+
+        color: #72e6ae;
+
+        font-weight: 900;
+      }
+
+
+      #${WRAPPER_ID} {
+        display: block !important;
+        width: 100% !important;
+        height: auto !important;
+        min-height: 56px !important;
+        margin-top: 20px !important;
+        position: relative !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: visible !important;
+      }
+
+
+      #${BUTTON_ID} {
+        display: block !important;
+
+        width: 100% !important;
+
+        min-height: 58px !important;
+
+        padding: 16px !important;
+
+        margin: 0 !important;
+
+        position: relative !important;
+
+        visibility: visible !important;
+
+        opacity: 1 !important;
+
+        border: 0 !important;
+
+        border-radius: 17px !important;
+
+        background:
+          linear-gradient(
+            90deg,
+            #ffbd3c,
+            #ff913d
+          ) !important;
+
+        color: #17182a !important;
+
+        font-size: 17px !important;
+
+        font-weight: 900 !important;
+
+        line-height: 1.35 !important;
+
+        cursor: pointer;
+      }
+
+
+      #${STATUS_ID} {
+        margin-top: 16px;
+
+        color:
+          rgba(255,255,255,.75);
+
+        line-height: 1.55;
+      }
+
+
+      #${DIAGNOSTIC_ID} {
+        display: none;
+
+        margin-top: 18px;
+
+        padding: 16px;
+
+        border-radius: 18px;
+
+        background:
+          rgba(59,130,246,.08);
+
+        border:
+          1px solid
+          rgba(96,165,250,.30);
+
+        line-height: 1.65;
+
+        overflow-wrap: anywhere;
+      }
+
+
+      #${DIAGNOSTIC_ID}.v7-open {
+        display: block !important;
+      }
+
+
+      #${PANEL_ID}
+      .v7-diagnostic-title {
+        font-size: 18px;
+
+        font-weight: 900;
+
+        margin-bottom: 14px;
+      }
+
+
+      #${PANEL_ID}
+      .v7-section {
+        padding: 13px 0;
+
+        border-bottom:
+          1px solid
+          rgba(255,255,255,.10);
+      }
+
+
+      #${PANEL_ID}
+      .v7-section-title {
+        color: #ffbd3c;
+
+        font-weight: 900;
+
+        margin-bottom: 7px;
+      }
+
+
+      #${PANEL_ID}
+      .v7-ok {
+        color: #72e6ae;
+      }
+
+
+      #${PANEL_ID}
+      .v7-fail {
+        color: #ff7185;
+      }
+
+
+      #${PANEL_ID}
+      .v7-conclusion {
+        margin-top: 18px;
+
+        padding: 14px;
+
+        border-radius: 14px;
+
+        border:
+          1px solid
+          rgba(255,189,60,.35);
+
+        background:
+          rgba(255,189,60,.08);
+
+        color: #ffbd3c;
+
+        font-weight: 900;
+      }
+
+    `;
 
   }
 
 
   /*
    * =========================================================
-   * V6 TRACE STATE
+   * MANUAL INSPECTION
    * =========================================================
    */
 
-  const traceState = {
+  function runInspection() {
 
-    createdAt:
-      new Date().toISOString(),
-
-    direct: {},
-
-    snapshots: [],
-
-    mutations: [],
-
-    observerStarted:
-      false
-
-  };
+    const diagnostic =
+      document.getElementById(
+        DIAGNOSTIC_ID
+      );
 
 
-  function addSnapshot(
-    label,
-    directPanel,
-    directCard,
-    directWrapper,
-    directButton
-  ) {
+    const status =
+      document.getElementById(
+        STATUS_ID
+      );
+
+
+    if (
+      !diagnostic ||
+      !status
+    ) {
+
+      return;
+
+    }
+
 
     const livePanel =
       document.getElementById(
@@ -301,680 +577,326 @@
       );
 
 
-    traceState.snapshots.push({
-
-      label:
-        label,
-
-      time:
-        new Date().toISOString(),
-
-      direct: {
-
-        panel:
-          describeNode(
-            directPanel
-          ),
-
-        card:
-          describeNode(
-            directCard
-          ),
-
-        wrapper:
-          describeNode(
-            directWrapper
-          ),
-
-        button:
-          describeNode(
-            directButton
-          )
-
-      },
-
-      live: {
-
-        panel:
-          describeNode(
-            livePanel
-          ),
-
-        card:
-          describeNode(
-            liveCard
-          ),
-
-        wrapper:
-          describeNode(
-            liveWrapper
-          ),
-
-        button:
-          describeNode(
-            liveButton
-          )
-
-      },
-
-      identityMatch: {
-
-        panel:
-          sameNode(
-            directPanel,
-            livePanel
-          ),
-
-        card:
-          sameNode(
-            directCard,
-            liveCard
-          ),
-
-        wrapper:
-          sameNode(
-            directWrapper,
-            liveWrapper
-          ),
-
-        button:
-          sameNode(
-            directButton,
-            liveButton
-          )
-
-      }
-
-    });
-
-
-    renderDiagnostic();
-
-  }
-
-
-  /*
-   * =========================================================
-   * MUTATION OBSERVER
-   * =========================================================
-   */
-
-  function nodeContainsTarget(
-    node
-  ) {
-
-    if (
-      !node ||
-      node.nodeType !== 1
-    ) {
-
-      return false;
-
-    }
-
-
-    if (
-      node.id === PANEL_ID ||
-      node.id === CARD_ID ||
-      node.id === WRAPPER_ID ||
-      node.id === BUTTON_ID
-    ) {
-
-      return true;
-
-    }
-
-
-    if (
-      typeof node.querySelector !==
-      'function'
-    ) {
-
-      return false;
-
-    }
-
-
-    return Boolean(
-
-      node.querySelector(
-        '#' + PANEL_ID
-      ) ||
-
-      node.querySelector(
-        '#' + CARD_ID
-      ) ||
-
-      node.querySelector(
-        '#' + WRAPPER_ID
-      ) ||
-
-      node.querySelector(
-        '#' + BUTTON_ID
-      )
-
-    );
-
-  }
-
-
-  function describeMutationNode(
-    node
-  ) {
-
-    if (
-      !node ||
-      node.nodeType !== 1
-    ) {
-
-      return null;
-
-    }
-
-
-    return {
-
-      identity:
-        getNodeIdentity(
-          node
-        ),
-
-      tag:
-        node.tagName ||
-        '--',
-
-      id:
-        node.id ||
-        '--',
-
-      connected:
-        node.isConnected === true
-
-    };
-
-  }
-
-
-  function startObserver() {
-
-    if (
-      traceState.observerStarted
-    ) {
-
-      return;
-
-    }
-
-
-    if (
-      typeof MutationObserver !==
-      'function'
-    ) {
-
-      return;
-
-    }
-
-
-    traceState.observerStarted =
-      true;
-
-
-    const observer =
-      new MutationObserver(
-        function (
-          mutations
-        ) {
-
-          let importantChange =
-            false;
-
-
-          mutations.forEach(
-            function (
-              mutation
-            ) {
-
-              const removed =
-                Array.from(
-                  mutation.removedNodes ||
-                  []
-                )
-                  .filter(
-                    nodeContainsTarget
-                  )
-                  .map(
-                    describeMutationNode
-                  )
-                  .filter(Boolean);
-
-
-              const added =
-                Array.from(
-                  mutation.addedNodes ||
-                  []
-                )
-                  .filter(
-                    nodeContainsTarget
-                  )
-                  .map(
-                    describeMutationNode
-                  )
-                  .filter(Boolean);
-
-
-              if (
-                removed.length ||
-                added.length
-              ) {
-
-                importantChange =
-                  true;
-
-
-                traceState
-                  .mutations
-                  .push({
-
-                    time:
-                      new Date()
-                        .toISOString(),
-
-                    target:
-                      describeMutationNode(
-                        mutation.target
-                      ),
-
-                    removed:
-                      removed,
-
-                    added:
-                      added
-
-                  });
-
-              }
-
-            }
-          );
-
-
-          if (
-            importantChange
-          ) {
-
-            addSnapshot(
-              'MUTATION DETECTED',
-              traceState.direct.panel,
-              traceState.direct.card,
-              traceState.direct.wrapper,
-              traceState.direct.button
-            );
-
-          }
-
-        }
+    const panelInfo =
+      inspectNode(
+        livePanel
       );
 
 
-    observer.observe(
-      document.documentElement,
-      {
-
-        childList: true,
-
-        subtree: true
-
-      }
-    );
-
-
-    window
-      .FIX03D59_PRODUCTION_BOOTSTRAP_V6_OBSERVER =
-      observer;
-
-  }
-
-
-  /*
-   * =========================================================
-   * RENDER DIAGNOSTIC
-   * =========================================================
-   */
-
-  function renderNodeBlock(
-    title,
-    directInfo,
-    liveInfo,
-    match
-  ) {
-
-    return `
-
-      <div class="v6-node">
-
-        <div class="v6-node-title">
-          ${escapeHtml(
-            title
-          )}
-        </div>
-
-
-        <div>
-          DIRECT:
-          <b>
-            ${escapeHtml(
-              directInfo.identity
-            )}
-          </b>
-
-          · Connected:
-          <strong class="${
-            directInfo.connected
-              ? 'v6-ok'
-              : 'v6-fail'
-          }">
-            ${yesNo(
-              directInfo.connected
-            )}
-          </strong>
-        </div>
-
-
-        <div>
-          LIVE LOOKUP:
-          <b>
-            ${escapeHtml(
-              liveInfo.identity
-            )}
-          </b>
-
-          · Connected:
-          <strong class="${
-            liveInfo.connected
-              ? 'v6-ok'
-              : 'v6-fail'
-          }">
-            ${yesNo(
-              liveInfo.connected
-            )}
-          </strong>
-        </div>
-
-
-        <div>
-          SAME NODE:
-          <strong class="${
-            match
-              ? 'v6-ok'
-              : 'v6-fail'
-          }">
-            ${yesNo(
-              match
-            )}
-          </strong>
-        </div>
-
-
-        <div>
-          Direct size:
-          <b>
-            ${directInfo.width}
-            ×
-            ${directInfo.height}px
-          </b>
-        </div>
-
-
-        <div>
-          Live size:
-          <b>
-            ${liveInfo.width}
-            ×
-            ${liveInfo.height}px
-          </b>
-        </div>
-
-
-        <div class="v6-small">
-          Direct parent:
-          ${escapeHtml(
-            directInfo.parentTag
-          )}
-          #
-          ${escapeHtml(
-            directInfo.parentId
-          )}
-        </div>
-
-
-        <div class="v6-small">
-          Live parent:
-          ${escapeHtml(
-            liveInfo.parentTag
-          )}
-          #
-          ${escapeHtml(
-            liveInfo.parentId
-          )}
-        </div>
-
-      </div>
-
-    `;
-
-  }
-
-
-  function renderDiagnostic() {
-
-    const diagnostic =
-      document.getElementById(
-        DIAGNOSTIC_ID
+    const cardInfo =
+      inspectNode(
+        liveCard
       );
 
 
-    if (!diagnostic) {
-
-      return;
-
-    }
-
-
-    const latest =
-      traceState.snapshots[
-        traceState.snapshots.length - 1
-      ];
+    const wrapperInfo =
+      inspectNode(
+        liveWrapper
+      );
 
 
-    if (!latest) {
-
-      diagnostic.innerHTML =
-        'V6 trace waiting...';
-
-      return;
-
-    }
+    const buttonInfo =
+      inspectNode(
+        liveButton
+      );
 
 
-    const d =
-      latest.direct;
+    const panelCount =
+      countId(
+        PANEL_ID
+      );
 
 
-    const l =
-      latest.live;
+    const cardCount =
+      countId(
+        CARD_ID
+      );
 
 
-    const m =
-      latest.identityMatch;
+    const wrapperCount =
+      countId(
+        WRAPPER_ID
+      );
+
+
+    const buttonCount =
+      countId(
+        BUTTON_ID
+      );
+
+
+    const samePanel =
+      Boolean(
+        mountedPanel &&
+        livePanel &&
+        mountedPanel ===
+          livePanel
+      );
+
+
+    const sameButton =
+      Boolean(
+        mountedButton &&
+        liveButton &&
+        mountedButton ===
+          liveButton
+      );
 
 
     let conclusion =
-      'NO IDENTITY BREAK DETECTED';
+      'STABLE LIVE DOM MOUNT';
 
 
     if (
-      !m.button
+      panelCount !== 1 ||
+      cardCount !== 1 ||
+      wrapperCount !== 1 ||
+      buttonCount !== 1
     ) {
 
       conclusion =
-        'BUTTON IDENTITY CHANGED / REPLACED';
+        'DUPLICATE DOM ID DETECTED';
 
     } else if (
-      !d.button.connected
+      !panelInfo.connected ||
+      !cardInfo.connected ||
+      !wrapperInfo.connected ||
+      !buttonInfo.connected
     ) {
 
       conclusion =
-        'DIRECT BUTTON DETACHED';
+        'BOOTSTRAP NODE DETACHED';
 
     } else if (
-      !l.button.connected
+      !samePanel ||
+      !sameButton
     ) {
 
       conclusion =
-        'LIVE BUTTON NOT CONNECTED';
+        'BOOTSTRAP NODE REPLACED';
+
+    } else if (
+      buttonInfo.geometry.width <= 0 ||
+      buttonInfo.geometry.height <= 0
+    ) {
+
+      conclusion =
+        'BUTTON CONNECTED BUT HAS ZERO GEOMETRY';
 
     }
-
-
-    const mutationHtml =
-      traceState.mutations.length
-        ? traceState.mutations
-            .slice(-5)
-            .map(
-              function (
-                item,
-                index
-              ) {
-
-                return `
-
-                  <div class="v6-mutation">
-
-                    <b>
-                      Mutation ${
-                        traceState
-                          .mutations
-                          .length -
-                        Math.min(
-                          5,
-                          traceState
-                            .mutations
-                            .length
-                        ) +
-                        index +
-                        1
-                      }
-                    </b>
-
-                    <br>
-
-                    Removed targets:
-                    ${
-                      item.removed.length
-                    }
-
-                    <br>
-
-                    Added targets:
-                    ${
-                      item.added.length
-                    }
-
-                    <br>
-
-                    Mutation parent:
-                    ${
-                      item.target
-                        ? escapeHtml(
-                            item.target.tag +
-                            '#' +
-                            item.target.id
-                          )
-                        : '--'
-                    }
-
-                  </div>
-
-                `;
-
-              }
-            )
-            .join('')
-        : `
-
-            <div class="v6-small">
-              No target replacement mutation
-              detected yet.
-            </div>
-
-          `;
 
 
     diagnostic.innerHTML = `
 
-      <div class="v6-diagnostic-title">
-        🧬 MOBILE V6 LIVE DOM IDENTITY TRACE
+      <div class="v7-diagnostic-title">
+        🔬 PRODUCTION BOOTSTRAP V7 INSPECTION
       </div>
 
 
-      <div class="v6-snapshot">
+      <div class="v7-section">
 
-        Snapshot:
+        <div class="v7-section-title">
+          DOM ID COUNTS
+        </div>
+
+        PANEL:
+        <b>${panelCount}</b>
+
+        <br>
+
+        CARD:
+        <b>${cardCount}</b>
+
+        <br>
+
+        WRAPPER:
+        <b>${wrapperCount}</b>
+
+        <br>
+
+        BUTTON:
+        <b>${buttonCount}</b>
+
+      </div>
+
+
+      <div class="v7-section">
+
+        <div class="v7-section-title">
+          LIVE PANEL
+        </div>
+
+        Exists:
+        <strong class="${
+          panelInfo.exists
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            panelInfo.exists
+          )}
+        </strong>
+
+        <br>
+
+        Connected:
+        <strong class="${
+          panelInfo.connected
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            panelInfo.connected
+          )}
+        </strong>
+
+        <br>
+
+        Same mounted node:
+        <strong class="${
+          samePanel
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            samePanel
+          )}
+        </strong>
+
+        <br>
+
+        Size:
+        <b>
+          ${panelInfo.geometry.width}
+          ×
+          ${panelInfo.geometry.height}px
+        </b>
+
+      </div>
+
+
+      <div class="v7-section">
+
+        <div class="v7-section-title">
+          LIVE BUTTON
+        </div>
+
+        Exists:
+        <strong class="${
+          buttonInfo.exists
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            buttonInfo.exists
+          )}
+        </strong>
+
+        <br>
+
+        Connected:
+        <strong class="${
+          buttonInfo.connected
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            buttonInfo.connected
+          )}
+        </strong>
+
+        <br>
+
+        Same mounted node:
+        <strong class="${
+          sameButton
+            ? 'v7-ok'
+            : 'v7-fail'
+        }">
+          ${yesNo(
+            sameButton
+          )}
+        </strong>
+
+        <br>
+
+        Size:
+        <b>
+          ${buttonInfo.geometry.width}
+          ×
+          ${buttonInfo.geometry.height}px
+        </b>
+
+        <br>
+
+        Client rects:
+        <b>
+          ${buttonInfo.geometry.rects}
+        </b>
+
+        <br>
+
+        Position:
+        <b>
+          ${buttonInfo.geometry.left},
+          ${buttonInfo.geometry.top}
+        </b>
+
+      </div>
+
+
+      <div class="v7-section">
+
+        <div class="v7-section-title">
+          PARENT CHAIN
+        </div>
+
+        BUTTON parent:
+
         <b>
           ${escapeHtml(
-            latest.label
+            buttonInfo.parentTag
+          )}
+          #
+          ${escapeHtml(
+            buttonInfo.parentId
+          )}
+        </b>
+
+        <br>
+
+        WRAPPER parent:
+
+        <b>
+          ${escapeHtml(
+            wrapperInfo.parentTag
+          )}
+          #
+          ${escapeHtml(
+            wrapperInfo.parentId
+          )}
+        </b>
+
+        <br>
+
+        CARD parent:
+
+        <b>
+          ${escapeHtml(
+            cardInfo.parentTag
+          )}
+          #
+          ${escapeHtml(
+            cardInfo.parentId
           )}
         </b>
 
       </div>
 
 
-      ${renderNodeBlock(
-        'PANEL',
-        d.panel,
-        l.panel,
-        m.panel
-      )}
+      <div class="v7-conclusion">
 
-
-      ${renderNodeBlock(
-        'CARD',
-        d.card,
-        l.card,
-        m.card
-      )}
-
-
-      ${renderNodeBlock(
-        'BUTTON WRAPPER',
-        d.wrapper,
-        l.wrapper,
-        m.wrapper
-      )}
-
-
-      ${renderNodeBlock(
-        'BUTTON',
-        d.button,
-        l.button,
-        m.button
-      )}
-
-
-      <div class="v6-section-title">
-        MUTATION TRACE
-      </div>
-
-
-      ${mutationHtml}
-
-
-      <div class="v6-conclusion">
-
-        <b>
-          V6 CONCLUSION
-        </b>
+        V7 CONCLUSION
 
         <br>
 
@@ -987,6 +909,15 @@
     `;
 
 
+    diagnostic.classList.add(
+      'v7-open'
+    );
+
+
+    status.innerHTML =
+      '✅ Manual inspection completed.';
+
+
     window
       .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_MOBILE =
       {
@@ -994,11 +925,47 @@
         version:
           VERSION,
 
-        trace:
-          traceState,
+        inspectedAt:
+          new Date()
+            .toISOString(),
 
-        latest:
-          latest,
+        counts: {
+
+          panel:
+            panelCount,
+
+          card:
+            cardCount,
+
+          wrapper:
+            wrapperCount,
+
+          button:
+            buttonCount
+
+        },
+
+        sameMountedNode: {
+
+          panel:
+            samePanel,
+
+          button:
+            sameButton
+
+        },
+
+        panel:
+          panelInfo,
+
+        card:
+          cardInfo,
+
+        wrapper:
+          wrapperInfo,
+
+        button:
+          buttonInfo,
 
         conclusion:
           conclusion
@@ -1010,316 +977,11 @@
 
   /*
    * =========================================================
-   * STYLES
+   * BUILD
    * =========================================================
    */
 
-  function installStyles() {
-
-    const old =
-      document.getElementById(
-        'fix03d59-production-bootstrap-style'
-      );
-
-
-    if (old) {
-
-      old.remove();
-
-    }
-
-
-    const style =
-      document.createElement(
-        'style'
-      );
-
-
-    style.id =
-      'fix03d59-production-bootstrap-style';
-
-
-    style.textContent = `
-
-      #${PANEL_ID} {
-        margin: 24px 0 34px;
-      }
-
-
-      #${PANEL_ID} .v6-card {
-        background:
-          linear-gradient(
-            145deg,
-            rgba(28,38,82,.98),
-            rgba(20,29,66,.98)
-          );
-
-        border:
-          1px solid
-          rgba(129,140,248,.35);
-
-        border-radius: 24px;
-
-        padding: 20px;
-
-        color: #fff;
-      }
-
-
-      #${PANEL_ID} .v6-title {
-        font-size: 23px;
-
-        font-weight: 900;
-
-        line-height: 1.35;
-      }
-
-
-      #${PANEL_ID} .v6-sub {
-        margin-top: 14px;
-
-        color:
-          rgba(255,255,255,.68);
-
-        line-height: 1.6;
-      }
-
-
-      #${PANEL_ID} .v6-safety {
-        margin-top: 16px;
-
-        color: #72e6ae;
-
-        font-weight: 900;
-      }
-
-
-      #${WRAPPER_ID} {
-        display: block;
-
-        width: 100%;
-
-        margin-top: 20px;
-      }
-
-
-      #${BUTTON_ID} {
-        display: block;
-
-        width: 100%;
-
-        min-height: 56px;
-
-        padding: 16px;
-
-        border: 0;
-
-        border-radius: 17px;
-
-        background:
-          linear-gradient(
-            90deg,
-            #ffbd3c,
-            #ff913d
-          );
-
-        color: #17182a;
-
-        font-size: 17px;
-
-        font-weight: 900;
-      }
-
-
-      #${STATUS_ID} {
-        margin-top: 16px;
-
-        color:
-          rgba(255,255,255,.75);
-      }
-
-
-      #${DIAGNOSTIC_ID} {
-        margin-top: 18px;
-
-        padding: 16px;
-
-        border-radius: 18px;
-
-        background:
-          rgba(59,130,246,.08);
-
-        border:
-          1px solid
-          rgba(96,165,250,.30);
-
-        line-height: 1.65;
-
-        overflow-wrap: anywhere;
-      }
-
-
-      #${PANEL_ID}
-      .v6-diagnostic-title {
-        font-size: 18px;
-
-        font-weight: 900;
-
-        margin-bottom: 14px;
-      }
-
-
-      #${PANEL_ID}
-      .v6-snapshot {
-        color: #ffbd3c;
-
-        margin-bottom: 16px;
-      }
-
-
-      #${PANEL_ID}
-      .v6-node {
-        padding: 14px 0;
-
-        border-bottom:
-          1px solid
-          rgba(255,255,255,.10);
-      }
-
-
-      #${PANEL_ID}
-      .v6-node-title {
-        font-weight: 900;
-
-        font-size: 17px;
-
-        margin-bottom: 8px;
-      }
-
-
-      #${PANEL_ID}
-      .v6-ok {
-        color: #72e6ae;
-      }
-
-
-      #${PANEL_ID}
-      .v6-fail {
-        color: #ff7185;
-      }
-
-
-      #${PANEL_ID}
-      .v6-small {
-        color:
-          rgba(255,255,255,.65);
-
-        font-size: 13px;
-      }
-
-
-      #${PANEL_ID}
-      .v6-section-title {
-        margin-top: 20px;
-
-        color: #ffbd3c;
-
-        font-size: 18px;
-
-        font-weight: 900;
-      }
-
-
-      #${PANEL_ID}
-      .v6-mutation {
-        margin-top: 12px;
-
-        padding: 12px;
-
-        border-radius: 12px;
-
-        background:
-          rgba(255,255,255,.05);
-      }
-
-
-      #${PANEL_ID}
-      .v6-conclusion {
-        margin-top: 20px;
-
-        padding: 15px;
-
-        border-radius: 15px;
-
-        border:
-          1px solid
-          rgba(255,189,60,.35);
-
-        background:
-          rgba(255,189,60,.08);
-
-        color: #ffbd3c;
-
-        font-weight: 800;
-      }
-
-    `;
-
-
-    document.head.appendChild(
-      style
-    );
-
-  }
-
-
-  /*
-   * =========================================================
-   * BUILD PANEL
-   * =========================================================
-   */
-
-  function buildPanel() {
-
-    installStyles();
-
-
-    const oldPanel =
-      document.getElementById(
-        PANEL_ID
-      );
-
-
-    if (oldPanel) {
-
-      oldPanel.remove();
-
-    }
-
-
-    const settings =
-      document.getElementById(
-        'tab-settings'
-      );
-
-
-    if (!settings) {
-
-      console.warn(
-        'Production Bootstrap V6: tab-settings not found'
-      );
-
-      return;
-
-    }
-
-
-    /*
-     * Start observer BEFORE inserting V6.
-     */
-
-    startObserver();
-
+  function createPanel() {
 
     const panel =
       document.createElement(
@@ -1341,10 +1003,6 @@
       CARD_ID;
 
 
-    card.className =
-      'v6-card';
-
-
     const title =
       document.createElement(
         'div'
@@ -1352,11 +1010,11 @@
 
 
     title.className =
-      'v6-title';
+      'v7-title';
 
 
     title.textContent =
-      '🧬 PRODUCTION BOOTSTRAP V6';
+      '🧬 PRODUCTION BOOTSTRAP V7';
 
 
     const sub =
@@ -1366,18 +1024,17 @@
 
 
     sub.className =
-      'v6-sub';
+      'v7-sub';
 
 
     sub.innerHTML = `
 
-      Live DOM Identity Trace.
+      Stable Mount + Manual Inspection.
 
       <br><br>
 
-      Kiểm tra node nào thực sự tồn tại
-      trong document và node nào bị
-      detach hoặc replace sau khi tạo.
+      V7 chỉ kiểm tra Production Bootstrap
+      khi bạn chủ động bấm nút bên dưới.
 
     `;
 
@@ -1389,7 +1046,7 @@
 
 
     safety.className =
-      'v6-safety';
+      'v7-safety';
 
 
     safety.textContent =
@@ -1435,7 +1092,7 @@
 
 
     status.textContent =
-      'V6 loaded · Live identity trace active.';
+      'V7 mounted · waiting for manual inspection.';
 
 
     const diagnostic =
@@ -1446,10 +1103,6 @@
 
     diagnostic.id =
       DIAGNOSTIC_ID;
-
-
-    diagnostic.textContent =
-      'V6 trace starting...';
 
 
     wrapper.appendChild(
@@ -1492,163 +1145,217 @@
     );
 
 
-    /*
-     * Save DIRECT references BEFORE insertion.
-     */
+    button.addEventListener(
+      'click',
+      runInspection
+    );
 
-    traceState.direct = {
+
+    return {
 
       panel:
         panel,
-
-      card:
-        card,
-
-      wrapper:
-        wrapper,
 
       button:
         button
 
     };
 
-
-    /*
-     * Snapshot before insertion.
-     */
-
-    addSnapshot(
-      'BEFORE APPEND',
-      panel,
-      card,
-      wrapper,
-      button
-    );
+  }
 
 
-    settings.appendChild(
-      panel
-    );
+  /*
+   * =========================================================
+   * STABLE MOUNT
+   * =========================================================
+   */
+
+  function mountV7() {
+
+    mountAttempts += 1;
 
 
     /*
-     * Snapshot immediately after insertion.
+     * CRITICAL V7 RULE:
+     *
+     * First verify that tab-settings exists.
+     *
+     * We do NOT remove an existing Bootstrap panel
+     * before the destination is confirmed.
      */
 
-    addSnapshot(
-      'IMMEDIATELY AFTER APPEND',
-      panel,
-      card,
-      wrapper,
-      button
-    );
+    const settings =
+      document.getElementById(
+        SETTINGS_ID
+      );
 
 
-    /*
-     * Snapshot next browser frame.
-     */
+    if (!settings) {
 
-    window.requestAnimationFrame(
-      function () {
+      console.warn(
+        'Production Bootstrap V7: tab-settings not ready · attempt',
+        mountAttempts
+      );
 
-        addSnapshot(
-          'REQUEST ANIMATION FRAME 1',
-          panel,
-          card,
-          wrapper,
-          button
+
+      if (
+        mountAttempts <
+        MAX_MOUNT_ATTEMPTS
+      ) {
+
+        window.setTimeout(
+          mountV7,
+          RETRY_DELAY_MS
         );
 
+      }
 
-        window.requestAnimationFrame(
-          function () {
 
-            addSnapshot(
-              'REQUEST ANIMATION FRAME 2',
-              panel,
-              card,
-              wrapper,
-              button
-            );
+      return;
 
-          }
-        );
+    }
+
+
+    installStyles();
+
+
+    /*
+     * Destination exists.
+     * Now it is safe to inspect/remove stale copies.
+     */
+
+    const existingPanels =
+      Array.from(
+        document.querySelectorAll(
+          '[id="' +
+          PANEL_ID +
+          '"]'
+        )
+      );
+
+
+    existingPanels.forEach(
+      function (
+        panel
+      ) {
+
+        panel.remove();
 
       }
     );
 
 
+    const created =
+      createPanel();
+
+
+    settings.appendChild(
+      created.panel
+    );
+
+
     /*
-     * Delayed snapshots.
+     * Save the actual nodes that V7 mounted.
      */
 
-    window.setTimeout(
-      function () {
-
-        addSnapshot(
-          'AFTER 250MS',
-          panel,
-          card,
-          wrapper,
-          button
-        );
-
-      },
-      250
-    );
+    mountedPanel =
+      created.panel;
 
 
-    window.setTimeout(
-      function () {
-
-        addSnapshot(
-          'AFTER 1000MS',
-          panel,
-          card,
-          wrapper,
-          button
-        );
-
-      },
-      1000
-    );
-
-
-    window.setTimeout(
-      function () {
-
-        addSnapshot(
-          'AFTER 3000MS',
-          panel,
-          card,
-          wrapper,
-          button
-        );
-
-      },
-      3000
-    );
+    mountedButton =
+      created.button;
 
 
     /*
-     * IMPORTANT:
-     * Button is intentionally NOT connected to
-     * Production execution in V6.
+     * Verify after the browser has committed
+     * the DOM insertion.
      *
-     * Clicking it only records another identity snapshot.
+     * IMPORTANT:
+     * No diagnostic is rendered here.
+     * The user still sees only the button.
      */
 
-    button.addEventListener(
-      'click',
+    window.requestAnimationFrame(
       function () {
 
-        addSnapshot(
-          'MANUAL BUTTON CLICK',
-          panel,
-          card,
-          wrapper,
-          button
-        );
+        const livePanel =
+          document.getElementById(
+            PANEL_ID
+          );
+
+
+        const liveButton =
+          document.getElementById(
+            BUTTON_ID
+          );
+
+
+        const status =
+          document.getElementById(
+            STATUS_ID
+          );
+
+
+        const mountStable =
+          Boolean(
+            livePanel &&
+            liveButton &&
+            livePanel ===
+              mountedPanel &&
+            liveButton ===
+              mountedButton &&
+            livePanel.isConnected &&
+            liveButton.isConnected
+          );
+
+
+        if (status) {
+
+          status.textContent =
+            mountStable
+              ? 'V7 mounted · waiting for manual inspection.'
+              : '⚠️ V7 mount changed after insertion.';
+
+        }
+
+
+        window
+          .LAST_FIX03D59_PRODUCTION_BOOTSTRAP_V7_MOUNT =
+          {
+
+            version:
+              VERSION,
+
+            mountedAt:
+              new Date()
+                .toISOString(),
+
+            stable:
+              mountStable,
+
+            panelConnected:
+              Boolean(
+                livePanel &&
+                livePanel.isConnected
+              ),
+
+            buttonConnected:
+              Boolean(
+                liveButton &&
+                liveButton.isConnected
+              ),
+
+            panelCount:
+              countId(
+                PANEL_ID
+              ),
+
+            buttonCount:
+              countId(
+                BUTTON_ID
+              )
+
+          };
 
       }
     );
@@ -1664,7 +1371,7 @@
 
   function init() {
 
-    buildPanel();
+    mountV7();
 
   }
 
@@ -1695,7 +1402,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Bootstrap Mobile V6 loaded — LIVE DOM IDENTITY TRACE'
+    'FIX-03D5.9 Production Bootstrap Mobile V7 loaded — STABLE MOUNT + MANUAL INSPECTION'
   );
 
 })();
