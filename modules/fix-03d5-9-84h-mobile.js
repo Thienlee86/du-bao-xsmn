@@ -1,22 +1,22 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION CANDIDATE BOUNDARY — MOBILE INSPECTOR V2
-   DIV CONTROL BUILD
+   PRODUCTION BOUNDARY + BOOTSTRAP — MOBILE V3
+   STABLE HOST INTEGRATION
 
    PURPOSE:
-   - Confirm STEP 8.4H module is loaded.
-   - Run the READ-ONLY 8.4H Production Candidate Boundary Adapter.
-   - Display the current 8.4H result inside the Settings tab.
-   - Allow inspection from mobile without DevTools.
-   - Avoid native BUTTON elements completely.
+   - Keep STEP 8.4H mobile inspector.
+   - Host Production Bootstrap Inspector inside the stable 8.4H panel.
+   - Avoid separate Bootstrap mobile panels.
+   - Inspect Production runtime chain from mobile.
+   - Avoid native BUTTON elements.
 
    IMPORTANT:
    - READ ONLY.
    - ZERO PRODUCTION WRITE.
    - ZERO STORAGE WRITE.
+   - ZERO PROMOTION.
    - Does NOT modify LAST_FORECAST.
-   - Does NOT modify STEP 8.3B.
-   - Does NOT modify source candidates.
+   - Does NOT modify candidates.
    - Does NOT call savePrediction().
    ========================================================================= */
 
@@ -25,63 +25,48 @@
   'use strict';
 
 
+  const VERSION =
+    '84H-MOBILE-BOOTSTRAP-HOST-V3';
+
+
   const PANEL_ID =
     'fix03d59-84h-mobile-panel';
 
   const OUTPUT_ID =
     'fix03d59-84h-mobile-output';
 
-  const CONTROL_ID =
+  const CONTROL_84H_ID =
     'fix03d59-84h-mobile-run';
+
+  const CONTROL_BOOTSTRAP_ID =
+    'fix03d59-bootstrap-mobile-run';
 
 
   /*
    * =========================================================
-   * HTML ESCAPE
+   * HELPERS
    * =========================================================
    */
 
-  function escape84HMobile(
+  function escapeHtml(
     value
   ) {
 
     return String(
-      value === null ||
-      value === undefined
+      value == null
         ? ''
         : value
     )
-      .replace(
-        /&/g,
-        '&amp;'
-      )
-      .replace(
-        /</g,
-        '&lt;'
-      )
-      .replace(
-        />/g,
-        '&gt;'
-      )
-      .replace(
-        /"/g,
-        '&quot;'
-      )
-      .replace(
-        /'/g,
-        '&#039;'
-      );
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
   }
 
 
-  /*
-   * =========================================================
-   * DISPLAY HELPERS
-   * =========================================================
-   */
-
-  function yesNo84HMobile(
+  function yesNo(
     value
   ) {
 
@@ -98,7 +83,7 @@
       value === false
     ) {
 
-      return 'NO';
+      return 'NO ❌';
 
     }
 
@@ -108,7 +93,7 @@
   }
 
 
-  function value84HMobile(
+  function displayValue(
     value
   ) {
 
@@ -123,19 +108,20 @@
     }
 
 
-    return escape84HMobile(
+    return escapeHtml(
       value
     );
 
   }
 
 
-  function row84HMobile(
+  function row(
     label,
     value
   ) {
 
     return `
+
       <div
         style="
           display:flex;
@@ -153,7 +139,7 @@
             font-size:13px;
           "
         >
-          ${escape84HMobile(label)}
+          ${escapeHtml(label)}
         </span>
 
         <b
@@ -168,6 +154,31 @@
         </b>
 
       </div>
+
+    `;
+
+  }
+
+
+  function sectionTitle(
+    text,
+    color
+  ) {
+
+    return `
+
+      <div
+        style="
+          margin-top:20px;
+          margin-bottom:7px;
+          color:${color || '#ffc13d'};
+          font-size:16px;
+          font-weight:900;
+        "
+      >
+        ${escapeHtml(text)}
+      </div>
+
     `;
 
   }
@@ -175,11 +186,104 @@
 
   /*
    * =========================================================
-   * READ / RUN STEP 8.4H
+   * GENERIC DIV CONTROL
    * =========================================================
    */
 
-  function inspect84HMobile() {
+  function createControl(
+    id,
+    text,
+    handler
+  ) {
+
+    const control =
+      document.createElement(
+        'div'
+      );
+
+
+    control.id =
+      id;
+
+
+    control.setAttribute(
+      'role',
+      'button'
+    );
+
+
+    control.setAttribute(
+      'tabindex',
+      '0'
+    );
+
+
+    control.textContent =
+      text;
+
+
+    control.style.cssText = [
+      'display:flex',
+      'width:100%',
+      'min-height:58px',
+      'margin-top:12px',
+      'padding:15px 12px',
+      'border-radius:16px',
+      'background:linear-gradient(90deg,#ffc13d,#ff963d)',
+      'color:#17192f',
+      'font-size:16px',
+      'font-weight:900',
+      'align-items:center',
+      'justify-content:center',
+      'text-align:center',
+      'box-sizing:border-box',
+      'cursor:pointer',
+      'visibility:visible',
+      'opacity:1',
+      'position:relative',
+      'z-index:100'
+    ].join(';');
+
+
+    control.addEventListener(
+      'click',
+      handler
+    );
+
+
+    control.addEventListener(
+      'keydown',
+      function (
+        event
+      ) {
+
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+
+          event.preventDefault();
+
+          handler();
+
+        }
+
+      }
+    );
+
+
+    return control;
+
+  }
+
+
+  /*
+   * =========================================================
+   * STEP 8.4H INSPECTOR
+   * =========================================================
+   */
+
+  function inspect84H() {
 
     const loaded =
       window
@@ -202,19 +306,16 @@
       null;
 
 
-    /*
-     * STEP 8.4H itself is READ ONLY.
-     *
-     * Running the builder here only inspects
-     * the current runtime boundary state.
-     */
-
     if (
       typeof builder ===
       'function'
     ) {
 
       try {
+
+        /*
+         * STEP 8.4H is a READ-ONLY boundary adapter.
+         */
 
         result =
           builder();
@@ -251,13 +352,7 @@
   }
 
 
-  /*
-   * =========================================================
-   * RENDER RESULT
-   * =========================================================
-   */
-
-  function render84HMobile() {
+  function render84H() {
 
     const output =
       document.getElementById(
@@ -265,9 +360,7 @@
       );
 
 
-    if (
-      !output
-    ) {
+    if (!output) {
 
       return;
 
@@ -275,11 +368,7 @@
 
 
     const inspection =
-      inspect84HMobile();
-
-
-    const result =
-      inspection.result;
+      inspect84H();
 
 
     if (
@@ -288,28 +377,32 @@
 
       output.innerHTML = `
 
-        ${row84HMobile(
+        ${sectionTitle(
+          'STEP 8.4H RESULT'
+        )}
+
+        ${row(
           'Module Loaded',
-          yesNo84HMobile(
+          yesNo(
             inspection.loaded
           )
         )}
 
-        ${row84HMobile(
+        ${row(
           'Builder Available',
-          yesNo84HMobile(
+          yesNo(
             inspection.builderAvailable
           )
         )}
 
-        ${row84HMobile(
+        ${row(
           'Execution',
           'ERROR ❌'
         )}
 
-        ${row84HMobile(
+        ${row(
           'Error',
-          value84HMobile(
+          displayValue(
             inspection.executionError
           )
         )}
@@ -321,27 +414,33 @@
     }
 
 
-    if (
-      !result
-    ) {
+    const result =
+      inspection.result;
+
+
+    if (!result) {
 
       output.innerHTML = `
 
-        ${row84HMobile(
+        ${sectionTitle(
+          'STEP 8.4H RESULT'
+        )}
+
+        ${row(
           'Module Loaded',
-          yesNo84HMobile(
+          yesNo(
             inspection.loaded
           )
         )}
 
-        ${row84HMobile(
+        ${row(
           'Builder Available',
-          yesNo84HMobile(
+          yesNo(
             inspection.builderAvailable
           )
         )}
 
-        ${row84HMobile(
+        ${row(
           'Result',
           'NOT AVAILABLE ❌'
         )}
@@ -355,79 +454,83 @@
 
     output.innerHTML = `
 
-      ${row84HMobile(
+      ${sectionTitle(
+        'STEP 8.4H RESULT'
+      )}
+
+      ${row(
         'Module Loaded',
-        yesNo84HMobile(
+        yesNo(
           inspection.loaded
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Builder Available',
-        yesNo84HMobile(
+        yesNo(
           inspection.builderAvailable
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Step',
-        value84HMobile(
+        displayValue(
           result.step
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Version',
-        value84HMobile(
+        displayValue(
           result.version
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Ready',
-        yesNo84HMobile(
+        yesNo(
           result.ready
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Passed',
-        yesNo84HMobile(
+        yesNo(
           result.passed
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Reason',
-        value84HMobile(
+        displayValue(
           result.reason
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Production Province',
-        value84HMobile(
+        displayValue(
           result.productionProvince
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Source Candidate Count',
-        value84HMobile(
+        displayValue(
           result.sourceCandidateCount
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Production Candidate Count',
-        value84HMobile(
+        displayValue(
           result.productionCandidateCount
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Source Candidate Provinces',
-        value84HMobile(
+        displayValue(
           Array.isArray(
             result.sourceCandidateProvinces
           )
@@ -438,9 +541,9 @@
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Production Candidate Provinces',
-        value84HMobile(
+        displayValue(
           Array.isArray(
             result.productionCandidateProvinces
           )
@@ -451,86 +554,92 @@
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Scope Matched',
-        yesNo84HMobile(
+        yesNo(
           result.scopeMatched
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Adapter Applied',
-        yesNo84HMobile(
+        yesNo(
           result.adapterApplied
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Resolver Ready',
-        yesNo84HMobile(
+        yesNo(
           result.resolverReady
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Integration Ready',
-        yesNo84HMobile(
+        yesNo(
           result.integrationReady
         )
       )}
 
-      ${row84HMobile(
+
+      ${sectionTitle(
+        'SAFETY',
+        '#72e6ae'
+      )}
+
+      ${row(
         'Read Only',
-        yesNo84HMobile(
+        yesNo(
           result.readOnly
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Write Authorized',
-        yesNo84HMobile(
+        yesNo(
           result.writeAuthorized
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Production Write',
-        yesNo84HMobile(
+        yesNo(
           result.productionWrite
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Storage Write',
-        yesNo84HMobile(
+        yesNo(
           result.storageWrite
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Engine Executed',
-        yesNo84HMobile(
+        yesNo(
           result.engineExecuted
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'savePrediction Called',
-        yesNo84HMobile(
+        yesNo(
           result.savePredictionCalled
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'LAST_FORECAST Modified',
-        yesNo84HMobile(
+        yesNo(
           result.lastForecastModified
         )
       )}
 
-      ${row84HMobile(
+      ${row(
         'Source Candidates Modified',
-        yesNo84HMobile(
+        yesNo(
           result.sourceCandidatesModified
         )
       )}
@@ -542,116 +651,394 @@
 
   /*
    * =========================================================
-   * DIV CONTROL
+   * PRODUCTION BOOTSTRAP INSPECTOR
    * =========================================================
    */
 
-  function create84HMobileControl() {
+  function renderBootstrap() {
 
-    const control =
-      document.createElement(
-        'div'
+    const output =
+      document.getElementById(
+        OUTPUT_ID
       );
 
 
-    control.id =
-      CONTROL_ID;
+    if (!output) {
+
+      return;
+
+    }
 
 
-    control.setAttribute(
-      'role',
-      'button'
-    );
+    const inspector =
+      window
+        .inspectFix03D59ProductionBootstrap;
 
 
-    control.setAttribute(
-      'tabindex',
-      '0'
-    );
+    if (
+      typeof inspector !==
+      'function'
+    ) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'PRODUCTION BOOTSTRAP'
+        )}
+
+        ${row(
+          'Bootstrap Inspector',
+          'NOT LOADED ❌'
+        )}
+
+        ${row(
+          'Expected Function',
+          'inspectFix03D59ProductionBootstrap'
+        )}
+
+      `;
+
+      return;
+
+    }
 
 
-    control.textContent =
-      '🔍 INSPECT STEP 8.4H';
+    let result;
 
 
-    /*
-     * Deliberately avoid native BUTTON.
-     *
-     * This isolates the inspector control
-     * from application-level button CSS.
-     */
+    try {
 
-    control.style.cssText = [
-      'display:flex',
-      'width:100%',
-      'min-height:56px',
-      'margin-bottom:14px',
-      'padding:14px 10px',
-      'border-radius:14px',
-      'background:linear-gradient(90deg,#ffc13d,#ff963d)',
-      'color:#17192f',
-      'font-size:15px',
-      'font-weight:900',
-      'align-items:center',
-      'justify-content:center',
-      'text-align:center',
-      'box-sizing:border-box',
-      'cursor:pointer',
-      'visibility:visible',
-      'opacity:1',
-      'position:relative',
-      'z-index:100'
-    ].join(';');
+      result =
+        inspector();
 
+    } catch (
+      error
+    ) {
 
-    control.addEventListener(
-      'click',
-      render84HMobile
-    );
+      output.innerHTML = `
 
+        ${sectionTitle(
+          'PRODUCTION BOOTSTRAP'
+        )}
 
-    control.addEventListener(
-      'keydown',
-      function (
-        event
-      ) {
+        ${row(
+          'Bootstrap Inspector',
+          'ERROR ❌'
+        )}
 
-        if (
-          event.key ===
-            'Enter' ||
-          event.key ===
-            ' '
-        ) {
+        ${row(
+          'Error',
+          displayValue(
+            error &&
+            error.message
+              ? error.message
+              : error
+          )
+        )}
 
-          event.preventDefault();
+      `;
 
-          render84HMobile();
+      return;
 
-        }
-
-      }
-    );
+    }
 
 
-    return control;
+    if (!result) {
+
+      output.innerHTML = `
+
+        ${sectionTitle(
+          'PRODUCTION BOOTSTRAP'
+        )}
+
+        ${row(
+          'Result',
+          'NO RESULT ❌'
+        )}
+
+      `;
+
+      return;
+
+    }
+
+
+    const f =
+      result.functions ||
+      {};
+
+
+    const r =
+      result.ram ||
+      {};
+
+
+    const s =
+      result.safety ||
+      {};
+
+
+    output.innerHTML = `
+
+      ${sectionTitle(
+        'PRODUCTION BOOTSTRAP'
+      )}
+
+      ${row(
+        'Inspector',
+        'LOADED ✅'
+      )}
+
+      ${row(
+        'Mode',
+        displayValue(
+          result.mode
+        )
+      )}
+
+      ${row(
+        'Version',
+        displayValue(
+          result.version
+        )
+      )}
+
+
+      ${sectionTitle(
+        'FUNCTION CHAIN'
+      )}
+
+      ${row(
+        '8.3B',
+        yesNo(
+          f.step83B
+        )
+      )}
+
+      ${row(
+        '8.3C',
+        yesNo(
+          f.step83C
+        )
+      )}
+
+      ${row(
+        '8.3D',
+        yesNo(
+          f.step83D
+        )
+      )}
+
+      ${row(
+        '8.3E',
+        yesNo(
+          f.step83E
+        )
+      )}
+
+      ${row(
+        '8.3F',
+        yesNo(
+          f.step83F
+        )
+      )}
+
+      ${row(
+        '8.3R',
+        yesNo(
+          f.step83R
+        )
+      )}
+
+      ${row(
+        '8.4A',
+        yesNo(
+          f.step84A
+        )
+      )}
+
+      ${row(
+        '8.4B',
+        yesNo(
+          f.step84B
+        )
+      )}
+
+      ${row(
+        '8.4C',
+        yesNo(
+          f.step84C
+        )
+      )}
+
+      ${row(
+        '8.4D',
+        yesNo(
+          f.step84D
+        )
+      )}
+
+      ${row(
+        '8.4F',
+        yesNo(
+          f.step84F
+        )
+      )}
+
+
+      ${sectionTitle(
+        'RAM STATE'
+      )}
+
+      ${row(
+        'RAM 8.2C',
+        yesNo(
+          r.step82C
+        )
+      )}
+
+      ${row(
+        'RAM 8.3B',
+        yesNo(
+          r.step83B
+        )
+      )}
+
+      ${row(
+        'RAM 8.3C',
+        yesNo(
+          r.step83C
+        )
+      )}
+
+      ${row(
+        'RAM 8.3Q',
+        yesNo(
+          r.step83Q
+        )
+      )}
+
+      ${row(
+        'RAM 8.3R',
+        yesNo(
+          r.step83R
+        )
+      )}
+
+      ${row(
+        'RAM 8.4A',
+        yesNo(
+          r.step84A
+        )
+      )}
+
+      ${row(
+        'RAM 8.4B',
+        yesNo(
+          r.step84B
+        )
+      )}
+
+      ${row(
+        'RAM 8.4C',
+        yesNo(
+          r.step84C
+        )
+      )}
+
+      ${row(
+        'RAM 8.4D',
+        yesNo(
+          r.step84D
+        )
+      )}
+
+      ${row(
+        'RAM 8.4E',
+        yesNo(
+          r.step84E
+        )
+      )}
+
+      ${row(
+        'RAM 8.4F',
+        yesNo(
+          r.step84F
+        )
+      )}
+
+
+      ${sectionTitle(
+        'BOOTSTRAP SAFETY',
+        '#72e6ae'
+      )}
+
+      ${row(
+        'Execution Performed',
+        yesNo(
+          s.executionPerformed
+        )
+      )}
+
+      ${row(
+        'Candidate Created',
+        yesNo(
+          s.candidateCreated
+        )
+      )}
+
+      ${row(
+        'Canonical Write',
+        yesNo(
+          s.canonicalWrite
+        )
+      )}
+
+      ${row(
+        'Production Write',
+        yesNo(
+          s.productionWrite
+        )
+      )}
+
+      ${row(
+        'Storage Write',
+        yesNo(
+          s.storageWrite
+        )
+      )}
+
+      ${row(
+        'LAST_FORECAST Modified',
+        yesNo(
+          s.forecastModified
+        )
+      )}
+
+      ${row(
+        'savePrediction Called',
+        yesNo(
+          s.savePredictionCalled
+        )
+      )}
+
+    `;
+
+
+    window
+      .LAST_FIX03D59_BOOTSTRAP_MOBILE_HOST_RESULT =
+      result;
 
   }
 
 
   /*
    * =========================================================
-   * BUILD MOBILE PANEL
+   * BUILD STABLE HOST PANEL
    * =========================================================
    */
 
-  function build84HMobilePanel() {
-
-    /*
-     * Remove previous build if present.
-     *
-     * This makes rebuild deterministic and
-     * avoids retaining an old native-button panel.
-     */
+  function buildPanel() {
 
     const oldPanel =
       document.getElementById(
@@ -659,9 +1046,7 @@
       );
 
 
-    if (
-      oldPanel
-    ) {
+    if (oldPanel) {
 
       oldPanel.remove();
 
@@ -674,12 +1059,10 @@
       );
 
 
-    if (
-      !settings
-    ) {
+    if (!settings) {
 
       console.warn(
-        'FIX-03D5.9 STEP 8.4H Mobile: tab-settings not found'
+        'FIX-03D5.9 8.4H Mobile V3: tab-settings not found'
       );
 
       return;
@@ -689,7 +1072,7 @@
 
     const panel =
       document.createElement(
-        'div'
+        'section'
       );
 
 
@@ -707,10 +1090,6 @@
       box-sizing:border-box;
     `;
 
-
-    /*
-     * HEADER
-     */
 
     const title =
       document.createElement(
@@ -740,14 +1119,23 @@
       );
 
 
-    description.textContent =
-      'Mobile runtime inspector · READ ONLY · ZERO WRITE';
+    description.innerHTML = `
+
+      Stable Mobile Runtime Inspector
+
+      <br>
+
+      <b style="color:#72e6ae;">
+        READ ONLY · ZERO WRITE
+      </b>
+
+    `;
 
 
     description.style.cssText = `
       color:rgba(255,255,255,.65);
       font-size:13px;
-      line-height:1.5;
+      line-height:1.6;
       margin-bottom:14px;
     `;
 
@@ -758,15 +1146,36 @@
 
 
     /*
-     * DIV CONTROL
+     * 8.4H CONTROL
      */
 
-    const control =
-      create84HMobileControl();
+    const control84H =
+      createControl(
+        CONTROL_84H_ID,
+        '🔍 INSPECT STEP 8.4H',
+        render84H
+      );
 
 
     panel.appendChild(
-      control
+      control84H
+    );
+
+
+    /*
+     * BOOTSTRAP CONTROL
+     */
+
+    const bootstrapControl =
+      createControl(
+        CONTROL_BOOTSTRAP_ID,
+        '🧬 INSPECT PRODUCTION CHAIN',
+        renderBootstrap
+      );
+
+
+    panel.appendChild(
+      bootstrapControl
     );
 
 
@@ -784,6 +1193,11 @@
       OUTPUT_ID;
 
 
+    output.style.cssText = `
+      margin-top:18px;
+    `;
+
+
     panel.appendChild(
       output
     );
@@ -795,21 +1209,21 @@
 
 
     /*
-     * Initial READ-ONLY inspection.
+     * Initial view remains 8.4H.
      */
 
-    render84HMobile();
+    render84H();
 
 
     /*
-     * Runtime DOM diagnostic.
+     * Diagnostic only.
      */
 
     window
       .FIX03D59_STEP84H_MOBILE_DOM_STATUS = {
 
         version:
-          '84H-MOBILE-DIV-CONTROL-V2',
+          VERSION,
 
         panelExists:
           Boolean(
@@ -818,10 +1232,17 @@
             )
           ),
 
-        controlExists:
+        control84HExists:
           Boolean(
             document.getElementById(
-              CONTROL_ID
+              CONTROL_84H_ID
+            )
+          ),
+
+        bootstrapControlExists:
+          Boolean(
+            document.getElementById(
+              CONTROL_BOOTSTRAP_ID
             )
           ),
 
@@ -832,9 +1253,16 @@
             )
           ),
 
-        controlTag:
+        control84HTag:
           document.getElementById(
-            CONTROL_ID
+            CONTROL_84H_ID
+          )
+            ?.tagName ||
+          null,
+
+        bootstrapControlTag:
+          document.getElementById(
+            CONTROL_BOOTSTRAP_ID
           )
             ?.tagName ||
           null,
@@ -849,7 +1277,7 @@
 
 
     console.log(
-      'FIX-03D5.9 STEP 8.4H Mobile DIV CONTROL built',
+      'FIX-03D5.9 8.4H Mobile V3 built',
       window
         .FIX03D59_STEP84H_MOBILE_DOM_STATUS
     );
@@ -859,23 +1287,33 @@
 
   /*
    * =========================================================
-   * PUBLIC MOBILE API
+   * PUBLIC API
    * =========================================================
    */
 
   window
     .inspect84HMobile =
-    render84HMobile;
+    render84H;
+
+
+  window
+    .inspectProductionBootstrapMobile =
+    renderBootstrap;
 
 
   window
     .rebuild84HMobile =
-    build84HMobilePanel;
+    buildPanel;
 
 
   window
     .FIX03D59_STEP84H_MOBILE_LOADED =
     true;
+
+
+  window
+    .FIX03D59_STEP84H_MOBILE_VERSION =
+    VERSION;
 
 
   /*
@@ -884,16 +1322,10 @@
    * =========================================================
    */
 
-  function initialize84HMobile() {
-
-    /*
-     * Small delay keeps this diagnostic panel
-     * isolated from the application's initial
-     * Settings UI construction.
-     */
+  function initialize() {
 
     window.setTimeout(
-      build84HMobilePanel,
+      buildPanel,
       300
     );
 
@@ -907,7 +1339,7 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      initialize84HMobile,
+      initialize,
       {
         once: true
       }
@@ -915,14 +1347,13 @@
 
   } else {
 
-    initialize84HMobile();
+    initialize();
 
   }
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4H Mobile Inspector V2 loaded — DIV CONTROL / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 8.4H Mobile V3 loaded — STABLE BOOTSTRAP HOST / READ ONLY / ZERO WRITE'
   );
 
 })();
-
