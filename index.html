@@ -1976,6 +1976,77 @@
 </script>
 
 <!-- END XSMN V2.4 AUTO MODEL SELECTION UI -->
+<!-- ================================================================
+     FIX-03D5.9 — PRODUCTION READINESS FINAL MOBILE
+     ================================================================ -->
 
+<section
+  id="fix03d59-production-readiness-panel"
+  style="
+    margin:24px;
+    padding:22px;
+    border-radius:22px;
+    background:linear-gradient(145deg,#202757,#171c40);
+    border:1px solid rgba(255,189,60,.35);
+    color:#fff;
+  "
+>
+
+  <div
+    style="
+      font-size:22px;
+      font-weight:900;
+      margin-bottom:8px;
+    "
+  >
+    🧪 D.5.9 Production Readiness
+  </div>
+
+  <div
+    style="
+      color:#b9bfdc;
+      line-height:1.55;
+      margin-bottom:18px;
+    "
+  >
+    Final consolidated inspection before REAL Production integration.
+    READ ONLY · ZERO WRITE · NO ENGINE EXECUTION.
+  </div>
+
+  <button
+    type="button"
+    onclick="runProductionReadiness03D59()"
+    style="
+      display:block;
+      width:100%;
+      min-height:58px;
+      border:0;
+      border-radius:16px;
+      padding:16px;
+      background:linear-gradient(90deg,#ffbd3c,#ff8b3d);
+      color:#17192f;
+      font-size:17px;
+      font-weight:900;
+    "
+  >
+    🧪 RUN PRODUCTION READINESS
+  </button>
+
+  <div
+    id="fix03d59-production-readiness-output"
+    style="
+      margin-top:16px;
+      color:#d9dcf2;
+    "
+  >
+    Chưa chạy kiểm tra.
+  </div>
+
+</section>
+
+<script src="modules/fix03d59-production-readiness-mobile.js?v=readiness-v1"></script>
+
+<!-- END FIX-03D5.9 PRODUCTION READINESS FINAL MOBILE -->
+  
 </body>
 </html>
