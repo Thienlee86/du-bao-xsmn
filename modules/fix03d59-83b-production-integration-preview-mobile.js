@@ -1,12 +1,13 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B PRODUCTION INTEGRATION PREVIEW MOBILE V1
+   FIX-03D5.9 — STEP 8.3B PRODUCTION INTEGRATION PREVIEW MOBILE V2
    FILE:
    modules/fix03d59-83b-production-integration-preview-mobile.js
 
    PURPOSE:
    - Run STEP 8.3B Production Integration Preview from mobile.
-   - Display the result directly inside Settings.
+   - Display result directly inside Settings.
    - No DevTools required.
+   - Robust mobile initialization with delayed fallback.
 
    IMPORTANT:
    - READ ONLY.
@@ -25,7 +26,7 @@
 
 
   const VERSION =
-    '83B-PRODUCTION-INTEGRATION-PREVIEW-MOBILE-V1';
+    '83B-PRODUCTION-INTEGRATION-PREVIEW-MOBILE-V2';
 
 
   const PANEL_ID =
@@ -34,6 +35,10 @@
 
   const OUTPUT_ID =
     'fix03d59-83b-production-preview-mobile-output';
+
+
+  const BUTTON_ID =
+    'fix03d59-83b-production-preview-run';
 
 
   /* =========================================================
@@ -486,7 +491,7 @@
 
         <div
           style="
-            color:#ffbd3c;
+            color:#68e39b;
             font-weight:800;
             margin-bottom:5px;
           "
@@ -522,6 +527,24 @@
         </div>
 
         <div>
+          Integration executed:
+          <b>
+            ${yesNo83BPreviewMobile(
+              safety.integrationExecuted
+            )}
+          </b>
+        </div>
+
+        <div>
+          Write authorized:
+          <b>
+            ${yesNo83BPreviewMobile(
+              safety.writeAuthorized
+            )}
+          </b>
+        </div>
+
+        <div>
           Production write:
           <b>
             ${yesNo83BPreviewMobile(
@@ -540,6 +563,15 @@
         </div>
 
         <div>
+          savePrediction called:
+          <b>
+            ${yesNo83BPreviewMobile(
+              safety.savePredictionCalled
+            )}
+          </b>
+        </div>
+
+        <div>
           LAST_FORECAST modified:
           <b>
             ${yesNo83BPreviewMobile(
@@ -553,6 +585,15 @@
           <b>
             ${yesNo83BPreviewMobile(
               safety.candidatesModified
+            )}
+          </b>
+        </div>
+
+        <div>
+          STEP 8.3B modified:
+          <b>
+            ${yesNo83BPreviewMobile(
+              safety.step83BModified
             )}
           </b>
         </div>
@@ -642,13 +683,23 @@
 
   function build83BProductionPreviewMobilePanel() {
 
+    /*
+     * Diagnostic popup.
+     * Remove after verification.
+     */
+
+    alert(
+      '83B PREVIEW BUILD CALLED'
+    );
+
+
     if (
       document.getElementById(
         PANEL_ID
       )
     ) {
 
-      return;
+      return true;
 
     }
 
@@ -665,7 +716,7 @@
         '83B Production Preview Mobile: tab-settings not found'
       );
 
-      return;
+      return false;
 
     }
 
@@ -691,18 +742,35 @@
       </h2>
 
       <p class="sub">
-        Kiểm tra đường tích hợp STEP 8.3B vào Production
-        trước khi cho phép thay đổi thật.
-        Chế độ READ ONLY / ZERO WRITE.
+        Preview phạm vi STEP 8.3B trước khi tích hợp
+        vào Production.
+        READ ONLY · ZERO WRITE · NO ENGINE EXECUTION.
       </p>
+
+
+      <div
+        style="
+          margin:12px 0 16px;
+          padding:12px;
+          border-radius:12px;
+          background:rgba(104,227,155,.10);
+          border:1px solid rgba(104,227,155,.30);
+          color:#68e39b;
+          font-weight:800;
+        "
+      >
+        🟢 MOBILE PANEL V2 LOADED
+      </div>
+
 
       <button
         type="button"
-        id="fix03d59-83b-production-preview-run"
+        id="${BUTTON_ID}"
         class="btn-primary"
       >
-        🧪 Run 8.3B Production Preview
+        🧪 RUN 8.3B PRODUCTION PREVIEW
       </button>
+
 
       <div
         id="${OUTPUT_ID}"
@@ -721,7 +789,7 @@
 
     const button =
       document.getElementById(
-        'fix03d59-83b-production-preview-run'
+        BUTTON_ID
       );
 
 
@@ -734,6 +802,9 @@
 
     }
 
+
+    return true;
+
   }
 
 
@@ -744,6 +815,11 @@
   window
     .run83BProductionPreviewMobile =
     run83BProductionPreviewMobile;
+
+
+  window
+    .build83BProductionPreviewMobilePanel =
+    build83BProductionPreviewMobilePanel;
 
 
   window
@@ -760,6 +836,13 @@
      INIT
      ========================================================= */
 
+  function init83BProductionPreviewMobile() {
+
+    build83BProductionPreviewMobilePanel();
+
+  }
+
+
   if (
     document.readyState ===
     'loading'
@@ -767,30 +850,31 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      build83BProductionPreviewMobilePanel
+      init83BProductionPreviewMobile,
+      {
+        once: true
+      }
     );
-
-  } else {
-
-    build83BProductionPreviewMobilePanel();
 
   }
 
-     const mobileLoadMarker =
-    document.createElement('div');
 
-  mobileLoadMarker.innerHTML =
-    '🟢 83B PREVIEW MOBILE FILE LOADED';
+  /*
+   * Mobile fallback:
+   * Even if DOMContentLoaded timing is unusual,
+   * try again after the page has initialized.
+   *
+   * PANEL_ID prevents duplicate panel creation.
+   */
 
-  mobileLoadMarker.style.cssText =
-    'position:fixed;top:70px;left:10px;right:10px;z-index:999999;background:#16a34a;color:white;padding:12px;text-align:center;font-weight:900;border-radius:12px;';
-
-  document.body.appendChild(
-    mobileLoadMarker
+  setTimeout(
+    init83BProductionPreviewMobile,
+    500
   );
 
+
   console.log(
-    '📱 FIX-03D5.9 STEP 8.3B Production Integration Preview Mobile V1 loaded / READ ONLY'
+    '📱 FIX-03D5.9 STEP 8.3B Production Integration Preview Mobile V2 loaded / READ ONLY'
   );
 
 })();
