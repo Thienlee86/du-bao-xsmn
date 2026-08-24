@@ -1,29 +1,25 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4H
-   PRODUCTION CANDIDATE BOUNDARY ADAPTER V3
+   PRODUCTION CANDIDATE BOUNDARY ADAPTER V4-B8SHADOW
 
    PURPOSE:
-   - Build a canonical Production Candidate Boundary from the
-     current Production Forecast scope.
-   - Bridge the legacy STEP 8.3B candidate boundary to the
-     current Production province.
-   - Use the CURRENT runtime Integration Gate whenever available.
-   - Preserve original STEP 8.3B candidates unchanged.
-   - Produce a NEW read-only RAM boundary for downstream stages.
+   - Consume the VERIFIED STEP 8.3B Source Shadow V4 boundary.
+   - Build a NEW read-only Production Candidate Boundary for the
+     B8-verified selected province.
+   - Use canonical STEP 8.3B only as legacy evidence/comparison.
+   - Never rewrite canonical STEP 8.3B candidates.
+   - Never modify LAST_FORECAST.
+   - Never write Production/storage.
 
    IMPORTANT:
-   - DO NOT modify buildProductionCandidateBoundaryV26().
-   - DO NOT modify LAST_FIX03D59_STEP83B_RESULT.
-   - DO NOT modify LAST_FORECAST.
-   - DO NOT modify original candidates.
-   - DO NOT call savePrediction().
-   - DO NOT execute forecast engines.
-   - DO NOT write storage.
-   - DO NOT write Production.
-
-   READ ONLY
-   ZERO WRITE
-   FAIL CLOSED
+   - Source Shadow V4 must PASS.
+   - Integration Gate V3-B8PATH must have boundaryReady === true.
+   - Resolver province must match Source Shadow verified province.
+   - Shadow boundary candidates must contain exactly one province.
+   - Candidate identities must already be certified by Source Shadow V4.
+   - READ ONLY.
+   - ZERO WRITE.
+   - FAIL CLOSED.
    ========================================================================= */
 
 (function () {
@@ -32,7 +28,7 @@
 
 
   const VERSION_84H =
-    '84H-PRODUCTION-BOUNDARY-V3';
+    '84H-PRODUCTION-BOUNDARY-V4-B8SHADOW';
 
 
   /* =========================================================
@@ -53,19 +49,190 @@
     }
 
 
+    /*
+     * Resolver may expose resolvedScope as:
+     *
+     *   "kien-giang"
+     *
+     * or:
+     *
+     *   ["kien-giang"]
+     */
+
+    if (
+      Array.isArray(value)
+    ) {
+
+      if (
+        value.length !== 1
+      ) {
+
+        return null;
+
+      }
+
+
+      value =
+        value[0];
+
+    }
+
+
     const normalized =
       String(value)
         .trim()
         .toLowerCase();
 
 
-    return (
-      normalized ||
-      null
+    return normalized || null;
+
+  }
+
+
+  function clone84H(
+    value
+  ) {
+
+    if (
+      value === undefined
+    ) {
+
+      return undefined;
+
+    }
+
+
+    try {
+
+      if (
+        typeof structuredClone ===
+        'function'
+      ) {
+
+        return structuredClone(
+          value
+        );
+
+      }
+
+    } catch (error) {
+
+      // Fall through.
+
+    }
+
+
+    try {
+
+      return JSON.parse(
+        JSON.stringify(
+          value
+        )
+      );
+
+    } catch (error) {
+
+      return null;
+
+    }
+
+  }
+
+
+  function unique84H(
+    values
+  ) {
+
+    return Array.from(
+      new Set(
+        (Array.isArray(values)
+          ? values
+          : []
+        )
+          .map(
+            normalizeProvince84H
+          )
+          .filter(Boolean)
+      )
     );
 
   }
 
+
+  function getCandidateProvince84H(
+    candidate
+  ) {
+
+    if (
+      !candidate ||
+      typeof candidate !==
+        'object'
+    ) {
+
+      return null;
+
+    }
+
+
+    const record =
+      candidate.record &&
+      typeof candidate.record ===
+        'object'
+        ? candidate.record
+        : candidate;
+
+
+    const possibleValues = [
+
+      candidate.province,
+
+      candidate.provinceSlug,
+
+      candidate.provinceId,
+
+      candidate.slug,
+
+      candidate.provinceKey,
+
+      record.province,
+
+      record.provinceSlug,
+
+      record.provinceId,
+
+      record.slug
+
+    ];
+
+
+    for (
+      const value
+      of possibleValues
+    ) {
+
+      const normalized =
+        normalizeProvince84H(
+          value
+        );
+
+
+      if (normalized) {
+
+        return normalized;
+
+      }
+
+    }
+
+
+    return null;
+
+  }
+
+
+  /* =========================================================
+     FAILURE
+     ========================================================= */
 
   function fail84H(
     reason,
@@ -88,17 +255,26 @@
       productionProvince:
         null,
 
+      sourceMode:
+        'B8_SOURCE_SHADOW',
+
       sourceCandidateCount:
         0,
 
       productionCandidateCount:
         0,
 
-      sourceCandidateProvinces:
-        [],
-
       productionCandidateProvinces:
         [],
+
+      shadowReady:
+        false,
+
+      integrationBoundaryReady:
+        false,
+
+      resolverReady:
+        false,
 
       scopeMatched:
         false,
@@ -106,11 +282,9 @@
       adapterApplied:
         false,
 
-      resolverReady:
-        false,
-
-      integrationReady:
-        false,
+      /*
+       * HARD SAFETY LOCKS
+       */
 
       writeAuthorized:
         false,
@@ -131,6 +305,9 @@
         false,
 
       sourceCandidatesModified:
+        false,
+
+      canonicalCandidatesModified:
         false,
 
       promotionPerformed:
@@ -164,35 +341,10 @@
 
 
   /* =========================================================
-     STEP 8.3B SOURCE
+     CURRENT RESOLVER
      ========================================================= */
 
-  function get83BResult84H() {
-
-    return (
-      window
-        .LAST_FIX03D59_STEP83B_RESULT ||
-
-      window
-        .LAST_FIX03D59_STEP83B ||
-
-      null
-    );
-
-  }
-
-
-  /* =========================================================
-     SCOPE RESOLVER
-     ========================================================= */
-
-  function getScopeResolution84H() {
-
-    /*
-     * Prefer CURRENT runtime resolver execution.
-     *
-     * Resolver is READ ONLY.
-     */
+  function getResolver84H() {
 
     const resolver =
       window
@@ -200,74 +352,36 @@
 
 
     if (
-      typeof resolver ===
+      typeof resolver !==
       'function'
     ) {
 
-      try {
-
-        const current =
-          resolver();
-
-
-        if (
-          current &&
-          current.ready === true
-        ) {
-
-          return current;
-
-        }
-
-      } catch (
-        error
-      ) {
-
-        /*
-         * Fall through to cached result.
-         */
-
-      }
+      return null;
 
     }
 
 
-    /*
-     * Fallback only.
-     */
+    try {
 
-    return (
-      window
-        .LAST_FIX03D59_STEP83B_SCOPE_RESOLUTION ||
-      null
-    );
+      return (
+        resolver() ||
+        null
+      );
+
+    } catch (error) {
+
+      return null;
+
+    }
 
   }
 
 
   /* =========================================================
-     INTEGRATION GATE
+     CURRENT INTEGRATION GATE
      ========================================================= */
 
   function getIntegrationGate84H() {
-
-    /*
-     * IMPORTANT V3 CHANGE
-     * ---------------------------------------------------------
-     * Run CURRENT Integration Gate first.
-     *
-     * The mobile test proved the current gate can be:
-     *
-     *   Integration Ready: YES
-     *
-     * while an older cached object still contains:
-     *
-     *   integrationReady: false
-     *
-     * Therefore current runtime inspection has priority.
-     *
-     * Inspector is READ ONLY / ZERO WRITE.
-     */
 
     const inspector =
       window
@@ -291,22 +405,14 @@
 
         }
 
-      } catch (
-        error
-      ) {
+      } catch (error) {
 
-        /*
-         * Fail over to cached diagnostic result.
-         */
+        // Fallback below.
 
       }
 
     }
 
-
-    /*
-     * Cached result is fallback only.
-     */
 
     return (
       window
@@ -318,17 +424,87 @@
 
 
   /* =========================================================
-     CANDIDATE HELPERS
+     SOURCE SHADOW V4
      ========================================================= */
 
-  function getCandidates84H(
-    step83B
+  function getSourceShadow84H() {
+
+    /*
+     * Prefer a fresh manual READ-ONLY build.
+     */
+
+    const builder =
+      window
+        .build83BSourceShadow;
+
+
+    if (
+      typeof builder ===
+      'function'
+    ) {
+
+      try {
+
+        const current =
+          builder();
+
+
+        if (current) {
+
+          return current;
+
+        }
+
+      } catch (error) {
+
+        return null;
+
+      }
+
+    }
+
+
+    /*
+     * Cached RAM diagnostic is fallback only.
+     */
+
+    return (
+      window
+        .LAST_FIX03D59_STEP83B_SOURCE_SHADOW ||
+      null
+    );
+
+  }
+
+
+  /* =========================================================
+     LEGACY CANONICAL 8.3B
+     EVIDENCE ONLY
+     ========================================================= */
+
+  function getLegacy83B84H() {
+
+    return (
+      window
+        .LAST_FIX03D59_STEP83B_RESULT ||
+
+      window
+        .LAST_FIX03D59_STEP83B ||
+
+      null
+    );
+
+  }
+
+
+  function getLegacyCandidates84H(
+    legacy
   ) {
 
     if (
-      !step83B ||
+      !legacy ||
       !Array.isArray(
-        step83B.candidates
+        legacy.candidates
       )
     ) {
 
@@ -337,164 +513,81 @@
     }
 
 
-    return step83B.candidates;
+    return legacy.candidates;
 
   }
 
 
-  function getCandidateProvince84H(
-    candidate
+  /* =========================================================
+     SHADOW BOUNDARY CANDIDATES
+     ========================================================= */
+
+  function getShadowBoundaryCandidates84H(
+    shadow
   ) {
 
     if (
-      !candidate ||
-      typeof candidate !==
+      !shadow ||
+      !shadow.boundaryResult ||
+      typeof shadow.boundaryResult !==
         'object'
     ) {
 
-      return null;
+      return [];
 
     }
 
 
-    const possibleValues = [
+    const boundary =
+      shadow.boundaryResult;
 
-      candidate.province,
 
-      candidate.provinceSlug,
+    const possible = [
 
-      candidate.provinceId,
+      boundary.candidates,
 
-      candidate.slug,
+      boundary.eligible,
 
-      candidate.scope,
+      boundary.items,
 
-      candidate.provinceKey
+      boundary.results,
+
+      boundary.productionCandidates
 
     ];
 
 
     for (
       const value
-      of possibleValues
+      of possible
     ) {
 
-      const normalized =
-        normalizeProvince84H(
-          value
-        );
+      if (
+        Array.isArray(value)
+      ) {
 
-
-      if (normalized) {
-
-        return normalized;
+        return value;
 
       }
 
     }
 
-
-    return null;
-
-  }
-
-
-  /* =========================================================
-     SAFE CLONE
-     ========================================================= */
-
-  function cloneCandidate84H(
-    candidate
-  ) {
 
     if (
-      !candidate ||
-      typeof candidate !==
-        'object'
+      boundary.boundary &&
+      Array.isArray(
+        boundary.boundary.candidates
+      )
     ) {
 
-      return candidate;
+      return boundary
+        .boundary
+        .candidates;
 
     }
 
 
-    try {
-
-      if (
-        typeof structuredClone ===
-        'function'
-      ) {
-
-        return structuredClone(
-          candidate
-        );
-
-      }
-
-    } catch (
-      error
-    ) {
-
-      /*
-       * Fall through.
-       */
-
-    }
-
-
-    try {
-
-      return JSON.parse(
-        JSON.stringify(
-          candidate
-        )
-      );
-
-    } catch (
-      error
-    ) {
-
-      return null;
-
-    }
-
-  }
-
-
-  function cloneCandidates84H(
-    candidates
-  ) {
-
-    const cloned = [];
-
-
-    for (
-      const candidate
-      of candidates
-    ) {
-
-      const copy =
-        cloneCandidate84H(
-          candidate
-        );
-
-
-      if (
-        copy === null ||
-        copy === undefined
-      ) {
-
-        return null;
-
-      }
-
-
-      cloned.push(copy);
-
-    }
-
-
-    return cloned;
+    return [];
 
   }
 
@@ -507,73 +600,18 @@
 
     /*
      * ---------------------------------------------------------
-     * SOURCE 1 — STEP 8.3B
-     * ---------------------------------------------------------
-     */
-
-    const step83B =
-      get83BResult84H();
-
-
-    if (!step83B) {
-
-      return fail84H(
-        'STEP83B_RESULT_NOT_AVAILABLE'
-      );
-
-    }
-
-
-    const sourceCandidates =
-      getCandidates84H(
-        step83B
-      );
-
-
-    if (
-      sourceCandidates.length ===
-      0
-    ) {
-
-      return fail84H(
-        'STEP83B_CANDIDATES_NOT_AVAILABLE'
-      );
-
-    }
-
-
-    const sourceCandidateProvinces =
-      sourceCandidates
-        .map(
-          getCandidateProvince84H
-        )
-        .filter(
-          Boolean
-        );
-
-
-    /*
-     * ---------------------------------------------------------
-     * SOURCE 2 — CURRENT PRODUCTION SCOPE
+     * 1. CURRENT RESOLVER
      * ---------------------------------------------------------
      */
 
     const resolver =
-      getScopeResolution84H();
+      getResolver84H();
 
 
     if (!resolver) {
 
       return fail84H(
-        'STEP83B_SCOPE_RESOLVER_NOT_AVAILABLE',
-        {
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces
-
-        }
+        'STEP83B_SCOPE_RESOLVER_NOT_AVAILABLE'
       );
 
     }
@@ -589,12 +627,7 @@
 
           resolverReason:
             resolver.reason ||
-            null,
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces
+            null
 
         }
       );
@@ -602,32 +635,34 @@
     }
 
 
-    const productionProvince =
+    const resolverProvince =
       normalizeProvince84H(
 
         resolver.resolvedScope ||
 
+        resolver.resolvedProvince ||
+
         resolver.productionProvince ||
 
-        resolver.forecastProvince
+        resolver.forecastProvince ||
+
+        resolver.province
 
       );
 
 
-    if (!productionProvince) {
+    if (!resolverProvince) {
 
       return fail84H(
-        'PRODUCTION_SCOPE_NOT_RESOLVED',
+        'RESOLVER_PROVINCE_NOT_AVAILABLE',
         {
+
+          resolverReady:
+            true,
 
           resolverReason:
             resolver.reason ||
-            null,
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces
+            null
 
         }
       );
@@ -637,26 +672,22 @@
 
     /*
      * ---------------------------------------------------------
-     * SOURCE 3 — CURRENT INTEGRATION GATE
+     * 2. CURRENT INTEGRATION GATE V3-B8PATH
      * ---------------------------------------------------------
      */
 
-    const gate =
+    const integrationGate =
       getIntegrationGate84H();
 
 
-    if (!gate) {
+    if (!integrationGate) {
 
       return fail84H(
         'STEP83B_INTEGRATION_GATE_NOT_AVAILABLE',
         {
 
-          productionProvince,
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces,
+          productionProvince:
+            resolverProvince,
 
           resolverReady:
             true
@@ -667,32 +698,50 @@
     }
 
 
+    /*
+     * IMPORTANT:
+     *
+     * V3-B8PATH publishes:
+     *
+     *   gate.boundaryReady
+     *
+     * NOT:
+     *
+     *   integrationReady
+     */
+
+    const integrationBoundaryReady =
+      Boolean(
+        integrationGate.gate &&
+        integrationGate.gate
+          .boundaryReady === true
+      );
+
+
     if (
-      gate.integrationReady !==
-      true
+      !integrationBoundaryReady
     ) {
 
       return fail84H(
-        'STEP83B_INTEGRATION_NOT_READY',
+        'STEP83B_INTEGRATION_BOUNDARY_NOT_READY',
         {
 
-          productionProvince,
-
-          gateReason:
-            gate.reason ||
-            gate.gateReason ||
-            null,
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces,
+          productionProvince:
+            resolverProvince,
 
           resolverReady:
             true,
 
-          integrationReady:
-            false
+          integrationBoundaryReady:
+            false,
+
+          integrationGateReason:
+            integrationGate.gate
+              ? integrationGate
+                  .gate
+                  .reason ||
+                null
+              : null
 
         }
       );
@@ -701,68 +750,32 @@
 
 
     /*
-     * ---------------------------------------------------------
-     * LEGACY / PRODUCTION COMPARISON
-     * ---------------------------------------------------------
+     * Integration Gate itself must remain ZERO WRITE.
      */
-
-    const exactProductionCandidates =
-      sourceCandidates.filter(
-        candidate =>
-          getCandidateProvince84H(
-            candidate
-          ) ===
-          productionProvince
-      );
-
-
-    const exactProductionCandidateExists =
-      exactProductionCandidates.length ===
-      1;
-
-
-    const legacyDivergence =
-      exactProductionCandidates.length ===
-      0;
-
-
-    /*
-     * Integration Gate must explicitly approve the legacy
-     * divergence before V3 may construct an adapter boundary.
-     */
-
-    const divergenceApproved =
-      gate.integrationReady === true &&
-      (
-        gate.legacyDivergenceConfirmed === true ||
-        gate.scopeWouldChange === true ||
-        legacyDivergence === false
-      );
-
 
     if (
-      legacyDivergence &&
-      !divergenceApproved
+      !integrationGate.safety ||
+      integrationGate.safety
+        .readOnly !== true ||
+      integrationGate.safety
+        .writeAuthorized !== false ||
+      integrationGate.safety
+        .productionWrite !== false ||
+      integrationGate.safety
+        .storageWrite !== false
     ) {
 
       return fail84H(
-        'LEGACY_DIVERGENCE_NOT_APPROVED',
+        'INTEGRATION_GATE_SAFETY_CONTRACT_INVALID',
         {
 
-          productionProvince,
-
-          sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces,
+          productionProvince:
+            resolverProvince,
 
           resolverReady:
             true,
 
-          integrationReady:
-            true,
-
-          legacyDivergence:
+          integrationBoundaryReady:
             true
 
         }
@@ -773,36 +786,376 @@
 
     /*
      * ---------------------------------------------------------
-     * CLONE SOURCE
+     * 3. SOURCE SHADOW V4
+     * ---------------------------------------------------------
+     */
+
+    const shadow =
+      getSourceShadow84H();
+
+
+    if (!shadow) {
+
+      return fail84H(
+        'STEP83B_SOURCE_SHADOW_NOT_AVAILABLE',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    if (
+      shadow.ready !== true ||
+      shadow.passed !== true
+    ) {
+
+      return fail84H(
+        'STEP83B_SOURCE_SHADOW_NOT_READY',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReason:
+            shadow.reason ||
+            null
+
+        }
+      );
+
+    }
+
+
+    /*
+     * Source Shadow safety must remain intact.
+     */
+
+    if (
+      !shadow.safety ||
+      shadow.safety.readOnly !==
+        true ||
+      shadow.safety.shadowOnly !==
+        true ||
+      shadow.safety.canonicalWrite !==
+        false ||
+      shadow.safety.productionWrite !==
+        false ||
+      shadow.safety.storageWrite !==
+        false ||
+      shadow.safety.savePredictionCalled !==
+        false ||
+      shadow.safety.lastForecastModified !==
+        false ||
+      shadow.safety
+        .canonicalCandidatesModified !==
+        false
+    ) {
+
+      return fail84H(
+        'SOURCE_SHADOW_SAFETY_CONTRACT_INVALID',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * 4. VERIFIED SHADOW PROVINCE
+     * ---------------------------------------------------------
+     */
+
+    const shadowProvince =
+      normalizeProvince84H(
+        shadow.verifiedScope &&
+        shadow.verifiedScope.province
+      );
+
+
+    if (!shadowProvince) {
+
+      return fail84H(
+        'SOURCE_SHADOW_PROVINCE_NOT_AVAILABLE',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    if (
+      shadowProvince !==
+      resolverProvince
+    ) {
+
+      return fail84H(
+        'RESOLVER_SHADOW_PROVINCE_MISMATCH',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * 5. SOURCE SHADOW CERTIFICATION
+     * ---------------------------------------------------------
+     */
+
+    if (
+      !shadow.identity ||
+      shadow.identity.preserved !==
+        true
+    ) {
+
+      return fail84H(
+        'SOURCE_SHADOW_IDENTITY_NOT_PRESERVED',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    if (
+      !shadow.boundary ||
+      shadow.boundary.ready !== true ||
+      shadow.boundary.passed !== true ||
+      shadow.boundary.rejectedCount !==
+        0 ||
+      shadow.boundary
+        .candidateCountMatch !== true ||
+      shadow.boundary
+        .countsBalanced !== true ||
+      shadow.boundary
+        .provinceMatch !== true
+    ) {
+
+      return fail84H(
+        'SOURCE_SHADOW_BOUNDARY_CERTIFICATION_INVALID',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * 6. EXTRACT VERIFIED SHADOW CANDIDATES
+     * ---------------------------------------------------------
+     */
+
+    const shadowCandidates =
+      getShadowBoundaryCandidates84H(
+        shadow
+      );
+
+
+    if (
+      shadowCandidates.length ===
+      0
+    ) {
+
+      return fail84H(
+        'SOURCE_SHADOW_CANDIDATES_NOT_AVAILABLE',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    const shadowCandidateProvinces =
+      unique84H(
+        shadowCandidates.map(
+          getCandidateProvince84H
+        )
+      );
+
+
+    if (
+      shadowCandidateProvinces.length !==
+        1 ||
+      shadowCandidateProvinces[0] !==
+        resolverProvince
+    ) {
+
+      return fail84H(
+        'SOURCE_SHADOW_CANDIDATE_SCOPE_INVALID',
+        {
+
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
+
+          shadowCandidateProvinces,
+
+          sourceCandidateCount:
+            shadowCandidates.length,
+
+          resolverReady:
+            true,
+
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
+            true
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * 7. CLONE VERIFIED SHADOW CANDIDATES
      * ---------------------------------------------------------
      *
-     * Never mutate STEP 8.3B.
+     * This NEW clone becomes the 8.4H read-only boundary.
+     *
+     * Nothing is assigned back into STEP 8.3B or Source Shadow.
      * ---------------------------------------------------------
      */
 
-    const clonedCandidates =
-      cloneCandidates84H(
-        sourceCandidates
+    const productionCandidates =
+      clone84H(
+        shadowCandidates
       );
 
 
-    if (!clonedCandidates) {
+    if (
+      !Array.isArray(
+        productionCandidates
+      ) ||
+      productionCandidates.length !==
+        shadowCandidates.length
+    ) {
 
       return fail84H(
         'PRODUCTION_BOUNDARY_CLONE_FAILED',
         {
 
-          productionProvince,
+          productionProvince:
+            resolverProvince,
+
+          shadowProvince,
 
           sourceCandidateCount:
-            sourceCandidates.length,
-
-          sourceCandidateProvinces,
+            shadowCandidates.length,
 
           resolverReady:
             true,
 
-          integrationReady:
+          integrationBoundaryReady:
+            true,
+
+          shadowReady:
             true
 
         }
@@ -813,27 +1166,46 @@
 
     /*
      * ---------------------------------------------------------
-     * CANONICAL PRODUCTION BOUNDARY
-     * ---------------------------------------------------------
-     *
-     * V3 does NOT rewrite the province inside any candidate.
-     *
-     * Production scope lives at the boundary level.
-     *
-     * Legacy candidate payload is retained as cloned,
-     * read-only source evidence.
+     * 8. LEGACY 8.3B — EVIDENCE ONLY
      * ---------------------------------------------------------
      */
 
-    const productionCandidates =
-      exactProductionCandidateExists
-        ? [
-            cloneCandidate84H(
-              exactProductionCandidates[0]
-            )
-          ]
-        : [];
+    const legacy83B =
+      getLegacy83B84H();
 
+
+    const legacyCandidates =
+      getLegacyCandidates84H(
+        legacy83B
+      );
+
+
+    const legacyCandidateProvinces =
+      unique84H(
+        legacyCandidates.map(
+          getCandidateProvince84H
+        )
+      );
+
+
+    const legacyContainsProductionProvince =
+      legacyCandidateProvinces.includes(
+        resolverProvince
+      );
+
+
+    const legacyDivergence =
+      Boolean(
+        legacyCandidates.length > 0 &&
+        !legacyContainsProductionProvince
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * 9. FINAL READ-ONLY BOUNDARY
+     * ---------------------------------------------------------
+     */
 
     const result = {
 
@@ -847,87 +1219,90 @@
         VERSION_84H,
 
       reason:
-        exactProductionCandidateExists
-          ? 'PRODUCTION_CANDIDATE_BOUNDARY_READY'
-          : 'PRODUCTION_BOUNDARY_ADAPTED_FROM_LEGACY_SCOPE',
+        'B8_SOURCE_SHADOW_PRODUCTION_BOUNDARY_READY',
+
+      sourceMode:
+        'B8_SOURCE_SHADOW',
 
       sourceStep:
-        '8.3B',
+        '8.3B-SOURCE-SHADOW-V4',
 
-      productionProvince,
+      productionProvince:
+        resolverProvince,
 
       sourceCandidateCount:
-        sourceCandidates.length,
+        shadowCandidates.length,
 
       productionCandidateCount:
         productionCandidates.length,
 
-      sourceCandidateProvinces,
-
       productionCandidateProvinces:
-        productionCandidates
-          .map(
-            getCandidateProvince84H
-          )
-          .filter(
-            Boolean
-          ),
-
-      /*
-       * Canonical production-scoped candidates.
-       *
-       * Empty is valid when Integration Gate explicitly
-       * confirmed legacy divergence.
-       */
+        shadowCandidateProvinces.slice(),
 
       candidates:
         productionCandidates,
 
       /*
-       * Cloned legacy evidence.
+       * Legacy canonical evidence only.
        */
 
-      legacyCandidates:
-        clonedCandidates,
+      legacyEvidence: {
 
-      legacyCandidateCount:
-        clonedCandidates.length,
-
-      legacyCandidateProvinces:
-        clonedCandidates
-          .map(
-            getCandidateProvince84H
-          )
-          .filter(
-            Boolean
+        available:
+          Boolean(
+            legacy83B
           ),
 
-      exactProductionCandidateExists,
+        candidateCount:
+          legacyCandidates.length,
 
-      legacyDivergence,
+        candidateProvinces:
+          legacyCandidateProvinces,
 
-      legacyDivergenceApproved:
-        divergenceApproved,
+        containsProductionProvince:
+          legacyContainsProductionProvince,
+
+        divergenceObserved:
+          legacyDivergence,
+
+        modified:
+          false
+
+      },
+
+      resolverReady:
+        true,
+
+      integrationBoundaryReady:
+        true,
+
+      shadowReady:
+        true,
 
       scopeMatched:
         true,
 
       adapterApplied:
-        legacyDivergence,
-
-      resolverReady:
         true,
 
-      integrationReady:
-        true,
-
-      integrationGateReason:
-        gate.reason ||
-        gate.gateReason ||
+      shadowVersion:
+        shadow.version ||
         null,
 
+      shadowReason:
+        shadow.reason ||
+        null,
+
+      integrationGateReason:
+        integrationGate.gate
+          ? integrationGate
+              .gate
+              .reason ||
+            null
+          : null,
+
       /*
-       * SAFETY CONTRACT
+       * HARD SAFETY CONTRACT
        */
 
       writeAuthorized:
@@ -951,6 +1326,9 @@
       sourceCandidatesModified:
         false,
 
+      canonicalCandidatesModified:
+        false,
+
       promotionPerformed:
         false,
 
@@ -970,7 +1348,7 @@
 
 
     /*
-     * Publish NEW RAM aliases only.
+     * NEW RAM aliases only.
      */
 
     window
@@ -1002,8 +1380,13 @@
     true;
 
 
+  window
+    .FIX03D59_STEP84H_VERSION =
+    VERSION_84H;
+
+
   console.log(
-    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V3 / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4H loaded — Production Candidate Boundary Adapter V4-B8SHADOW / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
