@@ -1,11 +1,14 @@
 /* =========================================================================
    FIX-03D5.9 STEP 8.4F-LH
    RUNTIME CERTIFICATION REBUILD + LIFECYCLE HOOK
+   FORECAST-SCOPE BOUND V2
 
    PURPOSE:
    - Restore READ-ONLY RAM certification after page reload.
-   - Rebuild the already-certified 8.2A -> 8.3R chain.
-   - Publish RAM aliases required by downstream stages.
+   - Bind runtime certification to CURRENT Production Forecast scope.
+   - Never reuse an old 8.3R certification unless its scope is proven
+     to belong to the CURRENT Production Forecast.
+   - Rebuild the certified 8.2A -> 8.3R chain when scope is unknown/stale.
    - Continue existing 8.4A -> 8.4F preview pipeline.
    - Observe Production Forecast lifecycle through 8.4F-L.
 
@@ -30,6 +33,10 @@
   'use strict';
 
 
+  const VERSION_84FLH =
+    'FIX03D59_84FLH_SCOPE_BOUND_V2';
+
+
   const POLL_INTERVAL_MS_84FLH =
     500;
 
@@ -44,9 +51,24 @@
 
   /*
    * =========================================================
-   * RESULT HELPERS
+   * BASIC HELPERS
    * =========================================================
    */
+
+  function normalizeScope84FLH(
+    value
+  ) {
+
+    return String(
+      value == null
+        ? ''
+        : value
+    )
+      .trim()
+      .toLowerCase();
+
+  }
+
 
   function fail84FLH(
     reason,
@@ -60,6 +82,9 @@
 
       step:
         '8.4F-LH',
+
+      version:
+        VERSION_84FLH,
 
       reason,
 
@@ -97,7 +122,8 @@
 
   function success84FLH(
     bridge,
-    mapping
+    mapping,
+    certification
   ) {
 
     const mappingReady =
@@ -114,6 +140,12 @@
       );
 
 
+    const currentScope =
+      normalizeScope84FLH(
+        bridge.forecastProvince
+      );
+
+
     const result = {
 
       ready:
@@ -124,6 +156,9 @@
 
       step:
         '8.4F-LH',
+
+      version:
+        VERSION_84FLH,
 
       reason:
         mappingReady
@@ -153,7 +188,22 @@
         0,
 
       certificationRebuilt:
-        true,
+        certification
+          ? certification.rebuilt === true
+          : false,
+
+      certificationReused:
+        certification
+          ? certification.reused === true
+          : false,
+
+      certificationScope:
+        certification
+          ? certification.scope || null
+          : null,
+
+      currentForecastScope:
+        currentScope || null,
 
       certified83R:
         true,
@@ -320,13 +370,6 @@
     }
 
 
-    /*
-     * Some historical engines publish their own LAST_* alias.
-     * Others relied on reporter/UI wrappers.
-     *
-     * Bootstrap publishes RAM only.
-     */
-
     if (
       publishName
     ) {
@@ -344,37 +387,195 @@
 
   /*
    * =========================================================
+   * CERTIFICATION SCOPE
+   * =========================================================
+   *
+   * IMPORTANT:
+   *
+   * LAST_FIX03D59_RUNTIME_CERTIFICATION is diagnostic RAM only.
+   * It is NOT production persistence.
+   *
+   * We use it to prove that an existing 8.3R certification was
+   * built while the CURRENT Production Forecast scope was active.
+   *
+   * Unknown scope is NOT reusable.
+   * =========================================================
+   */
+
+  function getCurrentCertificationScope84FLH() {
+
+    const certification =
+      window
+        .LAST_FIX03D59_RUNTIME_CERTIFICATION ||
+      null;
+
+
+    if (
+      !certification ||
+      certification.ready !== true ||
+      certification.passed !== true
+    ) {
+
+      return '';
+
+    }
+
+
+    return normalizeScope84FLH(
+      certification.forecastScope
+    );
+
+  }
+
+
+  function publishCertificationScope84FLH(
+    scope,
+    rebuilt
+  ) {
+
+    window.LAST_FIX03D59_RUNTIME_CERTIFICATION =
+      {
+
+        ready: true,
+        passed: true,
+
+        step:
+          '8.2A→8.3R',
+
+        version:
+          VERSION_84FLH,
+
+        reason:
+          rebuilt
+            ? 'RUNTIME_CERTIFICATION_REBUILT_FOR_FORECAST_SCOPE'
+            : 'RUNTIME_CERTIFICATION_REUSED_FOR_FORECAST_SCOPE',
+
+        finalStep:
+          '8.3R',
+
+        forecastScope:
+          scope,
+
+        scopeBound:
+          true,
+
+        rebuilt:
+          rebuilt === true,
+
+        readOnly: true,
+
+        writeAuthorized: false,
+        productionWrite: false,
+        storageWrite: false,
+
+        promotionPerformed: false,
+        transactionExecuted: false,
+        commitPerformed: false
+
+      };
+
+
+    return (
+      window
+        .LAST_FIX03D59_RUNTIME_CERTIFICATION
+    );
+
+  }
+
+
+  /*
+   * =========================================================
    * 8.2A -> 8.3R RAM CERTIFICATION REBUILD
    * =========================================================
    */
 
-  function rebuildRuntimeCertification84FLH() {
+  function rebuildRuntimeCertification84FLH(
+    bridge
+  ) {
+
+    const currentScope =
+      normalizeScope84FLH(
+        bridge &&
+        bridge.forecastProvince
+      );
+
 
     /*
-     * ---------------------------------------------------------
-     * FAST PATH
-     * ---------------------------------------------------------
+     * FAIL CLOSED:
      *
-     * If a valid 8.3R certification already exists,
-     * do not rebuild anything.
+     * Certification must never be rebuilt/reused without
+     * an authoritative Production Forecast province.
      */
+
+    if (
+      !currentScope
+    ) {
+
+      fail84FLH(
+        'CURRENT_FORECAST_SCOPE_NOT_AVAILABLE'
+      );
+
+      return null;
+
+    }
+
 
     const existing83R =
       window.LAST_FIX03D59_STEP83R ||
       null;
 
 
+    const certifiedScope =
+      getCurrentCertificationScope84FLH();
+
+
+    /*
+     * ---------------------------------------------------------
+     * SAFE FAST PATH
+     * ---------------------------------------------------------
+     *
+     * Reuse is allowed ONLY when:
+     *
+     * 1. Existing 8.3R is valid.
+     * 2. A scope-bound RAM certification exists.
+     * 3. Its forecastScope exactly equals CURRENT forecast scope.
+     *
+     * Old / unknown / stale certification is never reused.
+     */
+
     if (
       existing83R &&
       existing83R.ready === true &&
       existing83R.passed === true &&
-      existing83R.simulationValid === true
+      existing83R.simulationValid === true &&
+      existing83R.dryRun === true &&
+      existing83R.readOnly === true &&
+      existing83R.productionWrite === false &&
+      existing83R.storageWrite === false &&
+      existing83R.promotionPerformed === false &&
+      existing83R.commitPerformed === false &&
+      certifiedScope &&
+      certifiedScope ===
+        currentScope
     ) {
+
+      publishCertificationScope84FLH(
+        currentScope,
+        false
+      );
+
 
       return {
 
         ok: true,
+
         rebuilt: false,
+
+        reused: true,
+
+        scope:
+          currentScope,
+
         result:
           existing83R
 
@@ -386,7 +587,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.2A
-     * CANONICAL ELIGIBILITY CONTRACT AUDIT
      * ---------------------------------------------------------
      */
 
@@ -398,9 +598,7 @@
       );
 
 
-    if (
-      !step82A
-    ) {
+    if (!step82A) {
 
       return null;
 
@@ -410,7 +608,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.2C
-     * ELIGIBILITY DIAGNOSTIC
      * ---------------------------------------------------------
      */
 
@@ -422,9 +619,7 @@
       );
 
 
-    if (
-      !step82C
-    ) {
+    if (!step82C) {
 
       return null;
 
@@ -434,10 +629,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3B
-     * PRODUCTION CANDIDATE BOUNDARY
-     *
-     * Call the pure builder directly.
-     * Do NOT call the historical reporter/button wrapper.
      * ---------------------------------------------------------
      */
 
@@ -452,9 +643,7 @@
       );
 
 
-    if (
-      !step83B
-    ) {
+    if (!step83B) {
 
       return null;
 
@@ -464,7 +653,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3C
-     * CANDIDATE BOUNDARY VERIFICATION
      * ---------------------------------------------------------
      */
 
@@ -476,9 +664,7 @@
       );
 
 
-    if (
-      !step83C
-    ) {
+    if (!step83C) {
 
       return null;
 
@@ -488,7 +674,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3D
-     * CANDIDATE LINEAGE AUDIT
      * ---------------------------------------------------------
      */
 
@@ -500,9 +685,7 @@
       );
 
 
-    if (
-      !step83D
-    ) {
+    if (!step83D) {
 
       return null;
 
@@ -512,7 +695,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3E
-     * CANDIDATE PAYLOAD VERIFICATION
      * ---------------------------------------------------------
      */
 
@@ -524,9 +706,7 @@
       );
 
 
-    if (
-      !step83E
-    ) {
+    if (!step83E) {
 
       return null;
 
@@ -536,7 +716,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3F
-     * CANDIDATE FINAL GATE
      * ---------------------------------------------------------
      */
 
@@ -548,9 +727,7 @@
       );
 
 
-    if (
-      !step83F
-    ) {
+    if (!step83F) {
 
       return null;
 
@@ -560,7 +737,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3G
-     * FINAL GATE REPORT
      * ---------------------------------------------------------
      */
 
@@ -572,9 +748,7 @@
       );
 
 
-    if (
-      !step83G
-    ) {
+    if (!step83G) {
 
       return null;
 
@@ -584,7 +758,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3H
-     * RELEASE READINESS
      * ---------------------------------------------------------
      */
 
@@ -596,9 +769,7 @@
       );
 
 
-    if (
-      !step83H
-    ) {
+    if (!step83H) {
 
       return null;
 
@@ -608,7 +779,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3I
-     * PROMOTION GUARD
      * ---------------------------------------------------------
      */
 
@@ -620,9 +790,7 @@
       );
 
 
-    if (
-      !step83I
-    ) {
+    if (!step83I) {
 
       return null;
 
@@ -632,7 +800,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3J
-     * PAYLOAD PREVIEW
      * ---------------------------------------------------------
      */
 
@@ -644,9 +811,7 @@
       );
 
 
-    if (
-      !step83J
-    ) {
+    if (!step83J) {
 
       return null;
 
@@ -656,7 +821,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3K
-     * FINAL PROMOTION GATE
      * ---------------------------------------------------------
      */
 
@@ -668,9 +832,7 @@
       );
 
 
-    if (
-      !step83K
-    ) {
+    if (!step83K) {
 
       return null;
 
@@ -680,7 +842,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3L
-     * COMMIT PLAN
      * ---------------------------------------------------------
      */
 
@@ -692,9 +853,7 @@
       );
 
 
-    if (
-      !step83L
-    ) {
+    if (!step83L) {
 
       return null;
 
@@ -704,7 +863,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3M
-     * TRANSACTION PREFLIGHT
      * ---------------------------------------------------------
      */
 
@@ -716,9 +874,7 @@
       );
 
 
-    if (
-      !step83M
-    ) {
+    if (!step83M) {
 
       return null;
 
@@ -728,7 +884,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3N
-     * TRANSACTION FINAL GATE
      * ---------------------------------------------------------
      */
 
@@ -740,9 +895,7 @@
       );
 
 
-    if (
-      !step83N
-    ) {
+    if (!step83N) {
 
       return null;
 
@@ -752,8 +905,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3O
-     * EXECUTION MANIFEST
-     * DRY RUN ONLY
      * ---------------------------------------------------------
      */
 
@@ -765,9 +916,7 @@
       );
 
 
-    if (
-      !step83O
-    ) {
+    if (!step83O) {
 
       return null;
 
@@ -777,8 +926,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3P
-     * EXECUTION AUTHORIZATION GATE
-     * ZERO EXECUTION
      * ---------------------------------------------------------
      */
 
@@ -790,9 +937,7 @@
       );
 
 
-    if (
-      !step83P
-    ) {
+    if (!step83P) {
 
       return null;
 
@@ -802,8 +947,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3Q
-     * EXECUTION COMMIT GUARD
-     * ZERO WRITE
      * ---------------------------------------------------------
      */
 
@@ -815,9 +958,7 @@
       );
 
 
-    if (
-      !step83Q
-    ) {
+    if (!step83Q) {
 
       return null;
 
@@ -827,8 +968,6 @@
     /*
      * ---------------------------------------------------------
      * STEP 8.3R
-     * COMMIT SIMULATION
-     * DRY RUN / ZERO COMMIT
      * ---------------------------------------------------------
      */
 
@@ -840,9 +979,7 @@
       );
 
 
-    if (
-      !step83R
-    ) {
+    if (!step83R) {
 
       return null;
 
@@ -873,7 +1010,7 @@
       !certified
     ) {
 
-      return fail84FLH(
+      fail84FLH(
         'CERTIFIED_83R_SAFETY_BOUNDARY_INVALID',
         {
           failedStage:
@@ -885,41 +1022,38 @@
         }
       );
 
+      return null;
+
     }
 
 
-    window.LAST_FIX03D59_RUNTIME_CERTIFICATION =
-      {
+    /*
+     * ---------------------------------------------------------
+     * BIND SUCCESSFUL CERTIFICATION TO CURRENT FORECAST SCOPE
+     * ---------------------------------------------------------
+     *
+     * RAM diagnostic only.
+     *
+     * No production/storage write.
+     */
 
-        ready: true,
-        passed: true,
-
-        step:
-          '8.2A→8.3R',
-
-        reason:
-          'RUNTIME_CERTIFICATION_REBUILT',
-
-        finalStep:
-          '8.3R',
-
-        readOnly: true,
-
-        writeAuthorized: false,
-        productionWrite: false,
-        storageWrite: false,
-
-        promotionPerformed: false,
-        transactionExecuted: false,
-        commitPerformed: false
-
-      };
+    publishCertificationScope84FLH(
+      currentScope,
+      true
+    );
 
 
     return {
 
       ok: true,
+
       rebuilt: true,
+
+      reused: false,
+
+      scope:
+        currentScope,
+
       result:
         step83R
 
@@ -989,9 +1123,7 @@
       null;
 
 
-    if (
-      !bridge
-    ) {
+    if (!bridge) {
 
       fail84FLH(
         'LIFECYCLE_BRIDGE_NOT_AVAILABLE'
@@ -1041,6 +1173,21 @@
     }
 
 
+    if (
+      !normalizeScope84FLH(
+        bridge.forecastProvince
+      )
+    ) {
+
+      fail84FLH(
+        'FORECAST_SCOPE_NOT_AVAILABLE'
+      );
+
+      return null;
+
+    }
+
+
     return bridge;
 
   }
@@ -1068,7 +1215,9 @@
         ? '1'
         : '0',
 
-      bridge.forecastProvince || '',
+      normalizeScope84FLH(
+        bridge.forecastProvince
+      ),
 
       bridge.forecastWindowSize ?? '',
 
@@ -1085,14 +1234,19 @@
    * =========================================================
    */
 
-  function runExistingPipeline84FLH() {
+  function runExistingPipeline84FLH(
+    bridge
+  ) {
 
     /*
-     * Restore RAM certification first.
+     * Restore / verify RAM certification first,
+     * bound to CURRENT Production Forecast scope.
      */
 
     const certification =
-      rebuildRuntimeCertification84FLH();
+      rebuildRuntimeCertification84FLH(
+        bridge
+      );
 
 
     if (
@@ -1131,9 +1285,7 @@
         );
 
 
-      if (
-        !fn
-      ) {
+      if (!fn) {
 
         return null;
 
@@ -1202,9 +1354,7 @@
       );
 
 
-    if (
-      !mappingFn
-    ) {
+    if (!mappingFn) {
 
       return null;
 
@@ -1269,6 +1419,9 @@
     return {
 
       ok: true,
+
+      certification,
+
       mapping
 
     };
@@ -1306,9 +1459,7 @@
         getLifecycleBridge84FLH();
 
 
-      if (
-        !bridge
-      ) {
+      if (!bridge) {
 
         return (
           window.LAST_FIX03D59_STEP84FLH ||
@@ -1325,13 +1476,27 @@
 
 
       /*
-       * If this lifecycle snapshot already passed,
-       * do not rebuild repeatedly.
+       * Reuse completed lifecycle result ONLY when
+       * both snapshot and certification scope still
+       * belong to the current forecast.
        */
+
+      const certifiedScope =
+        getCurrentCertificationScope84FLH();
+
+
+      const currentScope =
+        normalizeScope84FLH(
+          bridge.forecastProvince
+        );
+
 
       if (
         snapshotKey ===
           lastProcessedSnapshotKey84FLH &&
+        certifiedScope &&
+        certifiedScope ===
+          currentScope &&
         window
           .LAST_FIX03D59_STEP84FLH
           ?.passed === true
@@ -1348,13 +1513,14 @@
       /*
        * IMPORTANT:
        *
-       * Do not lock a failed snapshot.
-       * A later poll may succeed after all app engines
-       * finish loading.
+       * Failed snapshot is never locked.
+       * A later poll may rebuild after all engines load.
        */
 
       const pipeline =
-        runExistingPipeline84FLH();
+        runExistingPipeline84FLH(
+          bridge
+        );
 
 
       if (
@@ -1373,7 +1539,8 @@
       const result =
         success84FLH(
           bridge,
-          pipeline.mapping
+          pipeline.mapping,
+          pipeline.certification
         );
 
 
@@ -1435,11 +1602,12 @@
     true;
 
 
+  window.FIX03D59_STEP84FLH_HOOK_VERSION =
+    VERSION_84FLH;
+
+
   /*
    * Poll lifecycle only.
-   *
-   * A failed early attempt is allowed to retry because
-   * app.js engines may still be loading.
    */
 
   window.setInterval(
@@ -1456,7 +1624,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.4F-LH loaded — Runtime Certification Rebuild + Lifecycle Hook / READ ONLY / ZERO WRITE / FAIL CLOSED'
+    'FIX-03D5.9 STEP 8.4F-LH V2 loaded — FORECAST SCOPE BOUND / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
