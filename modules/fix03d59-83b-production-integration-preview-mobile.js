@@ -776,6 +776,18 @@
 
   }
 
+     const mobileLoadMarker =
+    document.createElement('div');
+
+  mobileLoadMarker.innerHTML =
+    '🟢 83B PREVIEW MOBILE FILE LOADED';
+
+  mobileLoadMarker.style.cssText =
+    'position:fixed;top:70px;left:10px;right:10px;z-index:999999;background:#16a34a;color:white;padding:12px;text-align:center;font-weight:900;border-radius:12px;';
+
+  document.body.appendChild(
+    mobileLoadMarker
+  );
 
   console.log(
     '📱 FIX-03D5.9 STEP 8.3B Production Integration Preview Mobile V1 loaded / READ ONLY'
