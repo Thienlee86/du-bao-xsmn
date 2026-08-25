@@ -325,11 +325,82 @@
 
   function buildPanel() {
 
-    if (
+    const existingPanel =
       document.getElementById(
         PANEL_ID
-      )
-    ) {
+      );
+
+
+    if (existingPanel) {
+
+      const existingButton =
+        document.getElementById(
+          'fix03d59-real-integration-gate-mobile-run'
+        );
+
+
+      if (!existingButton) {
+
+        const button =
+          document.createElement(
+            'button'
+          );
+
+
+        button.type =
+          'button';
+
+
+        button.id =
+          'fix03d59-real-integration-gate-mobile-run';
+
+
+        button.style.cssText =
+          'width:100%;' +
+          'min-height:58px;' +
+          'border:0;' +
+          'border-radius:16px;' +
+          'padding:16px;' +
+          'margin-top:18px;' +
+          'background:linear-gradient(90deg,#68e39b,#63d9ff);' +
+          'color:#17192f;' +
+          'font-size:17px;' +
+          'font-weight:900;';
+
+
+        button.textContent =
+          '🔐 CHECK REAL INTEGRATION GATE';
+
+
+        const output =
+          document.getElementById(
+            'fix03d59-real-integration-gate-mobile-output'
+          );
+
+
+        if (output) {
+
+          existingPanel.insertBefore(
+            button,
+            output
+          );
+
+        } else {
+
+          existingPanel.appendChild(
+            button
+          );
+
+        }
+
+
+        button.addEventListener(
+          'click',
+          runGateMobile03D59
+        );
+
+      }
+
 
       return;
 
