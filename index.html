@@ -2206,7 +2206,17 @@
       '<br>' +
 
       'GATE ENGINE: ' +
-      (gateEngine ? 'YES ✅' : 'NO ❌');
+(gateEngine ? 'YES ✅' : 'NO ❌') +
+'<br>' +
+
+'LISTENER FLAG: ' +
+(
+  button &&
+  button.dataset &&
+  button.dataset.fix03d59GateBound === 'true'
+    ? 'YES ✅'
+    : 'NO ❌'
+);
 
 
     if (panel) {
