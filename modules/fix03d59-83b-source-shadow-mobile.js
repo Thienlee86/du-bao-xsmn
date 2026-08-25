@@ -1,24 +1,43 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW MOBILE UI V2
+   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW MOBILE UI V3
    FILE:
    modules/fix03d59-83b-source-shadow-mobile.js
 
    PURPOSE:
-   - Run STEP 8.3B Source Shadow manually from mobile.
-   - Display Source Shadow result inside Settings.
+   - Run STEP 8.3B Source Shadow V4.2 manually from mobile.
+   - Use the current Source Shadow public API:
+       runStep83BSourceShadow03D59()
+   - Display the V4.2 result schema correctly.
    - Rebuild stale/incomplete mobile panel safely.
    - Never modify the real STEP 8.3B result.
+   - Never modify Production Forecast.
+   - Never write storage.
+   - Never auto-promote.
+
+   SOURCE SHADOW CONTRACT:
+   - Runner:
+       window.runStep83BSourceShadow03D59
+   - Result:
+       result.ready
+       result.passed
+       result.reason
+       result.source
+       result.scopeSource
+       result.trustedScope
+       result.sourceCandidateCount
+       result.boundaryCandidateCount
+       result.candidateCountMatch
+       result.candidateIdentityMatch
+       result.safety
 
    SAFETY:
    - MANUAL RUN ONLY
-   - READ ONLY
    - SHADOW ONLY
-   - ZERO WRITE
-   - NO PRODUCTION WRITE
-   - NO STORAGE WRITE
+   - ZERO CANONICAL WRITE
+   - ZERO PRODUCTION WRITE
+   - ZERO STORAGE WRITE
    - NO AUTO PROMOTION
    - NO savePrediction()
-   - NO LAST_FORECAST modification
    ========================================================================= */
 
 (function () {
@@ -27,7 +46,7 @@
 
 
   const VERSION =
-    '83B-SOURCE-SHADOW-MOBILE-V2';
+    '83B-SOURCE-SHADOW-MOBILE-V3-V42-BRIDGE';
 
 
   const PANEL_ID =
@@ -42,11 +61,15 @@
     'fix03d59-83b-source-shadow-mobile-control';
 
 
-  /* =========================================================
-     HELPERS
-     ========================================================= */
+  /*
+   * =========================================================
+   * HELPERS
+   * =========================================================
+   */
 
-  function yesNo(value) {
+  function yesNo(
+    value
+  ) {
 
     return value === true
       ? 'YES ✅'
@@ -55,7 +78,9 @@
   }
 
 
-  function safeNo(value) {
+  function safeNo(
+    value
+  ) {
 
     return value === true
       ? 'YES ❌'
@@ -80,27 +105,69 @@
     }
 
 
-    return String(value);
+    return String(
+      value
+    );
 
   }
 
 
-  function escapeHtml(value) {
+  function escapeHtml(
+    value
+  ) {
 
     return safeText(
       value,
       '--'
     )
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#039;');
+      .replace(
+        /&/g,
+        '&amp;'
+      )
+      .replace(
+        /</g,
+        '&lt;'
+      )
+      .replace(
+        />/g,
+        '&gt;'
+      )
+      .replace(
+        /"/g,
+        '&quot;'
+      )
+      .replace(
+        /'/g,
+        '&#039;'
+      );
 
   }
 
 
-  function getCandidateCount(result) {
+  function getSafety(
+    result
+  ) {
+
+    if (
+      result &&
+      result.safety &&
+      typeof result.safety ===
+        'object'
+    ) {
+
+      return result.safety;
+
+    }
+
+
+    return {};
+
+  }
+
+
+  function getCandidateCount(
+    result
+  ) {
 
     if (
       Number.isFinite(
@@ -117,15 +184,13 @@
 
     if (
       result &&
-      result.shadowSource &&
       Array.isArray(
-        result.shadowSource.eligible
+        result.sourceCandidates
       )
     ) {
 
       return result
-        .shadowSource
-        .eligible
+        .sourceCandidates
         .length;
 
     }
@@ -136,7 +201,9 @@
   }
 
 
-  function getBoundaryCount(result) {
+  function getBoundaryCount(
+    result
+  ) {
 
     if (
       Number.isFinite(
@@ -153,20 +220,14 @@
 
     if (
       result &&
-      result.boundaryResult &&
-      result.boundaryResult.counts &&
-      Number.isFinite(
-        result
-          .boundaryResult
-          .counts
-          .candidates
+      Array.isArray(
+        result.boundaryCandidates
       )
     ) {
 
       return result
-        .boundaryResult
-        .counts
-        .candidates;
+        .boundaryCandidates
+        .length;
 
     }
 
@@ -176,9 +237,35 @@
   }
 
 
-  /* =========================================================
-     RESOLVE SOURCE SHADOW
-     ========================================================= */
+  function getTrustedScopeText(
+    result
+  ) {
+
+    if (
+      !result ||
+      !Array.isArray(
+        result.trustedScope
+      ) ||
+      result.trustedScope.length === 0
+    ) {
+
+      return '--';
+
+    }
+
+
+    return result
+      .trustedScope
+      .join(', ');
+
+  }
+
+
+  /*
+   * =========================================================
+   * RESOLVE SOURCE SHADOW V4.2
+   * =========================================================
+   */
 
   function resolveSourceShadow() {
 
@@ -186,7 +273,7 @@
 
       if (
         typeof window
-          .build83BSourceShadow ===
+          .runStep83BSourceShadow03D59 ===
         'function'
       ) {
 
@@ -195,11 +282,11 @@
           ready: true,
 
           name:
-            'build83BSourceShadow',
+            'runStep83BSourceShadow03D59',
 
           fn:
             window
-              .build83BSourceShadow
+              .runStep83BSourceShadow03D59
 
         };
 
@@ -217,7 +304,7 @@
       ready: false,
 
       name:
-        'build83BSourceShadow',
+        'runStep83BSourceShadow03D59',
 
       fn:
         null
@@ -227,11 +314,15 @@
   }
 
 
-  /* =========================================================
-     RENDER RESULT
-     ========================================================= */
+  /*
+   * =========================================================
+   * RENDER RESULT
+   * =========================================================
+   */
 
-  function renderResult(result) {
+  function renderResult(
+    result
+  ) {
 
     const output =
       document.getElementById(
@@ -273,9 +364,25 @@
 
 
     const countMatch =
-      sourceCount > 0 &&
-      sourceCount ===
-        boundaryCount;
+      Boolean(
+        result &&
+        result.candidateCountMatch ===
+          true
+      );
+
+
+    const identityMatch =
+      Boolean(
+        result &&
+        result.candidateIdentityMatch ===
+          true
+      );
+
+
+    const safety =
+      getSafety(
+        result
+      );
 
 
     output.innerHTML = `
@@ -328,7 +435,7 @@
 
         <br><br>
 
-        Source:
+        REAL 8.2C Source:
         <br>
 
         <b
@@ -338,7 +445,41 @@
         >
           ${escapeHtml(
             result &&
-            result.sourceName
+            result.source
+          )}
+        </b>
+
+        <br><br>
+
+        Scope Source:
+        <br>
+
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escapeHtml(
+            result &&
+            result.scopeSource
+          )}
+        </b>
+
+        <br><br>
+
+        Trusted Scope:
+        <br>
+
+        <b
+          style="
+            color:#ffbd3c;
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escapeHtml(
+            getTrustedScopeText(
+              result
+            )
           )}
         </b>
 
@@ -379,6 +520,11 @@
 
         Candidate Count Match:
         <b>${yesNo(countMatch)}</b>
+
+        <br>
+
+        Candidate Identity Match:
+        <b>${yesNo(identityMatch)}</b>
 
       </div>
 
@@ -426,15 +572,27 @@
         <br>
 
         Real 8.3B Modified:
-        <b>NO ✅</b>
+        <b>
+          ${safeNo(
+            safety.real83BModified
+          )}
+        </b>
+
+        <br>
+
+        LAST_FORECAST Modified:
+        <b>
+          ${safeNo(
+            safety.lastForecastModified
+          )}
+        </b>
 
         <br>
 
         Promotion Performed:
         <b>
           ${safeNo(
-            result &&
-            result.promotionPerformed
+            safety.autoPromotion
           )}
         </b>
 
@@ -464,58 +622,75 @@
         </div>
 
 
-        Read Only:
-        ${yesNo(
-          result &&
-          result.readOnly
-        )}
+        Diagnostic RAM Write:
+        ${
+          safety.readOnly === false
+            ? 'YES ⚠️'
+            : 'NO ✅'
+        }
 
         <br>
 
         Shadow Only:
-        YES ✅
+        ${yesNo(
+          safety.shadowOnly
+        )}
 
         <br>
 
         Canonical Write:
         ${safeNo(
-          result &&
-          result.canonicalWrite
+          safety.canonicalWrite
         )}
 
         <br>
 
         Production Write:
         ${safeNo(
-          result &&
-          result.productionWrite
+          safety.productionWrite
         )}
 
         <br>
 
         Storage Write:
         ${safeNo(
-          result &&
-          result.storageWrite
+          safety.storageWrite
         )}
 
         <br>
 
         Auto Promotion:
         ${safeNo(
-          result &&
-          result.autoPromotion
+          safety.autoPromotion
         )}
 
         <br>
 
         savePrediction Called:
-        NO ✅
+        ${safeNo(
+          safety.savePredictionCalled
+        )}
 
         <br>
 
         LAST_FORECAST Modified:
-        NO ✅
+        ${safeNo(
+          safety.lastForecastModified
+        )}
+
+        <br>
+
+        Candidates Modified:
+        ${safeNo(
+          safety.candidatesModified
+        )}
+
+        <br>
+
+        Real 8.3B Modified:
+        ${safeNo(
+          safety.real83BModified
+        )}
 
       </div>
 
@@ -523,16 +698,21 @@
 
 
     output.scrollIntoView({
-      behavior: 'smooth',
-      block: 'start'
+      behavior:
+        'smooth',
+
+      block:
+        'start'
     });
 
   }
 
 
-  /* =========================================================
-     RUN
-     ========================================================= */
+  /*
+   * =========================================================
+   * RUN
+   * =========================================================
+   */
 
   function runSourceShadow() {
 
@@ -553,7 +733,9 @@
       resolveSourceShadow();
 
 
-    if (!sourceShadow.ready) {
+    if (
+      !sourceShadow.ready
+    ) {
 
       output.innerHTML = `
 
@@ -574,8 +756,14 @@
 
           Function:
 
-          <b>
-            build83BSourceShadow
+          <br>
+
+          <b
+            style="
+              overflow-wrap:anywhere;
+            "
+          >
+            runStep83BSourceShadow03D59
           </b>
 
         </div>
@@ -604,14 +792,12 @@
 
 
       /*
-       * Diagnostic shadow result only.
-       * Does NOT modify the canonical
-       * STEP 8.3B result.
+       * Source Shadow V4.2 already owns its
+       * diagnostic RAM alias.
+       *
+       * Mobile V3 therefore DOES NOT perform
+       * a second result assignment here.
        */
-
-      window
-        .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
-        result;
 
 
       renderResult(
@@ -620,7 +806,7 @@
 
 
       console.log(
-        'FIX-03D5.9 STEP 8.3B SOURCE SHADOW MOBILE V2',
+        'FIX-03D5.9 STEP 8.3B SOURCE SHADOW MOBILE V3',
         result
       );
 
@@ -630,7 +816,7 @@
     } catch (error) {
 
       console.error(
-        '83B Source Shadow Mobile V2:',
+        '83B Source Shadow Mobile V3:',
         error
       );
 
@@ -674,9 +860,11 @@
   }
 
 
-  /* =========================================================
-     BUILD / REBUILD MOBILE PANEL
-     ========================================================= */
+  /*
+   * =========================================================
+   * BUILD / REBUILD MOBILE PANEL
+   * =========================================================
+   */
 
   function buildPanel() {
 
@@ -689,7 +877,7 @@
     if (!settings) {
 
       console.warn(
-        '83B Source Shadow Mobile V2: tab-settings not found'
+        '83B Source Shadow Mobile V3: tab-settings not found'
       );
 
       return;
@@ -698,13 +886,8 @@
 
 
     /*
-     * V2 SELF-HEAL:
-     *
-     * Remove any stale/incomplete panel
-     * with the same ID and rebuild it.
-     *
-     * UI only.
-     * No production state is modified.
+     * SELF-HEAL:
+     * remove stale V1/V2/V3 panel and rebuild.
      */
 
     const oldPanel =
@@ -742,7 +925,9 @@
       'border:1px solid rgba(170,110,255,.35)',
       'color:#fff',
       'box-sizing:border-box'
-    ].join(';');
+    ].join(
+      ';'
+    );
 
 
     panel.innerHTML = `
@@ -767,10 +952,10 @@
         "
       >
 
-        Kiểm tra B8 Verified Scope bằng
-        REAL STEP 8.3 boundary builder
-        trong Shadow Mode, trước khi thay
-        đổi STEP 8.3B thật.
+        Kiểm tra trusted resolved scope bằng
+        REAL STEP 8.2C source và REAL STEP 8.3
+        boundary builder trong Shadow Mode,
+        trước khi thay đổi STEP 8.3B thật.
 
       </div>
 
@@ -890,7 +1075,9 @@
 
       control.addEventListener(
         'keydown',
-        function (event) {
+        function (
+          event
+        ) {
 
           if (
             event.key === 'Enter' ||
@@ -910,22 +1097,34 @@
 
 
     console.log(
-      '83B Source Shadow Mobile V2 panel built',
+      '83B Source Shadow Mobile V3 panel built',
       {
-        panel: true,
+
+        panel:
+          true,
+
         control:
-          Boolean(control),
+          Boolean(
+            control
+          ),
+
         sourceShadowReady:
-          sourceShadow.ready
+          sourceShadow.ready,
+
+        sourceShadowFunction:
+          sourceShadow.name
+
       }
     );
 
   }
 
 
-  /* =========================================================
-     PUBLIC API
-     ========================================================= */
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
 
   window
     .run83BSourceShadowMobile03D59 =
@@ -947,17 +1146,13 @@
     VERSION;
 
 
-  /* =========================================================
-     INITIALIZE
-     ========================================================= */
+  /*
+   * =========================================================
+   * INITIALIZE
+   * =========================================================
+   */
 
   function initialize() {
-
-    /*
-     * Delay slightly so all older Settings
-     * panels finish initialization first.
-     * Then V2 rebuilds its own panel.
-     */
 
     window.setTimeout(
       buildPanel,
@@ -988,7 +1183,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow Mobile V2 loaded / READ ONLY / SHADOW ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.3B Source Shadow Mobile V3 V4.2 Bridge loaded / SHADOW ONLY / ZERO PRODUCTION WRITE'
   );
 
 })();
