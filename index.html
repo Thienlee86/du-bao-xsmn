@@ -2047,21 +2047,90 @@
 <script src="modules/fix03d59-production-readiness-mobile.js?v=readiness-v2"></script>
 
 <!-- END FIX-03D5.9 PRODUCTION READINESS FINAL MOBILE -->
-<!-- FIX-03D5.9 REAL INTEGRATION GATE V1 -->
-<script src="modules/fix03d59-real-integration-gate.js?v=real-gate-v1"></script>
- <script src="modules/fix03d59-real-integration-gate-mobile.js?v=real-gate-mobile-v1"></script> 
 
-  <style>
-#fix03d59-real-integration-gate-mobile-run {
-  display: block !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  position: relative !important;
-  width: 100% !important;
-  min-height: 58px !important;
-  pointer-events: auto !important;
-}
-  </style>
+<!-- ================================================================
+     FIX-03D5.9 — REAL INTEGRATION GATE FINAL MOBILE
+     ================================================================ -->
+
+<section
+  id="fix03d59-real-integration-gate-mobile-panel"
+  style="
+    margin:24px;
+    padding:22px;
+    border-radius:22px;
+    background:linear-gradient(145deg,#202757,#171c40);
+    border:1px solid rgba(104,227,155,.35);
+    color:#fff;
+  "
+>
+
+  <div
+    style="
+      font-size:22px;
+      font-weight:900;
+      margin-bottom:8px;
+    "
+  >
+    🔐 D.5.9 Real Integration Gate
+  </div>
+
+  <div
+    style="
+      color:#b9bfdc;
+      line-height:1.55;
+      margin-bottom:18px;
+    "
+  >
+    Final logical authorization inspection.
+    READ ONLY · ZERO WRITE · NO REAL INTEGRATION.
+  </div>
+
+  <button
+    type="button"
+    id="fix03d59-real-integration-gate-mobile-run"
+    onclick="runRealIntegrationGateMobile03D59()"
+    style="
+      display:block;
+      width:100%;
+      min-height:58px;
+      border:0;
+      border-radius:16px;
+      padding:16px;
+      background:linear-gradient(90deg,#68e39b,#63d9ff);
+      color:#17192f;
+      font-size:17px;
+      font-weight:900;
+      cursor:pointer;
+    "
+  >
+    🔐 CHECK REAL INTEGRATION GATE
+  </button>
+
+  <div
+    id="fix03d59-real-integration-gate-mobile-output"
+    style="
+      margin-top:16px;
+      color:#d9dcf2;
+    "
+  >
+    Chưa kiểm tra Gate.
+  </div>
+
+</section>
+
+
+<!-- REAL INTEGRATION GATE ENGINE -->
+<script
+  src="modules/fix03d59-real-integration-gate.js?v=real-gate-v2-static1">
+</script>
+
+
+<!-- REAL INTEGRATION GATE MOBILE -->
+<script
+  src="modules/fix03d59-real-integration-gate-mobile.js?v=real-gate-mobile-v2-static1">
+</script>
+
+<!-- END FIX-03D5.9 REAL INTEGRATION GATE FINAL MOBILE -->  
   
 </body>
 
