@@ -1,5 +1,5 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B PRODUCTION INTEGRATION PREVIEW MOBILE V2
+   FIX-03D5.9 — STEP 8.3B PRODUCTION INTEGRATION PREVIEW MOBILE V2.1
    FILE:
    modules/fix03d59-83b-production-integration-preview-mobile.js
 
@@ -7,7 +7,7 @@
    - Run STEP 8.3B Production Integration Preview from mobile.
    - Display result directly inside Settings.
    - No DevTools required.
-   - Robust mobile initialization with delayed fallback.
+   - Force RUN control visible independently of global button CSS.
 
    IMPORTANT:
    - READ ONLY.
@@ -26,7 +26,7 @@
 
 
   const VERSION =
-    '83B-PRODUCTION-INTEGRATION-PREVIEW-MOBILE-V2';
+    '83B-PRODUCTION-INTEGRATION-PREVIEW-MOBILE-V2.1';
 
 
   const PANEL_ID =
@@ -54,26 +54,11 @@
         ? ''
         : value
     )
-      .replace(
-        /&/g,
-        '&amp;'
-      )
-      .replace(
-        /</g,
-        '&lt;'
-      )
-      .replace(
-        />/g,
-        '&gt;'
-      )
-      .replace(
-        /"/g,
-        '&quot;'
-      )
-      .replace(
-        /'/g,
-        '&#039;'
-      );
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
 
   }
 
@@ -147,8 +132,11 @@
 
     if (!result) {
 
-      output.innerHTML =
-        '<div style="color:#ff8b8b;">❌ Preview returned no result.</div>';
+      output.innerHTML = `
+        <div style="color:#ff8b8b;">
+          ❌ Preview returned no result.
+        </div>
+      `;
 
       return;
 
@@ -156,28 +144,23 @@
 
 
     const production =
-      result.production ||
-      {};
+      result.production || {};
 
 
     const resolver =
-      result.resolver ||
-      {};
+      result.resolver || {};
 
 
     const current83B =
-      result.current83B ||
-      {};
+      result.current83B || {};
 
 
     const preview =
-      result.preview ||
-      {};
+      result.preview || {};
 
 
     const safety =
-      result.safety ||
-      {};
+      result.safety || {};
 
 
     const ready =
@@ -323,6 +306,28 @@
             ${escapeHtml83BPreviewMobile(
               value83BPreviewMobile(
                 resolver.source
+              )
+            )}
+          </b>
+        </div>
+
+        <div>
+          Resolver reason:
+          <b>
+            ${escapeHtml83BPreviewMobile(
+              value83BPreviewMobile(
+                resolver.reason
+              )
+            )}
+          </b>
+        </div>
+
+        <div>
+          Resolver error:
+          <b>
+            ${escapeHtml83BPreviewMobile(
+              value83BPreviewMobile(
+                resolver.error
               )
             )}
           </b>
@@ -630,8 +635,11 @@
       'function'
     ) {
 
-      output.innerHTML =
-        '<div style="color:#ff8b8b;">❌ Production Integration Preview API chưa được tải.</div>';
+      output.innerHTML = `
+        <div style="color:#ff8b8b;">
+          ❌ Production Integration Preview API chưa được tải.
+        </div>
+      `;
 
       return;
 
@@ -662,15 +670,17 @@
       );
 
 
-      output.innerHTML =
-        '<div style="color:#ff8b8b;">❌ Preview lỗi: ' +
-        escapeHtml83BPreviewMobile(
-          error &&
-          error.message
-            ? error.message
-            : error
-        ) +
-        '</div>';
+      output.innerHTML = `
+        <div style="color:#ff8b8b;">
+          ❌ Preview lỗi:
+          ${escapeHtml83BPreviewMobile(
+            error &&
+            error.message
+              ? error.message
+              : error
+          )}
+        </div>
+      `;
 
     }
 
@@ -684,20 +694,31 @@
   function build83BProductionPreviewMobilePanel() {
 
     /*
-     * Diagnostic popup.
-     * Remove after verification.
+     * If the panel already exists, repair/rebind the
+     * RUN control instead of creating a duplicate panel.
      */
 
-    alert(
-      '83B PREVIEW BUILD CALLED'
-    );
-
-
-    if (
+    const existingPanel =
       document.getElementById(
         PANEL_ID
-      )
-    ) {
+      );
+
+
+    if (existingPanel) {
+
+      const existingButton =
+        document.getElementById(
+          BUTTON_ID
+        );
+
+
+      if (existingButton) {
+
+        existingButton.onclick =
+          run83BProductionPreviewMobile;
+
+      }
+
 
       return true;
 
@@ -759,22 +780,48 @@
           font-weight:800;
         "
       >
-        🟢 MOBILE PANEL V2 LOADED
+        🟢 MOBILE PANEL V2.1 LOADED
       </div>
 
 
-      <button
-        type="button"
+      <div
         id="${BUTTON_ID}"
-        class="btn-primary"
+        role="button"
+        tabindex="0"
+        style="
+          display:flex !important;
+          visibility:visible !important;
+          opacity:1 !important;
+          align-items:center;
+          justify-content:center;
+          width:100%;
+          min-height:62px;
+          margin:14px 0;
+          padding:16px 18px;
+          box-sizing:border-box;
+          border-radius:17px;
+          background:linear-gradient(90deg,#ffc13d,#ff963d);
+          color:#17182a;
+          font-size:16px;
+          font-weight:900;
+          text-align:center;
+          cursor:pointer;
+          position:relative;
+          z-index:5;
+          user-select:none;
+          -webkit-user-select:none;
+          touch-action:manipulation;
+        "
       >
         🧪 RUN 8.3B PRODUCTION PREVIEW
-      </button>
+      </div>
 
 
       <div
         id="${OUTPUT_ID}"
-        style="margin-top:14px;"
+        style="
+          margin-top:14px;
+        "
       >
         Chưa chạy kiểm tra.
       </div>
@@ -793,14 +840,45 @@
       );
 
 
-    if (button) {
+    if (!button) {
 
-      button.addEventListener(
-        'click',
-        run83BProductionPreviewMobile
+      console.error(
+        '83B Production Preview Mobile: RUN control creation failed'
       );
 
+      return false;
+
     }
+
+
+    /*
+     * Use a DIV control instead of the application's
+     * global button classes.
+     */
+
+    button.addEventListener(
+      'click',
+      run83BProductionPreviewMobile
+    );
+
+
+    button.addEventListener(
+      'keydown',
+      function (event) {
+
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+
+          event.preventDefault();
+
+          run83BProductionPreviewMobile();
+
+        }
+
+      }
+    );
 
 
     return true;
@@ -856,15 +934,15 @@
       }
     );
 
+  } else {
+
+    init83BProductionPreviewMobile();
+
   }
 
 
   /*
-   * Mobile fallback:
-   * Even if DOMContentLoaded timing is unusual,
-   * try again after the page has initialized.
-   *
-   * PANEL_ID prevents duplicate panel creation.
+   * Mobile fallback.
    */
 
   setTimeout(
@@ -873,8 +951,14 @@
   );
 
 
+  setTimeout(
+    init83BProductionPreviewMobile,
+    1500
+  );
+
+
   console.log(
-    '📱 FIX-03D5.9 STEP 8.3B Production Integration Preview Mobile V2 loaded / READ ONLY'
+    '📱 FIX-03D5.9 STEP 8.3B Production Integration Preview Mobile V2.1 loaded / READ ONLY'
   );
 
 })();
