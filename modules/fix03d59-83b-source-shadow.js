@@ -275,26 +275,40 @@
               : result.resolvedScope;
 
 
-          const province =
-            normalizeProvince83BSourceShadowV4(
+          const resolvedScope =
+  Array.isArray(
+    result.resolvedScope
+  )
+    ? result.resolvedScope
+    : [];
 
-              resolvedScopeProvince ||
 
-              result.resolvedProvince ||
+const province =
+  normalizeProvince83BSourceShadowV4(
 
-              result.province ||
+    resolvedScope.length === 1
+      ? resolvedScope[0]
+      : (
 
-              (
-                result.resolved &&
-                result.resolved.province
-              ) ||
+          result.resolvedProvince ||
 
-              (
-                result.scope &&
-                result.scope.province
-              )
+          result.province ||
 
-            );
+          (
+            result.resolved &&
+            result.resolved.province
+          ) ||
+
+          (
+            result.scope &&
+            result.scope.province
+          ) ||
+
+          null
+
+        )
+
+  );
 
 
           const source =
