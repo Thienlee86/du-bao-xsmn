@@ -1,21 +1,24 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW V4
+   FIX-03D5.9 — STEP 8.3B SOURCE SHADOW V4.1
    FILE:
    modules/fix03d59-83b-source-shadow.js
 
    PURPOSE:
-   - Reuse the verified B8 selected-province scope.
+   - Resolve the currently trusted STEP 8.3B province scope.
+   - Support resolver.resolvedScope as ARRAY or scalar.
+   - Accept the current Production = Selected resolver result when READY.
+   - Preserve support for B8_VERIFIED_SELECTED_PROVINCE.
    - Read the REAL STEP 8.2C RAM result.
-   - Filter REAL 8.2C eligible records to exactly the verified province.
+   - Filter REAL 8.2C eligible records to exactly the resolved province.
    - Preserve canonical identity:
        index
        province
        prize
-   - Feed the filtered READ-ONLY shadow source into the REAL
-     STEP 8.3 boundary builder:
+   - Feed a NEW READ-ONLY shadow source into the REAL STEP 8.3
+     boundary builder:
        buildProductionCandidateBoundaryV26()
-   - Verify boundary count / identity / province isolation.
-   - Never replace or modify the REAL STEP 8.2C / STEP 8.3B result.
+   - Verify count / identity / province isolation.
+   - Never replace or modify REAL STEP 8.2C / STEP 8.3B.
 
    SAFETY:
    - MANUAL / DIAGNOSTIC ONLY
@@ -28,12 +31,6 @@
    - NO savePrediction()
    - NO LAST_FORECAST modification
    - NO canonical candidate modification
-
-   PATCH:
-   - V4 ARRAY FIX:
-     resolveStep83BScope03D59().resolvedScope is an ARRAY.
-   - Accept exactly ONE resolved province.
-   - Multiple provinces fail closed.
    ========================================================================= */
 
 (function () {
@@ -42,14 +39,14 @@
 
 
   const VERSION =
-    '83B-SOURCE-SHADOW-V4-REAL82C-FILTER-ARRAYFIX1';
+    '83B-SOURCE-SHADOW-V4.1-RESOLVER-COMPAT';
 
 
   /* =========================================================
      HELPERS
      ========================================================= */
 
-  function clone83BSourceShadowV4(
+  function clone83BSourceShadowV41(
     value
   ) {
 
@@ -80,7 +77,7 @@
   }
 
 
-  function normalizeProvince83BSourceShadowV4(
+  function normalizeProvince83BSourceShadowV41(
     value
   ) {
 
@@ -94,7 +91,38 @@
     }
 
 
+    /*
+     * Resolver V2 returns:
+     *
+     * resolvedScope: ['ben-tre']
+     *
+     * Accept exactly one province from a single-item array.
+     * Multi-province arrays FAIL CLOSED.
+     */
+
     if (
+      Array.isArray(
+        value
+      )
+    ) {
+
+      if (
+        value.length !== 1
+      ) {
+
+        return null;
+
+      }
+
+
+      value =
+        value[0];
+
+    }
+
+
+    if (
+      value &&
       typeof value ===
         'object'
     ) {
@@ -126,12 +154,33 @@
         .toLowerCase();
 
 
-    return normalized || null;
+    if (
+      !normalized ||
+      normalized.length > 40
+    ) {
+
+      return null;
+
+    }
+
+
+    if (
+      !/^[a-z0-9-]+$/.test(
+        normalized
+      )
+    ) {
+
+      return null;
+
+    }
+
+
+    return normalized;
 
   }
 
 
-  function normalizePrize83BSourceShadowV4(
+  function normalizePrize83BSourceShadowV41(
     value
   ) {
 
@@ -146,7 +195,9 @@
 
 
     const normalized =
-      String(value)
+      String(
+        value
+      )
         .trim()
         .toLowerCase();
 
@@ -156,7 +207,22 @@
   }
 
 
-  function identity83BSourceShadowV4(
+  function unique83BSourceShadowV41(
+    values
+  ) {
+
+    return Array.from(
+      new Set(
+        Array.isArray(values)
+          ? values
+          : []
+      )
+    );
+
+  }
+
+
+  function identity83BSourceShadowV41(
     record
   ) {
 
@@ -178,19 +244,21 @@
 
 
     const province =
-      normalizeProvince83BSourceShadowV4(
+      normalizeProvince83BSourceShadowV41(
         record.province
       );
 
 
     const prize =
-      normalizePrize83BSourceShadowV4(
+      normalizePrize83BSourceShadowV41(
         record.prize
       );
 
 
     if (
-      !Number.isFinite(index) ||
+      !Number.isFinite(
+        index
+      ) ||
       !province ||
       !prize
     ) {
@@ -211,41 +279,90 @@
   }
 
 
-  function unique83BSourceShadowV4(
-    values
+  /* =========================================================
+     RESOLVER SOURCE TRUST
+     ========================================================= */
+
+  function isTrustedResolverSource83BSourceShadowV41(
+    source,
+    result
   ) {
 
-    return Array.from(
-      new Set(
-        Array.isArray(values)
-          ? values
-          : []
+    /*
+     * Explicit trusted resolver sources.
+     *
+     * IMPORTANT:
+     * "trusted" here means trusted for this READ-ONLY
+     * shadow diagnostic only.
+     *
+     * It does NOT authorize Production write.
+     */
+
+    const trustedSources = [
+
+      'B8_VERIFIED_SELECTED_PROVINCE',
+
+      'PRODUCTION_FORECAST_MATCHED_SELECTED_PROVINCE',
+
+      'PRODUCTION_FORECAST_CONFIRMED_BY_B8'
+
+    ];
+
+
+    if (
+      trustedSources.includes(
+        source
       )
-    );
+    ) {
+
+      return true;
+
+    }
+
+
+    /*
+     * Defensive compatibility with another resolver wrapper.
+     */
+
+    if (
+      result &&
+      result.sourceTrusted === true
+    ) {
+
+      return true;
+
+    }
+
+
+    if (
+      result &&
+      result.resolver &&
+      result.resolver.sourceTrusted ===
+        true
+    ) {
+
+      return true;
+
+    }
+
+
+    return false;
 
   }
 
 
   /* =========================================================
-     VERIFIED B8 PROVINCE
+     VERIFIED / RESOLVED PROVINCE
      ========================================================= */
 
-  function resolveVerifiedProvince83BSourceShadowV4() {
+  function resolveVerifiedProvince83BSourceShadowV41() {
 
     /*
-     * PRIMARY PATH:
-     * existing STEP 8.3B scope resolver.
+     * ---------------------------------------------------------
+     * PRIMARY PATH
+     * ---------------------------------------------------------
      *
-     * IMPORTANT:
-     * resolveStep83BScope03D59() returns:
-     *
-     * resolvedScope: [ 'kien-giang' ]
-     *
-     * Therefore resolvedScope must be unpacked before
-     * province normalization.
-     *
-     * FAIL CLOSED:
-     * exactly ONE province is accepted.
+     * STEP 8.3B Scope Resolver V2.
      */
 
     try {
@@ -261,54 +378,34 @@
             .resolveStep83BScope03D59();
 
 
-        if (result) {
+        if (
+          result &&
+          typeof result ===
+            'object'
+        ) {
 
-          const resolvedScopeProvince =
-            Array.isArray(
+          const province =
+            normalizeProvince83BSourceShadowV41(
               result.resolvedScope
-            )
-              ? (
-                  result.resolvedScope.length === 1
-                    ? result.resolvedScope[0]
-                    : null
-                )
-              : result.resolvedScope;
+            ) ||
 
+            normalizeProvince83BSourceShadowV41(
+              result.resolvedProvince
+            ) ||
 
-          const resolvedScope =
-  Array.isArray(
-    result.resolvedScope
-  )
-    ? result.resolvedScope
-    : [];
+            normalizeProvince83BSourceShadowV41(
+              result.province
+            ) ||
 
+            normalizeProvince83BSourceShadowV41(
+              result.resolved &&
+              result.resolved.province
+            ) ||
 
-const province =
-  normalizeProvince83BSourceShadowV4(
-
-    resolvedScope.length === 1
-      ? resolvedScope[0]
-      : (
-
-          result.resolvedProvince ||
-
-          result.province ||
-
-          (
-            result.resolved &&
-            result.resolved.province
-          ) ||
-
-          (
-            result.scope &&
-            result.scope.province
-          ) ||
-
-          null
-
-        )
-
-  );
+            normalizeProvince83BSourceShadowV41(
+              result.scope &&
+              result.scope.province
+            );
 
 
           const source =
@@ -320,87 +417,107 @@ const province =
             null;
 
 
-          const resolvedScope =
-  Array.isArray(
-    result.resolvedScope
-  )
-    ? result.resolvedScope
-    : [];
+          const trusted =
+            isTrustedResolverSource83BSourceShadowV41(
+              source,
+              result
+            );
 
 
-const provinceInResolvedScope =
-  Boolean(
-    province &&
-    resolvedScope.includes(
-      province
-    )
-  );
+          /*
+           * Additional consistency guard.
+           *
+           * If Production + Selected both exist,
+           * they must agree with the resolved province.
+           */
+
+          const productionProvince =
+            normalizeProvince83BSourceShadowV41(
+              result.productionProvince
+            );
 
 
-const b8SelectedVerified =
-  Boolean(
-    result.verifiedB8 &&
-    result.verifiedB8.exists === true &&
-    result.verifiedB8.selectedInScope === true &&
-    Array.isArray(
-      result.verifiedB8.provinces
-    ) &&
-    result.verifiedB8.provinces.includes(
-      province
-    )
-  );
+          const selectedProvince =
+            normalizeProvince83BSourceShadowV41(
+              result.selectedProvince
+            );
 
 
-const productionSelectedMatched =
-  Boolean(
-    result.productionForecastExists === true &&
-    result.productionProvince ===
-      province &&
-    result.selectedProvince ===
-      province &&
-    result.selectedMatchesProduction ===
-      true
-  );
+          const productionSelectedConflict =
+            Boolean(
+              productionProvince &&
+              selectedProvince &&
+              productionProvince !==
+                selectedProvince
+            );
 
 
-const trusted =
-  Boolean(
-    result.ready === true &&
-    provinceInResolvedScope &&
-    (
-      b8SelectedVerified ||
-      productionSelectedMatched
-    )
-  );
+          const resolvedProductionConflict =
+            Boolean(
+              productionProvince &&
+              province &&
+              productionProvince !==
+                province
+            );
+
+
+          const resolvedSelectedConflict =
+            Boolean(
+              selectedProvince &&
+              province &&
+              selectedProvince !==
+                province
+            );
+
+
+          const consistent =
+            !productionSelectedConflict &&
+            !resolvedProductionConflict &&
+            !resolvedSelectedConflict;
 
 
           if (
             result.ready === true &&
             province &&
-            trusted
+            trusted &&
+            consistent
           ) {
 
             return {
 
-              ready: true,
+              ready:
+                true,
 
               province,
 
               source:
                 source ||
-                'B8_VERIFIED_SELECTED_PROVINCE',
+                'RESOLVER_READY',
 
               resolverName:
                 'resolveStep83BScope03D59',
 
+              sourceTrusted:
+                true,
+
+              consistent:
+                true,
+
               raw:
-                clone83BSourceShadowV4(
+                clone83BSourceShadowV41(
                   result
                 )
 
             };
 
           }
+
+
+          /*
+           * Resolver existed but was not acceptable.
+           *
+           * Continue to secondary path instead of throwing.
+           */
 
         }
 
@@ -414,8 +531,11 @@ const trusted =
 
 
     /*
-     * SECONDARY PATH:
-     * already verified Integration Shadow.
+     * ---------------------------------------------------------
+     * SECONDARY PATH
+     * ---------------------------------------------------------
+     *
+     * Existing Integration Shadow.
      */
 
     try {
@@ -432,7 +552,7 @@ const trusted =
 
 
         const province =
-          normalizeProvince83BSourceShadowV4(
+          normalizeProvince83BSourceShadowV41(
             integration &&
             integration.resolved
               ? integration
@@ -465,7 +585,8 @@ const trusted =
 
           return {
 
-            ready: true,
+            ready:
+              true,
 
             province,
 
@@ -476,8 +597,14 @@ const trusted =
             resolverName:
               'buildStep83BIntegrationShadow03D59',
 
+            sourceTrusted:
+              true,
+
+            consistent:
+              true,
+
             raw:
-              clone83BSourceShadowV4(
+              clone83BSourceShadowV41(
                 integration
               )
 
@@ -496,15 +623,26 @@ const trusted =
 
     return {
 
-      ready: false,
+      ready:
+        false,
 
-      province: null,
+      province:
+        null,
 
-      source: 'NONE',
+      source:
+        'NONE',
 
-      resolverName: null,
+      resolverName:
+        null,
 
-      raw: null
+      sourceTrusted:
+        false,
+
+      consistent:
+        false,
+
+      raw:
+        null
 
     };
 
@@ -515,16 +653,17 @@ const trusted =
      READ REAL STEP 8.2C
      ========================================================= */
 
-  function readReal82C83BSourceShadowV4() {
+  function readReal82C83BSourceShadowV41() {
 
-    let source;
+    let source = null;
 
 
     try {
 
       source =
         window
-          .LAST_FIX03D59_STEP82C_RESULT;
+          .LAST_FIX03D59_STEP82C_RESULT ||
+        null;
 
     } catch (error) {
 
@@ -541,14 +680,17 @@ const trusted =
 
       return {
 
-        available: false,
+        available:
+          false,
 
-        validated: false,
+        validated:
+          false,
 
         reason:
           'REAL_STEP82C_NOT_AVAILABLE',
 
-        source: null
+        source:
+          null
 
       };
 
@@ -580,7 +722,8 @@ const trusted =
 
     return {
 
-      available: true,
+      available:
+        true,
 
       validated,
 
@@ -597,16 +740,17 @@ const trusted =
 
 
   /* =========================================================
-     FILTER REAL 8.2C ELIGIBLE RECORDS
+     FILTER REAL STEP 8.2C
      ========================================================= */
 
-  function buildFiltered82CSource83BSourceShadowV4(
+  function buildFiltered82CSource83BSourceShadowV41(
     real82C,
     verifiedProvince
   ) {
 
     const eligible =
       Array.isArray(
+        real82C &&
         real82C.eligible
       )
         ? real82C.eligible
@@ -618,7 +762,7 @@ const trusted =
         function (record) {
 
           return (
-            normalizeProvince83BSourceShadowV4(
+            normalizeProvince83BSourceShadowV41(
               record &&
               record.province
             ) ===
@@ -634,7 +778,7 @@ const trusted =
         function (record) {
 
           return (
-            normalizeProvince83BSourceShadowV4(
+            normalizeProvince83BSourceShadowV41(
               record &&
               record.province
             ) !==
@@ -647,7 +791,7 @@ const trusted =
 
     const identities =
       filtered.map(
-        identity83BSourceShadowV4
+        identity83BSourceShadowV41
       );
 
 
@@ -665,29 +809,34 @@ const trusted =
 
     const identityUnique =
       identityComplete &&
-      unique83BSourceShadowV4(
+      unique83BSourceShadowV41(
         validIdentities
       ).length ===
         validIdentities.length;
 
 
     /*
-     * Build a NEW object.
-     * Never mutate LAST_FIX03D59_STEP82C_RESULT.
+     * NEW OBJECT ONLY.
+     *
+     * Never mutate:
+     * window.LAST_FIX03D59_STEP82C_RESULT
      */
 
     const shadowSource = {
 
-      ready: true,
+      ready:
+        true,
 
-      passed: true,
+      passed:
+        true,
 
       eligible:
-        clone83BSourceShadowV4(
+        clone83BSourceShadowV41(
           filtered
         ) || [],
 
-      ineligible: []
+      ineligible:
+        []
 
     };
 
@@ -716,7 +865,7 @@ const trusted =
      REAL STEP 8.3 BOUNDARY BUILDER
      ========================================================= */
 
-  function resolveBoundaryBuilder83BSourceShadowV4() {
+  function resolveBoundaryBuilder83BSourceShadowV41() {
 
     try {
 
@@ -728,7 +877,8 @@ const trusted =
 
         return {
 
-          ready: true,
+          ready:
+            true,
 
           name:
             'buildProductionCandidateBoundaryV26',
@@ -750,11 +900,14 @@ const trusted =
 
     return {
 
-      ready: false,
+      ready:
+        false,
 
-      name: null,
+      name:
+        null,
 
-      fn: null
+      fn:
+        null
 
     };
 
@@ -762,10 +915,10 @@ const trusted =
 
 
   /* =========================================================
-     BOUNDARY CANDIDATES
+     EXTRACT BOUNDARY OUTPUT
      ========================================================= */
 
-  function extractBoundaryCandidates83BSourceShadowV4(
+  function extractBoundaryCandidates83BSourceShadowV41(
     result
   ) {
 
@@ -801,7 +954,9 @@ const trusted =
     ) {
 
       if (
-        Array.isArray(value)
+        Array.isArray(
+          value
+        )
       ) {
 
         return value;
@@ -830,7 +985,7 @@ const trusted =
   }
 
 
-  function extractRejected83BSourceShadowV4(
+  function extractRejected83BSourceShadowV41(
     result
   ) {
 
@@ -851,7 +1006,9 @@ const trusted =
 
       result.rejectedCandidates,
 
-      result.invalid
+      result.invalid,
+
+      result.ineligible
 
     ];
 
@@ -862,7 +1019,9 @@ const trusted =
     ) {
 
       if (
-        Array.isArray(value)
+        Array.isArray(
+          value
+        )
       ) {
 
         return value;
@@ -877,7 +1036,7 @@ const trusted =
   }
 
 
-  function candidateIdentity83BSourceShadowV4(
+  function candidateIdentity83BSourceShadowV41(
     candidate
   ) {
 
@@ -924,19 +1083,21 @@ const trusted =
 
 
     const province =
-      normalizeProvince83BSourceShadowV4(
+      normalizeProvince83BSourceShadowV41(
         provinceValue
       );
 
 
     const prize =
-      normalizePrize83BSourceShadowV4(
+      normalizePrize83BSourceShadowV41(
         prizeValue
       );
 
 
     if (
-      !Number.isFinite(index) ||
+      !Number.isFinite(
+        index
+      ) ||
       !province ||
       !prize
     ) {
@@ -958,19 +1119,266 @@ const trusted =
 
 
   /* =========================================================
+     FAILURE RESULT
+     ========================================================= */
+
+  function buildFailure83BSourceShadowV41(
+    reason,
+    verified,
+    extra
+  ) {
+
+    extra =
+      extra &&
+      typeof extra ===
+        'object'
+        ? extra
+        : {};
+
+
+    const result = {
+
+      version:
+        VERSION,
+
+      ready:
+        false,
+
+      passed:
+        false,
+
+      reason,
+
+      verifiedScope: {
+
+        ready:
+          Boolean(
+            verified &&
+            verified.ready
+          ),
+
+        province:
+          verified
+            ? verified.province
+            : null,
+
+        source:
+          verified
+            ? verified.source
+            : 'NONE',
+
+        resolverName:
+          verified
+            ? verified.resolverName
+            : null,
+
+        sourceTrusted:
+          Boolean(
+            verified &&
+            verified.sourceTrusted
+          ),
+
+        consistent:
+          Boolean(
+            verified &&
+            verified.consistent
+          )
+
+      },
+
+      real82C: {
+
+        available:
+          extra.real82CAvailable ===
+            true,
+
+        validated:
+          extra.real82CValidated ===
+            true
+
+      },
+
+      provinceFilter: {
+
+        province:
+          verified
+            ? verified.province
+            : null,
+
+        shadowEligibleCount:
+          Number.isFinite(
+            Number(
+              extra.shadowEligibleCount
+            )
+          )
+            ? Number(
+                extra.shadowEligibleCount
+              )
+            : 0,
+
+        foreignProvinceLeakage:
+          Number.isFinite(
+            Number(
+              extra.foreignProvinceLeakage
+            )
+          )
+            ? Number(
+                extra.foreignProvinceLeakage
+              )
+            : 0,
+
+        passed:
+          false
+
+      },
+
+      identity: {
+
+        sourceIdentityComplete:
+          extra.identityComplete ===
+            true,
+
+        sourceIdentityUnique:
+          extra.identityUnique ===
+            true,
+
+        boundaryIdentityComplete:
+          false,
+
+        boundaryIdentityUnique:
+          false,
+
+        everyBoundaryIdentityFromSource:
+          false,
+
+        preserved:
+          false
+
+      },
+
+      boundary: {
+
+        builderAvailable:
+          Boolean(
+            extra.boundaryBuilderName
+          ),
+
+        builderName:
+          extra.boundaryBuilderName ||
+          null,
+
+        ready:
+          false,
+
+        passed:
+          false,
+
+        sourceCount:
+          Number.isFinite(
+            Number(
+              extra.shadowEligibleCount
+            )
+          )
+            ? Number(
+                extra.shadowEligibleCount
+              )
+            : 0,
+
+        candidateCount:
+          0,
+
+        rejectedCount:
+          0,
+
+        countsBalanced:
+          false,
+
+        candidateCountMatch:
+          false,
+
+        provinceMatch:
+          false
+
+      },
+
+      error:
+        extra.error ||
+        null,
+
+      safety: {
+
+        readOnly:
+          true,
+
+        shadowOnly:
+          true,
+
+        canonicalWrite:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        autoPromotion:
+          false,
+
+        promotionPerformed:
+          false,
+
+        forecastEngineExecuted:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        lastForecastModified:
+          false,
+
+        canonicalCandidatesModified:
+          false,
+
+        real83BModified:
+          false
+
+      }
+
+    };
+
+
+    window
+      .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
+      clone83BSourceShadowV41(
+        result
+      );
+
+
+    return result;
+
+  }
+
+
+  /* =========================================================
      MAIN BUILD
      ========================================================= */
 
   function build83BSourceShadow() {
 
     const verified =
-      resolveVerifiedProvince83BSourceShadowV4();
+      resolveVerifiedProvince83BSourceShadowV41();
 
 
-    if (!verified.ready) {
+    if (
+      !verified.ready ||
+      !verified.province ||
+      !verified.sourceTrusted ||
+      !verified.consistent
+    ) {
 
-      return buildFailure83BSourceShadowV4(
-        'B8_VERIFIED_SCOPE_NOT_AVAILABLE',
+      return buildFailure83BSourceShadowV41(
+        'TRUSTED_RESOLVED_SCOPE_NOT_AVAILABLE',
         verified
       );
 
@@ -978,12 +1386,14 @@ const trusted =
 
 
     const real82C =
-      readReal82C83BSourceShadowV4();
+      readReal82C83BSourceShadowV41();
 
 
-    if (!real82C.available) {
+    if (
+      !real82C.available
+    ) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'REAL_STEP82C_NOT_AVAILABLE',
         verified
       );
@@ -991,18 +1401,29 @@ const trusted =
     }
 
 
-    if (!real82C.validated) {
+    if (
+      !real82C.validated
+    ) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'REAL_STEP82C_NOT_VALIDATED',
-        verified
+        verified,
+        {
+
+          real82CAvailable:
+            true,
+
+          real82CValidated:
+            false
+
+        }
       );
 
     }
 
 
     const filtered =
-      buildFiltered82CSource83BSourceShadowV4(
+      buildFiltered82CSource83BSourceShadowV41(
         real82C.source,
         verified.province
       );
@@ -1016,8 +1437,8 @@ const trusted =
       shadowEligibleCount === 0
     ) {
 
-      return buildFailure83BSourceShadowV4(
-        'NO_REAL82C_ELIGIBLE_RECORDS_FOR_VERIFIED_PROVINCE',
+      return buildFailure83BSourceShadowV41(
+        'NO_REAL82C_ELIGIBLE_RECORDS_FOR_RESOLVED_PROVINCE',
         verified,
         {
 
@@ -1026,12 +1447,6 @@ const trusted =
 
           real82CValidated:
             true,
-
-          real82CEligibleCount:
-            real82C
-              .source
-              .eligible
-              .length,
 
           shadowEligibleCount:
             0
@@ -1047,9 +1462,23 @@ const trusted =
         0
     ) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'FOREIGN_PROVINCE_LEAKAGE',
-        verified
+        verified,
+        {
+
+          real82CAvailable:
+            true,
+
+          real82CValidated:
+            true,
+
+          shadowEligibleCount,
+
+          foreignProvinceLeakage:
+            filtered.foreign.length
+
+        }
       );
 
     }
@@ -1060,10 +1489,16 @@ const trusted =
       !filtered.identityUnique
     ) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'SHADOW_IDENTITY_INVALID',
         verified,
         {
+
+          real82CAvailable:
+            true,
+
+          real82CValidated:
+            true,
 
           shadowEligibleCount,
 
@@ -1080,12 +1515,14 @@ const trusted =
 
 
     const boundary =
-      resolveBoundaryBuilder83BSourceShadowV4();
+      resolveBoundaryBuilder83BSourceShadowV41();
 
 
-    if (!boundary.ready) {
+    if (
+      !boundary.ready
+    ) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'REAL_STEP83_BOUNDARY_BUILDER_NOT_AVAILABLE',
         verified,
         {
@@ -1110,21 +1547,27 @@ const trusted =
     }
 
 
-    let boundaryResult;
+    let boundaryResult = null;
 
 
     try {
 
+      /*
+       * REAL boundary builder receives a NEW clone.
+       *
+       * Canonical STEP 8.2C object remains untouched.
+       */
+
       boundaryResult =
         boundary.fn(
-          clone83BSourceShadowV4(
+          clone83BSourceShadowV41(
             filtered.shadowSource
           )
         );
 
     } catch (error) {
 
-      return buildFailure83BSourceShadowV4(
+      return buildFailure83BSourceShadowV41(
         'REAL_STEP83_BOUNDARY_BUILDER_ERROR',
         verified,
         {
@@ -1133,7 +1576,9 @@ const trusted =
             error &&
             error.message
               ? error.message
-              : String(error),
+              : String(
+                  error
+                ),
 
           real82CAvailable:
             true,
@@ -1144,7 +1589,13 @@ const trusted =
           shadowEligibleCount,
 
           boundaryBuilderName:
-            boundary.name
+            boundary.name,
+
+          identityComplete:
+            filtered.identityComplete,
+
+          identityUnique:
+            filtered.identityUnique
 
         }
       );
@@ -1153,13 +1604,13 @@ const trusted =
 
 
     const boundaryCandidates =
-      extractBoundaryCandidates83BSourceShadowV4(
+      extractBoundaryCandidates83BSourceShadowV41(
         boundaryResult
       );
 
 
     const rejected =
-      extractRejected83BSourceShadowV4(
+      extractRejected83BSourceShadowV41(
         boundaryResult
       );
 
@@ -1171,7 +1622,7 @@ const trusted =
     const boundaryIdentities =
       boundaryCandidates
         .map(
-          candidateIdentity83BSourceShadowV4
+          candidateIdentity83BSourceShadowV41
         )
         .filter(
           Boolean
@@ -1186,7 +1637,7 @@ const trusted =
 
     const boundaryIdentityUnique =
       boundaryIdentityComplete &&
-      unique83BSourceShadowV4(
+      unique83BSourceShadowV41(
         boundaryIdentities
       ).length ===
         boundaryIdentities.length;
@@ -1211,25 +1662,58 @@ const trusted =
       );
 
 
+    const boundaryIdentitySet =
+      new Set(
+        boundaryIdentities
+      );
+
+
+    const everySourceIdentityInBoundary =
+      boundaryIdentityComplete &&
+      sourceIdentities.every(
+        function (identity) {
+
+          return boundaryIdentitySet.has(
+            identity
+          );
+
+        }
+      );
+
+
+    const exactIdentitySetMatch =
+      everyBoundaryIdentityFromSource &&
+      everySourceIdentityInBoundary &&
+      sourceIdentities.length ===
+        boundaryIdentities.length;
+
+
     const provinceMatch =
+      boundaryCandidates.length > 0 &&
       boundaryCandidates.every(
         function (candidate) {
 
           const record =
             candidate &&
-            candidate.record
+            candidate.record &&
+            typeof candidate.record ===
+              'object'
               ? candidate.record
               : candidate;
 
 
-          return (
-            normalizeProvince83BSourceShadowV4(
+          const province =
+            normalizeProvince83BSourceShadowV41(
               candidate &&
               candidate.province
                 ? candidate.province
                 : record &&
                   record.province
-            ) ===
+            );
+
+
+          return (
+            province ===
             verified.province
           );
 
@@ -1255,7 +1739,7 @@ const trusted =
       sourceCount;
 
 
-    const countMatches =
+    const candidateCountMatch =
       boundaryCount ===
         sourceCount;
 
@@ -1270,6 +1754,8 @@ const trusted =
 
     const passed =
       verified.ready === true &&
+      verified.sourceTrusted === true &&
+      verified.consistent === true &&
       real82C.validated === true &&
       sourceCount > 0 &&
       filtered.foreign.length === 0 &&
@@ -1278,10 +1764,14 @@ const trusted =
       boundaryPassed === true &&
       rejectedCount === 0 &&
       countsBalanced === true &&
-      countMatches === true &&
+      candidateCountMatch === true &&
       boundaryIdentityComplete === true &&
       boundaryIdentityUnique === true &&
-      everyBoundaryIdentityFromSource === true &&
+      everyBoundaryIdentityFromSource ===
+        true &&
+      everySourceIdentityInBoundary ===
+        true &&
+      exactIdentitySetMatch === true &&
       provinceMatch === true;
 
 
@@ -1297,7 +1787,7 @@ const trusted =
 
       reason:
         passed
-          ? 'B8_REAL82C_SOURCE_BOUNDARY_SHADOW_READY'
+          ? 'RESOLVED_REAL82C_SOURCE_BOUNDARY_SHADOW_READY'
           : 'SOURCE_BOUNDARY_SCOPE_MISMATCH',
 
       verifiedScope: {
@@ -1312,7 +1802,13 @@ const trusted =
           verified.source,
 
         resolverName:
-          verified.resolverName
+          verified.resolverName,
+
+        sourceTrusted:
+          verified.sourceTrusted,
+
+        consistent:
+          verified.consistent
 
       },
 
@@ -1378,12 +1874,16 @@ const trusted =
 
         everyBoundaryIdentityFromSource,
 
+        everySourceIdentityInBoundary,
+
+        exactIdentitySetMatch,
+
         preserved:
           filtered.identityComplete &&
           filtered.identityUnique &&
           boundaryIdentityComplete &&
           boundaryIdentityUnique &&
-          everyBoundaryIdentityFromSource
+          exactIdentitySetMatch
 
       },
 
@@ -1418,20 +1918,19 @@ const trusted =
 
         countsBalanced,
 
-        candidateCountMatch:
-          countMatches,
+        candidateCountMatch,
 
         provinceMatch
 
       },
 
       shadowSource:
-        clone83BSourceShadowV4(
+        clone83BSourceShadowV41(
           filtered.shadowSource
         ),
 
       boundaryResult:
-        clone83BSourceShadowV4(
+        clone83BSourceShadowV41(
           boundaryResult
         ),
 
@@ -1468,6 +1967,9 @@ const trusted =
           false,
 
         canonicalCandidatesModified:
+          false,
+
+        real83BModified:
           false
 
       }
@@ -1481,224 +1983,7 @@ const trusted =
 
     window
       .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
-      clone83BSourceShadowV4(
-        result
-      );
-
-
-    return result;
-
-  }
-
-
-  /* =========================================================
-     FAILURE RESULT
-     ========================================================= */
-
-  function buildFailure83BSourceShadowV4(
-    reason,
-    verified,
-    extra
-  ) {
-
-    const result = {
-
-      version:
-        VERSION,
-
-      ready:
-        false,
-
-      passed:
-        false,
-
-      reason,
-
-      verifiedScope: {
-
-        ready:
-          Boolean(
-            verified &&
-            verified.ready
-          ),
-
-        province:
-          verified
-            ? verified.province
-            : null,
-
-        source:
-          verified
-            ? verified.source
-            : 'NONE',
-
-        resolverName:
-          verified
-            ? verified.resolverName
-            : null
-
-      },
-
-      real82C: {
-
-        available:
-          extra &&
-          extra.real82CAvailable ===
-            true,
-
-        validated:
-          extra &&
-          extra.real82CValidated ===
-            true
-
-      },
-
-      provinceFilter: {
-
-        shadowEligibleCount:
-          extra &&
-          Number.isFinite(
-            Number(
-              extra.shadowEligibleCount
-            )
-          )
-            ? Number(
-                extra.shadowEligibleCount
-              )
-            : 0,
-
-        foreignProvinceLeakage:
-          0,
-
-        passed:
-          false
-
-      },
-
-      identity: {
-
-        sourceIdentityComplete:
-          extra &&
-          extra.identityComplete ===
-            true,
-
-        sourceIdentityUnique:
-          extra &&
-          extra.identityUnique ===
-            true,
-
-        boundaryIdentityComplete:
-          false,
-
-        boundaryIdentityUnique:
-          false,
-
-        everyBoundaryIdentityFromSource:
-          false,
-
-        preserved:
-          false
-
-      },
-
-      boundary: {
-
-        builderAvailable:
-          Boolean(
-            extra &&
-            extra.boundaryBuilderName
-          ),
-
-        builderName:
-          extra &&
-          extra.boundaryBuilderName
-            ? extra.boundaryBuilderName
-            : null,
-
-        ready:
-          false,
-
-        passed:
-          false,
-
-        sourceCount:
-          extra &&
-          Number.isFinite(
-            Number(
-              extra.shadowEligibleCount
-            )
-          )
-            ? Number(
-                extra.shadowEligibleCount
-              )
-            : 0,
-
-        candidateCount:
-          0,
-
-        rejectedCount:
-          0,
-
-        countsBalanced:
-          false,
-
-        candidateCountMatch:
-          false,
-
-        provinceMatch:
-          false
-
-      },
-
-      error:
-        extra &&
-        extra.error
-          ? extra.error
-          : null,
-
-      safety: {
-
-        readOnly:
-          true,
-
-        shadowOnly:
-          true,
-
-        canonicalWrite:
-          false,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        autoPromotion:
-          false,
-
-        promotionPerformed:
-          false,
-
-        forecastEngineExecuted:
-          false,
-
-        savePredictionCalled:
-          false,
-
-        lastForecastModified:
-          false,
-
-        canonicalCandidatesModified:
-          false
-
-      }
-
-    };
-
-
-    window
-      .LAST_FIX03D59_STEP83B_SOURCE_SHADOW =
-      clone83BSourceShadowV4(
+      clone83BSourceShadowV41(
         result
       );
 
@@ -1723,19 +2008,98 @@ const trusted =
     );
 
     console.log(
-      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V4 ARRAY FIX'
+      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V4.1'
     );
 
     console.log(
-      'REAL 8.2C FILTERED SOURCE'
+      'RESOLVER COMPAT / REAL 8.2C / REAL 8.3 BOUNDARY'
+    );
+
+    console.log(
+      'READ ONLY / SHADOW ONLY / ZERO WRITE'
     );
 
     console.log(
       '=========================================='
     );
 
+
     console.log(
+      'Result:',
       result
+    );
+
+
+    console.log(
+      'Resolved Province:',
+      result &&
+      result.verifiedScope
+        ? result
+            .verifiedScope
+            .province
+        : null
+    );
+
+
+    console.log(
+      'Resolver Source:',
+      result &&
+      result.verifiedScope
+        ? result
+            .verifiedScope
+            .source
+        : null
+    );
+
+
+    console.log(
+      'Source Trusted:',
+      result &&
+      result.verifiedScope
+        ? result
+            .verifiedScope
+            .sourceTrusted
+        : false
+    );
+
+
+    console.log(
+      'Real 8.2C:',
+      result
+        ? result.real82C
+        : null
+    );
+
+
+    console.log(
+      'Province Filter:',
+      result
+        ? result.provinceFilter
+        : null
+    );
+
+
+    console.log(
+      'Identity:',
+      result
+        ? result.identity
+        : null
+    );
+
+
+    console.log(
+      'Boundary:',
+      result
+        ? result.boundary
+        : null
+    );
+
+
+    console.log(
+      'Safety:',
+      result
+        ? result.safety
+        : null
     );
 
 
@@ -1785,7 +2149,7 @@ const trusted =
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow V4 ARRAY FIX loaded / REAL 8.2C FILTER / REAL 8.3 BOUNDARY / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.3B Source Shadow V4.1 loaded / RESOLVER COMPAT / REAL 8.2C FILTER / REAL 8.3 BOUNDARY / READ ONLY / ZERO WRITE'
   );
 
 })();
