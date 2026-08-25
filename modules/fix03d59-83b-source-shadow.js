@@ -320,16 +320,58 @@ const province =
             null;
 
 
-          const trusted =
-            source ===
-              'B8_VERIFIED_SELECTED_PROVINCE' ||
-            result.sourceTrusted ===
-              true ||
-            (
-              result.resolver &&
-              result.resolver.sourceTrusted ===
-                true
-            );
+          const resolvedScope =
+  Array.isArray(
+    result.resolvedScope
+  )
+    ? result.resolvedScope
+    : [];
+
+
+const provinceInResolvedScope =
+  Boolean(
+    province &&
+    resolvedScope.includes(
+      province
+    )
+  );
+
+
+const b8SelectedVerified =
+  Boolean(
+    result.verifiedB8 &&
+    result.verifiedB8.exists === true &&
+    result.verifiedB8.selectedInScope === true &&
+    Array.isArray(
+      result.verifiedB8.provinces
+    ) &&
+    result.verifiedB8.provinces.includes(
+      province
+    )
+  );
+
+
+const productionSelectedMatched =
+  Boolean(
+    result.productionForecastExists === true &&
+    result.productionProvince ===
+      province &&
+    result.selectedProvince ===
+      province &&
+    result.selectedMatchesProduction ===
+      true
+  );
+
+
+const trusted =
+  Boolean(
+    result.ready === true &&
+    provinceInResolvedScope &&
+    (
+      b8SelectedVerified ||
+      productionSelectedMatched
+    )
+  );
 
 
           if (
