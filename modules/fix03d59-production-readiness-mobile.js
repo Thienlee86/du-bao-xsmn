@@ -1,19 +1,27 @@
 /* =========================================================================
-   FIX-03D5.9 — PRODUCTION READINESS MOBILE V1
+   FIX-03D5.9 — PRODUCTION READINESS MOBILE V2
 
    PURPOSE:
    - Final consolidated readiness inspection before REAL integration.
+   - Use the already verified Production Integration Preview as the
+     authoritative READ-ONLY production-path observation.
+   - Cross-check province identity across:
+       Production Preview
+       Scope Resolver
+       Single Integration Candidate
    - Mobile friendly.
    - READ ONLY.
    - ZERO WRITE.
    - NO ENGINE EXECUTION.
 
    IMPORTANT:
+   - Does NOT create a forecast.
    - Does NOT modify LAST_FORECAST.
    - Does NOT modify STEP 8.3B.
    - Does NOT modify candidates.
    - Does NOT call savePrediction().
    - Does NOT authorize Production write.
+   - FAIL CLOSED.
    ========================================================================= */
 
 (function () {
@@ -22,7 +30,7 @@
 
 
   const VERSION =
-    'FIX03D59-PRODUCTION-READINESS-MOBILE-V1';
+    'FIX03D59-PRODUCTION-READINESS-MOBILE-V2';
 
 
   const OUTPUT_ID =
@@ -87,9 +95,7 @@
   }
 
 
-  function safeCall(
-    fn
-  ) {
+  function safeCall(fn) {
 
     try {
 
@@ -114,6 +120,29 @@
   }
 
 
+  function normalizeProvince(value) {
+
+    if (
+      value === undefined ||
+      value === null
+    ) {
+
+      return null;
+
+    }
+
+
+    const normalized =
+      String(value)
+        .trim()
+        .toLowerCase();
+
+
+    return normalized || null;
+
+  }
+
+
   /* =========================================================
      INSPECT RUNTIME
      ========================================================= */
@@ -122,35 +151,7 @@
 
     /*
      * ---------------------------------------------------------
-     * 1. PRODUCTION FORECAST
-     * READ ONLY
-     * ---------------------------------------------------------
-     */
-
-    const forecast =
-      window.LAST_FORECAST ||
-      null;
-
-
-    const forecastExists =
-      Boolean(forecast);
-
-
-    const productionProvince =
-      forecast
-        ? (
-            forecast.province ||
-            forecast.provinceSlug ||
-            forecast.provinceId ||
-            forecast.slug ||
-            null
-          )
-        : null;
-
-
-    /*
-     * ---------------------------------------------------------
-     * 2. STEP 8.3B CURRENT RESULT
+     * 1. STEP 8.3B CURRENT RESULT
      * READ ONLY
      * ---------------------------------------------------------
      */
@@ -166,9 +167,10 @@
 
     /*
      * ---------------------------------------------------------
-     * 3. PRODUCTION INTEGRATION PREVIEW
+     * 2. PRODUCTION INTEGRATION PREVIEW
      *
-     * Existing API is expected to be READ ONLY.
+     * This API is the already established READ-ONLY bridge
+     * between current Production state and STEP 8.3B.
      * ---------------------------------------------------------
      */
 
@@ -215,6 +217,12 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * 3. EXTRACT PREVIEW SECTIONS
+     * ---------------------------------------------------------
+     */
+
     const production =
       previewResult &&
       previewResult.production
@@ -252,7 +260,150 @@
 
     /*
      * ---------------------------------------------------------
-     * 4. HARD SAFETY CONDITIONS
+     * 4. VERIFIED PRODUCTION FORECAST STATE
+     *
+     * IMPORTANT:
+     * Do NOT depend on window.LAST_FORECAST here.
+     *
+     * The Production Integration Preview already resolves
+     * Production through the established runtime bridge.
+     * We consume that READ-ONLY observation.
+     * ---------------------------------------------------------
+     */
+
+    const forecastExists =
+      production.forecastExists === true;
+
+
+    const productionProvince =
+      normalizeProvince(
+        production.province
+      );
+
+
+    const pathReady =
+      production.pathReady === true;
+
+
+    /*
+     * ---------------------------------------------------------
+     * 5. RESOLVER STATE
+     * ---------------------------------------------------------
+     */
+
+    const resolverAvailable =
+      resolver.available === true;
+
+
+    const resolverReady =
+      resolver.ready === true;
+
+
+    const resolvedProvince =
+      normalizeProvince(
+        resolver.resolvedProvince
+      );
+
+
+    /*
+     * ---------------------------------------------------------
+     * 6. INTEGRATION PREVIEW STATE
+     * ---------------------------------------------------------
+     */
+
+    const previewReady =
+      Boolean(
+        previewResult &&
+        previewResult.ready === true
+      );
+
+
+    const exactlyOneMatch =
+      preview.exactlyOneMatchingCandidate ===
+      true;
+
+
+    const identityPreserved =
+      preview.candidateIdentityPreserved ===
+      true;
+
+
+    const singleProvince =
+      preview.singleProvince === true;
+
+
+    const candidateCount =
+      Number(
+        preview.candidateCount
+      );
+
+
+    const candidateProvinces =
+      Array.isArray(
+        preview.candidateProvinces
+      )
+        ? preview.candidateProvinces
+        : [];
+
+
+    const singleCandidateProvince =
+      candidateProvinces.length === 1
+        ? normalizeProvince(
+            candidateProvinces[0]
+          )
+        : null;
+
+
+    /*
+     * ---------------------------------------------------------
+     * 7. PROVINCE IDENTITY CROSS-CHECK
+     *
+     * Production
+     *     =
+     * Resolver
+     *     =
+     * Single integration candidate
+     *
+     * FAIL CLOSED on missing/mismatched identity.
+     * ---------------------------------------------------------
+     */
+
+    const productionResolverMatch =
+      Boolean(
+        productionProvince &&
+        resolvedProvince &&
+        productionProvince ===
+          resolvedProvince
+      );
+
+
+    const productionCandidateMatch =
+      Boolean(
+        productionProvince &&
+        singleCandidateProvince &&
+        productionProvince ===
+          singleCandidateProvince
+      );
+
+
+    const resolverCandidateMatch =
+      Boolean(
+        resolvedProvince &&
+        singleCandidateProvince &&
+        resolvedProvince ===
+          singleCandidateProvince
+      );
+
+
+    const provinceIdentityPass =
+      productionResolverMatch &&
+      productionCandidateMatch &&
+      resolverCandidateMatch;
+
+
+    /*
+     * ---------------------------------------------------------
+     * 8. HARD SAFETY CONDITIONS
      * ---------------------------------------------------------
      */
 
@@ -306,52 +457,111 @@
 
     /*
      * ---------------------------------------------------------
-     * 5. READINESS CONDITIONS
-     * FAIL CLOSED
+     * 9. FINAL READINESS
+     *
+     * Every condition must pass.
+     * FAIL CLOSED.
      * ---------------------------------------------------------
      */
-
-    const previewReady =
-      Boolean(
-        previewResult &&
-        previewResult.ready === true
-      );
-
-
-    const resolverReady =
-      resolver.ready === true;
-
-
-    const exactlyOneMatch =
-      preview.exactlyOneMatchingCandidate ===
-      true;
-
-
-    const identityPreserved =
-      preview.candidateIdentityPreserved ===
-      true;
-
-
-    const singleProvince =
-      preview.singleProvince === true;
-
-
-    const pathReady =
-      production.pathReady === true;
-
 
     const ready =
       previewApiAvailable &&
       !previewError &&
       forecastExists &&
+      pathReady &&
       step83BExists &&
-      previewReady &&
+      resolverAvailable &&
       resolverReady &&
+      previewReady &&
       exactlyOneMatch &&
       identityPreserved &&
       singleProvince &&
-      pathReady &&
+      candidateCount === 1 &&
+      provinceIdentityPass &&
       safetyPass;
+
+
+    /*
+     * ---------------------------------------------------------
+     * 10. FINAL REASON
+     * ---------------------------------------------------------
+     */
+
+    let reason =
+      'PRODUCTION_READINESS_READY';
+
+
+    if (!previewApiAvailable) {
+
+      reason =
+        'PREVIEW_API_NOT_AVAILABLE';
+
+    } else if (previewError) {
+
+      reason =
+        'PREVIEW_API_ERROR';
+
+    } else if (!forecastExists) {
+
+      reason =
+        'VERIFIED_PRODUCTION_FORECAST_NOT_AVAILABLE';
+
+    } else if (!pathReady) {
+
+      reason =
+        'PRODUCTION_PATH_NOT_READY';
+
+    } else if (!step83BExists) {
+
+      reason =
+        'STEP83B_NOT_AVAILABLE';
+
+    } else if (!resolverAvailable) {
+
+      reason =
+        'SCOPE_RESOLVER_NOT_AVAILABLE';
+
+    } else if (!resolverReady) {
+
+      reason =
+        'SCOPE_RESOLVER_NOT_READY';
+
+    } else if (!previewReady) {
+
+      reason =
+        'INTEGRATION_PREVIEW_NOT_READY';
+
+    } else if (!exactlyOneMatch) {
+
+      reason =
+        'NOT_EXACTLY_ONE_MATCH';
+
+    } else if (!identityPreserved) {
+
+      reason =
+        'CANDIDATE_IDENTITY_NOT_PRESERVED';
+
+    } else if (!singleProvince) {
+
+      reason =
+        'NOT_SINGLE_PROVINCE';
+
+    } else if (candidateCount !== 1) {
+
+      reason =
+        'CANDIDATE_COUNT_NOT_ONE';
+
+    } else if (!provinceIdentityPass) {
+
+      reason =
+        'PROVINCE_IDENTITY_MISMATCH';
+
+    } else if (!safetyPass) {
+
+      reason =
+        'SAFETY_CHECK_FAILED';
+
+    }
 
 
     return {
@@ -362,15 +572,16 @@
       ready:
         ready,
 
+      reason:
+        reason,
+
       forecast: {
 
         exists:
           forecastExists,
 
         province:
-          production.province ||
-          productionProvince ||
-          null,
+          productionProvince,
 
         pathReady:
           pathReady
@@ -393,7 +604,7 @@
       resolver: {
 
         available:
-          resolver.available === true,
+          resolverAvailable,
 
         ready:
           resolverReady,
@@ -401,11 +612,17 @@
         source:
           resolver.source,
 
+        reason:
+          resolver.reason,
+
+        error:
+          resolver.error,
+
         resolvedScope:
           resolver.resolvedScope,
 
         resolvedProvince:
-          resolver.resolvedProvince
+          resolvedProvince
 
       },
 
@@ -421,10 +638,13 @@
           previewReady,
 
         candidateCount:
-          preview.candidateCount,
+          candidateCount,
 
         candidateProvinces:
-          preview.candidateProvinces,
+          candidateProvinces,
+
+        singleCandidateProvince:
+          singleCandidateProvince,
 
         exactlyOneMatch:
           exactlyOneMatch,
@@ -438,6 +658,31 @@
         scopeReductionRequired:
           preview.scopeReductionRequired ===
           true
+
+      },
+
+      identity: {
+
+        productionProvince:
+          productionProvince,
+
+        resolverProvince:
+          resolvedProvince,
+
+        candidateProvince:
+          singleCandidateProvince,
+
+        productionResolverMatch:
+          productionResolverMatch,
+
+        productionCandidateMatch:
+          productionCandidateMatch,
+
+        resolverCandidateMatch:
+          resolverCandidateMatch,
+
+        pass:
+          provinceIdentityPass
 
       },
 
@@ -503,6 +748,7 @@
         <span
           style="
             color:#b9bfdc;
+            min-width:0;
           "
         >
           ${esc(label)}
@@ -512,6 +758,9 @@
           style="
             text-align:right;
             color:#fff;
+            min-width:0;
+            overflow-wrap:anywhere;
+            word-break:break-word;
           "
         >
           ${esc(text(value))}
@@ -572,10 +821,23 @@
             color:${finalColor};
             font-size:20px;
             font-weight:900;
-            margin-bottom:14px;
+            margin-bottom:8px;
           "
         >
           ${finalText}
+        </div>
+
+        <div
+          style="
+            color:#b9bfdc;
+            margin-bottom:16px;
+            overflow-wrap:anywhere;
+          "
+        >
+          Reason:
+          <b style="color:#fff;">
+            ${esc(result.reason)}
+          </b>
         </div>
 
 
@@ -583,7 +845,6 @@
           style="
             color:#ffbd3c;
             font-weight:900;
-            margin-top:6px;
           "
         >
           🟣 PRODUCTION
@@ -628,6 +889,11 @@
         ${row(
           'Source',
           result.resolver.source
+        )}
+
+        ${row(
+          'Resolver reason',
+          result.resolver.reason
         )}
 
         ${row(
@@ -732,6 +998,61 @@
 
         <div
           style="
+            color:#63d9ff;
+            font-weight:900;
+            margin-top:20px;
+          "
+        >
+          🔗 PROVINCE IDENTITY CROSS-CHECK
+        </div>
+
+        ${row(
+          'Production province',
+          result.identity.productionProvince
+        )}
+
+        ${row(
+          'Resolver province',
+          result.identity.resolverProvince
+        )}
+
+        ${row(
+          'Candidate province',
+          result.identity.candidateProvince
+        )}
+
+        ${row(
+          'Production = Resolver',
+          yn(
+            result.identity
+              .productionResolverMatch
+          )
+        )}
+
+        ${row(
+          'Production = Candidate',
+          yn(
+            result.identity
+              .productionCandidateMatch
+          )
+        )}
+
+        ${row(
+          'Resolver = Candidate',
+          yn(
+            result.identity
+              .resolverCandidateMatch
+          )
+        )}
+
+        ${row(
+          'Identity cross-check',
+          yn(result.identity.pass)
+        )}
+
+
+        <div
+          style="
             color:#68e39b;
             font-weight:900;
             margin-top:20px;
@@ -811,6 +1132,11 @@
     `;
 
 
+    /*
+     * Diagnostic result only.
+     * No Production state is modified.
+     */
+
     window
       .LAST_FIX03D59_PRODUCTION_READINESS =
       result;
@@ -842,7 +1168,7 @@
 
 
     output.innerHTML =
-      '⏳ Đang kiểm tra toàn bộ Production Readiness...';
+      '⏳ Đang kiểm tra toàn bộ Production Readiness V2...';
 
 
     try {
@@ -862,7 +1188,7 @@
     } catch (error) {
 
       console.error(
-        'FIX03D59 Production Readiness:',
+        'FIX03D59 Production Readiness V2:',
         error
       );
 
@@ -911,7 +1237,7 @@
 
 
   console.log(
-    '🧪 FIX-03D5.9 Production Readiness Mobile V1 loaded / READ ONLY'
+    '🧪 FIX-03D5.9 Production Readiness Mobile V2 loaded / READ ONLY / FAIL CLOSED'
   );
 
 })();
