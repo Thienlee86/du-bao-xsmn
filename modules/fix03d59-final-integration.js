@@ -1,11 +1,11 @@
 /* =========================================================================
    FIX-03D5.9
-   FINAL PRODUCTION INTEGRATION GATE — V1
+   FINAL PRODUCTION INTEGRATION GATE — V2
 
    PURPOSE:
-   - Bind STEP 8.4F Mapping Preview to the CURRENT LAST_FORECAST.
+   - Bind STEP 8.4F Mapping Preview to CURRENT LAST_FORECAST.
    - Reject stale / missing / invalid runtime state.
-   - Verify that certification belongs to the forecast currently in RAM.
+   - Verify mapping belongs to the forecast currently in RAM.
    - Prepare ONE final authorization boundary before Production Adapter.
 
    IMPORTANT:
@@ -25,7 +25,7 @@
 
 
   const VERSION =
-    'FIX03D59_FINAL_INTEGRATION_V1';
+    'FIX03D59_FINAL_INTEGRATION_V2';
 
 
   /*
@@ -62,6 +62,12 @@
   }
 
 
+  /*
+   * =========================================================
+   * 2. CURRENT PRODUCTION FORECAST
+   * =========================================================
+   */
+
   function getForecast() {
 
     const container =
@@ -78,7 +84,7 @@
 
 
     /*
-     * Existing Production Core stores:
+     * Production Core in app (27).js:
      *
      * LAST_FORECAST = {
      *   forecast,
@@ -98,10 +104,7 @@
 
 
     /*
-     * Fail-safe compatibility only.
-     *
-     * If a runtime exposes the forecast object
-     * directly, allow inspection without mutation.
+     * Read-only compatibility fallback.
      */
 
     if (
@@ -121,6 +124,12 @@
   }
 
 
+  /*
+   * =========================================================
+   * 3. CURRENT 8.4F MAPPING PREVIEW
+   * =========================================================
+   */
+
   function getMappingPreview() {
 
     return (
@@ -134,12 +143,56 @@
 
   /*
    * =========================================================
-   * 2. FORECAST IDENTITY
+   * 4. NUMBER IDENTITY
    *
-   * No new persistent ID is created.
+   * app (27).js forecast number schema:
    *
-   * Identity is derived only from immutable-looking
-   * fields already present in the current forecast.
+   * item.numbers = [
+   *   {
+   *     number: '...',
+   *     ...
+   *   }
+   * ]
+   *
+   * Compatibility with primitive number/string values
+   * is inspection-only.
+   * =========================================================
+   */
+
+  function getNumberIdentity(
+    value
+  ) {
+
+    if (
+      isObject(value)
+    ) {
+
+      return String(
+        value.number == null
+          ? ''
+          : value.number
+      );
+
+    }
+
+
+    return String(
+      value == null
+        ? ''
+        : value
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * 5. FORECAST IDENTITY
+   *
+   * RAM diagnostic identity only.
+   *
+   * No persistent ID is created.
+   * No mutation.
    * =========================================================
    */
 
@@ -216,15 +269,7 @@
               )
                 ? item.numbers
                     .map(
-                      function (
-                        number
-                      ) {
-
-                        return String(
-                          number
-                        );
-
-                      }
+                      getNumberIdentity
                     )
                     .join(',')
                 : '';
@@ -242,10 +287,17 @@
 
 
     return [
+
       province,
+
       targetDrawDate,
-      String(windowSize),
+
+      String(
+        windowSize
+      ),
+
       itemSignature
+
     ].join('::');
 
   }
@@ -253,12 +305,7 @@
 
   /*
    * =========================================================
-   * 3. MAPPING IDENTITY EXTRACTION
-   *
-   * STEP 8.4F has evolved through several read-only builds.
-   * We inspect known fields only.
-   *
-   * No mutation.
+   * 6. MAPPING IDENTITY EXTRACTION
    * =========================================================
    */
 
@@ -340,7 +387,88 @@
 
   /*
    * =========================================================
-   * 4. FINAL INTEGRATION GATE
+   * 7. FAIL-CLOSED RESULT
+   * =========================================================
+   */
+
+  function failFinalIntegration(
+    reason,
+    extra = {}
+  ) {
+
+    const result = {
+
+      ready:
+        false,
+
+      passed:
+        false,
+
+      authorized:
+        false,
+
+      reason,
+
+      version:
+        VERSION,
+
+      mode:
+        'READ_ONLY_FINAL_GATE',
+
+      ...extra,
+
+      safety: {
+
+        lastForecastModified:
+          false,
+
+        mappingModified:
+          false,
+
+        productionWrite:
+          false,
+
+        storageWrite:
+          false,
+
+        savePredictionCalled:
+          false,
+
+        adapterExecuted:
+          false
+
+      },
+
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
+      inspectedAt:
+        new Date()
+          .toISOString()
+
+    };
+
+
+    /*
+     * Diagnostic RAM only.
+     */
+
+    window
+      .LAST_FIX03D59_FINAL_INTEGRATION =
+      result;
+
+
+    return result;
+
+  }
+
+
+  /*
+   * =========================================================
+   * 8. FINAL INTEGRATION GATE
    * =========================================================
    */
 
@@ -356,46 +484,30 @@
 
     /*
      * ---------------------------------------------------------
-     * FAIL CLOSED — CURRENT FORECAST
+     * CURRENT FORECAST REQUIRED
      * ---------------------------------------------------------
      */
 
-    if (!forecast) {
+    if (
+      !forecast
+    ) {
 
-      return {
-
-        ready: false,
-
-        passed: false,
-
-        authorized: false,
-
-        reason:
-          'CURRENT_FORECAST_NOT_AVAILABLE',
-
-        version:
-          VERSION,
-
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
+      return failFinalIntegration(
+        'CURRENT_FORECAST_NOT_AVAILABLE'
+      );
 
     }
 
 
+    const currentForecastIdentity =
+      buildForecastIdentity(
+        forecast
+      );
+
+
     /*
      * ---------------------------------------------------------
-     * FAIL CLOSED — 8.4F
+     * 8.4F REQUIRED
      * ---------------------------------------------------------
      */
 
@@ -405,99 +517,83 @@
       )
     ) {
 
-      return {
-
-        ready: false,
-
-        passed: false,
-
-        authorized: false,
-
-        reason:
-          'STEP_84F_MAPPING_NOT_AVAILABLE',
-
-        version:
-          VERSION,
-
-        currentForecastIdentity:
-          buildForecastIdentity(
-            forecast
-          ),
-
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
-
-    }
-
-
-    /*
-     * 8.4F itself must already consider its
-     * mapping usable.
-     */
-
-    const mappingPassed =
-      (
-        mapping.passed === true ||
-        mapping.ready === true ||
-        mapping.mappingReady === true
+      return failFinalIntegration(
+        'STEP_84F_MAPPING_NOT_AVAILABLE',
+        {
+          currentForecastIdentity
+        }
       );
-
-
-    if (!mappingPassed) {
-
-      return {
-
-        ready: false,
-
-        passed: false,
-
-        authorized: false,
-
-        reason:
-          'STEP_84F_NOT_READY',
-
-        version:
-          VERSION,
-
-        mappingReason:
-          mapping.reason || null,
-
-        currentForecastIdentity:
-          buildForecastIdentity(
-            forecast
-          ),
-
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
 
     }
 
 
     /*
      * ---------------------------------------------------------
-     * PROVINCE BINDING
+     * STRICT 8.4F VALIDATION
+     * ---------------------------------------------------------
+     *
+     * IMPORTANT:
+     *
+     * app (27).js 8.4F can return ready:true
+     * while mappingValid:false.
+     *
+     * Therefore ready:true alone MUST NEVER authorize
+     * the Final Integration boundary.
+     * ---------------------------------------------------------
+     */
+
+    const mappingPassed =
+      Boolean(
+
+        mapping.ready === true &&
+
+        mapping.passed === true &&
+
+        mapping.mappingValid === true &&
+
+        mapping.readOnly === true &&
+
+        mapping.writeAuthorized === false &&
+
+        mapping.productionWrite === false &&
+
+        mapping.storageWrite === false
+
+      );
+
+
+    if (
+      !mappingPassed
+    ) {
+
+      return failFinalIntegration(
+        'STEP_84F_NOT_STRICTLY_VALID',
+        {
+
+          mappingReason:
+            mapping.reason ||
+            null,
+
+          mappingReady:
+            mapping.ready === true,
+
+          mappingPassed:
+            mapping.passed === true,
+
+          mappingValid:
+            mapping.mappingValid === true,
+
+          currentForecastIdentity
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * FORECAST PROVINCE
      * ---------------------------------------------------------
      */
 
@@ -507,91 +603,74 @@
       );
 
 
+    if (
+      !forecastProvince
+    ) {
+
+      return failFinalIntegration(
+        'FORECAST_PROVINCE_NOT_AVAILABLE',
+        {
+          currentForecastIdentity
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * MAPPING PROVINCE
+     * ---------------------------------------------------------
+     */
+
     const mappingProvince =
       getMappingProvince(
         mapping
       );
 
 
+    /*
+     * Fail closed:
+     *
+     * Final gate requires explicit province identity
+     * from STEP 8.4F.
+     */
+
     if (
-      !forecastProvince
+      !mappingProvince
     ) {
 
-      return {
+      return failFinalIntegration(
+        'MAPPING_PROVINCE_NOT_AVAILABLE',
+        {
 
-        ready: false,
+          forecastProvince,
 
-        passed: false,
+          currentForecastIdentity
 
-        authorized: false,
-
-        reason:
-          'FORECAST_PROVINCE_NOT_AVAILABLE',
-
-        version:
-          VERSION,
-
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
+        }
+      );
 
     }
 
 
     if (
-      mappingProvince &&
       mappingProvince !==
-        forecastProvince
+      forecastProvince
     ) {
 
-      return {
+      return failFinalIntegration(
+        'STALE_FORECAST_PROVINCE_MISMATCH',
+        {
 
-        ready: false,
-
-        passed: false,
-
-        authorized: false,
-
-        reason:
-          'STALE_FORECAST_PROVINCE_MISMATCH',
-
-        version:
-          VERSION,
-
-        forecastProvince:
           forecastProvince,
 
-        mappingProvince:
           mappingProvince,
 
-        currentForecastIdentity:
-          buildForecastIdentity(
-            forecast
-          ),
+          currentForecastIdentity
 
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
+        }
+      );
 
     }
 
@@ -618,6 +697,13 @@
       );
 
 
+    /*
+     * Target date comparison is enforced whenever
+     * BOTH sides expose a target date.
+     *
+     * We do not manufacture a missing date.
+     */
+
     if (
       forecastTargetDate &&
       mappingTargetDate &&
@@ -625,47 +711,22 @@
         mappingTargetDate
     ) {
 
-      return {
+      return failFinalIntegration(
+        'STALE_FORECAST_TARGET_DATE_MISMATCH',
+        {
 
-        ready: false,
-
-        passed: false,
-
-        authorized: false,
-
-        reason:
-          'STALE_FORECAST_TARGET_DATE_MISMATCH',
-
-        version:
-          VERSION,
-
-        forecastProvince:
           forecastProvince,
 
-        forecastTargetDate:
+          mappingProvince,
+
           forecastTargetDate,
 
-        mappingTargetDate:
           mappingTargetDate,
 
-        currentForecastIdentity:
-          buildForecastIdentity(
-            forecast
-          ),
+          currentForecastIdentity
 
-        readOnly:
-          true,
-
-        productionWrite:
-          false,
-
-        storageWrite:
-          false,
-
-        savePredictionCalled:
-          false
-
-      };
+        }
+      );
 
     }
 
@@ -675,21 +736,25 @@
      * FINAL READ-ONLY AUTHORIZATION
      * ---------------------------------------------------------
      *
-     * "authorized" means:
+     * authorized:true means ONLY:
      *
-     * authorized for the NEXT adapter boundary.
+     * The CURRENT runtime state is approved to enter
+     * the NEXT Production Adapter boundary.
      *
-     * It does NOT mean a write occurred.
+     * NO WRITE OCCURS HERE.
      * ---------------------------------------------------------
      */
 
     const result = {
 
-      ready: true,
+      ready:
+        true,
 
-      passed: true,
+      passed:
+        true,
 
-      authorized: true,
+      authorized:
+        true,
 
       reason:
         'FINAL_INTEGRATION_GATE_PASS',
@@ -700,22 +765,50 @@
       mode:
         'READ_ONLY_FINAL_GATE',
 
-      forecastProvince:
-        forecastProvince,
+      forecastProvince,
 
       forecastTargetDate:
-        forecastTargetDate || null,
+        forecastTargetDate ||
+        null,
 
-      mappingProvince:
-        mappingProvince || null,
+      mappingProvince,
 
       mappingTargetDate:
-        mappingTargetDate || null,
+        mappingTargetDate ||
+        null,
 
-      currentForecastIdentity:
-        buildForecastIdentity(
-          forecast
-        ),
+      currentForecastIdentity,
+
+      mapping: {
+
+        step:
+          mapping.step ||
+          '8.4F',
+
+        ready:
+          mapping.ready === true,
+
+        passed:
+          mapping.passed === true,
+
+        mappingValid:
+          mapping.mappingValid === true,
+
+        mappingCount:
+          mapping.mappingCount ??
+          null,
+
+        expectedCount:
+          mapping.expectedCount ??
+          null,
+
+        countsMatch:
+          mapping.countsMatch === true,
+
+        allMappingsValid:
+          mapping.allMappingsValid === true
+
+      },
 
       safety: {
 
@@ -732,20 +825,38 @@
           false,
 
         savePredictionCalled:
+          false,
+
+        adapterExecuted:
           false
 
       },
 
+      readOnly:
+        true,
+
+      failClosed:
+        true,
+
       inspectedAt:
-        new Date().toISOString()
+        new Date()
+          .toISOString()
 
     };
 
 
     /*
-     * Diagnostic RAM only.
+     * =========================================================
+     * DIAGNOSTIC RAM ONLY
+     * =========================================================
      *
-     * NOT production persistence.
+     * This is NOT:
+     *
+     * - Production persistence
+     * - Prediction persistence
+     * - LAST_FORECAST mutation
+     * - savePrediction()
+     * - localStorage write
      */
 
     window
@@ -760,7 +871,7 @@
 
   /*
    * =========================================================
-   * 5. PUBLIC READ-ONLY API
+   * 9. PUBLIC READ-ONLY API
    * =========================================================
    */
 
@@ -780,7 +891,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Final Integration V1 loaded — READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 Final Integration V2 loaded — STRICT 8.4F / READ ONLY / ZERO WRITE / FAIL CLOSED'
   );
 
 })();
