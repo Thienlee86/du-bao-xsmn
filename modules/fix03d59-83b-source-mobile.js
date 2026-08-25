@@ -1,21 +1,28 @@
 /* =========================================================================
-   FIX-03D5.9 — STEP 8.3B SOURCE INSPECTOR MOBILE UI
+   FIX-03D5.9 — STEP 8.3B SOURCE INSPECTOR MOBILE V2
    FILE:
    modules/fix03d59-83b-source-mobile.js
 
    PURPOSE:
-   - Confirm STEP 8.3B Source Inspector is loaded.
-   - Run inspector from mobile without DevTools.
-   - Display inspector result inside Settings tab.
+   - Run STEP 8.3B Source Inspector V2 from mobile.
+   - Inspect REAL STEP 8.2C runtime schema.
+   - Show candidate array path.
+   - Show candidate count.
+   - Show candidate keys.
+   - Show province field/path/value.
+   - Show prize field/path/value.
+   - Help diagnose why Source Shadow gets 0 candidates.
 
-   IMPORTANT:
-   - READ ONLY.
-   - ZERO WRITE.
-   - NO ENGINE EXECUTION.
-   - Does NOT modify LAST_FORECAST.
-   - Does NOT modify STEP 8.3B.
-   - Does NOT modify candidates.
-   - Does NOT call savePrediction().
+   SAFETY:
+   - DIAGNOSTIC ONLY
+   - SOURCE DATA READ ONLY
+   - ZERO PRODUCTION WRITE
+   - ZERO STORAGE WRITE
+   - NO ENGINE EXECUTION
+   - NO savePrediction()
+   - NO LAST_FORECAST MODIFICATION
+   - NO STEP 8.2C MODIFICATION
+   - NO STEP 8.3B MODIFICATION
    ========================================================================= */
 
 (function () {
@@ -23,18 +30,30 @@
   'use strict';
 
 
+  const VERSION =
+    '83B-SOURCE-MOBILE-V2-82C-SCHEMA';
+
+
   const PANEL_ID =
     'fix03d59-83b-source-mobile-panel';
 
+
   const OUTPUT_ID =
     'fix03d59-83b-source-mobile-output';
+
+
+  const CONTROL_ID =
+    'fix03d59-83b-source-mobile-control';
 
 
   /* =========================================================
      HELPERS
      ========================================================= */
 
-  function safeText83BMobile(value) {
+  function safeText83BMobile(
+    value,
+    fallback
+  ) {
 
     if (
       value === undefined ||
@@ -42,7 +61,7 @@
       value === ''
     ) {
 
-      return '--';
+      return fallback || '--';
 
     }
 
@@ -80,9 +99,14 @@
   }
 
 
-  function escape83BMobile(value) {
+  function escape83BMobile(
+    value
+  ) {
 
-    return safeText83BMobile(value)
+    return safeText83BMobile(
+      value,
+      '--'
+    )
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
@@ -92,56 +116,74 @@
   }
 
 
+  function yesNo83BMobile(
+    value
+  ) {
+
+    return value === true
+      ? 'YES ✅'
+      : 'NO ❌';
+
+  }
+
+
+  function safeNo83BMobile(
+    value
+  ) {
+
+    return value === true
+      ? 'YES ❌'
+      : 'NO ✅';
+
+  }
+
+
+  function first83BMobile(
+    value
+  ) {
+
+    return (
+      Array.isArray(value) &&
+      value.length > 0
+    )
+      ? value[0]
+      : null;
+
+  }
+
+
   /* =========================================================
-     FIND INSPECTOR FUNCTION
+     RESOLVE INSPECTOR V2
      ========================================================= */
 
-  function resolve83BInspector() {
+  function resolve83BInspectorMobile() {
 
-    /*
-     * Try known public APIs first.
-     */
+    try {
 
-    const names = [
+      if (
+        typeof window
+          .runFix03D59Step83BSourceInspector ===
+        'function'
+      ) {
 
-      'runFix03D59Step83BSourceInspector',
+        return {
 
-      'runStep83BSourceTrace03D59',
+          ready: true,
 
-      'inspectStep83BSource03D59'
+          name:
+            'runFix03D59Step83BSourceInspector',
 
-    ];
+          fn:
+            window
+              .runFix03D59Step83BSourceInspector
 
+        };
 
-    for (
-      const name
-      of names
-    ) {
-
-      try {
-
-        if (
-          typeof window[name] ===
-          'function'
-        ) {
-
-          return {
-
-            ready: true,
-
-            name,
-
-            fn:
-              window[name]
-
-          };
-
-        }
-
-      } catch (error) {
-
-        // READ ONLY
       }
+
+    } catch (error) {
+
+      // FAIL CLOSED
 
     }
 
@@ -150,7 +192,8 @@
 
       ready: false,
 
-      name: null,
+      name:
+        'runFix03D59Step83BSourceInspector',
 
       fn: null
 
@@ -160,12 +203,78 @@
 
 
   /* =========================================================
+     INTERESTING FIELD RENDER
+     ========================================================= */
+
+  function renderField83BMobile(
+    field
+  ) {
+
+    if (!field) {
+
+      return `
+        <div
+          style="
+            opacity:.65;
+            margin-top:8px;
+          "
+        >
+          Không tìm thấy.
+        </div>
+      `;
+
+    }
+
+
+    return `
+
+      <div
+        style="
+          margin-top:9px;
+          padding:11px;
+          border-radius:12px;
+          background:rgba(255,255,255,.055);
+          line-height:1.55;
+          overflow-wrap:anywhere;
+        "
+      >
+
+        Path:
+        <br>
+
+        <b>
+          ${escape83BMobile(
+            field.path
+          )}
+        </b>
+
+        <br><br>
+
+        Value:
+
+        <b
+          style="
+            color:#ffbd3c;
+          "
+        >
+          ${escape83BMobile(
+            field.value
+          )}
+        </b>
+
+      </div>
+
+    `;
+
+  }
+
+
+  /* =========================================================
      RENDER RESULT
      ========================================================= */
 
   function render83BMobileResult(
-    result,
-    inspectorName
+    result
   ) {
 
     const output =
@@ -181,133 +290,723 @@
     }
 
 
-    let html = `
-
-      <div
-        style="
-          margin-top:16px;
-          padding:15px;
-          border-radius:16px;
-          background:rgba(0,0,0,.18);
-          line-height:1.6;
-        "
-      >
-
-        <div
-          style="
-            color:#ffbd3c;
-            font-size:16px;
-            font-weight:900;
-          "
-        >
-          🔬 8.3B SOURCE INSPECTOR RESULT
-        </div>
-
-        <div style="margin-top:9px;">
-          Function:
-          <b>
-            ${escape83BMobile(
-              inspectorName
-            )}
-          </b>
-        </div>
-
-    `;
-
-
     if (
-      result === undefined
+      !result ||
+      typeof result !== 'object'
     ) {
 
-      html += `
-
-        <div style="margin-top:8px;">
-          Result:
-          <b>
-            Function executed.
-          </b>
-        </div>
+      output.innerHTML = `
 
         <div
           style="
-            margin-top:8px;
-            opacity:.72;
+            margin-top:16px;
+            padding:16px;
+            border-radius:16px;
+            border:2px solid #ff6b7a;
+            color:#ff9ba5;
           "
         >
-          Inspector không trả trực tiếp object.
-          Kiểm tra panel 8.3B Source Inspector
-          phía trên hoặc phía dưới trang.
+          ❌ Inspector returned invalid result.
         </div>
 
       `;
 
-    } else {
-
-      html += `
-
-        <div
-          style="
-            margin-top:12px;
-            color:#ffbd3c;
-            font-weight:800;
-          "
-        >
-          RAW READ-ONLY RESULT
-        </div>
-
-        <pre
-          style="
-            margin-top:8px;
-            padding:12px;
-            border-radius:12px;
-            background:rgba(255,255,255,.055);
-            white-space:pre-wrap;
-            word-break:break-word;
-            overflow-wrap:anywhere;
-            font-size:12px;
-            line-height:1.55;
-            color:#ffffff;
-          "
-        >${escape83BMobile(
-          result
-        )}</pre>
-
-      `;
+      return;
 
     }
 
 
-    html += `
+    const step82C =
+      result.step82C || {};
 
-      </div>
+
+    const detection =
+      result.candidateDetection || {};
+
+
+    const provinceInspection =
+      result.provinceInspection || {};
+
+
+    const prizeInspection =
+      result.prizeInspection || {};
+
+
+    const samples =
+      Array.isArray(
+        result.candidateSamples
+      )
+        ? result.candidateSamples
+        : [];
+
+
+    const firstSample =
+      first83BMobile(
+        samples
+      );
+
+
+    const provinceFields =
+      Array.isArray(
+        provinceInspection.fields
+      )
+        ? provinceInspection.fields
+        : [];
+
+
+    const selectedMatches =
+      Array.isArray(
+        provinceInspection
+          .selectedProvinceMatches
+      )
+        ? provinceInspection
+            .selectedProvinceMatches
+        : [];
+
+
+    const prizeFields =
+      Array.isArray(
+        prizeInspection.fields
+      )
+        ? prizeInspection.fields
+        : [];
+
+
+    const firstProvinceField =
+      first83BMobile(
+        provinceFields
+      );
+
+
+    const firstSelectedMatch =
+      first83BMobile(
+        selectedMatches
+      );
+
+
+    const firstPrizeField =
+      first83BMobile(
+        prizeFields
+      );
+
+
+    const candidateKeys =
+      firstSample &&
+      Array.isArray(
+        firstSample.keys
+      )
+        ? firstSample.keys
+        : [];
+
+
+    const candidateFound =
+      detection.found === true;
+
+
+    const candidateCount =
+      Number(
+        detection.candidateCount ||
+        0
+      );
+
+
+    const selectedMatchCount =
+      Number(
+        provinceInspection
+          .selectedProvinceMatchCount ||
+        0
+      );
+
+
+    output.innerHTML = `
+
+      <!-- ===============================================
+           SUMMARY
+           =============================================== -->
 
       <div
         style="
-          margin-top:14px;
-          padding:13px;
-          border-radius:14px;
-          background:rgba(52,211,153,.12);
-          color:#dffff0;
-          font-weight:900;
-          line-height:1.55;
+          margin-top:18px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(20,31,69,.95);
+          line-height:1.7;
         "
       >
-        🔒 READ ONLY · ZERO WRITE
+
+        <div
+          style="
+            color:#ffbd3c;
+            font-size:21px;
+            font-weight:900;
+            margin-bottom:14px;
+          "
+        >
+          🔬 8.2C SCHEMA RESULT
+        </div>
+
+
+        Version:
         <br>
-        NO ENGINE EXECUTION
+
+        <b>
+          ${escape83BMobile(
+            result.version
+          )}
+        </b>
+
+        <br><br>
+
+
+        Ready:
+        <b>
+          ${yesNo83BMobile(
+            result.ready
+          )}
+        </b>
+
+        <br>
+
+
+        Reason:
+        <br>
+
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escape83BMobile(
+            result.reason
+          )}
+        </b>
+
+        <br><br>
+
+
+        Selected Province:
+
+        <b
+          style="
+            color:#ffbd3c;
+          "
+        >
+          ${escape83BMobile(
+            result.selectedProvince
+          )}
+        </b>
+
+        <br>
+
+
+        Production Province:
+
+        <b>
+          ${escape83BMobile(
+            result.productionProvince
+          )}
+        </b>
+
+      </div>
+
+
+      <!-- ===============================================
+           STEP 8.2C
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(42,57,111,.95);
+          line-height:1.7;
+        "
+      >
+
+        <div
+          style="
+            color:#ffbd3c;
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          📦 REAL STEP 8.2C
+        </div>
+
+
+        Exists:
+        <b>
+          ${yesNo83BMobile(
+            step82C.exists
+          )}
+        </b>
+
+        <br>
+
+
+        Type:
+
+        <b>
+          ${escape83BMobile(
+            step82C.type
+          )}
+        </b>
+
+        <br>
+
+
+        Arrays Found:
+
+        <b>
+          ${escape83BMobile(
+            step82C.arraysFound
+          )}
+        </b>
+
+        <br><br>
+
+
+        Top Level Keys:
+        <br>
+
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escape83BMobile(
+            step82C.topLevelKeys
+          )}
+        </b>
+
+      </div>
+
+
+      <!-- ===============================================
+           CANDIDATE ARRAY
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          border:2px solid ${
+            candidateFound
+              ? '#42d6a4'
+              : '#ff6b7a'
+          };
+          background:rgba(31,68,89,.94);
+          line-height:1.7;
+        "
+      >
+
+        <div
+          style="
+            color:${
+              candidateFound
+                ? '#76efbd'
+                : '#ff8994'
+            };
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          ${
+            candidateFound
+              ? '🟢 CANDIDATE ARRAY FOUND'
+              : '🔴 CANDIDATE ARRAY NOT FOUND'
+          }
+        </div>
+
+
+        Found:
+        <b>
+          ${yesNo83BMobile(
+            candidateFound
+          )}
+        </b>
+
+        <br>
+
+
+        Candidate Count:
+
+        <b
+          style="
+            color:#ffbd3c;
+            font-size:19px;
+          "
+        >
+          ${candidateCount}
+        </b>
+
+        <br><br>
+
+
+        Candidate Array Path:
+        <br>
+
+        <b
+          style="
+            color:#ffffff;
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escape83BMobile(
+            detection.path
+          )}
+        </b>
+
+        <br><br>
+
+
+        Detection Score:
+
+        <b>
+          ${escape83BMobile(
+            detection.score
+          )}
+        </b>
+
+      </div>
+
+
+      <!-- ===============================================
+           CANDIDATE KEYS
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(63,46,102,.94);
+          line-height:1.7;
+        "
+      >
+
+        <div
+          style="
+            color:#d8b4fe;
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          🔑 FIRST CANDIDATE
+        </div>
+
+
+        Candidate Keys:
+        <br>
+
+        <b
+          style="
+            overflow-wrap:anywhere;
+          "
+        >
+          ${escape83BMobile(
+            candidateKeys
+          )}
+        </b>
+
+        <br><br>
+
+
+        Direct province:
+        <b>
+          ${escape83BMobile(
+            firstSample &&
+            firstSample
+              .provinceDirect
+              ? firstSample
+                  .provinceDirect
+                  .province
+              : null
+          )}
+        </b>
+
+        <br>
+
+
+        Direct provinceSlug:
+        <b>
+          ${escape83BMobile(
+            firstSample &&
+            firstSample
+              .provinceDirect
+              ? firstSample
+                  .provinceDirect
+                  .provinceSlug
+              : null
+          )}
+        </b>
+
+        <br>
+
+
+        Direct slug:
+        <b>
+          ${escape83BMobile(
+            firstSample &&
+            firstSample
+              .provinceDirect
+              ? firstSample
+                  .provinceDirect
+                  .slug
+              : null
+          )}
+        </b>
+
+      </div>
+
+
+      <!-- ===============================================
+           PROVINCE
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(24,73,104,.95);
+          line-height:1.7;
+        "
+      >
+
+        <div
+          style="
+            color:#7dd3fc;
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          🗺️ PROVINCE FIELD
+        </div>
+
+
+        Province Fields Found:
+
+        <b>
+          ${escape83BMobile(
+            provinceInspection.fieldCount
+          )}
+        </b>
+
+        <br>
+
+
+        Selected Province Match:
+
+        <b
+          style="
+            color:${
+              selectedMatchCount > 0
+                ? '#76efbd'
+                : '#ff8994'
+            };
+          "
+        >
+          ${selectedMatchCount}
+        </b>
+
+
+        <div
+          style="
+            margin-top:14px;
+            font-weight:900;
+          "
+        >
+          First Province Field
+        </div>
+
+        ${renderField83BMobile(
+          firstProvinceField
+        )}
+
+
+        <div
+          style="
+            margin-top:16px;
+            font-weight:900;
+          "
+        >
+          Selected Province Match Path
+        </div>
+
+        ${renderField83BMobile(
+          firstSelectedMatch
+        )}
+
+      </div>
+
+
+      <!-- ===============================================
+           PRIZE
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(91,59,38,.94);
+          line-height:1.7;
+        "
+      >
+
+        <div
+          style="
+            color:#fdba74;
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          🏆 PRIZE FIELD
+        </div>
+
+
+        Prize Fields Found:
+
+        <b>
+          ${escape83BMobile(
+            prizeInspection.fieldCount
+          )}
+        </b>
+
+
+        <div
+          style="
+            margin-top:14px;
+            font-weight:900;
+          "
+        >
+          First Prize Field
+        </div>
+
+        ${renderField83BMobile(
+          firstPrizeField
+        )}
+
+      </div>
+
+
+      <!-- ===============================================
+           SAFETY
+           =============================================== -->
+
+      <div
+        style="
+          margin-top:15px;
+          padding:18px;
+          border-radius:20px;
+          background:rgba(20,78,64,.92);
+          line-height:1.7;
+          font-weight:700;
+        "
+      >
+
+        <div
+          style="
+            color:#a7f3d0;
+            font-size:20px;
+            font-weight:900;
+            margin-bottom:13px;
+          "
+        >
+          🔒 SAFETY
+        </div>
+
+
+        Diagnostic Only:
+        ${yesNo83BMobile(
+          result.safety &&
+          result.safety
+            .diagnosticOnly
+        )}
+
+        <br>
+
+
+        Source Data Read Only:
+        ${yesNo83BMobile(
+          result.safety &&
+          result.safety
+            .sourceDataReadOnly
+        )}
+
+        <br>
+
+
+        Production Write:
+        ${safeNo83BMobile(
+          result.safety &&
+          result.safety
+            .productionWrite
+        )}
+
+        <br>
+
+
+        Storage Write:
+        ${safeNo83BMobile(
+          result.safety &&
+          result.safety
+            .storageWrite
+        )}
+
+        <br>
+
+
+        Engine Executed:
+        ${safeNo83BMobile(
+          result.safety &&
+          result.safety
+            .engineExecuted
+        )}
+
+        <br>
+
+
+        STEP 8.2C Modified:
+        ${safeNo83BMobile(
+          result.safety &&
+          result.safety
+            .step82CModified
+        )}
+
+        <br>
+
+
+        STEP 8.3B Modified:
+        ${safeNo83BMobile(
+          result.safety &&
+          result.safety
+            .step83BModified
+        )}
+
       </div>
 
     `;
 
 
-    output.innerHTML =
-      html;
+    output.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start'
+    });
 
   }
 
 
   /* =========================================================
-     RUN
+     RUN INSPECTOR
      ========================================================= */
 
   function run83BMobileInspector() {
@@ -326,28 +1025,37 @@
 
 
     const inspector =
-      resolve83BInspector();
+      resolve83BInspectorMobile();
 
 
-    if (
-      !inspector.ready
-    ) {
+    if (!inspector.ready) {
 
       output.innerHTML = `
 
         <div
           style="
-            margin-top:14px;
-            padding:14px;
-            border-radius:14px;
-            background:rgba(248,113,113,.15);
+            margin-top:16px;
+            padding:16px;
+            border-radius:16px;
+            border:2px solid #ff6b7a;
+            color:#ff9ba5;
             line-height:1.6;
           "
         >
-          ❌ 8.3B SOURCE INSPECTOR NOT FOUND
+
+          ❌ SOURCE INSPECTOR V2 NOT AVAILABLE
+
           <br><br>
-          Mobile UI đã chạy nhưng chưa tìm thấy
-          public inspector function.
+
+          Function:
+          <br>
+
+          <b>
+            ${escape83BMobile(
+              inspector.name
+            )}
+          </b>
+
         </div>
 
       `;
@@ -365,8 +1073,13 @@
 
 
       render83BMobileResult(
-        result,
-        inspector.name
+        result
+      );
+
+
+      console.log(
+        'FIX-03D5.9 83B Source Inspector Mobile V2',
+        result
       );
 
 
@@ -374,26 +1087,39 @@
 
     } catch (error) {
 
+      console.error(
+        '83B Source Inspector Mobile V2:',
+        error
+      );
+
+
       output.innerHTML = `
 
         <div
           style="
-            margin-top:14px;
-            padding:14px;
-            border-radius:14px;
-            background:rgba(248,113,113,.15);
+            margin-top:16px;
+            padding:16px;
+            border-radius:16px;
+            border:2px solid #ff6b7a;
+            color:#ff9ba5;
             line-height:1.6;
-            word-break:break-word;
+            overflow-wrap:anywhere;
           "
         >
-          ❌ 8.3B INSPECTOR ERROR
+
+          ❌ SOURCE INSPECTOR ERROR
+
           <br><br>
-          ${escape83BMobile(
-            error &&
-            error.message
-              ? error.message
-              : String(error)
-          )}
+
+          <b>
+            ${escape83BMobile(
+              error &&
+              error.message
+                ? error.message
+                : error
+            )}
+          </b>
+
         </div>
 
       `;
@@ -407,21 +1133,10 @@
 
 
   /* =========================================================
-     BUILD MOBILE PANEL
+     BUILD / REBUILD MOBILE PANEL
      ========================================================= */
 
   function build83BMobileUI() {
-
-    if (
-      document.getElementById(
-        PANEL_ID
-      )
-    ) {
-
-      return;
-
-    }
-
 
     const settings =
       document.getElementById(
@@ -431,17 +1146,41 @@
 
     if (!settings) {
 
+      console.warn(
+        '83B Source Mobile V2: tab-settings not found'
+      );
+
       return;
 
     }
 
 
+    /*
+     * SELF-HEAL:
+     * remove stale V1 panel before rebuilding.
+     */
+
+    const oldPanel =
+      document.getElementById(
+        PANEL_ID
+      );
+
+
+    if (oldPanel) {
+
+      oldPanel.remove();
+
+    }
+
+
     const inspector =
-      resolve83BInspector();
+      resolve83BInspectorMobile();
 
 
     const panel =
-      document.createElement('div');
+      document.createElement(
+        'section'
+      );
 
 
     panel.id =
@@ -463,11 +1202,11 @@
 
       <div
         style="
-          font-size:20px;
+          font-size:22px;
           font-weight:900;
         "
       >
-        🔬 8.3B SOURCE INSPECTOR
+        🔬 8.3B SOURCE INSPECTOR V2
       </div>
 
 
@@ -475,24 +1214,36 @@
         style="
           margin-top:9px;
           line-height:1.55;
-          opacity:.78;
+          opacity:.8;
         "
       >
-        Mobile diagnostic để truy nguồn
-        các province test cũ trước khi
-        thay đổi Production pipeline.
+
+        Kiểm tra schema thật của STEP 8.2C
+        trước khi sửa Source Shadow.
+
       </div>
 
 
       <div
         style="
           margin-top:14px;
-          padding:12px;
-          border-radius:13px;
+          padding:13px;
+          border-radius:14px;
           background:rgba(0,0,0,.16);
-          line-height:1.6;
+          line-height:1.65;
+          overflow-wrap:anywhere;
         "
       >
+
+        Mobile Version:
+        <br>
+
+        <b>
+          ${VERSION}
+        </b>
+
+        <br><br>
+
 
         Inspector Script:
 
@@ -514,21 +1265,21 @@
 
         <br>
 
+
         Function:
+        <br>
 
         <b>
-          ${
-            escape83BMobile(
-              inspector.name
-            )
-          }
+          ${escape83BMobile(
+            inspector.name
+          )}
         </b>
 
       </div>
 
 
       <div
-        id="fix03d59-83b-source-mobile-control"
+        id="${CONTROL_ID}"
         role="button"
         tabindex="0"
         style="
@@ -536,13 +1287,18 @@
           align-items:center;
           justify-content:center;
           width:100%;
-          min-height:60px;
+          min-height:62px;
           margin-top:18px;
           padding:15px;
-          border-radius:16px;
-          background:linear-gradient(90deg,#ffc13d,#ff963d);
+          border-radius:17px;
+          background:
+            linear-gradient(
+              90deg,
+              #ffc13d,
+              #ff963d
+            );
           color:#17182a;
-          font-size:16px;
+          font-size:17px;
           font-weight:900;
           text-align:center;
           box-sizing:border-box;
@@ -550,7 +1306,9 @@
           user-select:none;
         "
       >
-        🔎 RUN 8.3B SOURCE INSPECTOR
+
+        🔎 RUN 8.2C SCHEMA INSPECTOR
+
       </div>
 
 
@@ -568,7 +1326,7 @@
 
     const control =
       document.getElementById(
-        'fix03d59-83b-source-mobile-control'
+        CONTROL_ID
       );
 
 
@@ -600,6 +1358,21 @@
 
     }
 
+
+    console.log(
+      '83B Source Inspector Mobile V2 panel built',
+      {
+        version:
+          VERSION,
+
+        inspectorReady:
+          inspector.ready,
+
+        control:
+          Boolean(control)
+      }
+    );
+
   }
 
 
@@ -607,16 +1380,24 @@
      PUBLIC MOBILE API
      ========================================================= */
 
-  window.run83BMobileInspector03D59 =
+  window
+    .run83BMobileInspector03D59 =
     run83BMobileInspector;
 
 
-  window.rebuild83BMobileInspector03D59 =
+  window
+    .rebuild83BMobileInspector03D59 =
     build83BMobileUI;
 
 
-  window.FIX03D59_STEP83B_SOURCE_MOBILE_LOADED =
+  window
+    .FIX03D59_STEP83B_SOURCE_MOBILE_LOADED =
     true;
+
+
+  window
+    .FIX03D59_STEP83B_SOURCE_MOBILE_VERSION =
+    VERSION;
 
 
   /* =========================================================
@@ -625,14 +1406,9 @@
 
   function initialize83BMobile() {
 
-    /*
-     * Small delay gives the source-inspector
-     * script time to expose its public API.
-     */
-
     window.setTimeout(
       build83BMobileUI,
-      500
+      700
     );
 
   }
@@ -659,8 +1435,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Inspector Mobile loaded / READ ONLY / ZERO WRITE'
+    '🔬 FIX-03D5.9 STEP 8.3B Source Inspector Mobile V2 / 8.2C SCHEMA / DIAGNOSTIC ONLY'
   );
 
 })();
-
