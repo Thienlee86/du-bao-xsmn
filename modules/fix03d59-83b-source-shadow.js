@@ -28,6 +28,12 @@
    - NO savePrediction()
    - NO LAST_FORECAST modification
    - NO canonical candidate modification
+
+   PATCH:
+   - V4 ARRAY FIX:
+     resolveStep83BScope03D59().resolvedScope is an ARRAY.
+   - Accept exactly ONE resolved province.
+   - Multiple provinces fail closed.
    ========================================================================= */
 
 (function () {
@@ -36,7 +42,7 @@
 
 
   const VERSION =
-    '83B-SOURCE-SHADOW-V4-REAL82C-FILTER';
+    '83B-SOURCE-SHADOW-V4-REAL82C-FILTER-ARRAYFIX1';
 
 
   /* =========================================================
@@ -229,6 +235,17 @@
     /*
      * PRIMARY PATH:
      * existing STEP 8.3B scope resolver.
+     *
+     * IMPORTANT:
+     * resolveStep83BScope03D59() returns:
+     *
+     * resolvedScope: [ 'kien-giang' ]
+     *
+     * Therefore resolvedScope must be unpacked before
+     * province normalization.
+     *
+     * FAIL CLOSED:
+     * exactly ONE province is accepted.
      */
 
     try {
@@ -246,10 +263,22 @@
 
         if (result) {
 
+          const resolvedScopeProvince =
+            Array.isArray(
+              result.resolvedScope
+            )
+              ? (
+                  result.resolvedScope.length === 1
+                    ? result.resolvedScope[0]
+                    : null
+                )
+              : result.resolvedScope;
+
+
           const province =
             normalizeProvince83BSourceShadowV4(
 
-              result.resolvedScope ||
+              resolvedScopeProvince ||
 
               result.resolvedProvince ||
 
@@ -587,17 +616,8 @@
 
 
     /*
-     * IMPORTANT:
-     *
      * Build a NEW object.
      * Never mutate LAST_FIX03D59_STEP82C_RESULT.
-     *
-     * The REAL STEP 8.3 builder expects:
-     *
-     * ready
-     * passed
-     * eligible[]
-     * ineligible[]
      */
 
     const shadowSource = {
@@ -610,13 +630,6 @@
         clone83BSourceShadowV4(
           filtered
         ) || [],
-
-      /*
-       * Intentionally empty.
-       *
-       * We are validating the boundary for the
-       * B8-selected province only.
-       */
 
       ineligible: []
 
@@ -1045,15 +1058,6 @@
 
 
     try {
-
-      /*
-       * IMPORTANT:
-       *
-       * The REAL builder receives only a NEW cloned
-       * shadow source.
-       *
-       * LAST_FIX03D59_STEP82C_RESULT is untouched.
-       */
 
       boundaryResult =
         boundary.fn(
@@ -1663,7 +1667,7 @@
     );
 
     console.log(
-      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V4'
+      'FIX-03D5.9 STEP 8.3B SOURCE SHADOW V4 ARRAY FIX'
     );
 
     console.log(
@@ -1725,8 +1729,7 @@
 
 
   console.log(
-    'FIX-03D5.9 STEP 8.3B Source Shadow V4 loaded / REAL 8.2C FILTER / REAL 8.3 BOUNDARY / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 STEP 8.3B Source Shadow V4 ARRAY FIX loaded / REAL 8.2C FILTER / REAL 8.3 BOUNDARY / READ ONLY / ZERO WRITE'
   );
 
 })();
-
