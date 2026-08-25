@@ -714,3 +714,76 @@ table.stat-table th {
   }
 
 }
+
+/* =========================================================
+   FIX-03D5.9 — REAL INTEGRATION GATE BUTTON
+   FORCE MOBILE VISIBILITY
+   ========================================================= */
+
+#fix03d59-real-integration-gate-mobile-run {
+  display: flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 58px !important;
+  max-height: none !important;
+
+  margin: 14px 0 0 !important;
+  padding: 16px !important;
+
+  position: relative !important;
+  inset: auto !important;
+  z-index: 100 !important;
+
+  align-items: center !important;
+  justify-content: center !important;
+
+  border: 0 !important;
+  border-radius: 16px !important;
+
+  background: linear-gradient(
+    90deg,
+    #68e39b,
+    #63d9ff
+  ) !important;
+
+  color: #17192f !important;
+
+  font-size: 17px !important;
+  font-weight: 900 !important;
+  line-height: 1.3 !important;
+  text-align: center !important;
+
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  pointer-events: auto !important;
+
+  transform: none !important;
+  scale: 1 !important;
+
+  clip: auto !important;
+  clip-path: none !important;
+
+  overflow: visible !important;
+
+  -webkit-appearance: none !important;
+  appearance: none !important;
+}
+
+
+/* Gate panel itself must remain visible */
+
+#fix03d59-real-integration-gate-mobile-panel {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+
+  height: auto !important;
+  max-height: none !important;
+
+  overflow: visible !important;
+}
