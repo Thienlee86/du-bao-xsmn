@@ -1,12 +1,19 @@
 /* =========================================================================
-   FIX-03D5.9 — REAL INTEGRATION GATE MOBILE V1
+   FIX-03D5.9 — REAL INTEGRATION GATE MOBILE V2
+   STATIC HTML BINDING
 
    PURPOSE:
-   - Run the existing READ-ONLY Real Integration Gate V1.
-   - Display gate decision on mobile.
+   - Bind the static Gate button already present in index.html.
+   - Run existing READ-ONLY Real Integration Gate V1.
+   - Display result directly on mobile.
+
+   IMPORTANT:
+   - READ ONLY.
    - ZERO WRITE.
    - NO ENGINE EXECUTION.
    - NO REAL INTEGRATION.
+   - Does NOT create panel.
+   - Does NOT create button.
    ========================================================================= */
 
 (function () {
@@ -15,17 +22,27 @@
 
 
   const VERSION =
-    'FIX03D59-REAL-INTEGRATION-GATE-MOBILE-V1';
+    'FIX03D59-REAL-INTEGRATION-GATE-MOBILE-V2';
 
 
-  const PANEL_ID =
-    'fix03d59-real-integration-gate-mobile-panel';
+  const BUTTON_ID =
+    'fix03d59-real-integration-gate-mobile-run';
 
+
+  const OUTPUT_ID =
+    'fix03d59-real-integration-gate-mobile-output';
+
+
+  /* =========================================================
+     HELPERS
+     ========================================================= */
 
   function esc(value) {
 
     return String(
-      value == null ? '' : value
+      value == null
+        ? ''
+        : value
     )
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -51,20 +68,27 @@
   ) {
 
     return `
+
       <div style="
         display:flex;
         justify-content:space-between;
+        align-items:flex-start;
         gap:14px;
         padding:10px 0;
         border-bottom:1px solid rgba(255,255,255,.10);
       ">
-        <span style="color:#b9bfdc;">
+
+        <span style="
+          color:#b9bfdc;
+          flex:1;
+        ">
           ${esc(label)}
         </span>
 
         <b style="
           color:#fff;
           text-align:right;
+          max-width:58%;
           overflow-wrap:anywhere;
           word-break:break-word;
         ">
@@ -76,21 +100,31 @@
               : value
           )}
         </b>
+
       </div>
+
     `;
 
   }
 
 
+  /* =========================================================
+     RUN GATE
+     ========================================================= */
+
   function runGateMobile03D59() {
 
     const output =
       document.getElementById(
-        'fix03d59-real-integration-gate-mobile-output'
+        OUTPUT_ID
       );
 
 
     if (!output) {
+
+      console.error(
+        'REAL Integration Gate Mobile V2: output not found'
+      );
 
       return;
 
@@ -99,10 +133,10 @@
 
     /*
      * IMPORTANT:
-     * Do NOT run Production Readiness automatically.
+     * Gate consumes the existing Production Readiness V2
+     * checkpoint only.
      *
-     * Gate V1 must consume the checkpoint already created
-     * by the user's explicit Readiness V2 inspection.
+     * It does NOT automatically run Production Readiness.
      */
 
     if (
@@ -111,10 +145,17 @@
       'function'
     ) {
 
-      output.innerHTML =
-        '<b style="color:#ff8b8b;">' +
-        '❌ REAL INTEGRATION GATE V1 NOT LOADED' +
-        '</b>';
+      output.innerHTML = `
+
+        <div style="
+          color:#ff8b8b;
+          font-weight:900;
+          line-height:1.5;
+        ">
+          ❌ REAL INTEGRATION GATE V1 NOT LOADED
+        </div>
+
+      `;
 
       return;
 
@@ -132,16 +173,29 @@
 
     } catch (error) {
 
-      output.innerHTML =
-        '<b style="color:#ff8b8b;">' +
-        '❌ GATE ERROR: ' +
-        esc(
-          error &&
-          error.message
-            ? error.message
-            : error
-        ) +
-        '</b>';
+      console.error(
+        'REAL Integration Gate Mobile V2:',
+        error
+      );
+
+
+      output.innerHTML = `
+
+        <div style="
+          color:#ff8b8b;
+          font-weight:900;
+          line-height:1.5;
+        ">
+          ❌ GATE ERROR:
+          ${esc(
+            error &&
+            error.message
+              ? error.message
+              : error
+          )}
+        </div>
+
+      `;
 
       return;
 
@@ -150,27 +204,41 @@
 
     if (!result) {
 
-      output.innerHTML =
-        '<b style="color:#ff8b8b;">' +
-        '❌ GATE RETURNED NO RESULT' +
-        '</b>';
+      output.innerHTML = `
+
+        <div style="
+          color:#ff8b8b;
+          font-weight:900;
+        ">
+          ❌ GATE RETURNED NO RESULT
+        </div>
+
+      `;
 
       return;
 
     }
 
 
+    const authorized =
+      result.authorized === true;
+
+
     const color =
-      result.authorized
+      authorized
         ? '#68e39b'
         : '#ff8b8b';
 
 
     const title =
-      result.authorized
+      authorized
         ? 'REAL INTEGRATION AUTHORIZED ✅'
         : 'REAL INTEGRATION BLOCKED ❌';
 
+
+    /* =======================================================
+       RENDER RESULT
+       ======================================================= */
 
     output.innerHTML = `
 
@@ -186,14 +254,17 @@
           font-size:20px;
           font-weight:900;
           margin-bottom:14px;
+          line-height:1.4;
         ">
           ${title}
         </div>
+
 
         ${row(
           'Reason',
           result.reason
         )}
+
 
         ${row(
           'Readiness exists',
@@ -203,6 +274,7 @@
           )
         )}
 
+
         ${row(
           'Readiness V2 verified',
           yn(
@@ -210,6 +282,7 @@
             result.readiness.versionValid
           )
         )}
+
 
         ${row(
           'Readiness ready',
@@ -219,6 +292,7 @@
           )
         )}
 
+
         ${row(
           'Production forecast',
           yn(
@@ -226,6 +300,7 @@
             result.production.forecastExists
           )
         )}
+
 
         ${row(
           'Production path ready',
@@ -235,12 +310,23 @@
           )
         )}
 
+
         ${row(
           'Production province',
           result.production
             ? result.production.province
             : null
         )}
+
+
+        ${row(
+          'Resolver available',
+          yn(
+            result.resolver &&
+            result.resolver.available
+          )
+        )}
+
 
         ${row(
           'Resolver ready',
@@ -250,12 +336,14 @@
           )
         )}
 
+
         ${row(
           'Resolver province',
           result.resolver
             ? result.resolver.province
             : null
         )}
+
 
         ${row(
           'Preview ready',
@@ -265,6 +353,7 @@
           )
         )}
 
+
         ${row(
           'Exactly one match',
           yn(
@@ -273,6 +362,25 @@
           )
         )}
 
+
+        ${row(
+          'Identity preserved',
+          yn(
+            result.preview &&
+            result.preview.identityPreserved
+          )
+        )}
+
+
+        ${row(
+          'Single province',
+          yn(
+            result.preview &&
+            result.preview.singleProvince
+          )
+        )}
+
+
         ${row(
           'Candidate count',
           result.preview
@@ -280,12 +388,14 @@
             : null
         )}
 
+
         ${row(
           'Candidate province',
           result.preview
             ? result.preview.candidateProvince
             : null
         )}
+
 
         ${row(
           'Identity pass',
@@ -295,6 +405,7 @@
           )
         )}
 
+
         ${row(
           'Safety contract',
           yn(
@@ -302,6 +413,7 @@
             result.safety.pass
           )
         )}
+
 
         <div style="
           margin-top:18px;
@@ -312,6 +424,7 @@
           text-align:center;
           font-size:18px;
           font-weight:900;
+          line-height:1.4;
         ">
           ${title}
         </div>
@@ -323,189 +436,90 @@
   }
 
 
-  function buildPanel() {
+  /* =========================================================
+     BIND STATIC HTML BUTTON
+     ========================================================= */
 
-    const existingPanel =
+  function bindGateButton03D59() {
+
+    const button =
       document.getElementById(
-        PANEL_ID
+        BUTTON_ID
       );
 
 
-    if (existingPanel) {
-
-      const existingButton =
-        document.getElementById(
-          'fix03d59-real-integration-gate-mobile-run'
-        );
-
-
-      if (!existingButton) {
-
-        const button =
-          document.createElement(
-            'button'
-          );
-
-
-        button.type =
-          'button';
-
-
-        button.id =
-          'fix03d59-real-integration-gate-mobile-run';
-
-
-        button.style.cssText =
-          'width:100%;' +
-          'min-height:58px;' +
-          'border:0;' +
-          'border-radius:16px;' +
-          'padding:16px;' +
-          'margin-top:18px;' +
-          'background:linear-gradient(90deg,#68e39b,#63d9ff);' +
-          'color:#17192f;' +
-          'font-size:17px;' +
-          'font-weight:900;';
-
-
-        button.textContent =
-          '🔐 CHECK REAL INTEGRATION GATE';
-
-
-        const output =
-          document.getElementById(
-            'fix03d59-real-integration-gate-mobile-output'
-          );
-
-
-        if (output) {
-
-          existingPanel.insertBefore(
-            button,
-            output
-          );
-
-        } else {
-
-          existingPanel.appendChild(
-            button
-          );
-
-        }
-
-
-        button.addEventListener(
-          'click',
-          runGateMobile03D59
-        );
-
-      }
-
-
-      return;
-
-    }
-
-
-    const settings =
+    const output =
       document.getElementById(
-        'tab-settings'
+        OUTPUT_ID
       );
 
 
-    if (!settings) {
+    if (!button) {
 
       console.warn(
-        'REAL Integration Gate Mobile: tab-settings not found'
+        'REAL Integration Gate Mobile V2: static button not found'
       );
 
-      return;
+      return false;
 
     }
 
 
-    const panel =
-      document.createElement(
-        'section'
+    if (!output) {
+
+      console.warn(
+        'REAL Integration Gate Mobile V2: static output not found'
       );
 
+      return false;
 
-    panel.id =
-      PANEL_ID;
-
-
-    panel.style.cssText =
-      'margin:24px;' +
-      'padding:22px;' +
-      'border-radius:22px;' +
-      'background:linear-gradient(145deg,#202757,#171c40);' +
-      'border:1px solid rgba(104,227,155,.35);' +
-      'color:#fff;';
+    }
 
 
-    panel.innerHTML = `
+    /*
+     * Prevent duplicate listener if initialization
+     * happens more than once.
+     */
 
-      <div style="
-        font-size:22px;
-        font-weight:900;
-        margin-bottom:8px;
-      ">
-        🔐 D.5.9 Real Integration Gate
-      </div>
+    if (
+      button.dataset
+        .fix03d59GateBound ===
+      'true'
+    ) {
 
-      <div style="
-        color:#b9bfdc;
-        line-height:1.55;
-        margin-bottom:18px;
-      ">
-        Final logical authorization inspection.
-        READ ONLY · ZERO WRITE · NO REAL INTEGRATION.
-      </div>
+      return true;
 
-      <button
-        type="button"
-        id="fix03d59-real-integration-gate-mobile-run"
-        style="
-          width:100%;
-          min-height:58px;
-          border:0;
-          border-radius:16px;
-          padding:16px;
-          background:linear-gradient(90deg,#68e39b,#63d9ff);
-          color:#17192f;
-          font-size:17px;
-          font-weight:900;
-        "
-      >
-        🔐 CHECK REAL INTEGRATION GATE
-      </button>
-
-      <div
-        id="fix03d59-real-integration-gate-mobile-output"
-        style="
-          margin-top:16px;
-          color:#d9dcf2;
-        "
-      >
-        Chưa kiểm tra Gate.
-      </div>
-
-    `;
+    }
 
 
-    settings.appendChild(
-      panel
+    button.addEventListener(
+      'click',
+      runGateMobile03D59
     );
 
 
-    document
-      .getElementById(
-        'fix03d59-real-integration-gate-mobile-run'
-      )
-      .addEventListener(
-        'click',
-        runGateMobile03D59
-      );
+    button.dataset
+      .fix03d59GateBound =
+      'true';
+
+
+    console.log(
+      '🔐 FIX-03D5.9 Real Integration Gate static button bound'
+    );
+
+
+    return true;
+
+  }
+
+
+  /* =========================================================
+     INITIALIZE
+     ========================================================= */
+
+  function initGateMobile03D59() {
+
+    bindGateButton03D59();
 
   }
 
@@ -517,19 +531,28 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      buildPanel
+      initGateMobile03D59
     );
 
   } else {
 
-    buildPanel();
+    initGateMobile03D59();
 
   }
 
 
+  /* =========================================================
+     PUBLIC API
+     ========================================================= */
+
   window
     .runRealIntegrationGateMobile03D59 =
     runGateMobile03D59;
+
+
+  window
+    .bindRealIntegrationGateMobile03D59 =
+    bindGateButton03D59;
 
 
   window
@@ -543,7 +566,7 @@
 
 
   console.log(
-    '📱 FIX-03D5.9 Real Integration Gate Mobile V1 loaded'
+    '📱 FIX-03D5.9 Real Integration Gate Mobile V2 loaded / STATIC HTML BINDING'
   );
 
 })();
