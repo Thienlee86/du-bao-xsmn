@@ -2131,6 +2131,141 @@
 </script>
 
 <!-- END FIX-03D5.9 REAL INTEGRATION GATE FINAL MOBILE -->  
+<!-- ================================================================
+     FIX-03D5.9 — GATE DOM DIAGNOSTIC
+     TEMPORARY / READ ONLY
+     ================================================================ -->
+
+<script>
+(function () {
+
+  function runGateDomDiagnostic03D59() {
+
+    const panel =
+      document.getElementById(
+        'fix03d59-real-integration-gate-mobile-panel'
+      );
+
+    const button =
+      document.getElementById(
+        'fix03d59-real-integration-gate-mobile-run'
+      );
+
+    const output =
+      document.getElementById(
+        'fix03d59-real-integration-gate-mobile-output'
+      );
+
+    const mobileFunction =
+      typeof window
+        .runRealIntegrationGateMobile03D59 ===
+      'function';
+
+    const gateEngine =
+      typeof window
+        .runRealIntegrationGate03D59 ===
+      'function';
+
+
+    const diagnostic =
+      document.createElement('div');
+
+    diagnostic.id =
+      'fix03d59-gate-dom-diagnostic';
+
+    diagnostic.style.cssText =
+      'margin:24px;' +
+      'padding:18px;' +
+      'border:2px solid #ff4d8d;' +
+      'border-radius:16px;' +
+      'background:#24162d;' +
+      'color:#fff;' +
+      'font-size:16px;' +
+      'font-weight:800;' +
+      'line-height:1.8;';
+
+
+    diagnostic.innerHTML =
+      '🧪 GATE DOM DIAGNOSTIC<br><br>' +
+
+      'PANEL IN DOM: ' +
+      (panel ? 'YES ✅' : 'NO ❌') +
+      '<br>' +
+
+      'BUTTON IN DOM: ' +
+      (button ? 'YES ✅' : 'NO ❌') +
+      '<br>' +
+
+      'OUTPUT IN DOM: ' +
+      (output ? 'YES ✅' : 'NO ❌') +
+      '<br><br>' +
+
+      'MOBILE FUNCTION: ' +
+      (mobileFunction ? 'YES ✅' : 'NO ❌') +
+      '<br>' +
+
+      'GATE ENGINE: ' +
+      (gateEngine ? 'YES ✅' : 'NO ❌');
+
+
+    if (panel) {
+
+      panel.insertAdjacentElement(
+        'afterend',
+        diagnostic
+      );
+
+    } else {
+
+      document.body.appendChild(
+        diagnostic
+      );
+
+    }
+
+
+    console.log(
+      'FIX03D59 GATE DOM DIAGNOSTIC',
+      {
+        panel: Boolean(panel),
+        button: Boolean(button),
+        output: Boolean(output),
+        mobileFunction,
+        gateEngine
+      }
+    );
+
+  }
+
+
+  if (document.readyState === 'loading') {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      function () {
+
+        setTimeout(
+          runGateDomDiagnostic03D59,
+          1500
+        );
+
+      }
+    );
+
+  } else {
+
+    setTimeout(
+      runGateDomDiagnostic03D59,
+      1500
+    );
+
+  }
+
+})();
+</script>
+
+<!-- END GATE DOM DIAGNOSTIC -->
+  
   
 </body>
 
