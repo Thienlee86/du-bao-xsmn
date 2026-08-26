@@ -677,25 +677,42 @@
   }
 
 
-    function startCanThoTraceMobile() {
-
-    buildPanel();
+     function startCanThoTraceMobile() {
 
     /*
-     * Auto-run after the panel has been mounted.
-     * Small delay lets existing Settings UI finish rendering.
+     * Existing Settings/runtime modules may rebuild
+     * parts of the DOM after initial page load.
+     *
+     * Re-check the panel and re-run the READ ONLY
+     * diagnostic several times during startup.
      */
 
-    setTimeout(
-      function () {
+    const delays = [
+      300,
+      1000,
+      2500,
+      5000
+    ];
 
-        runTrace();
 
-      },
-      500
+    delays.forEach(
+      function (delay) {
+
+        setTimeout(
+          function () {
+
+            buildPanel();
+
+            runTrace();
+
+          },
+          delay
+        );
+
+      }
     );
 
-  }
+     } 
 
 
   if (
