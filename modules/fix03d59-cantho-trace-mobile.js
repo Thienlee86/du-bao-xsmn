@@ -677,6 +677,27 @@
   }
 
 
+    function startCanThoTraceMobile() {
+
+    buildPanel();
+
+    /*
+     * Auto-run after the panel has been mounted.
+     * Small delay lets existing Settings UI finish rendering.
+     */
+
+    setTimeout(
+      function () {
+
+        runTrace();
+
+      },
+      500
+    );
+
+  }
+
+
   if (
     document.readyState ===
     'loading'
@@ -684,12 +705,12 @@
 
     document.addEventListener(
       'DOMContentLoaded',
-      buildPanel
+      startCanThoTraceMobile
     );
 
   } else {
 
-    buildPanel();
+    startCanThoTraceMobile();
 
   }
 
@@ -698,3 +719,4 @@
     runTrace;
 
 })();
+
