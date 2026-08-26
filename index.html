@@ -2130,7 +2130,66 @@
 <script
   src="modules/fix03d59-real-integration-gate-mobile.js?v=real-gate-mobile-v2-static1">
 </script>
+<script>
+(function () {
 
+  function forceBindRealGate03D59() {
+
+    const button =
+      document.getElementById(
+        'fix03d59-real-integration-gate-mobile-run'
+      );
+
+    if (!button) {
+      console.warn(
+        'REAL GATE FORCE BIND: button not found'
+      );
+      return;
+    }
+
+    if (
+      typeof window
+        .runRealIntegrationGateMobile03D59 !==
+      'function'
+    ) {
+      console.warn(
+        'REAL GATE FORCE BIND: mobile function not ready'
+      );
+      return;
+    }
+
+    button.onclick =
+      window.runRealIntegrationGateMobile03D59;
+
+    button.dataset.fix03d59GateBound =
+      'true';
+
+    console.log(
+      '🔐 REAL GATE FORCE BIND OK'
+    );
+
+  }
+
+
+  if (
+    document.readyState ===
+    'loading'
+  ) {
+
+    document.addEventListener(
+      'DOMContentLoaded',
+      forceBindRealGate03D59
+    );
+
+  } else {
+
+    forceBindRealGate03D59();
+
+  }
+
+})();
+</script>
+  
 <!-- END FIX-03D5.9 REAL INTEGRATION GATE FINAL MOBILE -->  
 <!-- ================================================================
      FIX-03D5.9 — GATE DOM DIAGNOSTIC
