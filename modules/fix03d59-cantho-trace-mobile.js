@@ -677,33 +677,101 @@
   }
 
 
-     function startCanThoTraceMobile() {
+ function startCanThoTraceMobile() {
 
     /*
-     * Existing Settings/runtime modules may rebuild
-     * parts of the DOM after initial page load.
+     * FIX-03D5.9 — CAN THO AUTO TRACE V3
      *
-     * Re-check the panel and re-run the READ ONLY
-     * diagnostic several times during startup.
+     * PURPOSE:
+     * - Build panel normally.
+     * - Do NOT depend on the Trace button.
+     * - Run trace repeatedly during startup.
+     * - Observe whether the button is later removed.
+     * - READ ONLY / ZERO PRODUCTION WRITE.
      */
 
-    const delays = [
-      300,
-      1000,
-      2500,
-      5000
+    buildPanel();
+
+
+    const CHECK_TIMES = [
+      100,
+      500,
+      1500,
+      3000,
+      6000
     ];
 
 
-    delays.forEach(
-      function (delay) {
+    CHECK_TIMES.forEach(
+      function (
+        delay
+      ) {
 
         setTimeout(
           function () {
 
-            buildPanel();
+            const panel =
+              document.getElementById(
+                PANEL_ID
+              );
 
-            runTrace();
+
+            const button =
+              document.getElementById(
+                'fix03d59-cantho-trace-run'
+              );
+
+
+            const output =
+              document.getElementById(
+                'fix03d59-cantho-trace-output'
+              );
+
+
+            console.log(
+              'FIX03D59 CAN THO AUTO TRACE V3',
+              {
+                delay,
+                panelExists:
+                  Boolean(panel),
+                buttonExists:
+                  Boolean(button),
+                outputExists:
+                  Boolean(output),
+                buttonConnected:
+                  Boolean(
+                    button &&
+                    button.isConnected
+                  )
+              }
+            );
+
+
+            /*
+             * IMPORTANT:
+             * Trace does not depend on button existence.
+             */
+
+            if (output) {
+
+              try {
+
+                runTrace();
+
+              } catch (error) {
+
+                output.textContent =
+                  '❌ AUTO TRACE ERROR\n\n' +
+                  String(
+                    error &&
+                    error.message
+                      ? error.message
+                      : error
+                  );
+
+              }
+
+            }
 
           },
           delay
@@ -712,7 +780,106 @@
       }
     );
 
-     } 
+
+    /*
+     * Observe DOM removals.
+     * Diagnostic only.
+     * Does NOT restore removed elements.
+     */
+
+    const observer =
+      new MutationObserver(
+        function (
+          mutations
+        ) {
+
+          mutations.forEach(
+            function (
+              mutation
+            ) {
+
+              mutation.removedNodes
+                .forEach(
+                  function (
+                    node
+                  ) {
+
+                    if (
+                      !node ||
+                      node.nodeType !== 1
+                    ) {
+
+                      return;
+
+                    }
+
+
+                    const removedButton =
+                      node.id ===
+                        'fix03d59-cantho-trace-run' ||
+                      (
+                        typeof node.querySelector ===
+                          'function' &&
+                        node.querySelector(
+                          '#fix03d59-cantho-trace-run'
+                        )
+                      );
+
+
+                    if (
+                      removedButton
+                    ) {
+
+                      console.warn(
+                        '🚨 FIX03D59 CAN THO TRACE BUTTON REMOVED',
+                        {
+                          removedNode:
+                            node,
+                          parent:
+                            mutation.target
+                        }
+                      );
+
+                    }
+
+                  }
+                );
+
+            }
+          );
+
+        }
+      );
+
+
+    observer.observe(
+      document.body,
+      {
+        childList: true,
+        subtree: true
+      }
+    );
+
+
+    /*
+     * Diagnostic observer only needs
+     * to stay alive during startup.
+     */
+
+    setTimeout(
+      function () {
+
+        observer.disconnect();
+
+        console.log(
+          'FIX03D59 CAN THO AUTO TRACE V3 observer stopped'
+        );
+
+      },
+      10000
+    );
+
+ }    
 
 
   if (
