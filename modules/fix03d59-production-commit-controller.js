@@ -102,7 +102,41 @@
         const envelope =
           window
             .getFix03D59ProductionForecastEnvelope();
+  /*
+   * =========================================================
+   * GLOBAL LEXICAL LAST_FORECAST
+   * =========================================================
+   *
+   * app.js declares:
+   *
+   *   let LAST_FORECAST = null;
+   *
+   * Therefore it is NOT window.LAST_FORECAST.
+   *
+   * Classic scripts in the same page can still read the
+   * global lexical binding by identifier.
+   * =========================================================
+   */
 
+  try {
+
+    if (
+      typeof LAST_FORECAST !==
+        'undefined' &&
+      isObjectController(
+        LAST_FORECAST
+      )
+    ) {
+
+      return LAST_FORECAST;
+
+    }
+
+  } catch (error) {
+
+    // Continue to window compatibility fallback.
+
+  }
 
         if (
           isObjectController(
