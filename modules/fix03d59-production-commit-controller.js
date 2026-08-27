@@ -1,15 +1,17 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION COMMIT CONTROLLER V1
+   PRODUCTION COMMIT CONTROLLER V2
 
    FILE:
    modules/fix03d59-production-commit-controller.js
 
    PURPOSE:
    - Observe the real Production Forecast lifecycle AFTER app.js renderForecast().
-   - Read the current lexical LAST_FORECAST through the existing
-     production forecast bridge/accessor when available.
-   - Build the exact candidate envelope used by Production Core.
+   - Read the current lexical LAST_FORECAST through:
+       1. Existing production forecast accessor when available.
+       2. Direct global lexical LAST_FORECAST binding.
+       3. window.LAST_FORECAST compatibility fallback.
+   - Build/read the exact candidate envelope used by Production Core.
    - Run the existing Production Pre-Commit Gate.
    - Publish ONE authorization state for downstream Production modules.
    - Never modify LAST_FORECAST.
@@ -27,6 +29,7 @@
    READ ONLY
    ZERO PRODUCTION WRITE
    ZERO STORAGE WRITE
+   NO ENGINE EXECUTION
    FAIL CLOSED
    ========================================================================= */
 
@@ -36,7 +39,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_V1';
+    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_V2';
 
 
   /*
@@ -78,18 +81,33 @@
    * 2. READ REAL PRODUCTION ENVELOPE
    * =========================================================
    *
-   * Preferred:
-   *   getFix03D59ProductionForecastEnvelope()
+   * Resolution order:
    *
-   * This bridge already handles lexical:
+   * 1. getFix03D59ProductionForecastEnvelope()
+   *
+   * 2. Direct lexical LAST_FORECAST
+   *
+   * 3. window.LAST_FORECAST
+   *
+   * app.js may declare:
+   *
    *   let LAST_FORECAST = ...
    *
-   * Fallback:
-   *   window.LAST_FORECAST
+   * A global lexical `let` does NOT become
+   * window.LAST_FORECAST.
+   *
+   * Therefore direct identifier access must be attempted
+   * independently from the accessor branch.
    * =========================================================
    */
 
   function getProductionEnvelopeController() {
+
+    /*
+     * ---------------------------------------------------------
+     * 1. EXISTING PRODUCTION ACCESSOR
+     * ---------------------------------------------------------
+     */
 
     try {
 
@@ -102,41 +120,7 @@
         const envelope =
           window
             .getFix03D59ProductionForecastEnvelope();
-  /*
-   * =========================================================
-   * GLOBAL LEXICAL LAST_FORECAST
-   * =========================================================
-   *
-   * app.js declares:
-   *
-   *   let LAST_FORECAST = null;
-   *
-   * Therefore it is NOT window.LAST_FORECAST.
-   *
-   * Classic scripts in the same page can still read the
-   * global lexical binding by identifier.
-   * =========================================================
-   */
 
-  try {
-
-    if (
-      typeof LAST_FORECAST !==
-        'undefined' &&
-      isObjectController(
-        LAST_FORECAST
-      )
-    ) {
-
-      return LAST_FORECAST;
-
-    }
-
-  } catch (error) {
-
-    // Continue to window compatibility fallback.
-
-  }
 
         if (
           isObjectController(
@@ -152,10 +136,43 @@
 
     } catch (error) {
 
-      // FAIL CLOSED — continue fallback.
+      // Continue to lexical LAST_FORECAST.
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * 2. REAL GLOBAL LEXICAL LAST_FORECAST
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      if (
+        typeof LAST_FORECAST !==
+          'undefined' &&
+        isObjectController(
+          LAST_FORECAST
+        )
+      ) {
+
+        return LAST_FORECAST;
+
+      }
+
+    } catch (error) {
+
+      // Continue to compatibility fallback.
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * 3. WINDOW COMPATIBILITY FALLBACK
+     * ---------------------------------------------------------
+     */
 
     try {
 
@@ -353,6 +370,10 @@
     };
 
 
+    /*
+     * Diagnostic RAM only.
+     */
+
     window
       .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER =
       result;
@@ -395,7 +416,7 @@
 
 
     /*
-     * Expected app.js schema:
+     * Expected Production Core schema:
      *
      * LAST_FORECAST = {
      *   forecast,
@@ -431,7 +452,15 @@
     if (!pairFormulas) {
 
       return failController(
-        'PRODUCTION_PAIR_FORMULAS_NOT_AVAILABLE'
+        'PRODUCTION_PAIR_FORMULAS_NOT_AVAILABLE',
+        {
+
+          forecastProvince:
+            normalizeTextController(
+              forecast.province
+            )
+
+        }
       );
 
     }
@@ -456,10 +485,15 @@
       return failController(
         'SELECTED_PROVINCE_NOT_AVAILABLE',
         {
+
           forecastProvince:
             normalizeTextController(
               forecast.province
-            )
+            ),
+
+          pairFormulaCount:
+            pairFormulas.length
+
         }
       );
 
@@ -477,7 +511,17 @@
       return failController(
         'WINDOW_SIZE_NOT_AVAILABLE',
         {
-          selectedProvince
+
+          selectedProvince,
+
+          forecastProvince:
+            normalizeTextController(
+              forecast.province
+            ),
+
+          pairFormulaCount:
+            pairFormulas.length
+
         }
       );
 
@@ -515,7 +559,10 @@
      * IMPORTANT:
      *
      * We pass the REAL current envelope object itself.
-     * We do not clone, rewrite or manufacture a candidate.
+     *
+     * We do NOT clone it.
+     * We do NOT manufacture pairFormulas.
+     * We do NOT rewrite forecast.
      */
 
     let preCommit = null;
@@ -537,9 +584,15 @@
       return failController(
         'PRECOMMIT_GATE_EXECUTION_FAILED',
         {
+
           selectedProvince,
 
           windowSize,
+
+          forecastProvince:
+            normalizeTextController(
+              forecast.province
+            ),
 
           error:
             String(
@@ -548,6 +601,7 @@
                 ? error.message
                 : error
             )
+
         }
       );
 
@@ -580,6 +634,16 @@
               forecast.province
             ),
 
+          forecastItemCount:
+            Array.isArray(
+              forecast.items
+            )
+              ? forecast.items.length
+              : 0,
+
+          pairFormulaCount:
+            pairFormulas.length,
+
           preCommitReason:
             preCommit &&
             preCommit.reason
@@ -602,7 +666,10 @@
             Boolean(
               preCommit &&
               preCommit.authorized === true
-            )
+            ),
+
+          preCommit:
+            preCommit || null
 
         }
       );
@@ -622,6 +689,7 @@
      * by downstream Production Bridge modules.
      *
      * NO WRITE IS PERFORMED HERE.
+     * =========================================================
      */
 
     const result = {
@@ -755,7 +823,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Commit Controller V1 loaded / POST-RENDER AUTHORIZATION / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 Production Commit Controller V2 loaded / LEXICAL FALLBACK FIXED / READ ONLY / ZERO WRITE'
   );
 
 })();
