@@ -1,29 +1,35 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION FORECAST PRE-COMMIT GATE V1
+   PRODUCTION FORECAST PRE-COMMIT GATE V2
 
    FILE:
    modules/fix03d59-production-precommit-gate.js
 
    PURPOSE:
-   - Validate the NEW Production Forecast candidate BEFORE LAST_FORECAST commit.
-   - Bind candidate province to CURRENT selected province.
-   - Bind candidate windowSize to CURRENT production window.
-   - Validate the complete XSMN prize identity db -> g8.
+   - Validate the CURRENT Production Forecast envelope.
+   - Bind forecast province to CURRENT selected province.
+   - Bind forecast windowSize to CURRENT production window.
+   - Validate all 9 forecast prize identities: db -> g8.
+   - Validate the REAL app.js forecast suggestion contract.
    - Validate forecast number schema.
    - Validate pairFormulas envelope.
-   - Authorize ONLY the candidate passed directly into this gate.
+   - Authorize ONLY the exact candidate supplied to this gate.
 
    IMPORTANT:
-   - Does NOT read old LAST_FORECAST as source of truth.
-   - Does NOT create a forecast.
+   - Forecast suggestion count is NOT PRIZE_META.count.
+   - PRIZE_META.count describes real lottery result cardinality.
+   - app.js pickCountFor() defines forecast suggestion cardinality:
+       db / g1 / g2 = 2 suggestions
+       g3 -> g8      = 3 suggestions
+   - Forecast candidate numbers are 2-digit score identities 00 -> 99.
+   - Does NOT create forecast.
    - Does NOT modify candidate.
    - Does NOT modify LAST_FORECAST.
    - Does NOT call savePrediction().
    - Does NOT write Production/storage.
    - FAIL CLOSED.
 
-   DIAGNOSTIC RAM ALIAS ONLY
+   READ ONLY
    ZERO PRODUCTION WRITE
    ZERO STORAGE WRITE
    ========================================================================= */
@@ -34,81 +40,100 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_PRECOMMIT_GATE_V1';
+    'FIX03D59_PRODUCTION_PRECOMMIT_GATE_V2';
 
 
   /*
    * =========================================================
-   * 1. CANONICAL EXPECTED PRIZE CONTRACT
+   * 1. REAL FORECAST SUGGESTION CONTRACT
    * =========================================================
    *
-   * Mirrors the real app.js PRIZE_META production contract.
+   * SOURCE:
    *
-   * db : 1 x 6 digits
-   * g1 : 1 x 5 digits
-   * g2 : 1 x 5 digits
-   * g3 : 2 x 5 digits
-   * g4 : 7 x 5 digits
-   * g5 : 1 x 4 digits
-   * g6 : 3 x 4 digits
-   * g7 : 1 x 3 digits
-   * g8 : 1 x 2 digits
+   * app.js:
+   *
+   * function pickCountFor(giaiKey) {
+   *
+   *   if (
+   *     ['db', 'g1', 'g2']
+   *       .includes(giaiKey)
+   *   ) {
+   *
+   *     return 2;
+   *
+   *   }
+   *
+   *   return 3;
+   *
+   * }
+   *
+   * generateFullForecast() then picks from score identities
+   * 00 -> 99.
+   *
+   * Therefore every forecast number is 2 digits.
+   *
+   * IMPORTANT:
+   *
+   * This contract is intentionally different from PRIZE_META.
+   *
+   * PRIZE_META describes actual lottery result structure.
+   * This contract describes forecast suggestion structure.
    * =========================================================
    */
 
-  const EXPECTED_PRIZES = [
+  const EXPECTED_FORECAST_PRIZES = [
 
     {
       key: 'db',
-      count: 1,
-      digits: 6
+      count: 2,
+      digits: 2
     },
 
     {
       key: 'g1',
-      count: 1,
-      digits: 5
+      count: 2,
+      digits: 2
     },
 
     {
       key: 'g2',
-      count: 1,
-      digits: 5
+      count: 2,
+      digits: 2
     },
 
     {
       key: 'g3',
-      count: 2,
-      digits: 5
+      count: 3,
+      digits: 2
     },
 
     {
       key: 'g4',
-      count: 7,
-      digits: 5
+      count: 3,
+      digits: 2
     },
 
     {
       key: 'g5',
-      count: 1,
-      digits: 4
+      count: 3,
+      digits: 2
     },
 
     {
       key: 'g6',
       count: 3,
-      digits: 4
+      digits: 2
     },
 
     {
       key: 'g7',
-      count: 1,
-      digits: 3
+      count: 3,
+      digits: 2
     },
 
     {
       key: 'g8',
-      count: 1,
+      count: 3,
       digits: 2
     }
 
@@ -176,11 +201,14 @@
 
     const result = {
 
-      ready: false,
+      ready:
+        false,
 
-      passed: false,
+      passed:
+        false,
 
-      authorized: false,
+      authorized:
+        false,
 
       reason,
 
@@ -226,9 +254,6 @@
 
     /*
      * Diagnostic RAM only.
-     *
-     * NOT LAST_FORECAST.
-     * NOT Production persistence.
      */
 
     window
@@ -258,7 +283,15 @@
       )
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_NOT_OBJECT'
+
+      };
 
     }
 
@@ -274,7 +307,17 @@
       !/^\d+$/.test(number)
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_VALUE_INVALID',
+
+        number
+
+      };
 
     }
 
@@ -284,17 +327,36 @@
       expectedDigits
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_DIGITS_INVALID',
+
+        number,
+
+        actualDigits:
+          number.length,
+
+        expectedDigits
+
+      };
 
     }
 
 
     /*
-     * Existing app.js forecast schema exposes
-     * rank / score / confidence / reasoning.
+     * REAL generateFullForecast() schema:
      *
-     * We do not require arbitrary score values,
-     * but identity fields must be structurally usable.
+     * {
+     *   number,
+     *   rank,
+     *   score,
+     *   confidence,
+     *   reasoning
+     * }
      */
 
     if (
@@ -305,7 +367,17 @@
       )
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_RANK_INVALID',
+
+        number
+
+      };
 
     }
 
@@ -318,7 +390,17 @@
       )
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_SCORE_INVALID',
+
+        number
+
+      };
 
     }
 
@@ -331,12 +413,64 @@
       )
     ) {
 
-      return false;
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_CONFIDENCE_INVALID',
+
+        number
+
+      };
 
     }
 
 
-    return true;
+    /*
+     * reasoning exists in current app.js forecast schema.
+     *
+     * Require it to be a string.
+     *
+     * Empty string remains structurally acceptable because
+     * authorization concerns schema, not prose quality.
+     */
+
+    if (
+      typeof numberItem.reasoning !==
+        'string'
+    ) {
+
+      return {
+
+        passed:
+          false,
+
+        reason:
+          'FORECAST_NUMBER_REASONING_INVALID',
+
+        number
+
+      };
+
+    }
+
+
+    return {
+
+      passed:
+        true,
+
+      reason:
+        'FORECAST_NUMBER_VALID',
+
+      number,
+
+      digits:
+        number.length
+
+    };
 
   }
 
@@ -360,9 +494,13 @@
     ) {
 
       return {
-        passed: false,
+
+        passed:
+          false,
+
         reason:
           'FORECAST_NOT_OBJECT'
+
       };
 
     }
@@ -373,13 +511,23 @@
     ) {
 
       return {
-        passed: false,
+
+        passed:
+          false,
+
         reason:
           'FORECAST_EMPTY'
+
       };
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * PROVINCE
+     * ---------------------------------------------------------
+     */
 
     const forecastProvince =
       normalizeTextPreCommit(
@@ -393,27 +541,31 @@
       );
 
 
-    if (
-      !forecastProvince
-    ) {
+    if (!forecastProvince) {
 
       return {
-        passed: false,
+
+        passed:
+          false,
+
         reason:
           'FORECAST_PROVINCE_NOT_AVAILABLE'
+
       };
 
     }
 
 
-    if (
-      !selected
-    ) {
+    if (!selected) {
 
       return {
-        passed: false,
+
+        passed:
+          false,
+
         reason:
           'SELECTED_PROVINCE_NOT_AVAILABLE'
+
       };
 
     }
@@ -426,7 +578,8 @@
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
           'FORECAST_PROVINCE_MISMATCH',
@@ -440,6 +593,12 @@
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * WINDOW
+     * ---------------------------------------------------------
+     */
 
     const forecastWindow =
       Number(
@@ -464,10 +623,15 @@
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
-          'FORECAST_WINDOW_INVALID'
+          'FORECAST_WINDOW_INVALID',
+
+        forecastWindow,
+
+        expectedWindow
 
       };
 
@@ -481,7 +645,8 @@
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
           'FORECAST_WINDOW_MISMATCH',
@@ -495,6 +660,12 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * FORECAST ITEMS
+     * ---------------------------------------------------------
+     */
+
     if (
       !Array.isArray(
         forecast.items
@@ -503,7 +674,8 @@
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
           'FORECAST_ITEMS_NOT_ARRAY'
@@ -515,12 +687,13 @@
 
     if (
       forecast.items.length !==
-      EXPECTED_PRIZES.length
+      EXPECTED_FORECAST_PRIZES.length
     ) {
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
           'FORECAST_PRIZE_COUNT_INVALID',
@@ -529,7 +702,7 @@
           forecast.items.length,
 
         expectedCount:
-          EXPECTED_PRIZES.length
+          EXPECTED_FORECAST_PRIZES.length
 
       };
 
@@ -540,19 +713,29 @@
       [];
 
 
+    /*
+     * ---------------------------------------------------------
+     * VALIDATE ALL 9 PRIZES
+     * ---------------------------------------------------------
+     */
+
     for (
       let index = 0;
       index <
-        EXPECTED_PRIZES.length;
+        EXPECTED_FORECAST_PRIZES.length;
       index += 1
     ) {
 
       const expected =
-        EXPECTED_PRIZES[index];
+        EXPECTED_FORECAST_PRIZES[
+          index
+        ];
 
 
       const item =
-        forecast.items[index];
+        forecast.items[
+          index
+        ];
 
 
       if (
@@ -563,7 +746,8 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'FORECAST_PRIZE_ITEM_INVALID',
@@ -579,6 +763,12 @@
       }
 
 
+      /*
+       * -------------------------------------------------------
+       * PRIZE IDENTITY
+       * -------------------------------------------------------
+       */
+
       const actualKey =
         normalizeTextPreCommit(
           item.key
@@ -592,7 +782,8 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'FORECAST_PRIZE_IDENTITY_MISMATCH',
@@ -610,6 +801,12 @@
       }
 
 
+      /*
+       * -------------------------------------------------------
+       * NUMBERS ARRAY
+       * -------------------------------------------------------
+       */
+
       if (
         !Array.isArray(
           item.numbers
@@ -618,10 +815,14 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'FORECAST_NUMBERS_NOT_ARRAY',
+
+          failedIndex:
+            index,
 
           prizeKey:
             expected.key
@@ -631,6 +832,16 @@
       }
 
 
+      /*
+       * -------------------------------------------------------
+       * REAL FORECAST SUGGESTION COUNT
+       * -------------------------------------------------------
+       *
+       * db / g1 / g2 = 2
+       * g3 -> g8      = 3
+       * -------------------------------------------------------
+       */
+
       if (
         item.numbers.length !==
         expected.count
@@ -638,10 +849,14 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'FORECAST_NUMBER_COUNT_MISMATCH',
+
+          failedIndex:
+            index,
 
           prizeKey:
             expected.key,
@@ -657,52 +872,89 @@
       }
 
 
-      const numbersValid =
-        item.numbers.every(
-          function (
-            numberItem
-          ) {
+      /*
+       * -------------------------------------------------------
+       * VALIDATE EACH FORECAST NUMBER
+       * -------------------------------------------------------
+       */
 
-            return (
-              validateNumberPreCommit(
-                numberItem,
-                expected.digits
-              )
-            );
-
-          }
-        );
-
-
-      if (
-        !numbersValid
+      for (
+        let numberIndex = 0;
+        numberIndex <
+          item.numbers.length;
+        numberIndex += 1
       ) {
 
-        return {
+        const numberItem =
+          item.numbers[
+            numberIndex
+          ];
 
-          passed: false,
 
-          reason:
-            'FORECAST_NUMBER_SCHEMA_INVALID',
-
-          prizeKey:
-            expected.key,
-
-          expectedDigits:
+        const numberCheck =
+          validateNumberPreCommit(
+            numberItem,
             expected.digits
+          );
 
-        };
+
+        if (
+          numberCheck.passed !==
+          true
+        ) {
+
+          return {
+
+            passed:
+              false,
+
+            reason:
+              numberCheck.reason ||
+              'FORECAST_NUMBER_SCHEMA_INVALID',
+
+            failedIndex:
+              index,
+
+            failedNumberIndex:
+              numberIndex,
+
+            prizeKey:
+              expected.key,
+
+            expectedDigits:
+              expected.digits,
+
+            actualDigits:
+              numberCheck.actualDigits ??
+              null,
+
+            number:
+              numberCheck.number ??
+              null,
+
+            numberCheck
+
+          };
+
+        }
 
       }
 
 
       itemDiagnostics.push({
 
+        index,
+
         key:
           expected.key,
 
+        actualKey,
+
         count:
           item.numbers.length,
+
+        expectedCount:
+          expected.count,
 
         digits:
           expected.digits,
@@ -715,9 +967,16 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * FORECAST CONTRACT PASS
+     * ---------------------------------------------------------
+     */
+
     return {
 
-      passed: true,
+      passed:
+        true,
 
       reason:
         'FORECAST_CONTRACT_VALID',
@@ -754,7 +1013,8 @@
 
       return {
 
-        passed: false,
+        passed:
+          false,
 
         reason:
           'PAIR_FORMULAS_NOT_ARRAY'
@@ -765,9 +1025,9 @@
 
 
     /*
-     * Empty [] is allowed.
+     * Empty [] is valid.
      *
-     * generatePairFormulas() legitimately returns []
+     * generatePairFormulas() can legitimately return []
      * when no usable pair formula exists.
      */
 
@@ -779,7 +1039,9 @@
     ) {
 
       const item =
-        pairFormulas[index];
+        pairFormulas[
+          index
+        ];
 
 
       if (
@@ -790,7 +1052,8 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'PAIR_FORMULA_ITEM_INVALID',
@@ -828,7 +1091,8 @@
 
         return {
 
-          passed: false,
+          passed:
+            false,
 
           reason:
             'PAIR_FORMULA_SCHEMA_INVALID',
@@ -845,7 +1109,8 @@
 
     return {
 
-      passed: true,
+      passed:
+        true,
 
       reason:
         'PAIR_FORMULAS_VALID',
@@ -872,8 +1137,7 @@
     /*
      * Candidate MUST be supplied explicitly.
      *
-     * We intentionally do NOT fall back to
-     * window.LAST_FORECAST.
+     * Never fall back to old LAST_FORECAST.
      */
 
     if (
@@ -915,6 +1179,12 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * FORECAST CONTRACT
+     * ---------------------------------------------------------
+     */
+
     const forecastCheck =
       validateForecastPreCommit(
 
@@ -936,12 +1206,20 @@
         forecastCheck.reason ||
         'FORECAST_CONTRACT_INVALID',
         {
+
           forecastCheck
+
         }
       );
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * PAIR FORMULA CONTRACT
+     * ---------------------------------------------------------
+     */
 
     const pairCheck =
       validatePairFormulasPreCommit(
@@ -958,8 +1236,11 @@
         pairCheck.reason ||
         'PAIR_FORMULAS_INVALID',
         {
+
           forecastCheck,
+
           pairCheck
+
         }
       );
 
@@ -968,25 +1249,28 @@
 
     /*
      * =========================================================
-     * AUTHORIZATION
+     * 8. AUTHORIZATION
      * =========================================================
      *
      * authorized:true means ONLY:
      *
-     * This exact candidate is structurally approved
-     * for the immediate LAST_FORECAST commit performed
-     * by app.js.
+     * The exact current Production Forecast envelope passed
+     * the structural Production contract.
      *
      * This gate itself performs NO commit.
+     * =========================================================
      */
 
     const result = {
 
-      ready: true,
+      ready:
+        true,
 
-      passed: true,
+      passed:
+        true,
 
-      authorized: true,
+      authorized:
+        true,
 
       reason:
         'PRODUCTION_PRECOMMIT_GATE_PASS',
@@ -1010,7 +1294,8 @@
           .itemCount,
 
       expectedPrizeCount:
-        EXPECTED_PRIZES.length,
+        EXPECTED_FORECAST_PRIZES
+          .length,
 
       pairFormulaCount:
         pairCheck
@@ -1019,6 +1304,44 @@
       forecastCheck,
 
       pairCheck,
+
+      /*
+       * Explicit contract diagnostic.
+       */
+
+      forecastContract: {
+
+        db:
+          2,
+
+        g1:
+          2,
+
+        g2:
+          2,
+
+        g3:
+          3,
+
+        g4:
+          3,
+
+        g5:
+          3,
+
+        g6:
+          3,
+
+        g7:
+          3,
+
+        g8:
+          3,
+
+        candidateDigits:
+          2
+
+      },
 
       safety: {
 
@@ -1068,7 +1391,7 @@
 
   /*
    * =========================================================
-   * 8. PUBLIC API
+   * 9. PUBLIC API
    * =========================================================
    */
 
@@ -1088,7 +1411,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Pre-Commit Gate V1 loaded / FAIL CLOSED / ZERO PRODUCTION WRITE'
+    'FIX-03D5.9 Production Pre-Commit Gate V2 loaded / REAL FORECAST CONTRACT / 2-DIGIT CANDIDATES / FAIL CLOSED / ZERO WRITE'
   );
 
 })();
