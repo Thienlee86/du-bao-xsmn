@@ -86,7 +86,7 @@
     {
       key: 'db',
       count: 2,
-      digits: 2
+      digits: 6
     },
 
     {
