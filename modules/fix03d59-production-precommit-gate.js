@@ -1,6 +1,6 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION FORECAST PRE-COMMIT GATE V2
+   PRODUCTION FORECAST PRE-COMMIT GATE V3 DB6
 
    FILE:
    modules/fix03d59-production-precommit-gate.js
@@ -15,13 +15,24 @@
    - Validate pairFormulas envelope.
    - Authorize ONLY the exact candidate supplied to this gate.
 
+   REAL FORECAST CONTRACT:
+   - db:
+       2 forecast suggestions
+       each suggestion = FULL 6 DIGITS
+   - g1:
+       2 forecast suggestions
+       each suggestion = LAST 2 DIGITS
+   - g2:
+       2 forecast suggestions
+       each suggestion = LAST 2 DIGITS
+   - g3 -> g8:
+       3 forecast suggestions
+       each suggestion = LAST 2 DIGITS
+
    IMPORTANT:
    - Forecast suggestion count is NOT PRIZE_META.count.
    - PRIZE_META.count describes real lottery result cardinality.
-   - app.js pickCountFor() defines forecast suggestion cardinality:
-       db / g1 / g2 = 2 suggestions
-       g3 -> g8      = 3 suggestions
-   - Forecast candidate numbers are 2-digit score identities 00 -> 99.
+   - Forecast contract describes Production prediction candidates.
    - Does NOT create forecast.
    - Does NOT modify candidate.
    - Does NOT modify LAST_FORECAST.
@@ -40,7 +51,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_PRECOMMIT_GATE_V2';
+    'FIX03D59_PRODUCTION_PRECOMMIT_GATE_V3_DB6';
 
 
   /*
@@ -48,35 +59,29 @@
    * 1. REAL FORECAST SUGGESTION CONTRACT
    * =========================================================
    *
-   * SOURCE:
+   * CURRENT PRODUCTION CONTRACT:
    *
-   * app.js:
+   * db:
+   *   count  = 2
+   *   digits = 6
    *
-   * function pickCountFor(giaiKey) {
+   * g1:
+   *   count  = 2
+   *   digits = 2
    *
-   *   if (
-   *     ['db', 'g1', 'g2']
-   *       .includes(giaiKey)
-   *   ) {
+   * g2:
+   *   count  = 2
+   *   digits = 2
    *
-   *     return 2;
-   *
-   *   }
-   *
-   *   return 3;
-   *
-   * }
-   *
-   * generateFullForecast() then picks from score identities
-   * 00 -> 99.
-   *
-   * Therefore every forecast number is 2 digits.
+   * g3 -> g8:
+   *   count  = 3
+   *   digits = 2
    *
    * IMPORTANT:
    *
-   * This contract is intentionally different from PRIZE_META.
+   * This is intentionally different from PRIZE_META.
    *
-   * PRIZE_META describes actual lottery result structure.
+   * PRIZE_META describes actual lottery-result structure.
    * This contract describes forecast suggestion structure.
    * =========================================================
    */
@@ -302,6 +307,12 @@
       );
 
 
+    /*
+     * ---------------------------------------------------------
+     * NUMBER VALUE
+     * ---------------------------------------------------------
+     */
+
     if (
       !number ||
       !/^\d+$/.test(number)
@@ -321,6 +332,16 @@
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * NUMBER DIGITS
+     * ---------------------------------------------------------
+     *
+     * db      = 6 digits
+     * g1-g8   = 2 digits
+     * ---------------------------------------------------------
+     */
 
     if (
       number.length !==
@@ -348,15 +369,9 @@
 
 
     /*
-     * REAL generateFullForecast() schema:
-     *
-     * {
-     *   number,
-     *   rank,
-     *   score,
-     *   confidence,
-     *   reasoning
-     * }
+     * ---------------------------------------------------------
+     * RANK
+     * ---------------------------------------------------------
      */
 
     if (
@@ -382,6 +397,12 @@
     }
 
 
+    /*
+     * ---------------------------------------------------------
+     * SCORE
+     * ---------------------------------------------------------
+     */
+
     if (
       !Number.isFinite(
         Number(
@@ -404,6 +425,12 @@
 
     }
 
+
+    /*
+     * ---------------------------------------------------------
+     * CONFIDENCE
+     * ---------------------------------------------------------
+     */
 
     if (
       !Number.isFinite(
@@ -429,12 +456,9 @@
 
 
     /*
-     * reasoning exists in current app.js forecast schema.
-     *
-     * Require it to be a string.
-     *
-     * Empty string remains structurally acceptable because
-     * authorization concerns schema, not prose quality.
+     * ---------------------------------------------------------
+     * REASONING
+     * ---------------------------------------------------------
      */
 
     if (
@@ -487,6 +511,12 @@
     expectedWindowSize
   ) {
 
+    /*
+     * ---------------------------------------------------------
+     * FORECAST OBJECT
+     * ---------------------------------------------------------
+     */
+
     if (
       !isObjectPreCommit(
         forecast
@@ -507,7 +537,8 @@
 
 
     if (
-      forecast.empty === true
+      forecast.empty ===
+        true
     ) {
 
       return {
@@ -596,7 +627,7 @@
 
     /*
      * ---------------------------------------------------------
-     * WINDOW
+     * WINDOW SIZE
      * ---------------------------------------------------------
      */
 
@@ -738,6 +769,12 @@
         ];
 
 
+      /*
+       * -------------------------------------------------------
+       * ITEM OBJECT
+       * -------------------------------------------------------
+       */
+
       if (
         !isObjectPreCommit(
           item
@@ -834,7 +871,7 @@
 
       /*
        * -------------------------------------------------------
-       * REAL FORECAST SUGGESTION COUNT
+       * FORECAST SUGGESTION COUNT
        * -------------------------------------------------------
        *
        * db / g1 / g2 = 2
@@ -941,6 +978,12 @@
       }
 
 
+      /*
+       * -------------------------------------------------------
+       * ITEM PASS DIAGNOSTIC
+       * -------------------------------------------------------
+       */
+
       itemDiagnostics.push({
 
         index,
@@ -1027,7 +1070,7 @@
     /*
      * Empty [] is valid.
      *
-     * generatePairFormulas() can legitimately return []
+     * generatePairFormulas() may legitimately return []
      * when no usable pair formula exists.
      */
 
@@ -1305,43 +1348,88 @@
 
       pairCheck,
 
+
       /*
-       * Explicit contract diagnostic.
+       * =======================================================
+       * EXPLICIT RUNTIME CONTRACT FINGERPRINT
+       * =======================================================
        */
 
       forecastContract: {
 
-        db:
-          2,
+        prizeCount:
+          9,
 
-        g1:
-          2,
+        suggestionCounts: {
 
-        g2:
-          2,
+          db:
+            2,
 
-        g3:
-          3,
+          g1:
+            2,
 
-        g4:
-          3,
+          g2:
+            2,
 
-        g5:
-          3,
+          g3:
+            3,
 
-        g6:
-          3,
+          g4:
+            3,
 
-        g7:
-          3,
+          g5:
+            3,
 
-        g8:
-          3,
+          g6:
+            3,
 
-        candidateDigits:
-          2
+          g7:
+            3,
+
+          g8:
+            3
+
+        },
+
+        candidateDigits: {
+
+          db:
+            6,
+
+          g1:
+            2,
+
+          g2:
+            2,
+
+          g3:
+            2,
+
+          g4:
+            2,
+
+          g5:
+            2,
+
+          g6:
+            2,
+
+          g7:
+            2,
+
+          g8:
+            2
+
+        },
+
+        dbMode:
+          'FULL_6_DIGIT',
+
+        otherPrizeMode:
+          'LAST_2_DIGIT'
 
       },
+
 
       safety: {
 
@@ -1410,8 +1498,46 @@
     true;
 
 
+  /*
+   * Runtime fingerprint.
+   */
+
+  window
+    .FIX03D59_PRODUCTION_PRECOMMIT_CONTRACT =
+    {
+
+      version:
+        VERSION,
+
+      dbCount:
+        2,
+
+      dbDigits:
+        6,
+
+      g1Count:
+        2,
+
+      g1Digits:
+        2,
+
+      g2Count:
+        2,
+
+      g2Digits:
+        2,
+
+      g3ToG8Count:
+        3,
+
+      g3ToG8Digits:
+        2
+
+    };
+
+
   console.log(
-    'FIX-03D5.9 Production Pre-Commit Gate V2 loaded / REAL FORECAST CONTRACT / 2-DIGIT CANDIDATES / FAIL CLOSED / ZERO WRITE'
+    'FIX-03D5.9 Production Pre-Commit Gate V3 DB6 loaded / DB=2x6 DIGITS / G1-G2=2x2 / G3-G8=3x2 / FAIL CLOSED / ZERO WRITE'
   );
 
 })();
