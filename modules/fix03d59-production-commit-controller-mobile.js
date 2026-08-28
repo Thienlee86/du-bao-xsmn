@@ -1,15 +1,15 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION COMMIT CONTROLLER MOBILE V1
+   PRODUCTION COMMIT CONTROLLER MOBILE V2
 
    FILE:
    modules/fix03d59-production-commit-controller-mobile.js
 
    PURPOSE:
-   - Provide a mobile UI for:
+   - Provide mobile UI for:
        inspectFix03D59ProductionCommitController()
-   - Show whether the CURRENT Production Forecast envelope is authorized.
-   - Show the exact blocking reason when authorization fails.
+   - Show CURRENT Production authorization state.
+   - Surface precise V3 Pre-Commit failure diagnostics.
    - Never execute forecast engine.
    - Never modify LAST_FORECAST.
    - Never modify forecast / pairFormulas.
@@ -29,7 +29,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_MOBILE_V1';
+    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_MOBILE_V2';
 
 
   const PANEL_ID =
@@ -98,9 +98,244 @@
   }
 
 
+  function rowHtml(
+    label,
+    value,
+    color
+  ) {
+
+    return `
+
+      <div
+        style="
+          padding:11px 0;
+          border-bottom:
+            1px solid rgba(255,255,255,.08);
+          color:rgba(255,255,255,.68);
+          min-width:0;
+        "
+      >
+        ${safeText(label)}
+      </div>
+
+
+      <div
+        style="
+          padding:11px 0 11px 12px;
+          border-bottom:
+            1px solid rgba(255,255,255,.08);
+          text-align:right;
+          font-weight:900;
+          color:${
+            color ||
+            '#ffffff'
+          };
+          min-width:0;
+          max-width:100%;
+          overflow-wrap:anywhere;
+          word-break:break-word;
+        "
+      >
+        ${safeText(value)}
+      </div>
+
+    `;
+
+  }
+
+
   /*
    * =========================================================
-   * 2. BUILD OUTPUT
+   * 2. READ PRE-COMMIT STATE
+   * =========================================================
+   *
+   * On blocked V3 results:
+   *
+   * result.preCommit contains the COMPLETE gate result.
+   *
+   * On success it may contain only the summarized state.
+   * =========================================================
+   */
+
+  function getPreCommitState(
+    result
+  ) {
+
+    if (
+      result &&
+      result.preCommit &&
+      typeof result.preCommit ===
+        'object'
+    ) {
+
+      return result.preCommit;
+
+    }
+
+
+    return null;
+
+  }
+
+
+  /*
+   * =========================================================
+   * 3. READ FAILURE DIAGNOSTICS
+   * =========================================================
+   */
+
+  function getFailureDiagnostics(
+    result
+  ) {
+
+    const preCommit =
+      getPreCommitState(
+        result
+      );
+
+
+    const forecastCheck =
+      (
+        preCommit &&
+        preCommit.forecastCheck &&
+        typeof preCommit.forecastCheck ===
+          'object'
+      )
+        ? preCommit.forecastCheck
+        : null;
+
+
+    /*
+     * Prefer Controller V3 flattened fields.
+     *
+     * Fall back to the raw Pre-Commit forecastCheck
+     * so diagnostics remain visible even if one layer
+     * does not flatten a particular field.
+     */
+
+    const failedPrize =
+      result.failedPrize ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.prizeKey ??
+              forecastCheck.expectedKey ??
+              null
+            )
+          : null
+      );
+
+
+    const failedIndex =
+      result.failedIndex ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.failedIndex ??
+              null
+            )
+          : null
+      );
+
+
+    const actualNumberCount =
+      result.actualNumberCount ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.actualCount ??
+              null
+            )
+          : null
+      );
+
+
+    const expectedNumberCount =
+      result.expectedNumberCount ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.expectedCount ??
+              null
+            )
+          : null
+      );
+
+
+    const expectedDigits =
+      result.expectedDigits ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.expectedDigits ??
+              null
+            )
+          : null
+      );
+
+
+    const expectedKey =
+      result.expectedKey ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.expectedKey ??
+              null
+            )
+          : null
+      );
+
+
+    const actualKey =
+      result.actualKey ??
+      (
+        forecastCheck
+          ? (
+              forecastCheck.actualKey ??
+              null
+            )
+          : null
+      );
+
+
+    const gateReason =
+      result.preCommitReason ??
+      (
+        preCommit
+          ? (
+              preCommit.reason ??
+              null
+            )
+          : null
+      );
+
+
+    return {
+
+      gateReason,
+
+      failedPrize,
+
+      failedIndex,
+
+      actualNumberCount,
+
+      expectedNumberCount,
+
+      expectedDigits,
+
+      expectedKey,
+
+      actualKey
+
+    };
+
+  }
+
+
+  /*
+   * =========================================================
+   * 4. BUILD OUTPUT
    * =========================================================
    */
 
@@ -154,11 +389,15 @@
 
 
     const preCommit =
-      result.preCommit &&
-      typeof result.preCommit ===
-        'object'
-        ? result.preCommit
-        : null;
+      getPreCommitState(
+        result
+      );
+
+
+    const diagnostics =
+      getFailureDiagnostics(
+        result
+      );
 
 
     output.innerHTML = `
@@ -198,8 +437,8 @@
             display:grid;
             grid-template-columns:
               minmax(0,1fr)
-              auto;
-            gap:0;
+              minmax(0,1fr);
+            column-gap:14px;
           "
         >
 
@@ -235,44 +474,37 @@
 
           ${rowHtml(
             'Reason',
-            safeText(
-              result.reason
-            )
+            result.reason
+          )}
+
+          ${rowHtml(
+            'Controller Version',
+            result.version
           )}
 
           ${rowHtml(
             'Selected Province',
-            safeText(
-              result.selectedProvince
-            )
+            result.selectedProvince
           )}
 
           ${rowHtml(
             'Forecast Province',
-            safeText(
-              result.forecastProvince
-            )
+            result.forecastProvince
           )}
 
           ${rowHtml(
             'Window Size',
-            safeText(
-              result.windowSize
-            )
+            result.windowSize
           )}
 
           ${rowHtml(
             'Forecast Item Count',
-            safeText(
-              result.forecastItemCount
-            )
+            result.forecastItemCount
           )}
 
           ${rowHtml(
             'Pair Formula Count',
-            safeText(
-              result.pairFormulaCount
-            )
+            result.pairFormulaCount
           )}
 
         </div>
@@ -304,7 +536,8 @@
               display:grid;
               grid-template-columns:
                 minmax(0,1fr)
-                auto;
+                minmax(0,1fr);
+              column-gap:14px;
             "
           >
 
@@ -352,20 +585,87 @@
 
             ${rowHtml(
               'Gate Reason',
-              preCommit
-                ? safeText(
-                    preCommit.reason
-                  )
-                : '--'
+              diagnostics.gateReason
             )}
 
             ${rowHtml(
               'Gate Version',
               preCommit
-                ? safeText(
-                    preCommit.version
-                  )
-                : '--'
+                ? preCommit.version
+                : null
+            )}
+
+          </div>
+
+        </div>
+
+
+        <div
+          style="
+            margin-top:22px;
+            padding:16px;
+            border-radius:16px;
+            background:rgba(255,189,60,.08);
+            border:
+              1px solid rgba(255,189,60,.18);
+          "
+        >
+
+          <div
+            style="
+              color:#ffbd3c;
+              font-size:17px;
+              font-weight:900;
+              margin-bottom:10px;
+            "
+          >
+            🔬 PRE-COMMIT FAILURE DIAGNOSTICS
+          </div>
+
+
+          <div
+            style="
+              display:grid;
+              grid-template-columns:
+                minmax(0,1fr)
+                minmax(0,1fr);
+              column-gap:14px;
+            "
+          >
+
+            ${rowHtml(
+              'Failed Prize',
+              diagnostics.failedPrize
+            )}
+
+            ${rowHtml(
+              'Failed Index',
+              diagnostics.failedIndex
+            )}
+
+            ${rowHtml(
+              'Actual Number Count',
+              diagnostics.actualNumberCount
+            )}
+
+            ${rowHtml(
+              'Expected Number Count',
+              diagnostics.expectedNumberCount
+            )}
+
+            ${rowHtml(
+              'Expected Digits',
+              diagnostics.expectedDigits
+            )}
+
+            ${rowHtml(
+              'Expected Key',
+              diagnostics.expectedKey
+            )}
+
+            ${rowHtml(
+              'Actual Key',
+              diagnostics.actualKey
             )}
 
           </div>
@@ -401,54 +701,9 @@
   }
 
 
-  function rowHtml(
-    label,
-    value,
-    color
-  ) {
-
-    return `
-
-      <div
-        style="
-          padding:11px 0;
-          border-bottom:
-            1px solid rgba(255,255,255,.08);
-          color:rgba(255,255,255,.68);
-        "
-      >
-        ${label}
-      </div>
-
-
-      <div
-        style="
-          padding:11px 0;
-          border-bottom:
-            1px solid rgba(255,255,255,.08);
-          text-align:right;
-          font-weight:900;
-          color:${
-            color ||
-            '#ffffff'
-          };
-          max-width:310px;
-          overflow-wrap:anywhere;
-        "
-      >
-        ${safeText(
-          value
-        )}
-      </div>
-
-    `;
-
-  }
-
-
   /*
    * =========================================================
-   * 3. RUN CONTROLLER
+   * 5. RUN CONTROLLER
    * =========================================================
    */
 
@@ -491,6 +746,7 @@
         >
           ❌ PRODUCTION COMMIT CONTROLLER NOT AVAILABLE
           <br><br>
+
           Function:
           <b>
             inspectFix03D59ProductionCommitController
@@ -567,7 +823,7 @@
 
   /*
    * =========================================================
-   * 4. BUILD MOBILE PANEL
+   * 6. BUILD MOBILE PANEL
    * =========================================================
    */
 
@@ -730,6 +986,17 @@
           }
         </b>
 
+        <br>
+
+        Mobile UI:
+        <b
+          style="
+            color:#8ff0bd;
+          "
+        >
+          V2 DIAGNOSTICS ✅
+        </b>
+
       </div>
 
 
@@ -830,7 +1097,7 @@
 
   /*
    * =========================================================
-   * 5. INITIALIZE
+   * 7. INITIALIZE
    * =========================================================
    */
 
@@ -858,7 +1125,9 @@
 
 
   /*
-   * Manual rebuild helper.
+   * =========================================================
+   * 8. PUBLIC API
+   * =========================================================
    */
 
   window
@@ -877,7 +1146,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Commit Controller Mobile V1 loaded / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 Production Commit Controller Mobile V2 loaded / V3 DIAGNOSTICS / READ ONLY / ZERO WRITE'
   );
 
 })();
