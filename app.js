@@ -4177,13 +4177,111 @@ function renderForecast() {
   }
 
 
-  LAST_FORECAST = {
+  /* =====================================================================
+     FIX-03D5.9 — REAL PRODUCTION PRE-COMMIT BOUNDARY
+
+     IMPORTANT:
+     - Build the exact candidate that would become LAST_FORECAST.
+     - Require the external Pre-Commit Gate V3 DB6 to authorize it.
+     - FAIL CLOSED: if the gate is missing, throws, or blocks,
+       LAST_FORECAST is cleared and NO candidate is committed.
+     - The gate itself performs ZERO Production/storage write.
+     ===================================================================== */
+
+  const productionCandidate03D59 = {
 
     forecast,
 
     pairFormulas
 
   };
+
+
+  const preCommitInspector03D59 =
+    window
+      .inspectFix03D59ProductionPreCommit;
+
+
+  if (
+    typeof preCommitInspector03D59 !==
+      'function'
+  ) {
+
+    LAST_FORECAST =
+      null;
+
+    console.error(
+      'FIX-03D5.9 Production commit blocked: PRECOMMIT_GATE_NOT_AVAILABLE'
+    );
+
+    return;
+
+  }
+
+
+  let preCommitAuthorization03D59 =
+    null;
+
+
+  try {
+
+    preCommitAuthorization03D59 =
+      preCommitInspector03D59(
+        productionCandidate03D59,
+        {
+
+          selectedProvince:
+            SELECTED_PROVINCE,
+
+          windowSize:
+            WINDOW_SIZE
+
+        }
+      );
+
+  } catch (error) {
+
+    LAST_FORECAST =
+      null;
+
+    console.error(
+      'FIX-03D5.9 Production commit blocked: PRECOMMIT_GATE_EXECUTION_FAILED',
+      error
+    );
+
+    return;
+
+  }
+
+
+  if (
+    !preCommitAuthorization03D59 ||
+    preCommitAuthorization03D59.ready !==
+      true ||
+    preCommitAuthorization03D59.passed !==
+      true ||
+    preCommitAuthorization03D59.authorized !==
+      true
+  ) {
+
+    LAST_FORECAST =
+      null;
+
+    console.warn(
+      'FIX-03D5.9 Production commit blocked by Pre-Commit Gate:',
+      preCommitAuthorization03D59 &&
+      preCommitAuthorization03D59.reason
+        ? preCommitAuthorization03D59.reason
+        : 'PRECOMMIT_GATE_BLOCKED'
+    );
+
+    return;
+
+  }
+
+
+  LAST_FORECAST =
+    productionCandidate03D59;
 
 }
 
