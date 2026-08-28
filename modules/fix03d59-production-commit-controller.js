@@ -1,30 +1,29 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION COMMIT CONTROLLER V2
+   PRODUCTION COMMIT CONTROLLER V3
 
    FILE:
    modules/fix03d59-production-commit-controller.js
 
    PURPOSE:
-   - Observe the real Production Forecast lifecycle AFTER app.js renderForecast().
-   - Read the current lexical LAST_FORECAST through:
+   - Observe the REAL Production Forecast lifecycle after app.js forecast run.
+   - Read CURRENT Production envelope through:
        1. Existing production forecast accessor when available.
        2. Direct global lexical LAST_FORECAST binding.
        3. window.LAST_FORECAST compatibility fallback.
-   - Build/read the exact candidate envelope used by Production Core.
    - Run the existing Production Pre-Commit Gate.
-   - Publish ONE authorization state for downstream Production modules.
-   - Never modify LAST_FORECAST.
-   - Never modify forecast.
-   - Never modify pairFormulas.
-   - Never call savePrediction().
-   - Never write Production/storage.
+   - Surface precise Pre-Commit failure diagnostics.
+   - Publish ONE downstream authorization state.
 
    IMPORTANT:
-   - This controller does NOT intercept app.js assignment.
-   - This controller does NOT replace renderForecast().
-   - This controller does NOT execute the forecast engine.
-   - It only authorizes or blocks downstream Production continuation.
+   - Does NOT intercept app.js assignment.
+   - Does NOT replace renderForecast().
+   - Does NOT execute the forecast engine.
+   - Does NOT modify LAST_FORECAST.
+   - Does NOT modify forecast.
+   - Does NOT modify pairFormulas.
+   - Does NOT call savePrediction().
+   - Does NOT write Production/storage.
 
    READ ONLY
    ZERO PRODUCTION WRITE
@@ -39,7 +38,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_V2';
+    'FIX03D59_PRODUCTION_COMMIT_CONTROLLER_V3';
 
 
   /*
@@ -84,20 +83,15 @@
    * Resolution order:
    *
    * 1. getFix03D59ProductionForecastEnvelope()
-   *
-   * 2. Direct lexical LAST_FORECAST
-   *
+   * 2. lexical LAST_FORECAST
    * 3. window.LAST_FORECAST
    *
    * app.js may declare:
    *
    *   let LAST_FORECAST = ...
    *
-   * A global lexical `let` does NOT become
+   * Global lexical `let` does NOT become
    * window.LAST_FORECAST.
-   *
-   * Therefore direct identifier access must be attempted
-   * independently from the accessor branch.
    * =========================================================
    */
 
@@ -105,7 +99,7 @@
 
     /*
      * ---------------------------------------------------------
-     * 1. EXISTING PRODUCTION ACCESSOR
+     * 1. EXISTING ACCESSOR
      * ---------------------------------------------------------
      */
 
@@ -136,7 +130,7 @@
 
     } catch (error) {
 
-      // Continue to lexical LAST_FORECAST.
+      // Continue.
 
     }
 
@@ -163,7 +157,7 @@
 
     } catch (error) {
 
-      // Continue to compatibility fallback.
+      // Continue.
 
     }
 
@@ -305,7 +299,117 @@
 
   /*
    * =========================================================
-   * 5. FAIL CLOSED RESULT
+   * 5. PRE-COMMIT FAILURE DIAGNOSTICS
+   * =========================================================
+   */
+
+  function getPreCommitDiagnosticsController(
+    preCommit
+  ) {
+
+    const diagnostics = {
+
+      preCommitReason:
+        preCommit &&
+        preCommit.reason
+          ? preCommit.reason
+          : null,
+
+      failedPrize:
+        null,
+
+      failedIndex:
+        null,
+
+      actualNumberCount:
+        null,
+
+      expectedNumberCount:
+        null,
+
+      expectedDigits:
+        null,
+
+      expectedKey:
+        null,
+
+      actualKey:
+        null
+
+    };
+
+
+    if (
+      !preCommit ||
+      !isObjectController(
+        preCommit
+      )
+    ) {
+
+      return diagnostics;
+
+    }
+
+
+    const forecastCheck =
+      isObjectController(
+        preCommit.forecastCheck
+      )
+        ? preCommit.forecastCheck
+        : null;
+
+
+    if (!forecastCheck) {
+
+      return diagnostics;
+
+    }
+
+
+    diagnostics.failedPrize =
+      forecastCheck.prizeKey ||
+      forecastCheck.expectedKey ||
+      null;
+
+
+    diagnostics.failedIndex =
+      forecastCheck.failedIndex ??
+      null;
+
+
+    diagnostics.actualNumberCount =
+      forecastCheck.actualCount ??
+      null;
+
+
+    diagnostics.expectedNumberCount =
+      forecastCheck.expectedCount ??
+      null;
+
+
+    diagnostics.expectedDigits =
+      forecastCheck.expectedDigits ??
+      null;
+
+
+    diagnostics.expectedKey =
+      forecastCheck.expectedKey ||
+      null;
+
+
+    diagnostics.actualKey =
+      forecastCheck.actualKey ||
+      null;
+
+
+    return diagnostics;
+
+  }
+
+
+  /*
+   * =========================================================
+   * 6. FAIL CLOSED RESULT
    * =========================================================
    */
 
@@ -316,11 +420,14 @@
 
     const result = {
 
-      ready: false,
+      ready:
+        false,
 
-      passed: false,
+      passed:
+        false,
 
-      authorized: false,
+      authorized:
+        false,
 
       reason,
 
@@ -386,7 +493,7 @@
 
   /*
    * =========================================================
-   * 6. MAIN AUTHORIZATION
+   * 7. MAIN AUTHORIZATION
    * =========================================================
    */
 
@@ -491,6 +598,13 @@
               forecast.province
             ),
 
+          forecastItemCount:
+            Array.isArray(
+              forecast.items
+            )
+              ? forecast.items.length
+              : 0,
+
           pairFormulaCount:
             pairFormulas.length
 
@@ -518,6 +632,13 @@
             normalizeTextController(
               forecast.province
             ),
+
+          forecastItemCount:
+            Array.isArray(
+              forecast.items
+            )
+              ? forecast.items.length
+              : 0,
 
           pairFormulaCount:
             pairFormulas.length
@@ -547,8 +668,26 @@
       return failController(
         'PRECOMMIT_GATE_NOT_AVAILABLE',
         {
+
           selectedProvince,
-          windowSize
+
+          windowSize,
+
+          forecastProvince:
+            normalizeTextController(
+              forecast.province
+            ),
+
+          forecastItemCount:
+            Array.isArray(
+              forecast.items
+            )
+              ? forecast.items.length
+              : 0,
+
+          pairFormulaCount:
+            pairFormulas.length
+
         }
       );
 
@@ -556,13 +695,18 @@
 
 
     /*
+     * ---------------------------------------------------------
+     * RUN PRE-COMMIT GATE
+     * ---------------------------------------------------------
+     *
      * IMPORTANT:
      *
-     * We pass the REAL current envelope object itself.
+     * Pass REAL envelope directly.
      *
-     * We do NOT clone it.
-     * We do NOT manufacture pairFormulas.
-     * We do NOT rewrite forecast.
+     * No clone.
+     * No rewrite.
+     * No manufactured pairFormulas.
+     * ---------------------------------------------------------
      */
 
     let preCommit = null;
@@ -594,6 +738,16 @@
               forecast.province
             ),
 
+          forecastItemCount:
+            Array.isArray(
+              forecast.items
+            )
+              ? forecast.items.length
+              : 0,
+
+          pairFormulaCount:
+            pairFormulas.length,
+
           error:
             String(
               error &&
@@ -606,6 +760,18 @@
       );
 
     }
+
+
+    /*
+     * ---------------------------------------------------------
+     * PRE-COMMIT DIAGNOSTICS
+     * ---------------------------------------------------------
+     */
+
+    const preCommitDiagnostics =
+      getPreCommitDiagnosticsController(
+        preCommit
+      );
 
 
     /*
@@ -645,10 +811,36 @@
             pairFormulas.length,
 
           preCommitReason:
-            preCommit &&
-            preCommit.reason
-              ? preCommit.reason
-              : null,
+            preCommitDiagnostics
+              .preCommitReason,
+
+          failedPrize:
+            preCommitDiagnostics
+              .failedPrize,
+
+          failedIndex:
+            preCommitDiagnostics
+              .failedIndex,
+
+          actualNumberCount:
+            preCommitDiagnostics
+              .actualNumberCount,
+
+          expectedNumberCount:
+            preCommitDiagnostics
+              .expectedNumberCount,
+
+          expectedDigits:
+            preCommitDiagnostics
+              .expectedDigits,
+
+          expectedKey:
+            preCommitDiagnostics
+              .expectedKey,
+
+          actualKey:
+            preCommitDiagnostics
+              .actualKey,
 
           preCommitReady:
             Boolean(
@@ -668,6 +860,10 @@
               preCommit.authorized === true
             ),
 
+          /*
+           * Preserve full diagnostic object.
+           */
+
           preCommit:
             preCommit || null
 
@@ -681,24 +877,18 @@
      * =========================================================
      * SUCCESS
      * =========================================================
-     *
-     * authorized:true means:
-     *
-     * The current REAL LAST_FORECAST envelope has passed
-     * the Production Pre-Commit contract and may be consumed
-     * by downstream Production Bridge modules.
-     *
-     * NO WRITE IS PERFORMED HERE.
-     * =========================================================
      */
 
     const result = {
 
-      ready: true,
+      ready:
+        true,
 
-      passed: true,
+      passed:
+        true,
 
-      authorized: true,
+      authorized:
+        true,
 
       reason:
         'PRODUCTION_COMMIT_CONTROLLER_PASS',
@@ -727,6 +917,31 @@
 
       pairFormulaCount:
         pairFormulas.length,
+
+      /*
+       * Failure fields remain null on PASS.
+       */
+
+      failedPrize:
+        null,
+
+      failedIndex:
+        null,
+
+      actualNumberCount:
+        null,
+
+      expectedNumberCount:
+        null,
+
+      expectedDigits:
+        null,
+
+      expectedKey:
+        null,
+
+      actualKey:
+        null,
 
       preCommit: {
 
@@ -803,7 +1018,7 @@
 
   /*
    * =========================================================
-   * 7. PUBLIC API
+   * 8. PUBLIC API
    * =========================================================
    */
 
@@ -823,7 +1038,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Commit Controller V2 loaded / LEXICAL FALLBACK FIXED / READ ONLY / ZERO WRITE'
+    'FIX-03D5.9 Production Commit Controller V3 loaded / PRECOMMIT DIAGNOSTICS / READ ONLY / ZERO WRITE'
   );
 
 })();
