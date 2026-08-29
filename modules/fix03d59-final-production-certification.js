@@ -1,20 +1,28 @@
 /* =========================================================================
    FIX-03D5.9
-   FINAL PRODUCTION CERTIFICATION V1
+   FINAL PRODUCTION CERTIFICATION V2
 
    FILE:
    modules/fix03d59-final-production-certification.js
 
    PURPOSE:
-   - Perform the FINAL read-only certification of the FIX-03D5.9
-     Production Forecast commit chain.
-   - Verify the real Production Pre-Commit Gate is available.
-   - Verify the Production Commit Controller is available.
-   - Verify the current LAST_FORECAST can be observed through the
-     existing read-only bridge/accessor.
-   - Verify the currently selected province and production window.
-   - Re-run existing READ-ONLY inspectors where available.
-   - Produce ONE final certification result in RAM.
+   - Perform FINAL read-only certification of the REAL Production Forecast.
+   - Read the exact lexical LAST_FORECAST through the app.js accessor:
+       getFix03D59ProductionForecastEnvelope()
+   - Understand the REAL envelope schema:
+
+       {
+         forecast: {
+           province,
+           windowSize,
+           items: [...]
+         },
+         pairFormulas: [...]
+       }
+
+   - Re-run the existing Production Pre-Commit Gate.
+   - Verify the existing Production Commit Controller.
+   - Publish ONE final certification result in RAM.
 
    IMPORTANT:
    - READ ONLY.
@@ -23,12 +31,8 @@
    - NO ENGINE EXECUTION.
    - NO savePrediction().
    - DOES NOT MODIFY LAST_FORECAST.
-   - DOES NOT CREATE A FORECAST.
-   - DOES NOT PROMOTE A CANDIDATE.
+   - DOES NOT CREATE FORECAST.
    - FAIL CLOSED.
-
-   CERTIFICATION RESULT:
-   window.LAST_FIX03D59_FINAL_PRODUCTION_CERTIFICATION
 
    ========================================================================= */
 
@@ -38,64 +42,46 @@
 
 
   const VERSION =
-    'FIX03D59_FINAL_PRODUCTION_CERTIFICATION_V1';
+    'FIX03D59_FINAL_PRODUCTION_CERTIFICATION_V2_REAL_ENVELOPE';
 
 
-  /* =====================================================================
-     HELPERS
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 1. HELPERS
+   * =========================================================
+   */
 
-  function safeCall(fn) {
+  function isObjectCertification(
+    value
+  ) {
 
-    try {
-
-      return {
-
-        ok: true,
-
-        value:
-          fn()
-
-      };
-
-    } catch (error) {
-
-      return {
-
-        ok: false,
-
-        error:
-          error
-
-      };
-
-    }
+    return Boolean(
+      value &&
+      typeof value === 'object' &&
+      !Array.isArray(value)
+    );
 
   }
 
 
-  function normalizeProvince(value) {
+  function normalizeTextCertification(
+    value
+  ) {
 
-    if (
-      value === null ||
-      value === undefined
-    ) {
-
-      return '';
-
-    }
-
-
-    return String(value)
+    return String(
+      value == null
+        ? ''
+        : value
+    )
       .trim()
-      .toLowerCase()
-      .replace(/_/g, '-')
-      .replace(/\s+/g, '-');
+      .toLowerCase();
 
   }
 
 
-  function cloneDiagnostic(value) {
+  function cloneDiagnosticCertification(
+    value
+  ) {
 
     if (
       value === null ||
@@ -115,22 +101,23 @@
 
     } catch (error) {
 
-      return {
-
-        unavailable:
-          true,
-
-        reason:
-          'DIAGNOSTIC_CLONE_FAILED'
-
-      };
+      return null;
 
     }
 
   }
 
 
-  function fail(reason, details) {
+  /*
+   * =========================================================
+   * 2. FAIL CLOSED
+   * =========================================================
+   */
+
+  function failCertification(
+    reason,
+    extra = {}
+  ) {
 
     const result = {
 
@@ -146,11 +133,9 @@
       certified:
         false,
 
-      reason:
-        reason,
+      reason,
 
-      details:
-        details || null,
+      ...extra,
 
       safety: {
 
@@ -174,15 +159,19 @@
 
       },
 
-      timestamp:
-        new Date().toISOString()
+      failClosed:
+        true,
+
+      inspectedAt:
+        new Date()
+          .toISOString()
 
     };
 
 
     window
       .LAST_FIX03D59_FINAL_PRODUCTION_CERTIFICATION =
-        result;
+      result;
 
 
     return result;
@@ -190,55 +179,49 @@
   }
 
 
-  /* =====================================================================
-     READ CURRENT PRODUCTION FORECAST
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 3. READ REAL CURRENT PRODUCTION ENVELOPE
+   * =========================================================
+   *
+   * PRIMARY SOURCE:
+   *
+   * app.js accessor:
+   *
+   * getFix03D59ProductionForecastEnvelope()
+   *
+   * This accessor closes over lexical LAST_FORECAST.
+   * =========================================================
+   */
 
-  function readCurrentForecast() {
+  function readCurrentProductionEnvelopeCertification() {
 
-    const readers = [
+    /*
+     * ---------------------------------------------------------
+     * PRIMARY: APP.JS LEXICAL ACCESSOR
+     * ---------------------------------------------------------
+     */
 
-      'readLastForecast03D59',
+    try {
 
-      'readProductionForecast03D59',
-
-      'getProductionForecast03D59',
-
-      'readLastForecast84FLH',
-
-      'getForecast84FLH'
-
-    ];
-
-
-    for (
-      let i = 0;
-      i < readers.length;
-      i += 1
-    ) {
-
-      const name =
-        readers[i];
+      const accessor =
+        window
+          .getFix03D59ProductionForecastEnvelope;
 
 
       if (
-        typeof window[name] ===
+        typeof accessor ===
         'function'
       ) {
 
-        const attempt =
-          safeCall(
-            function () {
-
-              return window[name]();
-
-            }
-          );
+        const envelope =
+          accessor();
 
 
         if (
-          attempt.ok &&
-          attempt.value
+          isObjectCertification(
+            envelope
+          )
         ) {
 
           return {
@@ -247,76 +230,93 @@
               true,
 
             source:
-              name,
+              'getFix03D59ProductionForecastEnvelope',
 
-            forecast:
-              attempt.value
+            envelope
 
           };
 
         }
 
       }
+
+    } catch (error) {
+
+      // Continue fail-closed fallbacks.
 
     }
 
 
     /*
-     * Diagnostic aliases are accepted only as READ sources.
+     * ---------------------------------------------------------
+     * FALLBACK: DIRECT GLOBAL LEXICAL IDENTIFIER
+     * ---------------------------------------------------------
      */
 
-    const aliases = [
+    try {
 
-      'LAST_FIX03D59_PRODUCTION_FORECAST',
+      if (
+        typeof LAST_FORECAST !==
+          'undefined' &&
+        isObjectCertification(
+          LAST_FORECAST
+        )
+      ) {
 
-      'LAST_FIX03D59_STEP84FL',
+        return {
 
-      'LAST_FIX03D59_STEP84F'
+          ready:
+            true,
 
-    ];
+          source:
+            'LEXICAL_LAST_FORECAST',
 
+          envelope:
+            LAST_FORECAST
 
-    for (
-      let i = 0;
-      i < aliases.length;
-      i += 1
-    ) {
-
-      const name =
-        aliases[i];
-
-
-      const value =
-        window[name];
-
-
-      if (value) {
-
-        const candidate =
-          value.forecast ||
-          value.currentForecast ||
-          value.lastForecast ||
-          null;
-
-
-        if (candidate) {
-
-          return {
-
-            ready:
-              true,
-
-            source:
-              name,
-
-            forecast:
-              candidate
-
-          };
-
-        }
+        };
 
       }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * COMPATIBILITY FALLBACK
+     * ---------------------------------------------------------
+     */
+
+    try {
+
+      if (
+        isObjectCertification(
+          window.LAST_FORECAST
+        )
+      ) {
+
+        return {
+
+          ready:
+            true,
+
+          source:
+            'window.LAST_FORECAST',
+
+          envelope:
+            window.LAST_FORECAST
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // FAIL CLOSED.
 
     }
 
@@ -329,7 +329,7 @@
       source:
         null,
 
-      forecast:
+      envelope:
         null
 
     };
@@ -337,165 +337,21 @@
   }
 
 
-  /* =====================================================================
-     READ CURRENT SELECTED PROVINCE
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 4. INSPECT REAL ENVELOPE SCHEMA
+   * =========================================================
+   */
 
-  function readSelectedProvince() {
-
-    const resolverNames = [
-
-      'resolveStep83BScope03D59',
-
-      'inspectStep83BScope03D59'
-
-    ];
-
-
-    for (
-      let i = 0;
-      i < resolverNames.length;
-      i += 1
-    ) {
-
-      const name =
-        resolverNames[i];
-
-
-      if (
-        typeof window[name] !==
-        'function'
-      ) {
-
-        continue;
-
-      }
-
-
-      const attempt =
-        safeCall(
-          function () {
-
-            return window[name]();
-
-          }
-        );
-
-
-      if (
-        !attempt.ok ||
-        !attempt.value
-      ) {
-
-        continue;
-
-      }
-
-
-      const value =
-        attempt.value;
-
-
-      const province =
-        value.province ||
-        value.selectedProvince ||
-        value.provinceSlug ||
-        null;
-
-
-      if (province) {
-
-        return {
-
-          ready:
-            true,
-
-          source:
-            name,
-
-          province:
-            normalizeProvince(
-              province
-            )
-
-        };
-
-      }
-
-    }
-
-
-    /*
-     * Existing controller diagnostics may expose the exact
-     * currently selected Production province.
-     */
-
-    const controller =
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER ||
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER_RESULT ||
-      null;
-
-
-    if (controller) {
-
-      const province =
-        controller.selectedProvince ||
-        (
-          controller.details &&
-          controller.details.selectedProvince
-        ) ||
-        null;
-
-
-      if (province) {
-
-        return {
-
-          ready:
-            true,
-
-          source:
-            'PRODUCTION_COMMIT_CONTROLLER_DIAGNOSTIC',
-
-          province:
-            normalizeProvince(
-              province
-            )
-
-        };
-
-      }
-
-    }
-
-
-    return {
-
-      ready:
-        false,
-
-      source:
-        null,
-
-      province:
-        ''
-
-    };
-
-  }
-
-
-  /* =====================================================================
-     EXTRACT FORECAST ENVELOPE
-     ===================================================================== */
-
-  function inspectForecastEnvelope(
-    rawForecast
+  function inspectProductionEnvelopeCertification(
+    envelope
   ) {
 
-    if (!rawForecast) {
+    if (
+      !isObjectCertification(
+        envelope
+      )
+    ) {
 
       return {
 
@@ -503,7 +359,7 @@
           false,
 
         reason:
-          'FORECAST_NOT_AVAILABLE'
+          'PRODUCTION_ENVELOPE_NOT_OBJECT'
 
       };
 
@@ -511,29 +367,41 @@
 
 
     /*
-     * Some accessors return LAST_FORECAST directly.
-     * Some diagnostics wrap it.
+     * REAL schema:
+     *
+     * envelope.forecast = OBJECT
+     *
+     * forecast.items = ARRAY
      */
 
-    const envelope =
-      rawForecast.lastForecast ||
-      rawForecast.currentForecast ||
-      rawForecast;
-
-
-    const forecastItems =
-      Array.isArray(
+    const forecast =
+      isObjectCertification(
         envelope.forecast
       )
         ? envelope.forecast
         : null;
 
 
-    const pairFormulas =
+    if (!forecast) {
+
+      return {
+
+        ready:
+          false,
+
+        reason:
+          'PRODUCTION_FORECAST_NOT_AVAILABLE'
+
+      };
+
+    }
+
+
+    const forecastItems =
       Array.isArray(
-        envelope.pairFormulas
+        forecast.items
       )
-        ? envelope.pairFormulas
+        ? forecast.items
         : null;
 
 
@@ -545,11 +413,19 @@
           false,
 
         reason:
-          'FORECAST_ITEMS_NOT_AVAILABLE'
+          'PRODUCTION_FORECAST_ITEMS_NOT_AVAILABLE'
 
       };
 
     }
+
+
+    const pairFormulas =
+      Array.isArray(
+        envelope.pairFormulas
+      )
+        ? envelope.pairFormulas
+        : null;
 
 
     if (!pairFormulas) {
@@ -560,46 +436,57 @@
           false,
 
         reason:
-          'PAIR_FORMULAS_NOT_AVAILABLE'
+          'PRODUCTION_PAIR_FORMULAS_NOT_AVAILABLE'
 
       };
 
     }
 
 
-    const firstItem =
-      forecastItems.length > 0
-        ? forecastItems[0]
-        : null;
-
-
     const province =
-      normalizeProvince(
-        envelope.province ||
-        (
-          firstItem &&
-          (
-            firstItem.province ||
-            firstItem.provinceSlug
-          )
-        ) ||
-        ''
+      normalizeTextCertification(
+        forecast.province
       );
 
 
     const windowSize =
       Number(
-        envelope.windowSize ||
-        envelope.window ||
-        (
-          firstItem &&
-          (
-            firstItem.windowSize ||
-            firstItem.window
-          )
-        ) ||
-        0
+        forecast.windowSize
       );
+
+
+    if (!province) {
+
+      return {
+
+        ready:
+          false,
+
+        reason:
+          'PRODUCTION_FORECAST_PROVINCE_NOT_AVAILABLE'
+
+      };
+
+    }
+
+
+    if (
+      !Number.isFinite(
+        windowSize
+      )
+    ) {
+
+      return {
+
+        ready:
+          false,
+
+        reason:
+          'PRODUCTION_FORECAST_WINDOW_NOT_AVAILABLE'
+
+      };
+
+    }
 
 
     return {
@@ -608,16 +495,19 @@
         true,
 
       reason:
-        'FORECAST_ENVELOPE_READY',
+        'PRODUCTION_ENVELOPE_VALID',
 
-      envelope:
-        envelope,
+      envelope,
 
-      province:
-        province,
+      forecast,
 
-      windowSize:
-        windowSize,
+      forecastItems,
+
+      pairFormulas,
+
+      province,
+
+      windowSize,
 
       forecastItemCount:
         forecastItems.length,
@@ -630,11 +520,326 @@
   }
 
 
-  /* =====================================================================
-     PRE-COMMIT GATE CERTIFICATION
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 5. READ CURRENT SELECTED PROVINCE
+   * =========================================================
+   */
 
-  function inspectPreCommitGate(
+  function readSelectedProvinceCertification(
+    fallbackProvince
+  ) {
+
+    /*
+     * Direct global lexical app.js state.
+     */
+
+    try {
+
+      if (
+        typeof SELECTED_PROVINCE !==
+          'undefined' &&
+        SELECTED_PROVINCE
+      ) {
+
+        return {
+
+          ready:
+            true,
+
+          source:
+            'SELECTED_PROVINCE',
+
+          province:
+            normalizeTextCertification(
+              SELECTED_PROVINCE
+            )
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    /*
+     * DOM source.
+     */
+
+    try {
+
+      const select =
+        document.getElementById(
+          'provinceSelect'
+        );
+
+
+      if (
+        select &&
+        select.value
+      ) {
+
+        return {
+
+          ready:
+            true,
+
+          source:
+            'provinceSelect',
+
+          province:
+            normalizeTextCertification(
+              select.value
+            )
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    /*
+     * Existing authorized controller diagnostic.
+     */
+
+    try {
+
+      const controller =
+        window
+          .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER;
+
+
+      if (
+        controller &&
+        controller.selectedProvince
+      ) {
+
+        return {
+
+          ready:
+            true,
+
+          source:
+            'PRODUCTION_COMMIT_CONTROLLER',
+
+          province:
+            normalizeTextCertification(
+              controller.selectedProvince
+            )
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    /*
+     * Last fail-closed usable identity:
+     *
+     * Current envelope's own province.
+     *
+     * This does NOT invent or change province.
+     */
+
+    if (fallbackProvince) {
+
+      return {
+
+        ready:
+          true,
+
+        source:
+          'CURRENT_PRODUCTION_FORECAST',
+
+        province:
+          normalizeTextCertification(
+            fallbackProvince
+          )
+
+      };
+
+    }
+
+
+    return {
+
+      ready:
+        false,
+
+      source:
+        null,
+
+      province:
+        ''
+
+    };
+
+  }
+
+
+  /*
+   * =========================================================
+   * 6. READ CURRENT WINDOW
+   * =========================================================
+   */
+
+  function readWindowCertification(
+    fallbackWindow
+  ) {
+
+    try {
+
+      if (
+        typeof WINDOW_SIZE !==
+          'undefined'
+      ) {
+
+        const value =
+          Number(
+            WINDOW_SIZE
+          );
+
+
+        if (
+          Number.isFinite(
+            value
+          )
+        ) {
+
+          return {
+
+            ready:
+              true,
+
+            source:
+              'WINDOW_SIZE',
+
+            windowSize:
+              value
+
+          };
+
+        }
+
+      }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    try {
+
+      const controller =
+        window
+          .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER;
+
+
+      if (controller) {
+
+        const value =
+          Number(
+            controller.windowSize
+          );
+
+
+        if (
+          Number.isFinite(
+            value
+          )
+        ) {
+
+          return {
+
+            ready:
+              true,
+
+            source:
+              'PRODUCTION_COMMIT_CONTROLLER',
+
+            windowSize:
+              value
+
+          };
+
+        }
+
+      }
+
+    } catch (error) {
+
+      // Continue.
+
+    }
+
+
+    const fallback =
+      Number(
+        fallbackWindow
+      );
+
+
+    if (
+      Number.isFinite(
+        fallback
+      )
+    ) {
+
+      return {
+
+        ready:
+          true,
+
+        source:
+          'CURRENT_PRODUCTION_FORECAST',
+
+        windowSize:
+          fallback
+
+      };
+
+    }
+
+
+    return {
+
+      ready:
+        false,
+
+      source:
+        null,
+
+      windowSize:
+        null
+
+    };
+
+  }
+
+
+  /*
+   * =========================================================
+   * 7. RUN REAL PRE-COMMIT GATE
+   * =========================================================
+   */
+
+  function runPreCommitCertification(
     envelope,
     selectedProvince,
     windowSize
@@ -669,28 +874,47 @@
     }
 
 
-    const attempt =
-      safeCall(
-        function () {
+    try {
 
-          return gate(
-            envelope,
-            {
-
-              selectedProvince:
-                selectedProvince,
-
-              windowSize:
-                windowSize
-
-            }
-          );
-
-        }
-      );
+      const result =
+        gate(
+          envelope,
+          {
+            selectedProvince,
+            windowSize
+          }
+        );
 
 
-    if (!attempt.ok) {
+      if (
+        !isObjectCertification(
+          result
+        )
+      ) {
+
+        return {
+
+          ready:
+            false,
+
+          passed:
+            false,
+
+          authorized:
+            false,
+
+          reason:
+            'PRECOMMIT_GATE_RESULT_NOT_AVAILABLE'
+
+        };
+
+      }
+
+
+      return result;
+
+
+    } catch (error) {
 
       return {
 
@@ -708,22 +932,86 @@
 
         error:
           String(
-            attempt.error &&
-            attempt.error.message
-              ? attempt.error.message
-              : attempt.error
+            error &&
+            error.message
+              ? error.message
+              : error
           )
 
       };
 
     }
 
-
-    const result =
-      attempt.value;
+  }
 
 
-    if (!result) {
+  /*
+   * =========================================================
+   * 8. READ / RUN COMMIT CONTROLLER
+   * =========================================================
+   */
+
+  function inspectControllerCertification() {
+
+    /*
+     * Prefer current cached PASS diagnostic.
+     */
+
+    try {
+
+      const cached =
+        window
+          .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER;
+
+
+      if (
+        isObjectCertification(
+          cached
+        ) &&
+        cached.ready === true &&
+        cached.passed === true &&
+        cached.authorized === true
+      ) {
+
+        return {
+
+          ready:
+            true,
+
+          passed:
+            true,
+
+          authorized:
+            true,
+
+          source:
+            'CACHED_CONTROLLER_DIAGNOSTIC',
+
+          result:
+            cloneDiagnosticCertification(
+              cached
+            )
+
+        };
+
+      }
+
+    } catch (error) {
+
+      // Continue to controller function.
+
+    }
+
+
+    const controller =
+      window
+        .inspectFix03D59ProductionCommitController;
+
+
+    if (
+      typeof controller !==
+      'function'
+    ) {
 
       return {
 
@@ -736,172 +1024,149 @@
         authorized:
           false,
 
+        source:
+          null,
+
         reason:
-          'PRECOMMIT_GATE_EMPTY_RESULT'
+          'PRODUCTION_COMMIT_CONTROLLER_NOT_AVAILABLE'
 
       };
 
     }
 
 
-    return cloneDiagnostic(
-      result
-    );
+    try {
 
-  }
-
-
-  /* =====================================================================
-     CONTROLLER CERTIFICATION
-     ===================================================================== */
-
-  function inspectController() {
-
-    const controllerFunctions = [
-
-      'inspectFix03D59ProductionCommitController',
-
-      'runFix03D59ProductionCommitController',
-
-      'inspectProductionCommitController03D59'
-
-    ];
+      const result =
+        controller();
 
 
-    /*
-     * Prefer an already produced controller diagnostic.
-     * This avoids triggering any controller behavior unnecessarily.
-     */
+      if (
+        !isObjectCertification(
+          result
+        )
+      ) {
 
-    const cached =
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER ||
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER_RESULT ||
-      null;
+        return {
 
+          ready:
+            false,
 
-    if (cached) {
+          passed:
+            false,
+
+          authorized:
+            false,
+
+          source:
+            'inspectFix03D59ProductionCommitController',
+
+          reason:
+            'PRODUCTION_COMMIT_CONTROLLER_RESULT_NOT_AVAILABLE'
+
+        };
+
+      }
+
 
       return {
 
         ready:
-          true,
+          result.ready === true,
+
+        passed:
+          result.passed === true,
+
+        authorized:
+          result.authorized === true,
 
         source:
-          'CACHED_CONTROLLER_DIAGNOSTIC',
+          'inspectFix03D59ProductionCommitController',
+
+        reason:
+          result.reason || null,
 
         result:
-          cloneDiagnostic(
-            cached
+          cloneDiagnosticCertification(
+            result
+          )
+
+      };
+
+
+    } catch (error) {
+
+      return {
+
+        ready:
+          false,
+
+        passed:
+          false,
+
+        authorized:
+          false,
+
+        source:
+          'inspectFix03D59ProductionCommitController',
+
+        reason:
+          'PRODUCTION_COMMIT_CONTROLLER_EXECUTION_FAILED',
+
+        error:
+          String(
+            error &&
+            error.message
+              ? error.message
+              : error
           )
 
       };
 
     }
 
-
-    for (
-      let i = 0;
-      i < controllerFunctions.length;
-      i += 1
-    ) {
-
-      const name =
-        controllerFunctions[i];
-
-
-      if (
-        typeof window[name] ===
-        'function'
-      ) {
-
-        return {
-
-          ready:
-            true,
-
-          source:
-            name,
-
-          result:
-            null,
-
-          functionAvailable:
-            true
-
-        };
-
-      }
-
-    }
-
-
-    return {
-
-      ready:
-        false,
-
-      source:
-        null,
-
-      result:
-        null,
-
-      functionAvailable:
-        false
-
-    };
-
   }
 
 
-  /* =====================================================================
-     FINAL CERTIFICATION
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 9. FINAL CERTIFICATION
+   * =========================================================
+   */
 
   function certifyFix03D59Production() {
 
     /*
-     * ---------------------------------------------------------------
-     * 1. REAL PRE-COMMIT BOUNDARY
-     * ---------------------------------------------------------------
+     * ---------------------------------------------------------
+     * A. READ REAL CURRENT LAST_FORECAST
+     * ---------------------------------------------------------
      */
 
-    if (
-      typeof window
-        .inspectFix03D59ProductionPreCommit !==
-      'function'
-    ) {
-
-      return fail(
-        'REAL_PRECOMMIT_GATE_NOT_AVAILABLE'
-      );
-
-    }
-
-
-    /*
-     * ---------------------------------------------------------------
-     * 2. CURRENT PRODUCTION FORECAST
-     * ---------------------------------------------------------------
-     */
-
-    const forecastRead =
-      readCurrentForecast();
+    const readResult =
+      readCurrentProductionEnvelopeCertification();
 
 
     if (
-      !forecastRead.ready ||
-      !forecastRead.forecast
+      readResult.ready !== true ||
+      !readResult.envelope
     ) {
 
-      return fail(
+      return failCertification(
         'CURRENT_PRODUCTION_FORECAST_NOT_AVAILABLE',
         {
 
           forecastSource:
-            forecastRead.source
+            readResult.source,
+
+          accessorAvailable:
+            typeof window
+              .getFix03D59ProductionForecastEnvelope ===
+            'function',
+
+          accessorLoadedFlag:
+            window
+              .FIX03D59_PRODUCTION_FORECAST_ACCESSOR_LOADED ===
+            true
 
         }
       );
@@ -910,38 +1175,50 @@
 
 
     /*
-     * ---------------------------------------------------------------
-     * 3. FORECAST ENVELOPE
-     * ---------------------------------------------------------------
+     * ---------------------------------------------------------
+     * B. REAL ENVELOPE SCHEMA
+     * ---------------------------------------------------------
      */
 
-    const forecastInspection =
-      inspectForecastEnvelope(
-        forecastRead.forecast
+    const inspection =
+      inspectProductionEnvelopeCertification(
+        readResult.envelope
       );
 
 
-    if (!forecastInspection.ready) {
+    if (
+      inspection.ready !== true
+    ) {
 
-      return fail(
-        forecastInspection.reason
+      return failCertification(
+        inspection.reason ||
+        'CURRENT_PRODUCTION_ENVELOPE_INVALID',
+        {
+
+          forecastSource:
+            readResult.source
+
+        }
       );
 
     }
 
 
+    /*
+     * Production Forecast has exactly 9 prize items.
+     */
+
     if (
-      forecastInspection.forecastItemCount !==
+      inspection.forecastItemCount !==
       9
     ) {
 
-      return fail(
+      return failCertification(
         'FORECAST_ITEM_COUNT_INVALID',
         {
 
           actual:
-            forecastInspection
-              .forecastItemCount,
+            inspection.forecastItemCount,
 
           expected:
             9
@@ -952,18 +1229,21 @@
     }
 
 
+    /*
+     * Current Production contract generates 3 pair formulas.
+     */
+
     if (
-      forecastInspection.pairFormulaCount !==
+      inspection.pairFormulaCount !==
       3
     ) {
 
-      return fail(
+      return failCertification(
         'PAIR_FORMULA_COUNT_INVALID',
         {
 
           actual:
-            forecastInspection
-              .pairFormulaCount,
+            inspection.pairFormulaCount,
 
           expected:
             3
@@ -975,114 +1255,41 @@
 
 
     /*
-     * ---------------------------------------------------------------
-     * 4. SELECTED PROVINCE
-     * ---------------------------------------------------------------
+     * ---------------------------------------------------------
+     * C. CURRENT UI CONTEXT
+     * ---------------------------------------------------------
      */
 
     const selected =
-      readSelectedProvince();
+      readSelectedProvinceCertification(
+        inspection.province
+      );
 
-
-    let selectedProvince =
-      selected.province;
-
-
-    /*
-     * If resolver is unavailable, the envelope province may still
-     * provide the production identity. We do NOT invent a province.
-     */
 
     if (
-      !selectedProvince &&
-      forecastInspection.province
+      selected.ready !==
+      true
     ) {
 
-      selectedProvince =
-        forecastInspection.province;
-
-    }
-
-
-    if (!selectedProvince) {
-
-      return fail(
+      return failCertification(
         'SELECTED_PROVINCE_NOT_AVAILABLE'
       );
 
     }
 
 
-    if (
-      forecastInspection.province &&
-      normalizeProvince(
-        forecastInspection.province
-      ) !==
-      normalizeProvince(
-        selectedProvince
-      )
-    ) {
-
-      return fail(
-        'PROVINCE_MISMATCH',
-        {
-
-          selectedProvince:
-            selectedProvince,
-
-          forecastProvince:
-            forecastInspection.province
-
-        }
+    const windowResult =
+      readWindowCertification(
+        inspection.windowSize
       );
 
-    }
-
-
-    /*
-     * ---------------------------------------------------------------
-     * 5. WINDOW
-     * ---------------------------------------------------------------
-     */
-
-    let productionWindow =
-      forecastInspection.windowSize;
-
-
-    const controllerDiagnostic =
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER ||
-      window
-        .LAST_FIX03D59_PRODUCTION_COMMIT_CONTROLLER_RESULT ||
-      null;
-
 
     if (
-      !productionWindow &&
-      controllerDiagnostic
+      windowResult.ready !==
+      true
     ) {
 
-      productionWindow =
-        Number(
-          controllerDiagnostic.windowSize ||
-          (
-            controllerDiagnostic.details &&
-            controllerDiagnostic.details.windowSize
-          ) ||
-          0
-        );
-
-    }
-
-
-    if (
-      !Number.isFinite(
-        productionWindow
-      ) ||
-      productionWindow <= 0
-    ) {
-
-      return fail(
+      return failCertification(
         'PRODUCTION_WINDOW_NOT_AVAILABLE'
       );
 
@@ -1090,70 +1297,27 @@
 
 
     /*
-     * ---------------------------------------------------------------
-     * 6. RE-RUN REAL PRE-COMMIT GATE READ-ONLY
-     * ---------------------------------------------------------------
+     * Province must bind exactly.
      */
 
-    const gateResult =
-      inspectPreCommitGate(
-        forecastInspection.envelope,
-        selectedProvince,
-        productionWindow
-      );
-
-
     if (
-      !gateResult ||
-      gateResult.ready !== true
+      normalizeTextCertification(
+        selected.province
+      ) !==
+      normalizeTextCertification(
+        inspection.province
+      )
     ) {
 
-      return fail(
-        gateResult &&
-        gateResult.reason
-          ? gateResult.reason
-          : 'PRECOMMIT_GATE_NOT_READY',
+      return failCertification(
+        'PROVINCE_MISMATCH',
         {
 
-          gate:
-            gateResult || null
+          selectedProvince:
+            selected.province,
 
-        }
-      );
-
-    }
-
-
-    if (
-      gateResult.passed !== true
-    ) {
-
-      return fail(
-        gateResult.reason ||
-        'PRECOMMIT_GATE_NOT_PASSED',
-        {
-
-          gate:
-            gateResult
-
-        }
-      );
-
-    }
-
-
-    if (
-      gateResult.authorized !==
-      true
-    ) {
-
-      return fail(
-        gateResult.reason ||
-        'PRECOMMIT_GATE_NOT_AUTHORIZED',
-        {
-
-          gate:
-            gateResult
+          forecastProvince:
+            inspection.province
 
         }
       );
@@ -1162,28 +1326,156 @@
 
 
     /*
-     * ---------------------------------------------------------------
-     * 7. CONTROLLER PRESENCE
-     * ---------------------------------------------------------------
+     * Window must bind exactly.
+     */
+
+    if (
+      Number(
+        windowResult.windowSize
+      ) !==
+      Number(
+        inspection.windowSize
+      )
+    ) {
+
+      return failCertification(
+        'WINDOW_SIZE_MISMATCH',
+        {
+
+          selectedWindow:
+            windowResult.windowSize,
+
+          forecastWindow:
+            inspection.windowSize
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * D. REAL PRE-COMMIT GATE
+     * ---------------------------------------------------------
+     */
+
+    const preCommit =
+      runPreCommitCertification(
+
+        inspection.envelope,
+
+        selected.province,
+
+        windowResult.windowSize
+
+      );
+
+
+    if (
+      !preCommit ||
+      preCommit.ready !== true ||
+      preCommit.passed !== true ||
+      preCommit.authorized !== true
+    ) {
+
+      return failCertification(
+        preCommit &&
+        preCommit.reason
+          ? preCommit.reason
+          : 'PRECOMMIT_GATE_BLOCKED',
+        {
+
+          production: {
+
+            selectedProvince:
+              selected.province,
+
+            forecastProvince:
+              inspection.province,
+
+            windowSize:
+              inspection.windowSize,
+
+            forecastItemCount:
+              inspection.forecastItemCount,
+
+            pairFormulaCount:
+              inspection.pairFormulaCount
+
+          },
+
+          preCommitGate:
+            cloneDiagnosticCertification(
+              preCommit
+            )
+
+        }
+      );
+
+    }
+
+
+    /*
+     * ---------------------------------------------------------
+     * E. COMMIT CONTROLLER
+     * ---------------------------------------------------------
      */
 
     const controller =
-      inspectController();
+      inspectControllerCertification();
 
 
-    if (!controller.ready) {
+    if (
+      controller.ready !== true ||
+      controller.passed !== true ||
+      controller.authorized !== true
+    ) {
 
-      return fail(
-        'PRODUCTION_COMMIT_CONTROLLER_NOT_AVAILABLE'
+      return failCertification(
+        controller.reason ||
+        'PRODUCTION_COMMIT_CONTROLLER_BLOCKED',
+        {
+
+          production: {
+
+            selectedProvince:
+              selected.province,
+
+            forecastProvince:
+              inspection.province,
+
+            windowSize:
+              inspection.windowSize,
+
+            forecastItemCount:
+              inspection.forecastItemCount,
+
+            pairFormulaCount:
+              inspection.pairFormulaCount
+
+          },
+
+          preCommitGate:
+            cloneDiagnosticCertification(
+              preCommit
+            ),
+
+          controller:
+            cloneDiagnosticCertification(
+              controller
+            )
+
+        }
       );
 
     }
 
 
     /*
-     * ---------------------------------------------------------------
-     * 8. FINAL CERTIFIED RESULT
-     * ---------------------------------------------------------------
+     * =========================================================
+     * FINAL PASS
+     * =========================================================
      */
 
     const result = {
@@ -1206,60 +1498,78 @@
       production: {
 
         selectedProvince:
-          selectedProvince,
+          selected.province,
 
         forecastProvince:
-          forecastInspection.province ||
-          selectedProvince,
+          inspection.province,
 
         windowSize:
-          productionWindow,
+          inspection.windowSize,
 
         forecastItemCount:
-          forecastInspection
-            .forecastItemCount,
+          inspection.forecastItemCount,
 
         pairFormulaCount:
-          forecastInspection
-            .pairFormulaCount
+          inspection.pairFormulaCount
 
       },
 
       sources: {
 
         forecast:
-          forecastRead.source,
+          readResult.source,
 
         selectedProvince:
-          selected.source ||
-          'FORECAST_ENVELOPE',
+          selected.source,
+
+        window:
+          windowResult.source,
 
         controller:
           controller.source
 
       },
 
-      preCommitGate:
-        cloneDiagnostic(
-          gateResult
-        ),
+      preCommitGate: {
+
+        ready:
+          preCommit.ready === true,
+
+        passed:
+          preCommit.passed === true,
+
+        authorized:
+          preCommit.authorized === true,
+
+        reason:
+          preCommit.reason || null,
+
+        version:
+          preCommit.version || null
+
+      },
 
       controller: {
 
         ready:
-          controller.ready,
+          controller.ready === true,
+
+        passed:
+          controller.passed === true,
+
+        authorized:
+          controller.authorized === true,
 
         source:
           controller.source,
 
         functionAvailable:
-          controller.functionAvailable ===
-          true,
+          typeof window
+            .inspectFix03D59ProductionCommitController ===
+          'function',
 
         diagnostic:
-          cloneDiagnostic(
-            controller.result
-          )
+          controller.result || null
 
       },
 
@@ -1285,15 +1595,19 @@
 
       },
 
-      timestamp:
-        new Date().toISOString()
+      failClosed:
+        true,
+
+      inspectedAt:
+        new Date()
+          .toISOString()
 
     };
 
 
     window
       .LAST_FIX03D59_FINAL_PRODUCTION_CERTIFICATION =
-        result;
+      result;
 
 
     return result;
@@ -1301,29 +1615,42 @@
   }
 
 
-  /* =====================================================================
-     PUBLIC READ-ONLY API
-     ===================================================================== */
+  /*
+   * =========================================================
+   * 10. PUBLIC API
+   * =========================================================
+   */
 
   window
     .certifyFix03D59Production =
-      certifyFix03D59Production;
+    certifyFix03D59Production;
 
 
   window
     .inspectFix03D59FinalProductionCertification =
-      function () {
+    function () {
 
-        return window
+      return (
+        window
           .LAST_FIX03D59_FINAL_PRODUCTION_CERTIFICATION ||
-          null;
+        null
+      );
 
-      };
+    };
 
 
   window
     .FIX03D59_FINAL_PRODUCTION_CERTIFICATION_VERSION =
-      VERSION;
+    VERSION;
 
+
+  window
+    .FIX03D59_FINAL_PRODUCTION_CERTIFICATION_LOADED =
+    true;
+
+
+  console.log(
+    'FIX-03D5.9 Final Production Certification V2 loaded / REAL ENVELOPE / LEXICAL ACCESSOR / READ ONLY / ZERO WRITE'
+  );
 
 })();
