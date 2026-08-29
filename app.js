@@ -289,6 +289,53 @@ let WINDOW_SIZE =
 let LAST_FORECAST = null;
 
 
+/* =========================================================================
+   FIX-03D5.9
+   PRODUCTION FORECAST LEXICAL ACCESSOR
+
+   PURPOSE:
+   - Expose the CURRENT lexical LAST_FORECAST to external
+     Production certification/controller modules.
+   - Return the REAL current envelope.
+   - NO clone.
+   - NO write.
+   - NO storage.
+   - NO engine execution.
+   ========================================================================= */
+
+window.getFix03D59ProductionForecastEnvelope =
+  function getFix03D59ProductionForecastEnvelope() {
+
+    try {
+
+      if (
+        LAST_FORECAST &&
+        typeof LAST_FORECAST === 'object' &&
+        !Array.isArray(
+          LAST_FORECAST
+        )
+      ) {
+
+        return LAST_FORECAST;
+
+      }
+
+    } catch (error) {
+
+      return null;
+
+    }
+
+
+    return null;
+
+  };
+
+
+window.FIX03D59_PRODUCTION_FORECAST_ACCESSOR_LOADED =
+  true;
+
+
 function loadJSON(key, fallback) {
 
   try {
