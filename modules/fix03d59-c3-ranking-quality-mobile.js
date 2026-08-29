@@ -431,18 +431,9 @@
      * diagnostic is UI-only.
      */
     const settings =
-      document.querySelector(
-        '#settingsPanel'
-      ) ||
-      document.querySelector(
-        '#settings'
-      ) ||
-      document.querySelector(
-        '[data-tab-panel="settings"]'
-      ) ||
-      document.querySelector(
-        '.settings-panel'
-      );
+  document.getElementById(
+    'tab-settings'
+  );
 
 
     if (!settings) {
