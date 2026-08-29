@@ -1002,19 +1002,32 @@
         G1→G8 · DB Full-6 tách riêng.
       </div>
 
-      <button
-        type="button"
-        id="${BUTTON_ID}"
-        style="
-          width:100%;
-          padding:13px;
-          border:0;
-          border-radius:11px;
-          font-weight:900;
-        "
-      >
-        🌐 Chạy C3.1 toàn bộ tỉnh
-      </button>
+      <div
+  id="${BUTTON_ID}"
+  role="button"
+  tabindex="0"
+  style="
+    display:flex;
+    width:100%;
+    min-height:58px;
+    align-items:center;
+    justify-content:center;
+    padding:13px;
+    border:0;
+    border-radius:14px;
+    box-sizing:border-box;
+    background:linear-gradient(90deg,#63d9ff,#68e39b);
+    color:#17192f;
+    font-size:16px;
+    font-weight:900;
+    text-align:center;
+    cursor:pointer;
+    user-select:none;
+    margin-bottom:12px;
+  "
+>
+  🌐 Chạy C3.1 toàn bộ tỉnh
+</div>
 
       <div
         id="${STATUS_ID}"
