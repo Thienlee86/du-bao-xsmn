@@ -1,13 +1,14 @@
 /* =========================================================================
    FIX-03D5.9
-   LAST_FORECAST SCHEMA INSPECTOR — MOBILE REPORTER V1
+   LAST_FORECAST SCHEMA INSPECTOR — MOBILE REPORTER V2
 
    PURPOSE:
    - Run LAST_FORECAST Schema Inspector V1 from mobile.
    - Display REAL LAST_FORECAST root schema.
    - Display province-like fields.
    - Display G1 -> G8 prize-like paths.
-   - Help determine exact schema for Production Shadow Comparison V2.
+   - Attach panel directly inside #tab-settings.
+   - Use mobile-safe DIV control instead of native button.
 
    IMPORTANT:
    - READ ONLY.
@@ -25,7 +26,7 @@
 
 
   const VERSION =
-    'FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V1';
+    'FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2';
 
 
   const PANEL_ID =
@@ -115,7 +116,7 @@
 
   /*
    * =========================================================
-   * FORMAT PROVINCE FIELDS
+   * PROVINCE REPORT
    * =========================================================
    */
 
@@ -198,7 +199,7 @@
 
   /*
    * =========================================================
-   * FORMAT PRIZE FIELDS
+   * PRIZE REPORT
    * =========================================================
    */
 
@@ -507,7 +508,7 @@
 
 
     /*
-     * SAFETY
+     * LAST_FORECAST
      */
 
     appendLine03D59(
@@ -534,6 +535,10 @@
       ''
     );
 
+
+    /*
+     * SAFETY
+     */
 
     appendLine03D59(
       lines,
@@ -640,7 +645,9 @@
 
 
     if (!output) {
+
       return;
+
     }
 
 
@@ -661,39 +668,59 @@
     }
 
 
-    let result;
-
-
-    try {
-
-      result =
-        window
-          .inspectLastForecastSchema03D59();
-
-    } catch (error) {
-
-      output.textContent =
-        'LAST_FORECAST SCHEMA INSPECTOR V1\n' +
-        '========================\n' +
-        'Ready: NO ❌\n' +
-        'Reason: INSPECTOR_EXECUTION_FAILED\n' +
-        'Error: ' +
-        (
-          error &&
-          error.message
-            ? error.message
-            : String(error)
-        );
-
-      return;
-
-    }
-
-
     output.textContent =
-      formatResult03D59(
-        result
-      );
+      '⏳ Đang đọc LAST_FORECAST schema...';
+
+
+    setTimeout(
+      function () {
+
+        try {
+
+          const result =
+            window
+              .inspectLastForecastSchema03D59();
+
+
+          output.textContent =
+            formatResult03D59(
+              result
+            );
+
+
+          window
+            .LAST_FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2 =
+            {
+              version:
+                VERSION,
+
+              result,
+
+              inspectedAt:
+                new Date()
+                  .toISOString()
+            };
+
+        } catch (error) {
+
+          output.textContent =
+            'LAST_FORECAST SCHEMA INSPECTOR V1\n' +
+            '========================\n' +
+            'Ready: NO ❌\n' +
+            'Reason: INSPECTOR_EXECUTION_FAILED\n' +
+            'Error: ' +
+            (
+              error &&
+              error.message
+                ? error.message
+                : String(error)
+            );
+
+        }
+
+      },
+      50
+    );
 
   }
 
@@ -712,7 +739,20 @@
       )
     ) {
 
-      return;
+      return true;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return false;
 
     }
 
@@ -776,9 +816,13 @@
       ].join(';');
 
 
+    /*
+     * Mobile-safe control.
+     */
+
     const button =
       document.createElement(
-        'button'
+        'div'
       );
 
 
@@ -786,8 +830,16 @@
       BUTTON_ID;
 
 
-    button.type =
-      'button';
+    button.setAttribute(
+      'role',
+      'button'
+    );
+
+
+    button.setAttribute(
+      'tabindex',
+      '0'
+    );
 
 
     button.textContent =
@@ -796,13 +848,19 @@
 
     button.style.cssText =
       [
+        'display:flex',
         'width:100%',
-        'padding:18px 14px',
-        'border:0',
-        'border-radius:20px',
-        'font-size:18px',
-        'font-weight:800',
+        'min-height:58px',
+        'align-items:center',
+        'justify-content:center',
+        'box-sizing:border-box',
+        'padding:16px 14px',
+        'border-radius:18px',
+        'font-size:17px',
+        'font-weight:900',
         'cursor:pointer',
+        'user-select:none',
+        'text-align:center',
         'background:linear-gradient(90deg,#67e8f9,#a78bfa)',
         'color:#111827'
       ].join(';');
@@ -844,56 +902,51 @@
     );
 
 
+    button.addEventListener(
+      'keydown',
+      function (event) {
+
+        if (
+          event.key === 'Enter' ||
+          event.key === ' '
+        ) {
+
+          event.preventDefault();
+
+          runMobile03D59();
+
+        }
+
+      }
+    );
+
+
     panel.appendChild(
       title
     );
+
 
     panel.appendChild(
       description
     );
 
+
     panel.appendChild(
       button
     );
+
 
     panel.appendChild(
       output
     );
 
 
-    /*
-     * Prefer Settings content if identifiable.
-     * Otherwise insert before bottom navigation/body end.
-     */
-
-    const settings =
-      document.querySelector(
-        '#settings'
-      ) ||
-      document.querySelector(
-        '#settingsTab'
-      ) ||
-      document.querySelector(
-        '[data-tab="settings"]'
-      ) ||
-      document.querySelector(
-        '.settings'
-      );
+    settings.appendChild(
+      panel
+    );
 
 
-    if (settings) {
-
-      settings.appendChild(
-        panel
-      );
-
-    } else {
-
-      document.body.appendChild(
-        panel
-      );
-
-    }
+    return true;
 
   }
 
@@ -906,7 +959,40 @@
 
   function boot03D59() {
 
-    installPanel03D59();
+    if (
+      installPanel03D59()
+    ) {
+
+      return;
+
+    }
+
+
+    let attempts =
+      0;
+
+
+    const timer =
+      setInterval(
+        function () {
+
+          attempts++;
+
+
+          if (
+            installPanel03D59() ||
+            attempts >= 20
+          ) {
+
+            clearInterval(
+              timer
+            );
+
+          }
+
+        },
+        500
+      );
 
   }
 
@@ -928,23 +1014,29 @@
   }
 
 
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
+
   window
     .runLastForecastSchemaInspectorMobile03D59 =
     runMobile03D59;
 
 
   window
-    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V1_LOADED =
+    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2_LOADED =
     true;
 
 
   window
-    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V1_VERSION =
+    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2_VERSION =
     VERSION;
 
 
   console.log(
-    'FIX-03D5.9 LAST_FORECAST Schema Inspector Mobile V1 loaded'
+    'FIX-03D5.9 LAST_FORECAST Schema Inspector Mobile V2 loaded / READ ONLY'
   );
 
 })();
