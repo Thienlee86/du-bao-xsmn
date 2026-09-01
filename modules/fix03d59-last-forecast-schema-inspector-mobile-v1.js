@@ -1,14 +1,17 @@
 /* =========================================================================
    FIX-03D5.9
-   LAST_FORECAST SCHEMA INSPECTOR — MOBILE REPORTER V2
+   LAST_FORECAST SCHEMA INSPECTOR — MOBILE REPORTER V3
 
    PURPOSE:
-   - Run LAST_FORECAST Schema Inspector V1 from mobile.
-   - Display REAL LAST_FORECAST root schema.
+   - Run LAST_FORECAST Schema Inspector from mobile.
+   - Display REAL CURRENT LAST_FORECAST schema.
+   - Display root schema.
+   - Display $.forecast payload.
+   - Display all inspected child paths inside $.forecast.
    - Display province-like fields.
    - Display G1 -> G8 prize-like paths.
-   - Attach panel directly inside #tab-settings.
-   - Use mobile-safe DIV control instead of native button.
+   - Help resolve exact CURRENT forecast schema for
+     Production Shadow Comparison V2.
 
    IMPORTANT:
    - READ ONLY.
@@ -26,7 +29,7 @@
 
 
   const VERSION =
-    'FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2';
+    'FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V3';
 
 
   const PANEL_ID =
@@ -67,7 +70,9 @@
       typeof value === 'boolean'
     ) {
 
-      return String(value);
+      return String(
+        value
+      );
 
     }
 
@@ -116,7 +121,294 @@
 
   /*
    * =========================================================
-   * PROVINCE REPORT
+   * ROOT
+   * =========================================================
+   */
+
+  function appendRoot03D59(
+    lines,
+    result
+  ) {
+
+    appendLine03D59(
+      lines,
+      'ROOT SCHEMA'
+    );
+
+
+    appendLine03D59(
+      lines,
+      '------------------------'
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Type: ' +
+      text03D59(
+        result.root &&
+        result.root.type
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Keys: ' +
+      (
+        result.root &&
+        Array.isArray(
+          result.root.keys
+        )
+          ? result.root.keys.join(
+              ', '
+            )
+          : '--'
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Structure Paths: ' +
+      text03D59(
+        result.structureCount
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      ''
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * FORECAST PAYLOAD
+   * =========================================================
+   */
+
+  function appendForecastPayload03D59(
+    lines,
+    result
+  ) {
+
+    appendLine03D59(
+      lines,
+      'FORECAST PAYLOAD'
+    );
+
+
+    appendLine03D59(
+      lines,
+      '------------------------'
+    );
+
+
+    const payload =
+      result
+        .forecastPayloadDiagnostic;
+
+
+    if (!payload) {
+
+      appendLine03D59(
+        lines,
+        'NOT AVAILABLE'
+      );
+
+
+      appendLine03D59(
+        lines,
+        ''
+      );
+
+
+      return;
+
+    }
+
+
+    appendLine03D59(
+      lines,
+      'Type: ' +
+      text03D59(
+        payload.type
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Keys: ' +
+      (
+        Array.isArray(
+          payload.keys
+        )
+          ? payload.keys.join(
+              ', '
+            )
+          : '--'
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Array Length: ' +
+      text03D59(
+        payload.arrayLength
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      'Preview: ' +
+      text03D59(
+        payload.preview
+      )
+    );
+
+
+    appendLine03D59(
+      lines,
+      ''
+    );
+
+
+    appendLine03D59(
+      lines,
+      'FORECAST CHILD PATHS'
+    );
+
+
+    appendLine03D59(
+      lines,
+      '------------------------'
+    );
+
+
+    const children =
+      Array.isArray(
+        payload.childPaths
+      )
+        ? payload.childPaths
+        : [];
+
+
+    if (
+      !children.length
+    ) {
+
+      appendLine03D59(
+        lines,
+        'NONE FOUND'
+      );
+
+
+      appendLine03D59(
+        lines,
+        ''
+      );
+
+
+      return;
+
+    }
+
+
+    children.forEach(
+      (
+        item,
+        index
+      ) => {
+
+        appendLine03D59(
+          lines,
+          '#' +
+          (index + 1)
+        );
+
+
+        appendLine03D59(
+          lines,
+          'Path: ' +
+          text03D59(
+            item.path
+          )
+        );
+
+
+        appendLine03D59(
+          lines,
+          'Type: ' +
+          text03D59(
+            item.type
+          )
+        );
+
+
+        if (
+          item.arrayLength !==
+            null &&
+          item.arrayLength !==
+            undefined
+        ) {
+
+          appendLine03D59(
+            lines,
+            'Array Length: ' +
+            item.arrayLength
+          );
+
+        }
+
+
+        if (
+          Array.isArray(
+            item.keys
+          ) &&
+          item.keys.length
+        ) {
+
+          appendLine03D59(
+            lines,
+            'Keys: ' +
+            item.keys.join(
+              ', '
+            )
+          );
+
+        }
+
+
+        appendLine03D59(
+          lines,
+          'Preview: ' +
+          text03D59(
+            item.preview
+          )
+        );
+
+
+        appendLine03D59(
+          lines,
+          ''
+        );
+
+      }
+    );
+
+  }
+
+
+  /*
+   * =========================================================
+   * PROVINCE FIELDS
    * =========================================================
    */
 
@@ -129,6 +421,7 @@
       lines,
       'PROVINCE-LIKE FIELDS'
     );
+
 
     appendLine03D59(
       lines,
@@ -146,6 +439,13 @@
         'NONE FOUND'
       );
 
+
+      appendLine03D59(
+        lines,
+        ''
+      );
+
+
       return;
 
     }
@@ -159,8 +459,10 @@
 
         appendLine03D59(
           lines,
-          '#' + (index + 1)
+          '#' +
+          (index + 1)
         );
+
 
         appendLine03D59(
           lines,
@@ -170,6 +472,7 @@
           )
         );
 
+
         appendLine03D59(
           lines,
           'Type: ' +
@@ -178,6 +481,7 @@
           )
         );
 
+
         appendLine03D59(
           lines,
           'Value: ' +
@@ -185,6 +489,7 @@
             item.preview
           )
         );
+
 
         appendLine03D59(
           lines,
@@ -199,7 +504,7 @@
 
   /*
    * =========================================================
-   * PRIZE REPORT
+   * PRIZE FIELDS
    * =========================================================
    */
 
@@ -212,6 +517,7 @@
       lines,
       'PRIZE-LIKE FIELDS'
     );
+
 
     appendLine03D59(
       lines,
@@ -262,10 +568,12 @@
               '  NONE FOUND'
             );
 
+
             appendLine03D59(
               lines,
               ''
             );
+
 
             return;
 
@@ -283,6 +591,7 @@
                 )
               );
 
+
               appendLine03D59(
                 lines,
                 '  Type: ' +
@@ -294,9 +603,9 @@
 
               if (
                 item.arrayLength !==
-                null &&
+                  null &&
                 item.arrayLength !==
-                undefined
+                  undefined
               ) {
 
                 appendLine03D59(
@@ -351,7 +660,7 @@
 
   /*
    * =========================================================
-   * FORMAT RESULT
+   * FORMAT COMPLETE RESULT
    * =========================================================
    */
 
@@ -367,6 +676,7 @@
       'LAST_FORECAST SCHEMA INSPECTOR V1'
     );
 
+
     appendLine03D59(
       lines,
       '========================'
@@ -379,6 +689,7 @@
         lines,
         'NO RESULT'
       );
+
 
       return lines.join(
         '\n'
@@ -395,6 +706,7 @@
       )
     );
 
+
     appendLine03D59(
       lines,
       'Passed: ' +
@@ -402,6 +714,7 @@
         result.passed
       )
     );
+
 
     appendLine03D59(
       lines,
@@ -433,71 +746,21 @@
     );
 
 
-    /*
-     * ROOT
-     */
-
-    appendLine03D59(
+    appendRoot03D59(
       lines,
-      'ROOT SCHEMA'
-    );
-
-    appendLine03D59(
-      lines,
-      '------------------------'
+      result
     );
 
 
-    appendLine03D59(
+    appendForecastPayload03D59(
       lines,
-      'Type: ' +
-      text03D59(
-        result.root &&
-        result.root.type
-      )
-    );
-
-
-    appendLine03D59(
-      lines,
-      'Keys: ' +
-      (
-        result.root &&
-        Array.isArray(
-          result.root.keys
-        )
-          ? result.root.keys.join(
-              ', '
-            )
-          : '--'
-      )
-    );
-
-
-    appendLine03D59(
-      lines,
-      'Structure Paths: ' +
-      text03D59(
-        result.structureCount
-      )
-    );
-
-
-    appendLine03D59(
-      lines,
-      ''
+      result
     );
 
 
     appendProvinceFields03D59(
       lines,
       result.provinceFields
-    );
-
-
-    appendLine03D59(
-      lines,
-      ''
     );
 
 
@@ -516,16 +779,19 @@
       'LAST_FORECAST'
     );
 
+
     appendLine03D59(
       lines,
       '------------------------'
     );
 
+
     appendLine03D59(
       lines,
       'Unchanged: ' +
       yesNo03D59(
-        result.lastForecastUnchanged
+        result
+          .lastForecastUnchanged
       )
     );
 
@@ -545,6 +811,7 @@
       'SAFETY'
     );
 
+
     appendLine03D59(
       lines,
       '------------------------'
@@ -552,7 +819,8 @@
 
 
     const safety =
-      result.safety || {};
+      result.safety ||
+      {};
 
 
     appendLine03D59(
@@ -563,6 +831,7 @@
       )
     );
 
+
     appendLine03D59(
       lines,
       'Engine Executed: ' +
@@ -570,6 +839,7 @@
         safety.engineExecuted
       )
     );
+
 
     appendLine03D59(
       lines,
@@ -579,6 +849,7 @@
       )
     );
 
+
     appendLine03D59(
       lines,
       'Storage Write: ' +
@@ -586,6 +857,7 @@
         safety.storageWrite
       )
     );
+
 
     appendLine03D59(
       lines,
@@ -595,6 +867,7 @@
       )
     );
 
+
     appendLine03D59(
       lines,
       'savePrediction Called: ' +
@@ -602,6 +875,7 @@
         safety.savePredictionCalled
       )
     );
+
 
     appendLine03D59(
       lines,
@@ -616,6 +890,7 @@
       lines,
       ''
     );
+
 
     appendLine03D59(
       lines,
@@ -663,13 +938,14 @@
         'Ready: NO ❌\n' +
         'Reason: SCHEMA_INSPECTOR_NOT_AVAILABLE';
 
+
       return;
 
     }
 
 
     output.textContent =
-      '⏳ Đang đọc LAST_FORECAST schema...';
+      '⏳ Đang đọc CURRENT LAST_FORECAST schema...';
 
 
     setTimeout(
@@ -689,8 +965,9 @@
 
 
           window
-            .LAST_FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2 =
+            .LAST_FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V3 =
             {
+
               version:
                 VERSION,
 
@@ -699,6 +976,7 @@
               inspectedAt:
                 new Date()
                   .toISOString()
+
             };
 
         } catch (error) {
@@ -804,20 +1082,20 @@
 
 
     description.textContent =
-      'Đọc schema thật của CURRENT LAST_FORECAST · Province + G1→G8 · READ ONLY · ZERO WRITE';
+      'Đọc schema thật của CURRENT LAST_FORECAST · Root + Forecast Payload + Province + G1→G8 · READ ONLY · ZERO WRITE';
 
 
     description.style.cssText =
       [
         'opacity:.78',
-        'font-size:16px',
+        'font-size:15px',
         'line-height:1.5',
         'margin-bottom:20px'
       ].join(';');
 
 
     /*
-     * Mobile-safe control.
+     * Mobile-safe DIV control.
      */
 
     const button =
@@ -889,9 +1167,9 @@
         'white-space:pre-wrap',
         'overflow-wrap:anywhere',
         'word-break:break-word',
-        'font-size:14px',
+        'font-size:13px',
         'line-height:1.55',
-        'max-height:70vh',
+        'max-height:75vh',
         'overflow:auto'
       ].join(';');
 
@@ -912,6 +1190,7 @@
         ) {
 
           event.preventDefault();
+
 
           runMobile03D59();
 
@@ -1026,17 +1305,17 @@
 
 
   window
-    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2_LOADED =
+    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V3_LOADED =
     true;
 
 
   window
-    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V2_VERSION =
+    .FIX03D59_LAST_FORECAST_SCHEMA_INSPECTOR_MOBILE_V3_VERSION =
     VERSION;
 
 
   console.log(
-    'FIX-03D5.9 LAST_FORECAST Schema Inspector Mobile V2 loaded / READ ONLY'
+    'FIX-03D5.9 LAST_FORECAST Schema Inspector Mobile V3 loaded / FORECAST PAYLOAD DIAGNOSTIC / READ ONLY'
   );
 
 })();
