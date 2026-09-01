@@ -1,23 +1,25 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION ADAPTER SHADOW COMPARISON V2
+   PRODUCTION ADAPTER SHADOW COMPARISON V2.1
 
    PURPOSE:
    - Compare CURRENT LAST_FORECAST with certified Shadow Adapter output.
-   - Compare G1 -> G8 without modifying either side.
-   - Detect current forecast schema conservatively.
+   - Use REAL CURRENT LAST_FORECAST schema:
+       LAST_FORECAST.forecast.province
+       LAST_FORECAST.forecast.items[]
+       item.key
+       item.numbers[]
+   - Compare selected CURRENT prediction numbers against
+     the full 00-99 Shadow ranking.
    - Measure:
-       + Top1 overlap
-       + Top3 overlap
-       + Top5 overlap
-       + Top10 overlap
-       + current predicted-number rank inside shadow ranking
+       + selected number shadow rank
+       + selected numbers inside Shadow Top1
+       + selected numbers inside Shadow Top3
+       + selected numbers inside Shadow Top5
+       + selected numbers inside Shadow Top10
+       + same primary Top1
    - Verify province binding.
-   - Fail closed on ambiguous / unavailable current forecast schema.
-
-   INPUT:
-   - readLastForecast03D59()
-   - runProductionForecastAdapterShadow03D59(provinceSlug)
+   - Verify LAST_FORECAST remains unchanged.
 
    IMPORTANT:
    - SHADOW COMPARISON ONLY.
@@ -36,7 +38,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_ADAPTER_SHADOW_COMPARISON_V2';
+    'FIX03D59_PRODUCTION_ADAPTER_SHADOW_COMPARISON_V21';
 
 
   const PRIZES = [
@@ -104,8 +106,7 @@
     const text =
       String(
         value
-      )
-        .trim();
+      ).trim();
 
 
     if (
@@ -161,135 +162,12 @@
   }
 
 
-  function normalizeArray03D59(
-    input
-  ) {
-
-    if (
-      !Array.isArray(
-        input
-      )
-    ) {
-
-      return [];
-
-    }
-
-
-    const output = [];
-
-    const seen =
-      new Set();
-
-
-    input.forEach(
-      value => {
-
-        let candidate =
-          value;
-
-
-        /*
-         * Common ranking element shapes:
-         * [number, score]
-         * { number: '27' }
-         * { value: '27' }
-         * { num: '27' }
-         */
-
-        if (
-          Array.isArray(value)
-        ) {
-
-          candidate =
-            value[0];
-
-        } else if (
-          value &&
-          typeof value ===
-            'object'
-        ) {
-
-          if (
-            value.number !==
-            undefined
-          ) {
-
-            candidate =
-              value.number;
-
-          } else if (
-            value.value !==
-            undefined
-          ) {
-
-            candidate =
-              value.value;
-
-          } else if (
-            value.num !==
-            undefined
-          ) {
-
-            candidate =
-              value.num;
-
-          } else if (
-            value.number2 !==
-            undefined
-          ) {
-
-            candidate =
-              value.number2;
-
-          }
-
-        }
-
-
-        const normalized =
-          normalizeNumber03D59(
-            candidate
-          );
-
-
-        if (
-          normalized === null ||
-          seen.has(
-            normalized
-          )
-        ) {
-
-          return;
-
-        }
-
-
-        seen.add(
-          normalized
-        );
-
-
-        output.push(
-          normalized
-        );
-
-      }
-    );
-
-
-    return output;
-
-  }
-
-
   function normalizeProvince03D59(
     value
   ) {
 
     return String(
-      value ||
-      ''
+      value || ''
     )
       .trim()
       .toLowerCase()
@@ -316,30 +194,63 @@
   }
 
 
-  function intersection03D59(
-    a,
-    b
+  function unique03D59(
+    values
   ) {
 
-    const setB =
-      new Set(
-        b
+    const output = [];
+
+    const seen =
+      new Set();
+
+
+    (
+      Array.isArray(values)
+        ? values
+        : []
+    )
+      .forEach(
+        value => {
+
+          const normalized =
+            normalizeNumber03D59(
+              value
+            );
+
+
+          if (
+            normalized === null ||
+            seen.has(
+              normalized
+            )
+          ) {
+
+            return;
+
+          }
+
+
+          seen.add(
+            normalized
+          );
+
+
+          output.push(
+            normalized
+          );
+
+        }
       );
 
 
-    return a.filter(
-      value =>
-        setB.has(
-          value
-        )
-    );
+    return output;
 
   }
 
 
   /*
    * =========================================================
-   * CURRENT FORECAST ACCESS
+   * CURRENT LAST_FORECAST ACCESS
    * =========================================================
    */
 
@@ -406,10 +317,7 @@
           false,
 
         reason:
-          'LAST_FORECAST_NOT_AVAILABLE',
-
-        forecast:
-          forecast || null
+          'LAST_FORECAST_NOT_AVAILABLE'
 
       };
 
@@ -433,55 +341,115 @@
 
   /*
    * =========================================================
-   * PROVINCE EXTRACTION
+   * REAL CURRENT FORECAST ROOT
    * =========================================================
    */
 
-  function extractForecastProvince03D59(
-    forecast
+  function getCurrentForecastPayload03D59(
+    root
   ) {
 
-    const candidates = [
+    if (
+      !root ||
+      typeof root !==
+        'object'
+    ) {
 
-      forecast &&
-      forecast.province,
+      return {
 
-      forecast &&
-      forecast.provinceSlug,
+        ready:
+          false,
 
-      forecast &&
-      forecast.provinceId,
+        reason:
+          'CURRENT_ROOT_INVALID'
 
-      forecast &&
-      forecast.slug,
+      };
 
-      forecast &&
-      forecast.meta &&
-      forecast.meta.province,
-
-      forecast &&
-      forecast.meta &&
-      forecast.meta.provinceSlug,
-
-      forecast &&
-      forecast.context &&
-      forecast.context.province
-
-    ];
+    }
 
 
-    const usable =
-      candidates
-        .filter(
-          value =>
-            typeof value ===
-              'string' &&
-            value.trim()
-        );
+    const payload =
+      root.forecast;
 
 
     if (
-      !usable.length
+      !payload ||
+      typeof payload !==
+        'object' ||
+      Array.isArray(
+        payload
+      )
+    ) {
+
+      return {
+
+        ready:
+          false,
+
+        reason:
+          'CURRENT_FORECAST_PAYLOAD_NOT_FOUND'
+
+      };
+
+    }
+
+
+    return {
+
+      ready:
+        true,
+
+      payload
+
+    };
+
+  }
+
+
+  /*
+   * =========================================================
+   * PROVINCE
+   * =========================================================
+   */
+
+  function extractCurrentProvince03D59(
+    root
+  ) {
+
+    const payloadAccess =
+      getCurrentForecastPayload03D59(
+        root
+      );
+
+
+    if (
+      payloadAccess.ready !==
+      true
+    ) {
+
+      return {
+
+        ready:
+          false,
+
+        reason:
+          payloadAccess.reason
+
+      };
+
+    }
+
+
+    const province =
+      payloadAccess
+        .payload
+        .province;
+
+
+    if (
+      typeof province !==
+        'string' ||
+      !province.trim()
     ) {
 
       return {
@@ -497,47 +465,18 @@
     }
 
 
-    const normalized =
-      Array.from(
-        new Set(
-          usable.map(
-            normalizeProvince03D59
-          )
-        )
-      );
-
-
-    if (
-      normalized.length !==
-      1
-    ) {
-
-      return {
-
-        ready:
-          false,
-
-        reason:
-          'CURRENT_FORECAST_PROVINCE_AMBIGUOUS',
-
-        candidates:
-          usable
-
-      };
-
-    }
-
-
     return {
 
       ready:
         true,
 
       raw:
-        usable[0],
+        province,
 
       normalized:
-        normalized[0]
+        normalizeProvince03D59(
+          province
+        )
 
     };
 
@@ -546,406 +485,24 @@
 
   /*
    * =========================================================
-   * PRIZE NODE DISCOVERY
-   *
-   * Conservative only.
-   * Do not recursively guess arbitrary structures.
-   * =========================================================
-   */
-
-  function getPrizeNodes03D59(
-    forecast,
-    prize
-  ) {
-
-    const nodes = [];
-
-
-    const containers = [
-
-      {
-        source:
-          'forecast',
-        value:
-          forecast
-      },
-
-      {
-        source:
-          'forecast.prizes',
-        value:
-          forecast &&
-          forecast.prizes
-      },
-
-      {
-        source:
-          'forecast.predictions',
-        value:
-          forecast &&
-          forecast.predictions
-      },
-
-      {
-        source:
-          'forecast.results',
-        value:
-          forecast &&
-          forecast.results
-      },
-
-      {
-        source:
-          'forecast.forecast',
-        value:
-          forecast &&
-          forecast.forecast
-      },
-
-      {
-        source:
-          'forecast.ranking',
-        value:
-          forecast &&
-          forecast.ranking
-      },
-
-      {
-        source:
-          'forecast.rankings',
-        value:
-          forecast &&
-          forecast.rankings
-      }
-
-    ];
-
-
-    containers.forEach(
-      container => {
-
-        const object =
-          container.value;
-
-
-        if (
-          !object ||
-          typeof object !==
-            'object' ||
-          Array.isArray(
-            object
-          )
-        ) {
-
-          return;
-
-        }
-
-
-        if (
-          Object.prototype
-            .hasOwnProperty.call(
-              object,
-              prize
-            )
-        ) {
-
-          nodes.push({
-
-            source:
-              container.source +
-              '.' +
-              prize,
-
-            value:
-              object[
-                prize
-              ]
-
-          });
-
-        }
-
-      }
-    );
-
-
-    return nodes;
-
-  }
-
-
-  /*
-   * =========================================================
-   * EXTRACT RANKING FROM ONE PRIZE NODE
-   * =========================================================
-   */
-
-  function extractArraysFromPrizeNode03D59(
-    node
-  ) {
-
-    const candidates = [];
-
-
-    if (
-      Array.isArray(
-        node
-      )
-    ) {
-
-      const normalized =
-        normalizeArray03D59(
-          node
-        );
-
-
-      if (
-        normalized.length
-      ) {
-
-        candidates.push({
-
-          source:
-            'DIRECT_ARRAY',
-
-          ranking:
-            normalized
-
-        });
-
-      }
-
-
-      return candidates;
-
-    }
-
-
-    if (
-      !node ||
-      typeof node !==
-        'object'
-    ) {
-
-      const single =
-        normalizeNumber03D59(
-          node
-        );
-
-
-      if (
-        single !== null
-      ) {
-
-        candidates.push({
-
-          source:
-            'DIRECT_VALUE',
-
-          ranking: [
-            single
-          ]
-
-        });
-
-      }
-
-
-      return candidates;
-
-    }
-
-
-    const keys = [
-      'ranking',
-      'ranked',
-      'numbers',
-      'predictions',
-      'candidates',
-      'top',
-      'top10',
-      'values',
-      'forecast'
-    ];
-
-
-    keys.forEach(
-      key => {
-
-        if (
-          !Object.prototype
-            .hasOwnProperty.call(
-              node,
-              key
-            )
-        ) {
-
-          return;
-
-        }
-
-
-        const value =
-          node[key];
-
-
-        if (
-          Array.isArray(
-            value
-          )
-        ) {
-
-          const normalized =
-            normalizeArray03D59(
-              value
-            );
-
-
-          if (
-            normalized.length
-          ) {
-
-            candidates.push({
-
-              source:
-                key,
-
-              ranking:
-                normalized
-
-            });
-
-          }
-
-        } else {
-
-          const single =
-            normalizeNumber03D59(
-              value
-            );
-
-
-          if (
-            single !== null
-          ) {
-
-            candidates.push({
-
-              source:
-                key,
-
-              ranking: [
-                single
-              ]
-
-            });
-
-          }
-
-        }
-
-      }
-    );
-
-
-    /*
-     * Common explicit TOP groups.
-     */
-
-    [
-      'top1',
-      'top2',
-      'top3',
-      'top5',
-      'top10'
-    ]
-      .forEach(
-        key => {
-
-          if (
-            !Object.prototype
-              .hasOwnProperty.call(
-                node,
-                key
-              )
-          ) {
-
-            return;
-
-          }
-
-
-          const value =
-            node[key];
-
-
-          const normalized =
-            Array.isArray(value)
-              ? normalizeArray03D59(
-                  value
-                )
-              : (
-                  normalizeNumber03D59(
-                    value
-                  ) !== null
-                    ? [
-                        normalizeNumber03D59(
-                          value
-                        )
-                      ]
-                    : []
-                );
-
-
-          if (
-            normalized.length
-          ) {
-
-            candidates.push({
-
-              source:
-                key,
-
-              ranking:
-                normalized
-
-            });
-
-          }
-
-        }
-      );
-
-
-    return candidates;
-
-  }
-
-
-  /*
-   * =========================================================
-   * RESOLVE CURRENT PRIZE FORECAST
-   *
-   * Fail closed if two materially different candidate rankings
-   * are found for the same prize.
+   * REAL PRIZE ITEM
    * =========================================================
    */
 
   function resolveCurrentPrize03D59(
-    forecast,
+    root,
     prize
   ) {
 
-    const prizeNodes =
-      getPrizeNodes03D59(
-        forecast,
-        prize
+    const payloadAccess =
+      getCurrentForecastPayload03D59(
+        root
       );
 
 
     if (
-      !prizeNodes.length
+      payloadAccess.ready !==
+      true
     ) {
 
       return {
@@ -956,157 +513,130 @@
         prize,
 
         reason:
-          'CURRENT_PRIZE_NODE_NOT_FOUND'
+          payloadAccess.reason
 
       };
 
     }
 
 
-    const extracted = [];
+    const items =
+      payloadAccess
+        .payload
+        .items;
 
 
-    prizeNodes.forEach(
-      nodeEntry => {
+    if (
+      !Array.isArray(
+        items
+      )
+    ) {
 
-        const arrays =
-          extractArraysFromPrizeNode03D59(
-            nodeEntry.value
-          );
+      return {
+
+        ready:
+          false,
+
+        prize,
+
+        reason:
+          'CURRENT_FORECAST_ITEMS_NOT_ARRAY'
+
+      };
+
+    }
 
 
-        arrays.forEach(
-          item => {
+    const matches =
+      items.filter(
+        item =>
+          item &&
+          String(
+            item.key || ''
+          ).toLowerCase() ===
+          String(
+            prize
+          ).toLowerCase()
+      );
 
-            extracted.push({
 
-              source:
-                nodeEntry.source +
-                ':' +
-                item.source,
+    if (
+      matches.length !==
+      1
+    ) {
 
-              ranking:
-                item.ranking
+      return {
 
-            });
+        ready:
+          false,
+
+        prize,
+
+        reason:
+          matches.length === 0
+            ? 'CURRENT_PRIZE_ITEM_NOT_FOUND'
+            : 'CURRENT_PRIZE_ITEM_AMBIGUOUS',
+
+        matchCount:
+          matches.length
+
+      };
+
+    }
+
+
+    const item =
+      matches[0];
+
+
+    if (
+      !Array.isArray(
+        item.numbers
+      )
+    ) {
+
+      return {
+
+        ready:
+          false,
+
+        prize,
+
+        reason:
+          'CURRENT_PRIZE_NUMBERS_NOT_ARRAY'
+
+      };
+
+    }
+
+
+    const selected =
+      unique03D59(
+        item.numbers.map(
+          entry => {
+
+            if (
+              entry &&
+              typeof entry ===
+                'object' &&
+              entry.number !==
+                undefined
+            ) {
+
+              return entry.number;
+
+            }
+
+
+            return entry;
 
           }
-        );
-
-      }
-    );
-
-
-    if (
-      !extracted.length
-    ) {
-
-      return {
-
-        ready:
-          false,
-
-        prize,
-
-        reason:
-          'CURRENT_PRIZE_RANKING_NOT_FOUND',
-
-        nodeSources:
-          prizeNodes.map(
-            item =>
-              item.source
-          )
-
-      };
-
-    }
-
-
-    /*
-     * Remove duplicate equivalent candidates.
-     */
-
-    const unique = [];
-
-
-    const signatures =
-      new Set();
-
-
-    extracted.forEach(
-      item => {
-
-        const signature =
-          JSON.stringify(
-            item.ranking
-          );
-
-
-        if (
-          signatures.has(
-            signature
-          )
-        ) {
-
-          return;
-
-        }
-
-
-        signatures.add(
-          signature
-        );
-
-
-        unique.push(
-          item
-        );
-
-      }
-    );
-
-
-    /*
-     * Prefer the longest ranking only when all shorter candidates
-     * are exact prefixes of it.
-     */
-
-    unique.sort(
-      (
-        a,
-        b
-      ) =>
-        b.ranking.length -
-        a.ranking.length
-    );
-
-
-    const longest =
-      unique[0];
-
-
-    const compatible =
-      unique.every(
-        item => {
-
-          return item.ranking
-            .every(
-              (
-                value,
-                index
-              ) =>
-                longest.ranking[
-                  index
-                ] ===
-                value
-            );
-
-        }
+        )
       );
 
 
     if (
-      !compatible
+      !selected.length
     ) {
 
       return {
@@ -1117,26 +647,7 @@
         prize,
 
         reason:
-          'CURRENT_PRIZE_RANKING_AMBIGUOUS',
-
-        candidates:
-          unique.map(
-            item => ({
-
-              source:
-                item.source,
-
-              count:
-                item.ranking.length,
-
-              preview:
-                item.ranking.slice(
-                  0,
-                  10
-                )
-
-            })
-          )
+          'CURRENT_PRIZE_NUMBERS_EMPTY'
 
       };
 
@@ -1151,13 +662,24 @@
       prize,
 
       source:
-        longest.source,
+        'forecast.items[key=' +
+        prize +
+        '].numbers',
 
-      ranking:
-        longest.ranking.slice(),
+      label:
+        item.label || prize,
 
-      rankingCount:
-        longest.ranking.length
+      digits:
+        item.digits,
+
+      predictionMode:
+        item.predictionMode,
+
+      selectedNumbers:
+        selected,
+
+      selectedCount:
+        selected.length
 
     };
 
@@ -1203,7 +725,9 @@
         true ||
       !Array.isArray(
         shadow.ranking
-      )
+      ) ||
+      shadow.ranking.length !==
+        100
     ) {
 
       return {
@@ -1212,87 +736,100 @@
           false,
 
         reason:
-          'SHADOW_NOT_READY'
+          'SHADOW_RANKING_NOT_READY'
 
       };
 
     }
 
 
-    const currentRanking =
-      current.ranking;
-
-
-    const shadowRanking =
+    const ranking =
       shadow.ranking;
 
 
-    const currentTop1 =
-      currentRanking.slice(
-        0,
-        1
-      );
+    const selectedDetails =
+      current
+        .selectedNumbers
+        .map(
+          number => {
 
-    const currentTop3 =
-      currentRanking.slice(
-        0,
-        3
-      );
-
-    const currentTop5 =
-      currentRanking.slice(
-        0,
-        5
-      );
-
-    const currentTop10 =
-      currentRanking.slice(
-        0,
-        10
-      );
+            const index =
+              ranking.indexOf(
+                number
+              );
 
 
-    const shadowTop1 =
-      shadowRanking.slice(
-        0,
-        1
-      );
+            return {
 
-    const shadowTop3 =
-      shadowRanking.slice(
-        0,
-        3
-      );
+              number,
 
-    const shadowTop5 =
-      shadowRanking.slice(
-        0,
-        5
-      );
+              shadowRank:
+                index >= 0
+                  ? index + 1
+                  : null,
 
-    const shadowTop10 =
-      shadowRanking.slice(
-        0,
-        10
-      );
+              inTop1:
+                index === 0,
+
+              inTop3:
+                index >= 0 &&
+                index < 3,
+
+              inTop5:
+                index >= 0 &&
+                index < 5,
+
+              inTop10:
+                index >= 0 &&
+                index < 10
+
+            };
+
+          }
+        );
 
 
-    const primaryCurrentNumber =
-      currentTop1[
-        0
-      ] ||
+    const top1Count =
+      selectedDetails.filter(
+        item =>
+          item.inTop1
+      ).length;
+
+
+    const top3Count =
+      selectedDetails.filter(
+        item =>
+          item.inTop3
+      ).length;
+
+
+    const top5Count =
+      selectedDetails.filter(
+        item =>
+          item.inTop5
+      ).length;
+
+
+    const top10Count =
+      selectedDetails.filter(
+        item =>
+          item.inTop10
+      ).length;
+
+
+    const currentPrimary =
+      current
+        .selectedNumbers[
+          0
+        ] ||
       null;
 
 
-    const primaryShadowRank =
-      primaryCurrentNumber !==
-        null
-        ? (
-            shadowRanking.indexOf(
-              primaryCurrentNumber
-            ) + 1
-          )
-        : 0;
+    const shadowPrimary =
+      ranking[
+        0
+      ] ||
+      null;
 
 
     return {
@@ -1303,113 +840,70 @@
       currentSource:
         current.source,
 
-      currentRankingCount:
-        currentRanking.length,
+      label:
+        current.label,
 
-      shadowRankingCount:
-        shadowRanking.length,
+      predictionMode:
+        current.predictionMode,
 
-      current: {
+      selectedCount:
+        current.selectedCount,
 
-        top1:
-          currentTop1,
+      selectedNumbers:
+        current
+          .selectedNumbers
+          .slice(),
 
-        top3:
-          currentTop3,
+      selectedDetails,
 
-        top5:
-          currentTop5,
+      shadowModel:
+        shadow.model,
 
-        top10:
-          currentTop10
+      shadowWindow:
+        shadow.window,
 
-      },
+      shadowTop1:
+        ranking.slice(
+          0,
+          1
+        ),
 
-      shadow: {
+      shadowTop3:
+        ranking.slice(
+          0,
+          3
+        ),
 
-        top1:
-          shadowTop1,
+      shadowTop5:
+        ranking.slice(
+          0,
+          5
+        ),
 
-        top3:
-          shadowTop3,
+      shadowTop10:
+        ranking.slice(
+          0,
+          10
+        ),
 
-        top5:
-          shadowTop5,
+      selectedInShadow: {
 
-        top10:
-          shadowTop10
+        top1Count,
 
-      },
+        top3Count,
 
-      overlap: {
+        top5Count,
 
-        top1:
-          intersection03D59(
-            currentTop1,
-            shadowTop1
-          ),
-
-        top3:
-          intersection03D59(
-            currentTop3,
-            shadowTop3
-          ),
-
-        top5:
-          intersection03D59(
-            currentTop5,
-            shadowTop5
-          ),
-
-        top10:
-          intersection03D59(
-            currentTop10,
-            shadowTop10
-          )
+        top10Count
 
       },
 
-      overlapCount: {
-
-        top1:
-          intersection03D59(
-            currentTop1,
-            shadowTop1
-          ).length,
-
-        top3:
-          intersection03D59(
-            currentTop3,
-            shadowTop3
-          ).length,
-
-        top5:
-          intersection03D59(
-            currentTop5,
-            shadowTop5
-          ).length,
-
-        top10:
-          intersection03D59(
-            currentTop10,
-            shadowTop10
-          ).length
-
-      },
-
-      currentTop1ShadowRank:
-        primaryShadowRank > 0
-          ? primaryShadowRank
-          : null,
-
-      sameTop1:
+      samePrimaryTop1:
         (
-          currentTop1.length ===
-            1 &&
-          shadowTop1.length ===
-            1 &&
-          currentTop1[0] ===
-            shadowTop1[0]
+          currentPrimary !== null &&
+          shadowPrimary !== null &&
+          currentPrimary ===
+            shadowPrimary
         )
 
     };
@@ -1474,8 +968,7 @@
 
     const province =
       String(
-        provinceSlug ||
-        ''
+        provinceSlug || ''
       ).trim();
 
 
@@ -1507,7 +1000,7 @@
 
     /*
      * ---------------------------------------------------------
-     * SNAPSHOT CURRENT FORECAST BEFORE SHADOW EXECUTION
+     * CURRENT SNAPSHOT BEFORE
      * ---------------------------------------------------------
      */
 
@@ -1548,7 +1041,7 @@
       currentAccess.forecast;
 
 
-    const currentSnapshotBefore =
+    const snapshotBefore =
       JSON.stringify(
         currentForecast
       );
@@ -1561,7 +1054,7 @@
      */
 
     const currentProvince =
-      extractForecastProvince03D59(
+      extractCurrentProvince03D59(
         currentForecast
       );
 
@@ -1587,9 +1080,6 @@
 
         province,
 
-        provinceDiagnostic:
-          currentProvince,
-
         safety:
           safety03D59()
 
@@ -1605,8 +1095,8 @@
 
 
     if (
-      currentProvince.normalized !==
-      requestedNormalized
+      requestedNormalized !==
+      currentProvince.normalized
     ) {
 
       return {
@@ -1628,6 +1118,9 @@
 
         currentForecastProvince:
           currentProvince.raw,
+
+        provinceMatched:
+          false,
 
         safety:
           safety03D59()
@@ -1718,16 +1211,16 @@
 
     /*
      * ---------------------------------------------------------
-     * CURRENT FORECAST MUST REMAIN UNCHANGED
+     * CURRENT SNAPSHOT AFTER
      * ---------------------------------------------------------
      */
 
-    const currentAccessAfter =
+    const afterAccess =
       readCurrentForecast03D59();
 
 
     if (
-      currentAccessAfter.ready !==
+      afterAccess.ready !==
       true
     ) {
 
@@ -1755,19 +1248,19 @@
     }
 
 
-    const currentSnapshotAfter =
+    const snapshotAfter =
       JSON.stringify(
-        currentAccessAfter.forecast
+        afterAccess.forecast
       );
 
 
-    const lastForecastUnchanged =
-      currentSnapshotBefore ===
-      currentSnapshotAfter;
+    const unchanged =
+      snapshotBefore ===
+      snapshotAfter;
 
 
     if (
-      !lastForecastUnchanged
+      !unchanged
     ) {
 
       return {
@@ -1799,7 +1292,7 @@
 
     /*
      * ---------------------------------------------------------
-     * G1 -> G8 SCHEMA RESOLUTION + COMPARISON
+     * G1 -> G8
      * ---------------------------------------------------------
      */
 
@@ -1858,28 +1351,35 @@
       failedPrizes.length;
 
 
-    /*
-     * Comparison can only PASS when all 8 current prize schemas
-     * are resolved unambiguously.
-     */
-
     const passed =
       failedPrizes.length ===
       0;
 
 
+    /*
+     * ---------------------------------------------------------
+     * AGGREGATE
+     * ---------------------------------------------------------
+     */
+
     const aggregate = {
 
-      sameTop1Count:
+      samePrimaryTop1Count:
         0,
 
-      top3OverlapTotal:
+      selectedNumbersTotal:
         0,
 
-      top5OverlapTotal:
+      selectedInShadowTop1:
         0,
 
-      top10OverlapTotal:
+      selectedInShadowTop3:
+        0,
+
+      selectedInShadowTop5:
+        0,
+
+      selectedInShadowTop10:
         0
 
     };
@@ -1896,35 +1396,47 @@
             ];
 
 
+          aggregate
+            .selectedNumbersTotal +=
+              item.selectedCount;
+
+
+          aggregate
+            .selectedInShadowTop1 +=
+              item
+                .selectedInShadow
+                .top1Count;
+
+
+          aggregate
+            .selectedInShadowTop3 +=
+              item
+                .selectedInShadow
+                .top3Count;
+
+
+          aggregate
+            .selectedInShadowTop5 +=
+              item
+                .selectedInShadow
+                .top5Count;
+
+
+          aggregate
+            .selectedInShadowTop10 +=
+              item
+                .selectedInShadow
+                .top10Count;
+
+
           if (
-            item.sameTop1
+            item.samePrimaryTop1
           ) {
 
             aggregate
-              .sameTop1Count++;
+              .samePrimaryTop1Count++;
 
           }
-
-
-          aggregate
-            .top3OverlapTotal +=
-              item
-                .overlapCount
-                .top3;
-
-
-          aggregate
-            .top5OverlapTotal +=
-              item
-                .overlapCount
-                .top5;
-
-
-          aggregate
-            .top10OverlapTotal +=
-              item
-                .overlapCount
-                .top10;
 
         }
       );
@@ -1961,6 +1473,24 @@
       lastForecastUnchanged:
         true,
 
+      currentForecastVersion:
+        currentForecast &&
+        currentForecast.forecast
+          ? currentForecast
+              .forecast
+              .version ||
+            null
+          : null,
+
+      currentForecastWindow:
+        currentForecast &&
+        currentForecast.forecast
+          ? currentForecast
+              .forecast
+              .windowSize ||
+            null
+          : null,
+
       shadowVersion:
         shadow.version,
 
@@ -1995,7 +1525,7 @@
 
 
     /*
-     * Diagnostic RAM alias only.
+     * Diagnostic RAM only.
      */
 
     window
@@ -2032,7 +1562,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Shadow Comparison V2 loaded / SHADOW ONLY / ZERO WRITE'
+    'FIX-03D5.9 Production Shadow Comparison V2.1 loaded / REAL LAST_FORECAST ITEMS SCHEMA / SHADOW ONLY'
   );
 
 })();
