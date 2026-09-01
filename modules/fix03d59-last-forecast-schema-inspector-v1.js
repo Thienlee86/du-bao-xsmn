@@ -732,6 +732,83 @@
           snapshotAfter
       );
 
+ /*
+ * =========================================================
+ * FORECAST PAYLOAD DIAGNOSTIC
+ * =========================================================
+ */
+
+const forecastPayload =
+  forecast &&
+  forecast.forecast &&
+  typeof forecast.forecast === 'object'
+    ? forecast.forecast
+    : null;
+
+
+const forecastPayloadDiagnostic =
+  forecastPayload
+    ? {
+
+        type:
+          valueType03D59(
+            forecastPayload
+          ),
+
+        keys:
+          Array.isArray(
+            forecastPayload
+          )
+            ? []
+            : Object.keys(
+                forecastPayload
+              ),
+
+        arrayLength:
+          Array.isArray(
+            forecastPayload
+          )
+            ? forecastPayload.length
+            : null,
+
+        preview:
+          previewValue03D59(
+            forecastPayload
+          ),
+
+        childPaths:
+          structure
+            .filter(
+              item =>
+                String(
+                  item.path
+                ).startsWith(
+                  '$.forecast.'
+                )
+            )
+            .map(
+              item => ({
+
+                path:
+                  item.path,
+
+                type:
+                  item.type,
+
+                arrayLength:
+                  item.arrayLength,
+
+                keys:
+                  item.keys,
+
+                preview:
+                  item.preview
+
+              })
+            )
+
+      }
+    : null;    
 
     const result = {
 
@@ -754,6 +831,7 @@
           forecast
         ),
 
+       forecastPayloadDiagnostic,
       provinceFields,
 
       prizeFields,
