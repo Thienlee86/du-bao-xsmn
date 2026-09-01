@@ -52,21 +52,22 @@
     },
 
 
-    g1: {
-
-      status:
-        'UNRESOLVED',
-
-      model:
-        null,
-
-      window:
-        null,
-
-      reason:
-        'C3.2_G1_WINNER_NOT_RECONFIRMED'
-
-    },
+g1: {
+  status: 'FROZEN',
+  model: 'BALANCED',
+  window: 20,
+  source: 'C3.2_CROSS_PROVINCE_BENCHMARK',
+  evidence: {
+    provinces: 21,
+    quality: 7.23,
+    top1: 0.0089,
+    top3: 0.0259,
+    mrr: 0.0484,
+    averageRank: 51.13,
+    baseline30Quality: 7.13,
+    qualityDeltaVsBaseline30: 0.10
+  }
+},
 
 
     g2: {
