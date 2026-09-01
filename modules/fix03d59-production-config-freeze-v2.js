@@ -394,6 +394,143 @@ g1: {
    * =========================================================
    */
 
+/*
+ * =========================================================
+ * MOBILE / CONSOLE FREEZE VALIDATION
+ * =========================================================
+ */
+
+function validateProductionFreeze03D59V2() {
+
+  const result =
+    inspectFreeze03D59V2();
+
+
+  const expected = {
+
+    g1: ['BALANCED', 20],
+    g2: ['BALANCED', 10],
+    g3: ['BASELINE', 20],
+    g4: ['FREQUENCY', 30],
+    g5: ['CYCLE', 20],
+    g6: ['BALANCED', 20],
+    g7: ['BASELINE', 30],
+    g8: ['RECENT', 60]
+
+  };
+
+
+  const mismatches = [];
+
+
+  Object
+    .entries(expected)
+    .forEach(
+      ([prize, expectedConfig]) => {
+
+        const actual =
+          result.prizeConfig &&
+          result.prizeConfig[prize];
+
+
+        if (
+          !actual ||
+          actual.status !== 'FROZEN' ||
+          actual.model !== expectedConfig[0] ||
+          Number(actual.window) !== expectedConfig[1]
+        ) {
+
+          mismatches.push({
+
+            prize,
+
+            expected: {
+              model: expectedConfig[0],
+              window: expectedConfig[1]
+            },
+
+            actual:
+              actual || null
+
+          });
+
+        }
+
+      }
+    );
+
+
+  const passed =
+    result.ready === true &&
+    result.unresolved.length === 0 &&
+    mismatches.length === 0;
+
+
+  const validation = {
+
+    version:
+      'FIX03D59_PRODUCTION_FREEZE_VALIDATION_V1',
+
+    passed,
+
+    freezeReady:
+      result.ready,
+
+    status:
+      result.status,
+
+    frozenPrizes:
+      passed
+        ? 8
+        : 8 - mismatches.length,
+
+    unresolved:
+      result.unresolved,
+
+    mismatches,
+
+    config: {
+
+      g1: 'BALANCED W20',
+      g2: 'BALANCED W10',
+      g3: 'BASELINE W20',
+      g4: 'FREQUENCY W30',
+      g5: 'CYCLE W20',
+      g6: 'BALANCED W20',
+      g7: 'BASELINE W30',
+      g8: 'RECENT W60'
+
+    },
+
+    safety: {
+
+      readOnly: true,
+      engineExecuted: false,
+      productionWrite: false,
+      storageWrite: false,
+      lastForecastModified: false,
+      savePredictionCalled: false
+
+    }
+
+  };
+
+
+  window
+    .LAST_FIX03D59_PRODUCTION_FREEZE_VALIDATION =
+    validation;
+
+
+  console.log(
+    'FIX-03D5.9 Production Freeze Validation',
+    validation
+  );
+
+
+  return validation;
+
+}
+   
   window
     .inspectProductionConfigFreeze03D59V2 =
     inspectFreeze03D59V2;
@@ -403,7 +540,10 @@ g1: {
     .readProductionConfigFreeze03D59V2 =
     readProductionConfigFreeze03D59V2;
 
-
+window
+  .validateProductionFreeze03D59V2 =
+  validateProductionFreeze03D59V2;
+   
   window
     .FIX03D59_PRODUCTION_CONFIG_FREEZE_V2_VERSION =
     VERSION;
