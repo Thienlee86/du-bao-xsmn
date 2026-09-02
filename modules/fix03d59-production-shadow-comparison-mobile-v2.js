@@ -1,14 +1,14 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION SHADOW COMPARISON MOBILE V2
+   PRODUCTION SHADOW COMPARISON MOBILE V2.1
 
    PURPOSE:
-   - Run Production Shadow Comparison V2 from mobile.
-   - Read selected province from #provinceSelect.
-   - Compare CURRENT LAST_FORECAST vs certified Shadow Adapter.
-   - Display schema mapping and overlap G1 -> G8.
-   - Show current Top1 rank inside shadow ranking.
-   - Fail closed on unmapped/ambiguous current forecast schema.
+   - Run Production Shadow Comparison V2.1 from mobile.
+   - Display REAL CURRENT LAST_FORECAST selected predictions.
+   - Compare selected CURRENT numbers against full Shadow 00-99 ranking.
+   - Display Shadow Rank for every selected CURRENT number.
+   - Display membership in Shadow Top1 / Top3 / Top5 / Top10.
+   - Display aggregate comparison G1 -> G8.
 
    IMPORTANT:
    - SHADOW COMPARISON ONLY.
@@ -27,7 +27,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V2';
+    'FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V21';
 
 
   const PANEL_ID =
@@ -55,7 +55,13 @@
   ];
 
 
-  function readProvince() {
+  /*
+   * =========================================================
+   * HELPERS
+   * =========================================================
+   */
+
+  function readProvince03D59() {
 
     const select =
       document.getElementById(
@@ -80,7 +86,7 @@
   }
 
 
-  function joinValues(
+  function join03D59(
     values
   ) {
 
@@ -92,7 +98,26 @@
   }
 
 
-  function buildPrizeReport(
+  function yesNo03D59(
+    value
+  ) {
+
+    return value === true
+      ? 'YES ✅'
+      : value === false
+        ? 'NO ❌'
+        : '--';
+
+  }
+
+
+  /*
+   * =========================================================
+   * ONE PRIZE REPORT
+   * =========================================================
+   */
+
+  function buildPrizeReport03D59(
     prize,
     item,
     schema
@@ -103,6 +128,10 @@
 
     lines.push(
       prize.toUpperCase()
+    );
+
+    lines.push(
+      '------------------------'
     );
 
 
@@ -121,7 +150,12 @@
           item &&
           item.reason
             ? item.reason
-            : 'UNKNOWN'
+            : (
+                schema &&
+                schema.reason
+                  ? schema.reason
+                  : 'UNKNOWN'
+              )
         )
       );
 
@@ -132,40 +166,9 @@
       ) {
 
         lines.push(
-          'Schema Source: ' +
+          'Source: ' +
           schema.source
         );
-
-      }
-
-
-      if (
-        schema &&
-        schema.candidates
-      ) {
-
-        lines.push(
-          'Schema Candidates:'
-        );
-
-
-        schema.candidates
-          .forEach(
-            candidate => {
-
-              lines.push(
-                '- ' +
-                candidate.source +
-                ' · Count ' +
-                candidate.count +
-                ' · ' +
-                joinValues(
-                  candidate.preview
-                )
-              );
-
-            }
-          );
 
       }
 
@@ -190,79 +193,254 @@
 
 
     lines.push(
-      'Current Ranking Count: ' +
-      item.currentRankingCount
-    );
-
-
-    lines.push(
-      'Shadow Ranking Count: ' +
-      item.shadowRankingCount
-    );
-
-
-    lines.push(
-      'Current Top1: ' +
-      joinValues(
-        item.current.top1
-      )
-    );
-
-
-    lines.push(
-      'Shadow Top1: ' +
-      joinValues(
-        item.shadow.top1
-      )
-    );
-
-
-    lines.push(
-      'Same Top1: ' +
+      'Prediction Mode: ' +
       (
-        item.sameTop1
-          ? 'YES ✅'
-          : 'NO'
+        item.predictionMode ||
+        '--'
       )
     );
 
 
     lines.push(
-      'Current Top1 Shadow Rank: ' +
+      'Shadow Config: ' +
       (
-        item.currentTop1ShadowRank != null
-          ? item.currentTop1ShadowRank
+        item.shadowModel ||
+        '--'
+      ) +
+      ' W' +
+      (
+        item.shadowWindow != null
+          ? item.shadowWindow
+          : '--'
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'CURRENT SELECTED'
+    );
+
+
+    lines.push(
+      'Count: ' +
+      (
+        item.selectedCount != null
+          ? item.selectedCount
           : '--'
       )
     );
 
 
     lines.push(
-      'Top3 Overlap: ' +
-      item.overlapCount.top3 +
-      '/3 · ' +
-      joinValues(
-        item.overlap.top3
+      'Numbers: ' +
+      join03D59(
+        item.selectedNumbers
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'SELECTED → SHADOW RANK'
+    );
+
+
+    const details =
+      Array.isArray(
+        item.selectedDetails
+      )
+        ? item.selectedDetails
+        : [];
+
+
+    if (
+      !details.length
+    ) {
+
+      lines.push(
+        'No selected-number rank data.'
+      );
+
+    } else {
+
+      details.forEach(
+        detail => {
+
+          let bands = [];
+
+
+          if (
+            detail.inTop1
+          ) {
+
+            bands.push(
+              'TOP1'
+            );
+
+          } else if (
+            detail.inTop3
+          ) {
+
+            bands.push(
+              'TOP3'
+            );
+
+          } else if (
+            detail.inTop5
+          ) {
+
+            bands.push(
+              'TOP5'
+            );
+
+          } else if (
+            detail.inTop10
+          ) {
+
+            bands.push(
+              'TOP10'
+            );
+
+          }
+
+
+          lines.push(
+            (
+              detail.number ||
+              '--'
+            ) +
+            ' → Rank #' +
+            (
+              detail.shadowRank != null
+                ? detail.shadowRank
+                : '--'
+            ) +
+            (
+              bands.length
+                ? ' · ' +
+                  bands.join(', ')
+                : ''
+            )
+          );
+
+        }
+      );
+
+    }
+
+
+    lines.push('');
+
+    lines.push(
+      'SHADOW TOP'
+    );
+
+
+    lines.push(
+      'Top1: ' +
+      join03D59(
+        item.shadowTop1
       )
     );
 
 
     lines.push(
-      'Top5 Overlap: ' +
-      item.overlapCount.top5 +
-      '/5 · ' +
-      joinValues(
-        item.overlap.top5
+      'Top3: ' +
+      join03D59(
+        item.shadowTop3
       )
     );
 
 
     lines.push(
-      'Top10 Overlap: ' +
-      item.overlapCount.top10 +
-      '/10 · ' +
-      joinValues(
-        item.overlap.top10
+      'Top5: ' +
+      join03D59(
+        item.shadowTop5
+      )
+    );
+
+
+    lines.push(
+      'Top10: ' +
+      join03D59(
+        item.shadowTop10
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'CURRENT SELECTED INSIDE SHADOW'
+    );
+
+
+    const selected =
+      item.selectedInShadow ||
+      {};
+
+
+    const denominator =
+      item.selectedCount != null
+        ? item.selectedCount
+        : '--';
+
+
+    lines.push(
+      'Top1: ' +
+      (
+        selected.top1Count != null
+          ? selected.top1Count
+          : '--'
+      ) +
+      '/' +
+      denominator
+    );
+
+
+    lines.push(
+      'Top3: ' +
+      (
+        selected.top3Count != null
+          ? selected.top3Count
+          : '--'
+      ) +
+      '/' +
+      denominator
+    );
+
+
+    lines.push(
+      'Top5: ' +
+      (
+        selected.top5Count != null
+          ? selected.top5Count
+          : '--'
+      ) +
+      '/' +
+      denominator
+    );
+
+
+    lines.push(
+      'Top10: ' +
+      (
+        selected.top10Count != null
+          ? selected.top10Count
+          : '--'
+      ) +
+      '/' +
+      denominator
+    );
+
+
+    lines.push(
+      'Same Primary Top1: ' +
+      yesNo03D59(
+        item.samePrimaryTop1
       )
     );
 
@@ -272,7 +450,13 @@
   }
 
 
-  function buildReport(
+  /*
+   * =========================================================
+   * COMPLETE REPORT
+   * =========================================================
+   */
+
+  function buildReport03D59(
     result
   ) {
 
@@ -280,7 +464,7 @@
 
 
     lines.push(
-      'PRODUCTION SHADOW COMPARISON V2'
+      'PRODUCTION SHADOW COMPARISON V2.1'
     );
 
     lines.push(
@@ -303,20 +487,16 @@
 
     lines.push(
       'Ready: ' +
-      (
+      yesNo03D59(
         result.ready
-          ? 'YES ✅'
-          : 'NO ❌'
       )
     );
 
 
     lines.push(
       'Passed: ' +
-      (
+      yesNo03D59(
         result.passed
-          ? 'YES ✅'
-          : 'NO ❌'
       )
     );
 
@@ -371,14 +551,38 @@
 
     lines.push(
       'Province Matched: ' +
+      yesNo03D59(
+        result.provinceMatched
+      )
+    );
+
+
+    lines.push('');
+
+    lines.push(
+      'CURRENT FORECAST'
+    );
+
+    lines.push(
+      '------------------------'
+    );
+
+
+    lines.push(
+      'Version: ' +
       (
-        result.provinceMatched === true
-          ? 'YES ✅'
-          : (
-              result.provinceMatched === false
-                ? 'NO ❌'
-                : '--'
-            )
+        result.currentForecastVersion ||
+        '--'
+      )
+    );
+
+
+    lines.push(
+      'Original Window: ' +
+      (
+        result.currentForecastWindow != null
+          ? result.currentForecastWindow
+          : '--'
       )
     );
 
@@ -396,14 +600,8 @@
 
     lines.push(
       'Unchanged: ' +
-      (
-        result.lastForecastUnchanged === true
-          ? 'YES ✅'
-          : (
-              result.lastForecastUnchanged === false
-                ? 'NO ❌'
-                : '--'
-            )
+      yesNo03D59(
+        result.lastForecastUnchanged
       )
     );
 
@@ -477,13 +675,18 @@
 
         lines.push('');
 
+
         const prizeLines =
-          buildPrizeReport(
+          buildPrizeReport03D59(
             prize,
             result.comparisons &&
-            result.comparisons[prize],
+            result.comparisons[
+              prize
+            ],
             result.schemaDiagnostics &&
-            result.schemaDiagnostics[prize]
+            result.schemaDiagnostics[
+              prize
+            ]
           );
 
 
@@ -495,10 +698,19 @@
     );
 
 
+    /*
+     * =========================================================
+     * AGGREGATE
+     * =========================================================
+     */
+
     if (
-      result.passed === true &&
       result.aggregate
     ) {
+
+      const aggregate =
+        result.aggregate;
+
 
       lines.push('');
 
@@ -507,7 +719,7 @@
       );
 
       lines.push(
-        'AGGREGATE OVERLAP'
+        'AGGREGATE'
       );
 
       lines.push(
@@ -516,34 +728,73 @@
 
 
       lines.push(
-        'Same Top1: ' +
-        result.aggregate.sameTop1Count +
+        'Selected Numbers Total: ' +
+        (
+          aggregate.selectedNumbersTotal != null
+            ? aggregate.selectedNumbersTotal
+            : '--'
+        )
+      );
+
+
+      lines.push(
+        'Same Primary Top1: ' +
+        (
+          aggregate.samePrimaryTop1Count != null
+            ? aggregate.samePrimaryTop1Count
+            : '--'
+        ) +
         '/8'
       );
 
 
       lines.push(
-        'Top3 Overlap Total: ' +
-        result.aggregate.top3OverlapTotal +
-        '/24'
+        'Selected in Shadow Top1: ' +
+        (
+          aggregate.selectedInShadowTop1 != null
+            ? aggregate.selectedInShadowTop1
+            : '--'
+        )
       );
 
 
       lines.push(
-        'Top5 Overlap Total: ' +
-        result.aggregate.top5OverlapTotal +
-        '/40'
+        'Selected in Shadow Top3: ' +
+        (
+          aggregate.selectedInShadowTop3 != null
+            ? aggregate.selectedInShadowTop3
+            : '--'
+        )
       );
 
 
       lines.push(
-        'Top10 Overlap Total: ' +
-        result.aggregate.top10OverlapTotal +
-        '/80'
+        'Selected in Shadow Top5: ' +
+        (
+          aggregate.selectedInShadowTop5 != null
+            ? aggregate.selectedInShadowTop5
+            : '--'
+        )
+      );
+
+
+      lines.push(
+        'Selected in Shadow Top10: ' +
+        (
+          aggregate.selectedInShadowTop10 != null
+            ? aggregate.selectedInShadowTop10
+            : '--'
+        )
       );
 
     }
 
+
+    /*
+     * =========================================================
+     * SAFETY
+     * =========================================================
+     */
 
     lines.push('');
 
@@ -567,20 +818,16 @@
 
     lines.push(
       'Comparison Only: ' +
-      (
-        safety.comparisonOnly === true
-          ? 'YES ✅'
-          : 'NO ❌'
+      yesNo03D59(
+        safety.comparisonOnly
       )
     );
 
 
     lines.push(
       'Shadow Only: ' +
-      (
-        safety.shadowOnly === true
-          ? 'YES ✅'
-          : 'NO ❌'
+      yesNo03D59(
+        safety.shadowOnly
       )
     );
 
@@ -652,17 +899,25 @@
   }
 
 
-  function runMobileComparison() {
+  /*
+   * =========================================================
+   * RUN
+   * =========================================================
+   */
+
+  function runMobileComparison03D59() {
 
     const button =
       document.getElementById(
         BUTTON_ID
       );
 
+
     const status =
       document.getElementById(
         STATUS_ID
       );
+
 
     const output =
       document.getElementById(
@@ -671,7 +926,7 @@
 
 
     const province =
-      readProvince();
+      readProvince03D59();
 
 
     if (!province) {
@@ -682,6 +937,7 @@
           '❌ Không đọc được tỉnh đang chọn.';
 
       }
+
 
       return;
 
@@ -697,9 +953,10 @@
       if (status) {
 
         status.textContent =
-          '❌ Shadow Comparison V2 chưa được load.';
+          '❌ Shadow Comparison Engine chưa được load.';
 
       }
+
 
       return;
 
@@ -725,7 +982,7 @@
       status.textContent =
         '⏳ ' +
         province +
-        ' · CURRENT vs FROZEN SHADOW...';
+        ' · CURRENT selected vs FROZEN shadow ranking...';
 
     }
 
@@ -751,8 +1008,9 @@
 
 
           window
-            .LAST_FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V2 =
+            .LAST_FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V21 =
             {
+
               version:
                 VERSION,
 
@@ -761,6 +1019,7 @@
               inspectedAt:
                 new Date()
                   .toISOString()
+
             };
 
 
@@ -795,7 +1054,7 @@
           if (output) {
 
             output.textContent =
-              buildReport(
+              buildReport03D59(
                 result
               );
 
@@ -841,7 +1100,7 @@
               '1';
 
             button.textContent =
-              '🔍 Chạy Shadow Comparison V2';
+              '🔍 Chạy Shadow Comparison V2.1';
 
           }
 
@@ -854,7 +1113,13 @@
   }
 
 
-  function attach() {
+  /*
+   * =========================================================
+   * PANEL
+   * =========================================================
+   */
+
+  function attach03D59() {
 
     if (
       document.getElementById(
@@ -909,7 +1174,7 @@
           margin-bottom:8px;
         "
       >
-        🔍 Production Shadow Comparison V2
+        🔍 Production Shadow Comparison V2.1
       </div>
 
       <div
@@ -920,13 +1185,13 @@
           margin-bottom:14px;
         "
       >
-        CURRENT LAST_FORECAST
+        CURRENT selected numbers
         <br>
         vs
         <br>
-        Freeze V2 Shadow Forecast
+        Freeze V2 full 00–99 ranking
         <br><br>
-        Schema Mapping · Top1/3/5/10 Overlap
+        G1→G8 · Selected Rank · Top1/3/5/10
         <br>
         Shadow Only · Zero Write
       </div>
@@ -958,7 +1223,7 @@
           user-select:none;
         "
       >
-        🔍 Chạy Shadow Comparison V2
+        🔍 Chạy Shadow Comparison V2.1
       </div>
 
       <div
@@ -1005,7 +1270,7 @@
 
       button.addEventListener(
         'click',
-        runMobileComparison
+        runMobileComparison03D59
       );
 
     }
@@ -1017,7 +1282,7 @@
 
 
   if (
-    !attach()
+    !attach03D59()
   ) {
 
     let attempts =
@@ -1032,7 +1297,7 @@
 
 
           if (
-            attach() ||
+            attach03D59() ||
             attempts >= 20
           ) {
 
@@ -1049,23 +1314,29 @@
   }
 
 
+  /*
+   * =========================================================
+   * PUBLIC API
+   * =========================================================
+   */
+
   window
     .runProductionShadowComparisonMobileV2 =
-    runMobileComparison;
+    runMobileComparison03D59;
 
 
   window
-    .FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V2_VERSION =
+    .FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V21_VERSION =
     VERSION;
 
 
   window
-    .FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V2_LOADED =
+    .FIX03D59_PRODUCTION_SHADOW_COMPARISON_MOBILE_V21_LOADED =
     true;
 
 
   console.log(
-    'FIX-03D5.9 Production Shadow Comparison Mobile V2 loaded / SHADOW ONLY'
+    'FIX-03D5.9 Production Shadow Comparison Mobile V2.1 loaded / REAL SCHEMA'
   );
 
 })();
