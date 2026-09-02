@@ -1,12 +1,14 @@
 /* =========================================================================
    FIX-03D5.9
-   PRODUCTION SHADOW CERTIFICATION MATRIX — MOBILE V1
+   PRODUCTION SHADOW CERTIFICATION MATRIX — MOBILE V2
 
    PURPOSE:
    - Mobile UI for Production Shadow Certification Matrix V1.
    - Certify CURRENT selected province manually.
    - Display accumulated RAM certification matrix.
    - Reset certification RAM manually.
+   - Mobile-safe controls using DIV role="button".
+   - Attach directly to #tab-settings.
 
    IMPORTANT:
    - MANUAL ONLY.
@@ -26,7 +28,7 @@
 
 
   const VERSION =
-    'FIX03D59_PRODUCTION_SHADOW_CERTIFICATION_MATRIX_MOBILE_V1';
+    'FIX03D59_PRODUCTION_SHADOW_CERTIFICATION_MATRIX_MOBILE_V2';
 
 
   const PANEL_ID =
@@ -116,41 +118,20 @@
   /*
    * =========================================================
    * CURRENT PROVINCE
-   *
-   * Prefer runtime selected province.
-   * Fallback to visible province selector.
    * =========================================================
    */
 
   function getCurrentProvince03D59() {
 
-    if (
-      typeof window
-        .SELECTED_PROVINCE ===
-      'string' &&
-      window
-        .SELECTED_PROVINCE
-        .trim()
-    ) {
-
-      return window
-        .SELECTED_PROVINCE
-        .trim();
-
-    }
-
-
     const selector =
-      document
-        .getElementById(
-          'provinceSelect'
-        );
+      document.getElementById(
+        'provinceSelect'
+      );
 
 
     if (
       selector &&
-      typeof selector.value ===
-        'string' &&
+      typeof selector.value === 'string' &&
       selector.value.trim()
     ) {
 
@@ -160,11 +141,6 @@
 
     }
 
-
-    /*
-     * Final read-only fallback:
-     * use CURRENT LAST_FORECAST province.
-     */
 
     if (
       typeof window
@@ -184,8 +160,7 @@
           current.forecast &&
           typeof current
             .forecast
-            .province ===
-            'string' &&
+            .province === 'string' &&
           current
             .forecast
             .province
@@ -202,8 +177,7 @@
       } catch (error) {
 
         /*
-         * Fail silently here.
-         * Caller will return PROVINCE_NOT_AVAILABLE.
+         * Fail closed.
          */
 
       }
@@ -361,8 +335,7 @@
       lines,
       'Selected Total: ' +
       text03D59(
-        aggregate
-          .selectedNumbersTotal
+        aggregate.selectedNumbersTotal
       )
     );
 
@@ -371,8 +344,7 @@
       lines,
       'Primary Top1: ' +
       text03D59(
-        aggregate
-          .samePrimaryTop1Count
+        aggregate.samePrimaryTop1Count
       ) +
       '/8'
     );
@@ -382,8 +354,7 @@
       lines,
       'Selected in Shadow Top1: ' +
       text03D59(
-        aggregate
-          .selectedInShadowTop1
+        aggregate.selectedInShadowTop1
       )
     );
 
@@ -392,8 +363,7 @@
       lines,
       'Selected in Shadow Top3: ' +
       text03D59(
-        aggregate
-          .selectedInShadowTop3
+        aggregate.selectedInShadowTop3
       )
     );
 
@@ -402,8 +372,7 @@
       lines,
       'Selected in Shadow Top5: ' +
       text03D59(
-        aggregate
-          .selectedInShadowTop5
+        aggregate.selectedInShadowTop5
       )
     );
 
@@ -412,8 +381,7 @@
       lines,
       'Selected in Shadow Top10: ' +
       text03D59(
-        aggregate
-          .selectedInShadowTop10
+        aggregate.selectedInShadowTop10
       )
     );
 
@@ -462,11 +430,9 @@
       lines,
       'Activation Authorized: ' +
       (
-        safety.activationAuthorized ===
-        false
+        safety.activationAuthorized === false
           ? 'NO ✅'
-          : safety.activationAuthorized ===
-            true
+          : safety.activationAuthorized === true
             ? 'YES ❌'
             : '--'
       )
@@ -477,11 +443,9 @@
       lines,
       'Production Write: ' +
       (
-        safety.productionWrite ===
-        false
+        safety.productionWrite === false
           ? 'NO ✅'
-          : safety.productionWrite ===
-            true
+          : safety.productionWrite === true
             ? 'YES ❌'
             : '--'
       )
@@ -492,11 +456,9 @@
       lines,
       'Storage Write: ' +
       (
-        safety.storageWrite ===
-        false
+        safety.storageWrite === false
           ? 'NO ✅'
-          : safety.storageWrite ===
-            true
+          : safety.storageWrite === true
             ? 'YES ❌'
             : '--'
       )
@@ -507,11 +469,9 @@
       lines,
       'Activation Performed: ' +
       (
-        safety.activationPerformed ===
-        false
+        safety.activationPerformed === false
           ? 'NO ✅'
-          : safety.activationPerformed ===
-            true
+          : safety.activationPerformed === true
             ? 'YES ❌'
             : '--'
       )
@@ -541,7 +501,7 @@
 
   /*
    * =========================================================
-   * FORMAT MATRIX SUMMARY
+   * FORMAT SUMMARY
    * =========================================================
    */
 
@@ -734,9 +694,7 @@
       Array.isArray(
         result.certifiedProvinces
       ) &&
-      result
-        .certifiedProvinces
-        .length
+      result.certifiedProvinces.length
     ) {
 
       result
@@ -784,9 +742,7 @@
       Array.isArray(
         result.failedProvinces
       ) &&
-      result
-        .failedProvinces
-        .length
+      result.failedProvinces.length
     ) {
 
       result
@@ -857,7 +813,9 @@
 
 
     if (!output) {
+
       return;
+
     }
 
 
@@ -891,37 +849,44 @@
 
 
     output.textContent =
-      'Running certification for ' +
+      '⏳ Certifying ' +
       province +
       '...';
 
 
-    try {
+    setTimeout(
+      function () {
 
-      const result =
-        window
-          .certifyCurrentProductionShadowProvince03D59(
-            province
-          );
+        try {
+
+          const result =
+            window
+              .certifyCurrentProductionShadowProvince03D59(
+                province
+              );
 
 
-      output.textContent =
-        formatCertification03D59(
-          result
-        );
+          output.textContent =
+            formatCertification03D59(
+              result
+            );
 
-    } catch (error) {
+        } catch (error) {
 
-      output.textContent =
-        'CERTIFICATION EXECUTION ERROR ❌\n\n' +
-        (
-          error &&
-          error.stack
-            ? error.stack
-            : String(error)
-        );
+          output.textContent =
+            'CERTIFICATION EXECUTION ERROR ❌\n\n' +
+            (
+              error &&
+              error.stack
+                ? error.stack
+                : String(error)
+            );
 
-    }
+        }
+
+      },
+      50
+    );
 
   }
 
@@ -933,7 +898,9 @@
 
 
     if (!output) {
+
       return;
+
     }
 
 
@@ -986,7 +953,9 @@
 
 
     if (!output) {
+
       return;
+
     }
 
 
@@ -1048,51 +1017,64 @@
 
   /*
    * =========================================================
-   * BUTTON
+   * MOBILE SAFE CONTROL
    * =========================================================
    */
 
-  function createButton03D59(
+  function createControl03D59(
     id,
     label,
     background
   ) {
 
-    const button =
+    const control =
       document.createElement(
-        'button'
+        'div'
       );
 
 
-    button.id =
+    control.id =
       id;
 
 
-    button.type =
-      'button';
+    control.setAttribute(
+      'role',
+      'button'
+    );
 
 
-    button.textContent =
+    control.setAttribute(
+      'tabindex',
+      '0'
+    );
+
+
+    control.textContent =
       label;
 
 
-    button.style.cssText =
+    control.style.cssText =
       [
+        'display:flex',
         'width:100%',
-        'padding:17px 14px',
-        'border:0',
-        'border-radius:18px',
-        'font-size:17px',
-        'font-weight:800',
-        'cursor:pointer',
+        'min-height:58px',
+        'align-items:center',
+        'justify-content:center',
+        'box-sizing:border-box',
+        'padding:15px 14px',
         'margin-top:12px',
-        'background:' +
-          background,
+        'border-radius:18px',
+        'font-size:16px',
+        'font-weight:900',
+        'cursor:pointer',
+        'user-select:none',
+        'text-align:center',
+        'background:' + background,
         'color:#111827'
       ].join(';');
 
 
-    return button;
+    return control;
 
   }
 
@@ -1111,7 +1093,20 @@
       )
     ) {
 
-      return;
+      return true;
+
+    }
+
+
+    const settings =
+      document.getElementById(
+        'tab-settings'
+      );
+
+
+    if (!settings) {
+
+      return false;
 
     }
 
@@ -1175,24 +1170,24 @@
       ].join(';');
 
 
-    const certifyButton =
-      createButton03D59(
+    const certify =
+      createControl03D59(
         CERTIFY_BUTTON_ID,
         '✅ CERTIFY CURRENT PROVINCE',
         'linear-gradient(90deg,#34d399,#67e8f9)'
       );
 
 
-    const summaryButton =
-      createButton03D59(
+    const summary =
+      createControl03D59(
         SUMMARY_BUTTON_ID,
         '📊 VIEW MATRIX SUMMARY',
         'linear-gradient(90deg,#67e8f9,#a78bfa)'
       );
 
 
-    const resetButton =
-      createButton03D59(
+    const reset =
+      createControl03D59(
         RESET_BUTTON_ID,
         '🧹 RESET RAM MATRIX',
         'linear-gradient(90deg,#fbbf24,#fb7185)'
@@ -1229,85 +1224,60 @@
       ].join(';');
 
 
-    certifyButton
-      .addEventListener(
-        'click',
-        certifyCurrent03D59
-      );
+    certify.addEventListener(
+      'click',
+      certifyCurrent03D59
+    );
 
 
-    summaryButton
-      .addEventListener(
-        'click',
-        showSummary03D59
-      );
+    summary.addEventListener(
+      'click',
+      showSummary03D59
+    );
 
 
-    resetButton
-      .addEventListener(
-        'click',
-        resetMatrix03D59
-      );
+    reset.addEventListener(
+      'click',
+      resetMatrix03D59
+    );
 
 
     panel.appendChild(
       title
     );
 
+
     panel.appendChild(
       description
     );
 
-    panel.appendChild(
-      certifyButton
-    );
 
     panel.appendChild(
-      summaryButton
+      certify
     );
 
+
     panel.appendChild(
-      resetButton
+      summary
     );
+
+
+    panel.appendChild(
+      reset
+    );
+
 
     panel.appendChild(
       output
     );
 
 
-    /*
-     * Same placement strategy as previous mobile diagnostics.
-     */
-
-    const settings =
-      document.querySelector(
-        '#settings'
-      ) ||
-      document.querySelector(
-        '#settingsTab'
-      ) ||
-      document.querySelector(
-        '[data-tab="settings"]'
-      ) ||
-      document.querySelector(
-        '.settings'
-      );
+    settings.appendChild(
+      panel
+    );
 
 
-    if (settings) {
-
-      settings.appendChild(
-        panel
-      );
-
-    } else {
-
-      document.body
-        .appendChild(
-          panel
-        );
-
-    }
+    return true;
 
   }
 
@@ -1320,7 +1290,40 @@
 
   function boot03D59() {
 
-    installPanel03D59();
+    if (
+      installPanel03D59()
+    ) {
+
+      return;
+
+    }
+
+
+    let attempts =
+      0;
+
+
+    const timer =
+      setInterval(
+        function () {
+
+          attempts++;
+
+
+          if (
+            installPanel03D59() ||
+            attempts >= 20
+          ) {
+
+            clearInterval(
+              timer
+            );
+
+          }
+
+        },
+        500
+      );
 
   }
 
@@ -1330,11 +1333,10 @@
     'loading'
   ) {
 
-    document
-      .addEventListener(
-        'DOMContentLoaded',
-        boot03D59
-      );
+    document.addEventListener(
+      'DOMContentLoaded',
+      boot03D59
+    );
 
   } else {
 
@@ -1375,7 +1377,7 @@
 
 
   console.log(
-    'FIX-03D5.9 Production Shadow Certification Matrix Mobile V1 loaded'
+    'FIX-03D5.9 Production Shadow Certification Matrix Mobile V2 loaded / MOBILE SAFE CONTROLS'
   );
 
 })();
