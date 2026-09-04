@@ -1,19 +1,17 @@
 {
-  "updatedAt": "2026-09-03T14:56:43.816Z",
-  "success": 20,
-  "failed": 1,
+  "updatedAt": "2026-09-04T14:53:15.411Z",
+  "success": 21,
+  "failed": 0,
   "total": 21,
-  "failures": [
-    "dong-thap"
-  ],
+  "failures": [],
   "provinces": {
     "tphcm": {
       "ok": true,
       "drawDate": "2026-08-31"
     },
     "dong-thap": {
-      "ok": false,
-      "error": "This operation was aborted"
+      "ok": true,
+      "drawDate": "2026-08-31"
     },
     "ca-mau": {
       "ok": true,
@@ -57,15 +55,15 @@
     },
     "vinh-long": {
       "ok": true,
-      "drawDate": "2026-08-28"
+      "drawDate": "2026-09-04"
     },
     "binh-duong": {
       "ok": true,
-      "drawDate": "2026-08-28"
+      "drawDate": "2026-09-04"
     },
     "tra-vinh": {
       "ok": true,
-      "drawDate": "2026-08-28"
+      "drawDate": "2026-09-04"
     },
     "long-an": {
       "ok": true,
