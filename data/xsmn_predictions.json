@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-08T15:02:01.003Z",
-  "sourceStatsGeneratedAt": "2026-09-08T15:01:42.927Z",
+  "generatedAt": "2026-09-09T15:05:05.206Z",
+  "sourceStatsGeneratedAt": "2026-09-09T15:04:46.939Z",
   "model": {
     "version": "XSMN-PRED-V1",
     "specialPrizeDigits": 6,
@@ -1741,48 +1741,48 @@
       "province": "can-tho",
       "provinceName": "Cần Thơ",
       "basedOnDraws": 100,
-      "latestDrawDate": "2026-09-02",
-      "latestSpecialPrize": "886199",
+      "latestDrawDate": "2026-09-09",
+      "latestSpecialPrize": "637211",
       "prediction": {
         "specialPrize6Digits": [
           {
-            "number": "783941",
+            "number": "787941",
             "score": 83.24
           },
           {
-            "number": "783961",
+            "number": "787961",
             "score": 82.7
           },
           {
-            "number": "787941",
+            "number": "783941",
             "score": 82.28
           },
           {
-            "number": "283941",
+            "number": "287941",
             "score": 81.82
           },
           {
-            "number": "787961",
+            "number": "783961",
             "score": 81.75
           },
           {
-            "number": "283961",
+            "number": "287961",
             "score": 81.29
           },
           {
-            "number": "763941",
+            "number": "767941",
             "score": 81.29
           },
           {
-            "number": "783441",
+            "number": "787441",
             "score": 81.29
           },
           {
-            "number": "783947",
+            "number": "787947",
             "score": 81.27
           },
           {
-            "number": "287941",
+            "number": "283941",
             "score": 80.86
           }
         ],
@@ -1808,24 +1808,24 @@
             "score": 73.75
           },
           {
-            "number": "68",
-            "score": 72
+            "number": "11",
+            "score": 72.13
           },
           {
-            "number": "11",
-            "score": 70.5
+            "number": "68",
+            "score": 72
           },
           {
             "number": "49",
             "score": 70.38
           },
           {
-            "number": "69",
-            "score": 68.63
+            "number": "17",
+            "score": 68.75
           },
           {
-            "number": "17",
-            "score": 67.12
+            "number": "69",
+            "score": 68.63
           }
         ],
         "positions": [
@@ -1842,7 +1842,7 @@
               },
               {
                 "digit": "6",
-                "score": 73.5
+                "score": 76.75
               },
               {
                 "digit": "3",
@@ -1870,11 +1870,11 @@
                 "score": 63.75
               },
               {
-                "digit": "9",
-                "score": 60.25
+                "digit": "1",
+                "score": 57
               },
               {
-                "digit": "1",
+                "digit": "3",
                 "score": 53.5
               }
             ]
@@ -1883,11 +1883,11 @@
             "position": 3,
             "candidates": [
               {
-                "digit": "3",
+                "digit": "7",
                 "score": 87
               },
               {
-                "digit": "7",
+                "digit": "3",
                 "score": 80.25
               },
               {
@@ -1916,12 +1916,12 @@
                 "score": 73.75
               },
               {
-                "digit": "3",
-                "score": 67
+                "digit": "2",
+                "score": 63.75
               },
               {
-                "digit": "2",
-                "score": 57
+                "digit": "3",
+                "score": 60.25
               },
               {
                 "digit": "0",
@@ -1942,7 +1942,7 @@
               },
               {
                 "digit": "1",
-                "score": 63.75
+                "score": 67
               },
               {
                 "digit": "3",
@@ -2231,91 +2231,91 @@
       "province": "dong-nai",
       "provinceName": "Đồng Nai",
       "basedOnDraws": 100,
-      "latestDrawDate": "2026-09-02",
-      "latestSpecialPrize": "797487",
+      "latestDrawDate": "2026-09-09",
+      "latestSpecialPrize": "348446",
       "prediction": {
         "specialPrize6Digits": [
           {
-            "number": "071981",
-            "score": 83.7
-          },
-          {
             "number": "041981",
-            "score": 82.7
+            "score": 83.24
           },
           {
-            "number": "671981",
-            "score": 82.28
-          },
-          {
-            "number": "070981",
-            "score": 81.75
-          },
-          {
-            "number": "071381",
-            "score": 81.73
-          },
-          {
-            "number": "071961",
-            "score": 81.73
-          },
-          {
-            "number": "081981",
-            "score": 81.68
+            "number": "071981",
+            "score": 82.74
           },
           {
             "number": "641981",
-            "score": 81.29
+            "score": 81.32
           },
           {
             "number": "040981",
-            "score": 80.8
+            "score": 81.29
           },
           {
             "number": "041381",
+            "score": 81.27
+          },
+          {
+            "number": "041961",
+            "score": 81.27
+          },
+          {
+            "number": "081981",
+            "score": 81.22
+          },
+          {
+            "number": "671981",
+            "score": 80.82
+          },
+          {
+            "number": "070981",
+            "score": 80.8
+          },
+          {
+            "number": "071381",
             "score": 80.77
           }
         ],
         "last2Digits": [
           {
             "number": "81",
-            "score": 87
+            "score": 85.38
           },
           {
             "number": "61",
-            "score": 83.63
+            "score": 82
           },
           {
             "number": "01",
-            "score": 80.25
-          },
-          {
-            "number": "21",
-            "score": 78.5
+            "score": 78.63
           },
           {
             "number": "71",
-            "score": 76.75
-          },
-          {
-            "number": "87",
-            "score": 75.5
-          },
-          {
-            "number": "11",
-            "score": 73.38
-          },
-          {
-            "number": "67",
-            "score": 72.13
+            "score": 76.88
           },
           {
             "number": "86",
+            "score": 75.5
+          },
+          {
+            "number": "87",
+            "score": 73.75
+          },
+          {
+            "number": "11",
+            "score": 73.5
+          },
+          {
+            "number": "66",
             "score": 72.13
           },
           {
-            "number": "91",
-            "score": 70
+            "number": "21",
+            "score": 71.75
+          },
+          {
+            "number": "67",
+            "score": 70.38
           }
         ],
         "positions": [
@@ -2328,19 +2328,19 @@
               },
               {
                 "digit": "6",
-                "score": 80.25
+                "score": 77
               },
               {
                 "digit": "9",
                 "score": 67
               },
               {
-                "digit": "7",
+                "digit": "3",
                 "score": 60.25
               },
               {
-                "digit": "1",
-                "score": 53.5
+                "digit": "7",
+                "score": 56.75
               }
             ]
           },
@@ -2348,12 +2348,12 @@
             "position": 2,
             "candidates": [
               {
-                "digit": "7",
+                "digit": "4",
                 "score": 83.75
               },
               {
-                "digit": "4",
-                "score": 77
+                "digit": "7",
+                "score": 80.25
               },
               {
                 "digit": "8",
@@ -2390,7 +2390,7 @@
               },
               {
                 "digit": "8",
-                "score": 53.5
+                "score": 56.75
               }
             ]
           },
@@ -2410,11 +2410,11 @@
                 "score": 67
               },
               {
-                "digit": "1",
-                "score": 60.25
+                "digit": "0",
+                "score": 57
               },
               {
-                "digit": "0",
+                "digit": "1",
                 "score": 53.5
               }
             ]
@@ -2435,12 +2435,12 @@
                 "score": 63.75
               },
               {
-                "digit": "2",
+                "digit": "7",
                 "score": 60.25
               },
               {
-                "digit": "7",
-                "score": 56.75
+                "digit": "1",
+                "score": 53.5
               }
             ]
           },
@@ -2449,15 +2449,15 @@
             "candidates": [
               {
                 "digit": "1",
-                "score": 96.75
-              },
-              {
-                "digit": "7",
-                "score": 73.75
+                "score": 93.5
               },
               {
                 "digit": "6",
-                "score": 67
+                "score": 73.75
+              },
+              {
+                "digit": "7",
+                "score": 70.25
               },
               {
                 "digit": "8",
@@ -3456,91 +3456,91 @@
       "province": "soc-trang",
       "provinceName": "Sóc Trăng",
       "basedOnDraws": 100,
-      "latestDrawDate": "2026-09-02",
-      "latestSpecialPrize": "773312",
+      "latestDrawDate": "2026-09-09",
+      "latestSpecialPrize": "267025",
       "prediction": {
         "specialPrize6Digits": [
           {
             "number": "273299",
-            "score": 85.08
+            "score": 84.62
           },
           {
             "number": "373299",
-            "score": 84.12
+            "score": 83.2
           },
           {
-            "number": "233299",
-            "score": 83.62
+            "number": "273295",
+            "score": 82.67
           },
           {
             "number": "273199",
-            "score": 83.11
+            "score": 82.65
           },
           {
-            "number": "333299",
-            "score": 82.67
+            "number": "277299",
+            "score": 82.28
+          },
+          {
+            "number": "213299",
+            "score": 82.21
           },
           {
             "number": "273259",
             "score": 82.19
           },
           {
-            "number": "273291",
-            "score": 82.19
-          },
-          {
-            "number": "373199",
-            "score": 82.15
-          },
-          {
             "number": "273599",
-            "score": 82.09
+            "score": 81.63
           },
           {
-            "number": "277299",
-            "score": 81.78
+            "number": "373295",
+            "score": 81.26
+          },
+          {
+            "number": "273159",
+            "score": 81.23
           }
         ],
         "last2Digits": [
           {
             "number": "99",
-            "score": 83.75
+            "score": 82.13
           },
           {
             "number": "59",
             "score": 77.13
           },
           {
-            "number": "91",
+            "number": "95",
             "score": 77.13
-          },
-          {
-            "number": "93",
-            "score": 75.38
           },
           {
             "number": "09",
             "score": 73.75
           },
           {
-            "number": "95",
-            "score": 73.63
+            "number": "91",
+            "score": 73.75
+          },
+          {
+            "number": "55",
+            "score": 72.13
           },
           {
             "number": "69",
             "score": 72
           },
           {
-            "number": "51",
-            "score": 70.5
+            "number": "93",
+            "score": 70.38
           },
           {
-            "number": "53",
+            "number": "05",
             "score": 68.75
           },
           {
-            "number": "19",
-            "score": 68.63
+            "number": "51",
+            "score": 68.75
           }
         ],
         "positions": [
@@ -3549,7 +3549,7 @@
             "candidates": [
               {
                 "digit": "2",
-                "score": 87
+                "score": 90.25
               },
               {
                 "digit": "3",
@@ -3577,11 +3577,11 @@
                 "score": 87
               },
               {
-                "digit": "3",
-                "score": 77
+                "digit": "1",
+                "score": 73.75
               },
               {
-                "digit": "1",
+                "digit": "3",
                 "score": 70.25
               },
               {
@@ -3599,11 +3599,11 @@
             "candidates": [
               {
                 "digit": "3",
-                "score": 100
+                "score": 96.75
               },
               {
                 "digit": "7",
-                "score": 77
+                "score": 80.25
               },
               {
                 "digit": "1",
@@ -3649,7 +3649,7 @@
             "candidates": [
               {
                 "digit": "9",
-                "score": 83.75
+                "score": 80.5
               },
               {
                 "digit": "5",
@@ -3677,16 +3677,16 @@
                 "score": 83.75
               },
               {
-                "digit": "1",
-                "score": 70.5
+                "digit": "5",
+                "score": 73.75
               },
               {
-                "digit": "3",
+                "digit": "1",
                 "score": 67
               },
               {
-                "digit": "5",
-                "score": 63.5
+                "digit": "3",
+                "score": 60.25
               },
               {
                 "digit": "0",
