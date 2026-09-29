@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-28T20:25:50.781Z",
+  "updatedAt": "2026-09-29T16:50:48.516Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -19,15 +19,15 @@
     },
     "ben-tre": {
       "ok": true,
-      "drawDate": "2026-09-22"
+      "drawDate": "2026-09-29"
     },
     "vung-tau": {
       "ok": true,
-      "drawDate": "2026-09-22"
+      "drawDate": "2026-09-29"
     },
     "bac-lieu": {
       "ok": true,
-      "drawDate": "2026-09-22"
+      "drawDate": "2026-09-29"
     },
     "dong-nai": {
       "ok": true,
