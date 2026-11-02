@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-01T18:47:48.752Z",
+  "updatedAt": "2026-11-02T20:41:07.288Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -7,15 +7,15 @@
   "provinces": {
     "tphcm": {
       "ok": true,
-      "drawDate": "2026-10-31"
+      "drawDate": "2026-11-02"
     },
     "dong-thap": {
       "ok": true,
-      "drawDate": "2026-10-26"
+      "drawDate": "2026-11-02"
     },
     "ca-mau": {
       "ok": true,
-      "drawDate": "2026-10-26"
+      "drawDate": "2026-11-02"
     },
     "ben-tre": {
       "ok": true,
