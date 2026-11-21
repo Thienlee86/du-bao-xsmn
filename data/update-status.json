@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-20T21:43:29.804Z",
+  "updatedAt": "2026-11-21T17:55:36.428Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -7,7 +7,7 @@
   "provinces": {
     "tphcm": {
       "ok": true,
-      "drawDate": "2026-11-16"
+      "drawDate": "2026-11-21"
     },
     "dong-thap": {
       "ok": true,
@@ -67,15 +67,15 @@
     },
     "long-an": {
       "ok": true,
-      "drawDate": "2026-11-14"
+      "drawDate": "2026-11-21"
     },
     "binh-phuoc": {
       "ok": true,
-      "drawDate": "2026-11-14"
+      "drawDate": "2026-11-21"
     },
     "hau-giang": {
       "ok": true,
-      "drawDate": "2026-11-14"
+      "drawDate": "2026-11-21"
     },
     "kien-giang": {
       "ok": true,
