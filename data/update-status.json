@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-11-24T23:25:20.397Z",
+  "updatedAt": "2026-11-25T20:25:24.016Z",
   "success": 21,
   "failed": 0,
   "total": 21,
@@ -31,15 +31,15 @@
     },
     "dong-nai": {
       "ok": true,
-      "drawDate": "2026-11-18"
+      "drawDate": "2026-11-25"
     },
     "can-tho": {
       "ok": true,
-      "drawDate": "2026-11-18"
+      "drawDate": "2026-11-25"
     },
     "soc-trang": {
       "ok": true,
-      "drawDate": "2026-11-18"
+      "drawDate": "2026-11-25"
     },
     "tay-ninh": {
       "ok": true,
